@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load soll %}
 
 {% block titel %}Vertrag {{ vertrag.nummer }}{% endblock %}
 
@@ -8,6 +9,7 @@
 <ul class="kennzahlen">
   <li>Einheiten: {% for e in einheiten %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</li>
   <li>Miete heute: <strong>{% if kondition_heute %}{{ kondition_heute.miete }} €{% if kondition_heute.pauschale %} + {{ kondition_heute.pauschale }} € Pauschale{% endif %}, {{ kondition_heute.get_zahlweise_display }}{% else %}nicht erfasst{% endif %}</strong></li>
+  <li>{% offene_posten_link vertrag %}</li>
   <li>Kündigungsfrist: {{ kuendigungsregel.titel }}{% if not vertrag.kuendigungsregel %} <span class="leise">(Standard der Vertragsart, am Vertrag noch nicht geprüft)</span>{% endif %}</li>
 </ul>
 

@@ -28,6 +28,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from apps.fristen.models import Frist, Fristverschiebung
 from apps.kern.models import Arbeitsposten, Objekt
+from apps.soll import services as soll
 from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import (
     Checkliste,
@@ -221,7 +222,11 @@ def _schluessel(kontext: Kontext, einheit: Einheit, mieter: Partei | None, numme
 def aufbauen(kontext: Kontext) -> StammdatenDaten:
     # Der Testhof legt keine Schreiben an (Dateinamen und PDFs hingen sonst von Datum und
     # IDs ab); Kündigungsbestätigung, Protokolle und Kautionsabrechnung werden Arbeitsposten.
-    with schreiben.ohne_schreiben("Testhof legt keine Schreiben an"):
+    # Das Soll stellt das Modul testhof.soll danach zum festen Stichtag (nicht zu „heute“).
+    with (
+        schreiben.ohne_schreiben("Testhof legt keine Schreiben an"),
+        soll.ohne_sollstellung("Testhof stellt das Soll in testhof.soll"),
+    ):
         return _aufbauen(kontext)
 
 

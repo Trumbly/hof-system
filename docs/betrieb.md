@@ -190,6 +190,17 @@ Reihenfolge: erst Einheiten, dann Parteien und Verträge. Beide Befehle laufen o
 
 Weichen die Spaltenköpfe ab, wird nur `apps/stammdaten/import_spalten.toml` angepasst. Kündigungsregeln je Vertragsart, Checklisten und Pflichtfelder stehen in `apps/stammdaten/konfiguration.toml`. Für Vertrag und Kündigungsbestätigung braucht es freigegebene Vorlagen der Arten „Vertrag“ (Name je Vertragsart, z. B. „Vertrag Garage“, sonst die neueste) und „Kündigungsbestätigung“; fehlt eine, entsteht ein Arbeitsposten „Schreiben erstellen“.
 
+## Sollstellung (Schritt 5)
+
+**Ablauf.** Am 1. jedes Monats um 5:30 stellt `soll_monat` die Sollposten aller Verträge bis zum Monatsende und gleicht sie mit den Konditionen ab. Jede Änderung am Vertrag (Kondition, Laufzeit, Kündigung, Übergabe, Rückgabe) stellt das Soll des Vertrags sofort neu: Offene Posten, die nicht mehr passen, werden storniert und neu erzeugt. Bezahlte oder teilweise bezahlte Posten bleiben; sie stehen als „Sollposten prüfen“ in der Arbeitsliste. Die Seite „Offene Posten“ zeigt alle offenen Posten mit Filter, je Vertrag mit Fälligkeit und Posten von Hand (Kaution, Sonstiges). Fälligkeit und Feiertage stehen in `apps/soll/konfiguration.toml` (Standard: dritter Werktag, Feiertage NRW).
+
+**Einrichten (einmalig).**
+
+1. In `/opt/hof/.env`: `HOF_SOLL_BEGINN=2026-07-01` (Perioden, die früher beginnen, führt HelloHousing; Vorschlag, Max entscheidet).
+2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Timer `soll_monat` ein.
+3. Soll bis Dezember stellen: `compose.sh exec app python manage.py soll_monat --stichtag 2026-12-01`.
+4. Vergleich mit dem Soll-Export aus HelloHousing (CSV in den Container kopieren): `compose.sh exec app python manage.py soll_vergleich --export /pfad/soll.csv --von 2026-07-01 --bis 2026-12-31`. Der Bericht nennt je Vertrag nur Zähler, Vertragsnummer und NW-ID und darf mit Claude geteilt werden; danach die Datei löschen. Weichen die Spaltenköpfe ab, wird nur der Abschnitt `[vergleich_hellohousing]` in `apps/soll/konfiguration.toml` angepasst.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

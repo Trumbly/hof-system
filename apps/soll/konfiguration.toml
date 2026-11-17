@@ -1,0 +1,59 @@
+# Konfiguration der Sollstellung (Schritt 5, H3.4) – die eine Stelle dafür.
+#
+# Geprüft beim Start (apps.soll.konfiguration.laden) und im Test tests/soll/test_konfiguration.py.
+
+# --- Fälligkeit ------------------------------------------------------------------------
+#
+# Standard für alle Verträge; abweichend je Vertrag über die Sollregel (Seite „Offene Posten“
+# des Vertrags).
+#   art   "werktag":     der n-te Werktag des Monats, in dem der Zeitraum beginnt
+#         "kalendertag": der n-te Tag dieses Monats (gekürzt auf das Monatsende)
+#   tag   n
+# Beginnt der Zeitraum später im Monat (Vertragsbeginn zur Monatsmitte), ist der Posten
+# frühestens am ersten Tag des Zeitraums fällig, bei „werktag“ am ersten Werktag ab dann.
+#
+# Werktage: Montag bis Freitag ohne die Feiertage des Landes (Kürzel nach ISO 3166-2:DE,
+# hinterlegt in apps.stammdaten.fristrechnung.LANDESFEIERTAGE). Der Samstag zählt bei der
+# Mietzahlung nicht als Werktag (BGH VIII ZR 222/15).
+
+[faelligkeit]
+art = "werktag"
+tag = 3
+land = "NW"
+samstag_ist_werktag = false
+
+# --- Vergleich mit dem Soll-Export aus HelloHousing (soll_vergleich) -------------------
+#
+# Spaltenzuordnung: links das Feld im Hof-System, rechts der Spaltenkopf in der Datei.
+# Das Format ist eine Annahme nach der erfundenen Beispieldatei
+# tests/fixtures/soll/hellohousing_soll.csv. Weicht der echte Export ab, wird nur dieser
+# Abschnitt angepasst.
+#   mietverhaeltnis  Nummer des Mietverhältnisses; der Vertrag wird über seine Herkunft
+#                    „hellohousing:<Nummer>“ gefunden, sonst über die Einheit.
+#   einheit          NW-ID oder Bezeichnung der Einheit (optional)
+#   faellig          optional; fehlt die Spalte, wird die Fälligkeit nicht verglichen
+#   betrag           Zahlbetrag (brutto) des Postens
+
+[vergleich_hellohousing]
+trennzeichen = ";"
+dezimaltrennzeichen = ","
+datumsformat = "%d.%m.%Y"
+herkunft_praefix = "hellohousing:"
+
+[vergleich_hellohousing.spalten]
+mietverhaeltnis = "Mietverhältnis-Nr"
+einheit = "Einheit"
+art = "Sollart"
+von = "Zeitraum von"
+bis = "Zeitraum bis"
+faellig = "Fällig am"
+betrag = "Betrag"
+
+# Wert in der Spalte „Sollart“ -> Art des Sollpostens. Andere Werte (z. B. Wohnraum,
+# Betriebskostenabrechnung) werden gezählt und übersprungen.
+[vergleich_hellohousing.arten]
+"Kaltmiete" = "miete"
+"Miete" = "miete"
+"Nebenkosten" = "pauschale"
+"Pauschale" = "pauschale"
+"Kaution" = "kaution"

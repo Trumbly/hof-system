@@ -1,14 +1,15 @@
 """Standardablauf 1: Neuvermietung außerhalb von Wohnraum (Prozessliste), mit dem Testhof.
 
 Ergebnis laut Prozessliste: ein aktiver Vertrag mit laufender Sollstellung. Gebaut ist
-alles außer Sollstellung (Schritt 5), Bankerkennung der Kaution (Schritt 6) und Meldung an
-die Website (Schritt 10). Diese Teile stehen unten als ``xfail`` mit Grund.
+alles außer Bankerkennung der Kaution (Schritt 6) und Meldung an die Website (Schritt 10).
+Diese Teile stehen unten als ``xfail`` mit Grund.
 """
 
 from __future__ import annotations
 
 import datetime
 import importlib
+from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -17,6 +18,8 @@ from django.urls import reverse
 
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
+from apps.soll import services as soll
+from apps.soll.models import Sollposten
 from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import Einheit, Partei, Schluessel, Uebergabe, Vertrag
 from testhof.aufbau import STICHTAG, Testhof
@@ -137,11 +140,43 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
     assert not fristen.fristen_zu(vertrag).exists()
     seite = angemeldet.get(url).content.decode()
     assert "aktiv" in seite and "Übergabe am 01.12.2026" in seite
+    # Die Sollstellung startet mit dem aktiven Vertrag (Schritt 5).
+    assert _erste_miete(vertrag) == (BEGINN, D(2026, 12, 31), Decimal("89.00"), D(2026, 12, 3))
 
 
-@pytest.mark.xfail(reason="Schritt 5: Die Sollstellung startet mit dem aktiven Vertrag.")
-def test_standardablauf_1_sollstellung_startet() -> None:
-    importlib.import_module("apps.soll.services")
+def _erste_miete(vertrag: Vertrag) -> tuple[datetime.date, datetime.date, Decimal, datetime.date]:
+    posten = Sollposten.objects.filter(vertrag=vertrag, art="miete").order_by("von").first()
+    assert posten is not None, "Kein Sollposten"
+    return (posten.von, posten.bis, posten.betrag, posten.faellig_am)
+
+
+def test_standardablauf_1_sollstellung_startet(
+    testhof: Testhof, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Abnahme Schritt 5 (Standardablauf 1, Schritt 8): Mit der Übergabe wird der Vertrag
+    aktiv, und die Sollstellung beginnt mit der ersten Miete (fällig am 3. Werktag)."""
+    monkeypatch.setattr(soll, "heute", lambda: D(2026, 11, 28))
+    einheit = _freie_garage(testhof)
+    mieter = testhof.stammdaten.parteien[-1]
+    with schreiben.ohne_schreiben("Test ohne PDF"):
+        vertrag = services.vertrag_anlegen(
+            einheiten=[einheit],
+            mieter=[mieter],
+            beginn=BEGINN,
+            miete=Decimal("89.00"),
+            kaution=Decimal("178.00"),
+        )
+        assert not Sollposten.objects.filter(vertrag=vertrag).exists()  # Entwurf: kein Soll
+        services.vertrag_unterschrieben(vertrag, D(2026, 11, 28))
+        services.kaution_eingang_erfassen(vertrag.kaution, D(2026, 11, 29), "Vivid Kautionen")
+        uebergabe = services.uebergabe_beginnen(vertrag, "uebergabe", BEGINN)
+        services.uebergabe_speichern(uebergabe, unterschrift=foto("q.png"))
+        services.uebergabe_abschliessen(uebergabe)
+
+    vertrag.refresh_from_db()
+    assert vertrag.status == Vertrag.Status.AKTIV
+    assert _erste_miete(vertrag) == (BEGINN, D(2026, 12, 31), Decimal("89.00"), D(2026, 12, 3))
+    assert Sollposten.objects.filter(vertrag=vertrag).count() == 1
 
 
 @pytest.mark.xfail(reason="Schritt 6: Der Abgleich erkennt Kaution und erste Miete über die Bank.")
