@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block titel %}Leerstand{% endblock %}
+
+{% block inhalt %}
+<h1>Leerstand</h1>
+<form method="get" class="filter">
+  <label for="von">Zeitraum</label>
+  <input type="date" id="von" name="von" value="{{ von|date:'Y-m-d' }}">
+  <input type="date" id="bis" name="bis" value="{{ bis|date:'Y-m-d' }}" aria-label="bis">
+  <button type="submit">Anzeigen</button>
+</form>
+<p>{{ von|date:"d.m.Y" }} bis {{ bis|date:"d.m.Y" }}: <strong>{{ zeilen|length }}</strong> Einheit{{ zeilen|length|pluralize:"en" }} mit Leerstand, entgangener Ertrag nach Zielmiete <strong id="summe">{{ summe }} €</strong>.</p>
+<div class="tabelle-rahmen">
+<table class="karten">
+  <thead><tr><th>Einheit</th><th>Typ</th><th>frei seit</th><th>Tage frei</th><th>Zielmiete</th><th>entgangen</th></tr></thead>
+  <tbody>
+  {% for z in zeilen %}
+  <tr id="leerstand-{{ z.einheit.nw_id }}">
+    <td data-titel="Einheit"><a href="{% url 'stammdaten:einheit' z.einheit.pk %}">{{ z.einheit.nw_id }}</a></td>
+    <td data-titel="Typ">{{ z.einheit.get_typ_display }}</td>
+    <td data-titel="frei seit">{{ z.frei_seit|date:"d.m.Y"|default:"–" }}</td>
+    <td data-titel="Tage frei">{{ z.tage_frei }}</td>
+    <td data-titel="Zielmiete">{% if z.zielmiete_aktuell is not None %}{{ z.zielmiete_aktuell }} €{% else %}<a href="{% url 'stammdaten:einheit' z.einheit.pk %}#zielmiete">fehlt</a>{% endif %}</td>
+    <td data-titel="entgangen">{{ z.entgangen }} €{% if z.tage_ohne_zielmiete %} <span class="leise">({{ z.tage_ohne_zielmiete }} Tage ohne Zielmiete)</span>{% endif %}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6">Kein Leerstand im Zeitraum.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -179,6 +179,17 @@ Vorlagen aus Notion übernehmen: Markdown-Export in den Container kopieren, dann
 
 Den Lauf `versandstand_abrufen` (werktags 10 und 16 Uhr) trägt `systemd-einrichten.sh` ein.
 
+## Stammdaten importieren (Schritt 4)
+
+Reihenfolge: erst Einheiten, dann Parteien und Verträge. Beide Befehle laufen ohne Option als Probelauf; der Bericht nennt nur Zähler, NW-IDs, Vertragsnummern und Zeilennummern und darf mit Claude geteilt werden.
+
+1. Notion-Export (CSV) und HelloHousing-Export (Mietverhältnisse, Mietverlauf) in den Container kopieren.
+2. `compose.sh exec app python manage.py import_einheiten /pfad/einheiten.csv`, Bericht prüfen, dann mit `--ausfuehren`.
+3. `compose.sh exec app python manage.py import_hellohousing /pfad/mieter.csv --mietverlauf /pfad/verlauf.csv`, Bericht prüfen, dann mit `--ausfuehren`.
+4. Seite „Datenstand“: Kündigungsfrist, Kaution, Zahlweise und Scan je Vertrag aus dem PDF nachtragen.
+
+Weichen die Spaltenköpfe ab, wird nur `apps/stammdaten/import_spalten.toml` angepasst. Kündigungsregeln je Vertragsart, Checklisten und Pflichtfelder stehen in `apps/stammdaten/konfiguration.toml`. Für Vertrag und Kündigungsbestätigung braucht es freigegebene Vorlagen der Arten „Vertrag“ (Name je Vertragsart, z. B. „Vertrag Garage“, sonst die neueste) und „Kündigungsbestätigung“; fehlt eine, entsteht ein Arbeitsposten „Schreiben erstellen“.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

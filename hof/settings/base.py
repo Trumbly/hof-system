@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.benachrichtigung",
     "apps.dokumente",
     "apps.kassenbuch",
+    "apps.stammdaten",
 ]
 
 MIDDLEWARE = [
@@ -177,6 +178,10 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         # Dokumente (apps.dokumente.services, ART_*)
         "Kopie in „Gesendet“ fehlt",
         "Brief storniert",
+        # Stammdaten (apps.stammdaten.services/schreiben, ART_*); die Kautionsabrechnung
+        # meldet sich über ihre Frist („Frist fällig“).
+        "Schreiben erstellen",
+        "Schlüssel fehlt",
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",

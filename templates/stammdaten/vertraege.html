@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block titel %}Verträge{% endblock %}
+
+{% block inhalt %}
+<h1>Verträge</h1>
+<p><a class="knopf" href="{% url 'stammdaten:vertrag_neu' %}">Neuer Vertrag</a></p>
+<div class="tabelle-rahmen">
+<table class="karten">
+  <thead><tr><th>Nummer</th><th>Art</th><th>Einheiten</th><th>Mieter</th><th>Beginn</th><th>Ende</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for v in vertraege %}
+  <tr>
+    <td data-titel="Nummer"><a href="{% url 'stammdaten:vertrag' v.pk %}">{{ v.nummer }}</a></td>
+    <td data-titel="Art">{{ v.get_vertragsart_display }}</td>
+    <td data-titel="Einheiten">{% for e in v.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+    <td data-titel="Mieter">{% for vp in v.mieter %}{{ vp.partei.anzeigename }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+    <td data-titel="Beginn">{{ v.beginn|date:"d.m.Y" }}</td>
+    <td data-titel="Ende">{{ v.ende|date:"d.m.Y"|default:"–" }}</td>
+    <td data-titel="Status">{{ v.get_status_display }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="7">Noch keine Verträge.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

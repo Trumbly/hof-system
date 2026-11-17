@@ -1,0 +1,14 @@
+NW-ID,Name,Typ,Objekt,Fläche (m²),Status,Status seit,Zielmiete,Website-Slug
+NW-G-0101,Garage 1 Hofseite,Garage,HOF,"18,50",vermietet,01.01.2025,"85,00",garage-1
+NW-G-0102,Garage 2 Hofseite,Garage,HOF,"18,50",frei,01.06.2026,"85,00",garage-2
+NW-G-0103,Garage 3 Scheune,Garage,HOF,0,vermietet,01.01.2025,"80,00",
+NW-S-0101,Stellplatz 1,Stellplatz,HOF,"12,00",vermietet,,"35,00",
+NW-L-0101,Lager Nord,Lager,HALLE,"40,00",vermietet,01.03.2024,"240,00",
+NW-H-0101,Halle Ost,Halle,HALLE,"320,00",vermietet,01.01.2023,"1.450,00",
+NW-W-0101,Wohnung Obergeschoss,Wohnung,HOF,"75,00",,,,
+NW-GA-0101,Garten am Bach,Garten,FELD,"300,00",frei,,,
+,Stellplatz 2,Stellplatz,HOF,"12,00",frei,,"35,00",
+NW-A-0101,Außenfläche Wiese,Außenfläche,FELD,,in Vorbereitung,,"120,00",
+NW-X-0101,Kiosk,Kiosk,HOF,"10,00",frei,,,
+NW-G-0104,Garage 4,Garage,MOND,"18,50",frei,,"85,00",
+G17,Garage Altbestand,Garage,HOF,"17,00",vermietet,,"70,00",

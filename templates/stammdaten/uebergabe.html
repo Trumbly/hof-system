@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ uebergabe.get_art_display }} {{ vertrag.nummer }}{% endblock %}
+
+{% block inhalt %}
+<h1>{{ uebergabe.get_art_display }} <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
+<p class="leise">{% for e in einheiten %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+
+<ol class="schritte" aria-label="Schritte">
+  {% for name, titel in schritte %}
+  <li{% if forloop.counter == schritt %} aria-current="step"{% endif %}><a href="{% url 'stammdaten:uebergabe' uebergabe.pk forloop.counter %}">{{ titel }}</a></li>
+  {% endfor %}
+</ol>
+<h2>Schritt {{ schritt }} von {{ anzahl_schritte }}: {{ schritt_titel }}</h2>
+
+<form method="post" class="formular" enctype="multipart/form-data">
+  {% csrf_token %}
+
+  {% if schritt_name == "vorab" %}
+  {% for feld in vorab_form %}{% if uebergabe.art == "uebergabe" or feld.name == "datum" %}<p>{{ feld.label_tag }} {{ feld }}</p>{% endif %}{% endfor %}
+  {% if hindernisse %}<ul class="hindernisse">{% for h in hindernisse %}<li>{{ h }}</li>{% endfor %}</ul>{% endif %}
+
+  {% elif schritt_name == "zaehler" %}
+  <p class="leise">Zählernummer und Stand. Leere Zeilen bleiben unberücksichtigt.</p>
+  {% for z in zaehler_zeilen %}
+  <div class="zeile">
+    <p><label for="nummer_{{ forloop.counter0 }}">Zähler</label><input id="nummer_{{ forloop.counter0 }}" name="nummer_{{ forloop.counter0 }}" value="{{ z.nummer }}"></p>
+    <p><label for="stand_{{ forloop.counter0 }}">Stand</label><input id="stand_{{ forloop.counter0 }}" name="stand_{{ forloop.counter0 }}" value="{{ z.stand }}" inputmode="decimal"></p>
+  </div>
+  {% endfor %}
+
+  {% elif schritt_name == "fotos" %}
+  <p><label for="fotos">Fotos aufnehmen</label>
+    <input type="file" id="fotos" name="fotos" accept="image/*" capture="environment" multiple></p>
+  <p class="leise">{{ fotos|length }} Foto{{ fotos|length|pluralize:"s" }} gespeichert.</p>
+  <ul class="fotos">{% for foto in fotos %}<li><img src="{% url 'stammdaten:uebergabe_foto' foto.pk %}" alt="Foto {{ forloop.counter }}" loading="lazy"></li>{% endfor %}</ul>
+
+  {% elif schritt_name == "schluessel" %}
+  {% for s, anzahl in schluessel_zeilen %}
+  <p><label for="schluessel_{{ s.pk }}">{{ s.einheit.nw_id }}: {{ s.get_art_display }}{% if s.bezeichnung %} „{{ s.bezeichnung }}“{% endif %} <span class="leise">(von {{ s.anzahl }})</span></label>
+    <input type="number" id="schluessel_{{ s.pk }}" name="schluessel_{{ s.pk }}" value="{{ anzahl }}" min="0" max="{{ s.anzahl }}" inputmode="numeric"></p>
+  {% empty %}
+  <p class="leise">Keine Schlüssel {% if uebergabe.art == "uebergabe" %}im Bestand{% else %}beim Mieter{% endif %} erfasst.</p>
+  {% endfor %}
+
+  {% elif schritt_name == "unterschrift" %}
+  <p><label for="zustand">Zustand</label><textarea id="zustand" name="zustand" rows="4">{{ uebergabe.zustand }}</textarea></p>
+  {% if uebergabe.art == "rueckgabe" %}
+  <p><label for="zurueckgelassen">Zurückgelassene Sachen</label><textarea id="zurueckgelassen" name="zurueckgelassen" rows="3">{{ uebergabe.zurueckgelassen }}</textarea></p>
+  {% endif %}
+  <p><label for="unterschrift">Unterschrift (Foto)</label>
+    <input type="file" id="unterschrift" name="unterschrift" accept="image/*" capture="environment"></p>
+  {% if uebergabe.unterschrift %}<p class="leise">Foto der Unterschrift liegt vor.</p>{% endif %}
+
+  {% elif schritt_name == "abschluss" %}
+  <ul class="kennzahlen">
+    <li>Datum: {{ uebergabe.datum|date:"d.m.Y" }}</li>
+    <li>Zählerstände: {{ uebergabe.zaehlerstaende|length }}</li>
+    <li>Fotos: {{ fotos|length }}</li>
+    <li>Schlüssel: {% for e in uebergabe.schluessel %}{{ e.anzahl }}{% if not forloop.last %} + {% endif %}{% empty %}keine{% endfor %}</li>
+  </ul>
+  {% if hindernisse %}
+  <ul class="hindernisse">{% for h in hindernisse %}<li>{{ h }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endif %}
+
+  <p><button type="submit">{% if schritt_name == "abschluss" %}{{ uebergabe.get_art_display }} abschließen{% else %}Speichern und weiter{% endif %}</button></p>
+</form>
+{% endblock %}

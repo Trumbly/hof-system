@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block titel %}Partei #{{ partei.pk }}{% endblock %}
+
+{% block inhalt %}
+<h1>{{ partei.anzeigename }} <span class="leise">Partei #{{ partei.pk }}</span></h1>
+
+<section id="stammfelder">
+  <h2>Name und Anschrift</h2>
+  {% include "stammdaten/_formular.html" with form=stammfelder aktion="stammfelder" %}
+</section>
+
+<section id="kontaktwege">
+  <h2>Kontaktwege</h2>
+  <ul class="posten-liste">
+    {% for k in kontaktwege_liste %}
+    <li class="posten">
+      {{ k.get_art_display }}: {{ k.wert }}{% if k.bevorzugt %} <span class="leise">(bevorzugt)</span>{% endif %}
+      <form method="post" action="{% url 'stammdaten:kontaktweg_entfernen' k.pk %}" class="aktionen">{% csrf_token %}<button type="submit" class="zweitrangig">Entfernen</button></form>
+    </li>
+    {% empty %}
+    <li class="leise">Noch kein Kontaktweg.</li>
+    {% endfor %}
+  </ul>
+  <h3>Kontaktweg hinzufügen</h3>
+  {% include "stammdaten/_formular.html" with form=kontaktwege aktion="kontaktwege" knopf="Hinzufügen" %}
+</section>
+
+<section id="vertraege">
+  <h2>Verträge</h2>
+  <ul>{% for vp in vertragsparteien %}<li><a href="{% url 'stammdaten:vertrag' vp.vertrag.pk %}">{{ vp.vertrag.nummer }}</a> · {{ vp.get_rolle_display }} · {{ vp.vertrag.get_status_display }}</li>{% empty %}<li class="leise">Keine Verträge.</li>{% endfor %}</ul>
+</section>
+{% endblock %}
