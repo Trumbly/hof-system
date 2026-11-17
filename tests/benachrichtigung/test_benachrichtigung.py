@@ -276,7 +276,8 @@ def test_pruefung_fuer_check_deploy() -> None:
 ERLAUBTE_ZEILEN = (
     r"Gescheiterte Läufe \(letzte \d+ Stunden\): \d+",
     r"- [a-z][a-z0-9_]*: \d+",
-    r"- (Frist fällig|Bankfreigabe erneuern|Mahnungen senden|Zahlungen klären|"
+    r"- (Frist fällig|Bankfreigabe läuft ab|Bankfreigabe fehlt|Bankabruf gescheitert|"
+    r"Bankumsätze fehlen|Saldo weicht ab|Mahnungen senden|Zahlungen klären|"
     r"Rechnung zahlen|Schreiben senden): \d+",
     r"Wartende Freigaben: \d+",
     rf"(Läufe|Arbeitslisten): {re.escape(BASIS)}/[a-z/]*",
@@ -341,3 +342,20 @@ def test_nachricht_bauen_fuer_leere_lage_hat_keine_zeilen() -> None:
     nachricht = services.nachricht_bauen(services.Lage())
     assert isinstance(nachricht, Nachricht)
     assert nachricht.text == ""
+
+
+def test_standardarten_enthalten_die_posten_der_bank() -> None:
+    """Schritt 9a: Die Posten der Bank, die auf Max warten, melden sich als Freigaben."""
+    from django.conf import settings
+
+    from apps.bank import services as bank
+
+    arten = set(settings.HOF_BENACHRICHTIGUNG_ARTEN)
+    assert {
+        fristen.ART_FRIST_FAELLIG,
+        bank.ART_FREIGABE,
+        bank.ART_FREIGABE_FEHLT,
+        bank.ART_ABRUF,
+        bank.ART_ZULIEFERUNG,
+        bank.ART_SALDO,
+    } <= arten

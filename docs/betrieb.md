@@ -57,7 +57,7 @@ Prüfen: `systemctl list-timers 'hof-*'`, `journalctl -u hof-lauf@<name> -n 50`,
 
 ## Benachrichtigung (H11.1)
 
-Der Lauf `benachrichtigen` (7:30, 12:30, 18:30) meldet sich nur, wenn ein Lauf in den letzten 24 Stunden abgebrochen ist oder Fehler hatte, oder wenn Arbeitsposten bestimmter Arten offen warten (Standard: Frist fällig, Bankfreigabe erneuern, Mahnungen senden, Zahlungen klären, Rechnung zahlen, Schreiben senden). Inhalt nur Zähler und Links, keine Namen oder Beträge. Dieselbe Lage kommt höchstens einmal am Tag; neu meldet sich nur, was dazukommt. Ohne Anlass bleibt es still.
+Der Lauf `benachrichtigen` (7:30, 12:30, 18:30) meldet sich nur, wenn ein Lauf in den letzten 24 Stunden abgebrochen ist oder Fehler hatte, oder wenn Arbeitsposten bestimmter Arten offen warten (Standard: Frist fällig, die Bank-Posten Bankfreigabe läuft ab, Bankfreigabe fehlt, Bankabruf gescheitert, Bankumsätze fehlen und Saldo weicht ab, dazu Mahnungen senden, Zahlungen klären, Rechnung zahlen, Schreiben senden). Inhalt nur Zähler und Links, keine Namen oder Beträge. Dieselbe Lage kommt höchstens einmal am Tag; neu meldet sich nur, was dazukommt. Ohne Anlass bleibt es still.
 
 Einrichten in `/opt/hof/.env`:
 

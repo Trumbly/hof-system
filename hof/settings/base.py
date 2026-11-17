@@ -157,7 +157,13 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
     "HOF_BENACHRICHTIGUNG_ARTEN",
     default=[
         "Frist fällig",
-        "Bankfreigabe erneuern",
+        # Bank (apps.bank.services, ART_*)
+        "Bankfreigabe läuft ab",
+        "Bankfreigabe fehlt",
+        "Bankabruf gescheitert",
+        "Bankumsätze fehlen",
+        "Saldo weicht ab",
+        # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",
         "Rechnung zahlen",

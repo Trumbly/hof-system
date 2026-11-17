@@ -297,3 +297,28 @@ def test_token_nur_als_hash_und_nur_fuer_ein_konto(vr: Bankkonto, vivid: Bankkon
 
     with pytest.raises(services.BankFehler):
         services.zulieferung_token_erzeugen(vivid)
+
+
+def test_freigabe_legt_ihre_frist_an_und_erledigt_die_alte(vivid: Bankkonto) -> None:
+    """Schritt 9a (H9.1): Jede Bankfreigabe hat eine Frist mit Quelle Bankfreigabe zum Ablauf.
+    Eine neue Freigabe erledigt die Frist der alten; ein Posten „Frist fällig“ entsteht erst
+    nach Ablauf, weil 14 Tage vorher schon „Bankfreigabe läuft ab“ warnt."""
+    from apps.fristen import services as fristen
+    from apps.fristen.models import Frist
+
+    alte = services.aktuelle_freigabe(vivid)
+    assert alte is not None
+    (frist,) = fristen.fristen_zu(alte)
+    assert (frist.quelle, frist.art) == (Frist.Quelle.BANKFREIGABE, Frist.Art.BANKFREIGABE)
+    assert (frist.datum, frist.vorlauf_tage, frist.erledigt_am) == (alte.gueltig_bis, 0, None)
+    assert not fristen.faellige_fristen(alte.gueltig_bis - datetime.timedelta(days=1)).exists()
+
+    neu = services.bankfreigabe_anlegen(
+        vivid, gueltig_bis=alte.gueltig_bis + datetime.timedelta(days=180)
+    )
+
+    frist.refresh_from_db()
+    assert frist.erledigt_am == datetime.date.today()
+    (neue_frist,) = fristen.fristen_zu(neu, nur_offen=True)
+    assert neue_frist.datum == neu.gueltig_bis
+    assert list(fristen.offene_fristen()) == [neue_frist]

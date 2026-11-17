@@ -18,10 +18,11 @@ def test_testhof_hat_fristen_von_hand_an_objekten(testhof: Testhof) -> None:
     Objekten des Kerns mit; eine davon ist erledigt."""
     assert "fristen" in register.laden()
     fristen = testhof.fristen.alle
-    assert Frist.objects.count() == len(fristen) == 5
+    von_hand = Frist.objects.filter(quelle=Frist.Quelle.HAND)
+    assert von_hand.count() == len(fristen) == 5
     assert {f.quelle for f in fristen} == {Frist.Quelle.HAND}
     assert {type(f.bezug) for f in fristen} == {Objekt}
-    assert [f.pk for f in Frist.objects.filter(erledigt_am__isnull=False)] == [
+    assert [f.pk for f in von_hand.filter(erledigt_am__isnull=False)] == [
         testhof.fristen.erledigt.pk
     ]
     assert testhof.fristen.ueberfaellig.datum == STICHTAG - datetime.timedelta(days=10)
