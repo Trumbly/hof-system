@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Umgebung und Geheimnisse
+.env
+.env.*
+!.env.example
+
+# Echtdaten – gehören nie ins Repository
+data/
+import/
+backups/
+media/
+*.sqlite3
+*.dump
+*.sql.gz
+*.csv
+!tests/fixtures/**/*.csv
+!testhof/**/*.csv
+
+# Sonstiges
+.DS_Store
+staticfiles/

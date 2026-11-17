@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./data/**)",
+      "Read(./import/**)",
+      "Read(./backups/**)",
+      "Read(./media/**)",
+      "Read(../hof-fints/cache/**)",
+      "Read(../hof-fints/data/**)",
+      "Read(../hof-fints/**/regeln*.yaml)",
+      "Read(../hof-fints/**/zahlweise*.yaml)",
+      "Read(../hof-fints/.env)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(psql:*)",
+      "Bash(./scripts/deploy.sh:*)"
+    ]
+  }
+}
