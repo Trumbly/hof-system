@@ -1,0 +1,35 @@
+# Caddy vor dem Hof-System.
+#
+# - Der Name kommt aus HOF_HOSTNAME (hof-system.<tailnet>.ts.net), gesetzt von deploy.sh.
+# - Für Namen auf *.ts.net holt Caddy das Zertifikat selbst beim lokalen tailscaled
+#   (Socket unter /var/run/tailscale, von docker-compose.prod.yml eingehängt). Dafür muss
+#   im Tailscale-Admin „HTTPS Certificates“ eingeschaltet sein. Let's Encrypt wird nicht
+#   gefragt; der Server ist aus dem Internet nicht erreichbar.
+# - Lauschen: Caddy lauscht im Container auf 80 und 443; nach außen veröffentlicht
+#   docker-compose.prod.yml beide Ports nur auf der Tailscale-IP.
+# - Medien (/medien/) liefert Caddy nicht aus. Dokumente gibt nur Django nach der Anmeldung
+#   heraus; statische Dateien kommen über WhiteNoise aus dem Image.
+
+{
+	# Nur HTTP/1.1 und HTTP/2; HTTP/3 bräuchte UDP 443, das wir nicht öffnen.
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$HOF_HOSTNAME} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+	}
+
+	reverse_proxy app:8000
+
+	log {
+		output stdout
+		format console
+	}
+}

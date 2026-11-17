@@ -1,0 +1,9 @@
+[Unit]
+Description=Hof-System: Rückspielprobe am 1. jedes Monats um 5:00
+
+[Timer]
+OnCalendar=*-*-01 05:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+# Vorlage für den Zeitplan eines Laufs. Sie hat absichtlich kein OnCalendar: Den Zeitpunkt
+# setzt je Lauf eine Drop-in-Datei
+#   /etc/systemd/system/hof-lauf@<name>.timer.d/zeitplan.conf
+# die scripts/systemd-einrichten.sh aus deploy/systemd/laeufe/<name>.conf anlegt.
+
+[Unit]
+Description=Hof-System: Zeitplan für Lauf %i
+
+[Timer]
+Unit=hof-lauf@%i.service
+# Verpasste Läufe (Server aus, Neustart) werden nachgeholt.
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

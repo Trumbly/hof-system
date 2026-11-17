@@ -1,0 +1,38 @@
+# Was nicht ins Produktions-Image gehört. Vor allem: keine Geheimnisse, keine Daten.
+.env
+.env.*
+**/.env
+.git
+.github
+.claude
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.pre-commit-config.yaml
+
+# Echtdaten (wie .gitignore)
+data/
+import/
+backups/
+media/
+medien/
+*.sqlite3
+*.dump
+*.sql.gz
+*.csv
+
+# Entsteht im Build neu
+staticfiles/
+
+# Für den Betrieb der App nicht nötig
+tests/
+docs/
+prompts/
+scripts/
+deploy/
+docker-compose*.yml
+Dockerfile
+Makefile

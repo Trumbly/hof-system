@@ -29,6 +29,7 @@ make dev                       # Postgres + Mailpit starten, migrieren, Server a
 - Seit Schritt 0b gibt es ein eigenes Benutzermodell (`kern.Benutzer`). Eine Entwicklungsdatenbank aus Schritt 0a einmal neu aufsetzen: `docker compose -f docker-compose.dev.yml down -v`, dann `make dev`.
 - Am eigenen Rechner braucht es keine `.env`; die Standardwerte stehen in `hof/settings/dev.py`. Für den Server zeigt `.env.example` alle Schlüssel.
 - Die Pipeline (`.github/workflows/pruefen.yml`) prüft jeden Push mit ruff, mypy und pytest gegen Postgres, dazu Datenprüfung und gitleaks über den ganzen Verlauf.
+- Betrieb auf dem Server (seit Schritt 0d): `docs/betrieb.md`. Produktions-Image aus `Dockerfile`, Dienste in `docker-compose.prod.yml` (App, Postgres, Caddy, nur über Tailscale), Skripte unter `scripts/` (`server-setup.sh`, `deploy.sh`, `backup.sh`, `restore-probe.sh`), systemd-Einheiten unter `deploy/systemd/`. Ausgeführt werden sie nur von Max auf dem Server.
 
 ## Inhalt
 
@@ -39,6 +40,10 @@ make dev                       # Postgres + Mailpit starten, migrieren, Server a
 | `.gitignore` | hält Daten, Sicherungen und Geheimnisse aus dem Repository |
 | `docs/bauplan.md` | Bauplan vom 17.11.2026 |
 | `docs/prozessliste.md` | Prozessliste vom 16./17.11.2026 |
+| `docs/betrieb.md` | Betriebshandbuch: Ausrollen, Sicherung, Wiederherstellen, Ausfall |
+| `docs/notfallmappe-vorlage.md` | Vorlage der Notfallmappe: welche Zugänge es gibt und wo sie liegen |
+| `Dockerfile`, `docker-compose.prod.yml`, `deploy/` | Produktion: Image, Dienste, Caddy, systemd-Timer |
+| `scripts/` | Einrichtung, Ausrollen, Sicherung, Rückspielprobe, Läufe |
 | `prompts/` | ein Auftrag je Sitzung, in dieser Reihenfolge |
 
 ## Einmal vorab

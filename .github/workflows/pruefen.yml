@@ -58,6 +58,39 @@ jobs:
           zweite=$(grep '^Prüfsumme:' zweiter-lauf.txt)
           test -n "$erste" && test "$erste" = "$zweite"
 
+  betrieb:
+    name: Skripte, Compose, Produktions-Image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: shellcheck (scripts/*.sh)
+        run: |
+          command -v shellcheck || { sudo apt-get update -q && sudo apt-get install -y -q shellcheck; }
+          shellcheck --version
+          shellcheck scripts/*.sh
+      - name: docker-compose.prod.yml gültig
+        env:
+          HOF_VERSION: pipeline
+          HOF_TAILSCALE_IP: 100.64.0.1
+          HOF_HOSTNAME: hof-system.beispiel.ts.net
+          HOF_ENV_DATEI: /dev/null
+        run: docker compose -f docker-compose.prod.yml config --quiet
+      - name: Produktions-Image bauen
+        run: docker build --build-arg HOF_VERSION=pipeline -t hof-system:pipeline .
+      - name: Image prüfen (nicht root, keine Entwicklungswerkzeuge, check --deploy)
+        run: |
+          test "$(docker run --rm hof-system:pipeline id -u)" != "0"
+          if docker run --rm hof-system:pipeline python -c "import pytest" 2>/dev/null; then
+            echo "pytest im Produktions-Image gefunden" >&2
+            exit 1
+          fi
+          docker run --rm \
+            -e DJANGO_SECRET_KEY=nur-fuer-die-pipeline-kein-geheimnis-0123456789abcdefghijklmnop \
+            -e DATABASE_URL=postgres://pipeline@localhost:5432/pipeline \
+            -e EMAIL_URL=consolemail:// \
+            -e DJANGO_ALLOWED_HOSTS=hof-system.beispiel.ts.net \
+            hof-system:pipeline python manage.py check --deploy --fail-level ERROR
+
   datenschutz:
     name: Keine Daten, keine Geheimnisse
     runs-on: ubuntu-24.04

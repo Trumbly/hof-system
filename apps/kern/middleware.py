@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth import logout
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import resolve_url
-from django.urls import Resolver404, resolve
+from django.urls import Resolver404, resolve, reverse
 
 from apps.kern.anmeldung import (
     hat_zweiten_faktor,
@@ -40,6 +40,10 @@ class ZweiterFaktorPflichtMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
+        # Der Gesundheits-Endpunkt gilt für jeden, angemeldet oder nicht (er zeigt nur
+        # „ok“ und die Version). Geprüft vor request.user, damit er keine Sitzung lädt.
+        if request.path_info == reverse("kern:gesund"):
+            return self.get_response(request)
         benutzer = request.user
         if not benutzer.is_authenticated or request.path_info.startswith(
             "/" + settings.STATIC_URL.lstrip("/")

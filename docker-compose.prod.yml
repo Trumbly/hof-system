@@ -1,0 +1,94 @@
+# Produktion: App (gunicorn), Postgres 16 und Caddy. Nur auf dem Server, nur über Tailscale.
+#
+# Gestartet wird ausschließlich über scripts/deploy.sh (oder scripts/compose.sh für
+# Wartung). Die Skripte setzen diese Variablen:
+#   HOF_VERSION        Git-Tag der Version, z. B. v0.1.0; danach heißt auch das Image
+#   HOF_TAILSCALE_IP   IPv4-Adresse des Servers im Tailscale-Netz (tailscale ip -4)
+#   HOF_HOSTNAME       Name im Tailscale-Netz, z. B. hof-system.<tailnet>.ts.net
+# Optional (Standard für den Server in Klammern):
+#   HOF_ENV_DATEI      Umgebungswerte der App und der Datenbank (/opt/hof/.env)
+#   HOF_MEDIEN_DIR     Ordner der Dokumente auf dem Server (/srv/hof/medien)
+#   HOF_TAILSCALE_SOCKET_DIR  Ordner mit dem tailscaled-Socket (/var/run/tailscale)
+#
+# Warum Ports nur an die Tailscale-IP: Docker schreibt veröffentlichte Ports direkt in
+# iptables und umgeht dabei ufw. Ein "443:443" wäre trotz Firewall im Internet offen.
+# "${HOF_TAILSCALE_IP}:443:443" lauscht nur auf der Tailscale-Adresse. App und Datenbank
+# haben gar keinen veröffentlichten Port; sie sind nur im Docker-Netz erreichbar.
+
+name: hof
+
+x-umgebung: &umgebung
+  env_file:
+    - path: ${HOF_ENV_DATEI:-/opt/hof/.env}
+      required: true
+
+services:
+  db:
+    image: postgres:16.16
+    <<: *umgebung
+    restart: unless-stopped
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  app:
+    image: hof-system:${HOF_VERSION:?HOF_VERSION fehlt – bitte über scripts/deploy.sh starten}
+    <<: *umgebung
+    environment:
+      HOF_VERSION: ${HOF_VERSION}
+      DJANGO_SETTINGS_MODULE: hof.settings.prod
+      DJANGO_MEDIA_ROOT: /app/medien
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${HOF_MEDIEN_DIR:-/srv/hof/medien}:/app/medien
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import sys, urllib.request;
+          antwort = urllib.request.urlopen("http://127.0.0.1:8000/gesund", timeout=4);
+          sys.exit(0 if antwort.read().startswith(b"ok ") else 1)
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+
+  caddy:
+    image: caddy:2.11.9
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      HOF_HOSTNAME: ${HOF_HOSTNAME:?HOF_HOSTNAME fehlt – bitte über scripts/deploy.sh starten}
+    ports:
+      # Nur die Tailscale-Adresse, siehe oben. Port 80 leitet auf HTTPS um.
+      - "${HOF_TAILSCALE_IP:?HOF_TAILSCALE_IP fehlt}:443:443"
+      - "${HOF_TAILSCALE_IP}:80:80"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      # Zertifikate für *.ts.net holt Caddy beim lokalen tailscaled über dessen Socket.
+      # Der Ordner statt der Datei: Startet tailscaled neu, entsteht der Socket neu.
+      - ${HOF_TAILSCALE_SOCKET_DIR:-/var/run/tailscale}:/var/run/tailscale
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db:
+  caddy_data:
+  caddy_config:

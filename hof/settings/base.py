@@ -113,6 +113,14 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Hochgeladene Dokumente. Auf dem Server ein eigenes Volume (siehe docker-compose.prod.yml),
+# ausgeliefert nur über Django mit Anmeldung, nie direkt über Caddy.
+MEDIA_URL = "medien/"
+MEDIA_ROOT = env.path("DJANGO_MEDIA_ROOT", default=BASE_DIR / "media")
+
+# Ausgerollte Version (Git-Tag), gesetzt von scripts/deploy.sh. Zeigt der Endpunkt /gesund.
+HOF_VERSION = env.str("HOF_VERSION", default="unbekannt")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Setzt EMAIL_BACKEND, EMAIL_HOST, EMAIL_PORT usw. aus einer URL (Muster aus django-environ).
