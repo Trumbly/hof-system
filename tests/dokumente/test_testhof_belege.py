@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime
+import io
 import re
 
 import pytest
@@ -34,6 +36,29 @@ def test_testhof_hat_belege_zu_ausgaben(testhof: Testhof) -> None:
     ).exists()
     assert daten.mahnung.art == "mahnung_lieferant"
     assert not daten.mahnung.belege.exists()
+
+
+def test_testhof_hat_eine_offene_eingangsrechnung(testhof: Testhof) -> None:
+    """Schritt 3b: Eine offene Eingangsrechnung mit Posten „Rechnung zahlen“ und Frist; der
+    Lauf kassenbuch_einordnen findet keine passende Abbuchung (Betrag über allen Ausgaben)."""
+    from django.core.management import call_command
+
+    from apps.dokumente.models import Eingangsrechnung
+    from apps.fristen.models import Frist
+
+    rechnung = testhof.belege.rechnung
+    assert rechnung.status == Eingangsrechnung.Status.OFFEN
+    assert rechnung.faellig_am == aufbau.STICHTAG + datetime.timedelta(days=14)
+    assert Arbeitsposten.objects.filter(
+        art=services.ART_RECHNUNG_ZAHLEN, bezug_id=rechnung.pk, status="offen"
+    ).exists()
+    frist = Frist.objects.get(quelle=Frist.Quelle.EINGANGSRECHNUNG)
+    assert (frist.datum, frist.vorlauf_tage) == (rechnung.faellig_am, 3)
+
+    call_command("kassenbuch_einordnen", stdout=io.StringIO())
+    rechnung.refresh_from_db()
+    assert rechnung.status == Eingangsrechnung.Status.OFFEN
+    assert not Arbeitsposten.objects.filter(art=services.ART_RECHNUNG_ZUORDNEN).exists()
 
 
 def test_lieferanten_und_pdfs_sind_erfunden(testhof: Testhof) -> None:

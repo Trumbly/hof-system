@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block titel %}Eingangsrechnung #{{ rechnung.pk }}{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Eingangsrechnung #{{ rechnung.pk }} <span class="leise status status-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span></h1>
+<dl class="angaben">
+  <div><dt>Lieferant</dt><dd>{% if rechnung.beleg.lieferant %}<a href="{% url 'dokumente:lieferant' rechnung.beleg.lieferant_id %}">{{ rechnung.beleg.lieferant.name }}</a>{% else %}–{% endif %}</dd></div>
+  <div><dt>Betrag</dt><dd>{{ rechnung.betrag|floatformat:"2g" }} €</dd></div>
+  {% if rechnung.rechnungsnummer %}<div><dt>Rechnungsnummer</dt><dd>{{ rechnung.rechnungsnummer }}</dd></div>{% endif %}
+  <div><dt>fällig am</dt><dd>{{ rechnung.faellig_am|date:"d.m.Y" }}{% if rechnung.ueberfaellig_seit %} · überfällig seit {{ rechnung.ueberfaellig_seit|date:"d.m.Y" }}{% endif %}</dd></div>
+  <div><dt>Beleg</dt><dd><a href="{% url 'dokumente:beleg' rechnung.beleg_id %}">Beleg #{{ rechnung.beleg_id }}</a> · <a href="{% url 'dokumente:dokument_pdf' rechnung.beleg.dokument_id %}" target="_blank" rel="noopener">PDF</a></dd></div>
+  {% if rechnung.bezahlt_durch %}<div><dt>bezahlt</dt><dd>{{ rechnung.bezahlt_am|date:"d.m.Y" }} durch <a href="{% url 'kassenbuch:umsatz' rechnung.bezahlt_durch.umsatz_id %}">Buchung #{{ rechnung.bezahlt_durch_id }}</a></dd></div>{% endif %}
+  <div><dt>Fristen</dt><dd>{% for f in fristen %}{{ f.get_art_display }} {{ f.datum|date:"d.m.Y" }}{% if f.erledigt_am %} (erledigt){% else %}, Erinnerung ab {{ f.faellig_ab|date:"d.m.Y" }}{% endif %}{% if not forloop.last %}; {% endif %}{% empty %}keine{% endfor %}</dd></div>
+</dl>
+
+{% if rechnung.status != "bezahlt" %}
+<section class="gruppe">
+  <h2>Abbuchung zuordnen</h2>
+  <p class="leise">Gebuchte Abbuchungen mit diesem Betrag ab dem Belegdatum. Eindeutige Abbuchungen erkennt der Lauf „kassenbuch_einordnen“ selbst.</p>
+  <ul class="posten-liste">
+    {% for u in kandidaten %}
+    <li class="posten">
+      <div class="posten-kopf"><span class="posten-titel">Umsatz #{{ u.pk }}</span><span class="faellig">{{ u.buchungsdatum|date:"d.m.Y" }}</span></div>
+      <p class="leise posten-meta">{{ u.gegenpartei }} · {{ u.verwendungszweck }}</p>
+      <form method="post" action="{% url 'dokumente:rechnung_verbinden' rechnung.pk %}">
+        {% csrf_token %}<input type="hidden" name="umsatz" value="{{ u.pk }}">
+        <button type="submit">Diese Abbuchung bezahlt die Rechnung</button>
+      </form>
+    </li>
+    {% empty %}<li class="leise">Keine passende Abbuchung.</li>{% endfor %}
+  </ul>
+  <form method="post" action="{% url 'dokumente:rechnung_strittig' rechnung.pk %}">
+    {% csrf_token %}
+    {% if rechnung.status == "strittig" %}<input type="hidden" name="strittig" value="0"><button type="submit" class="zweitrangig">Nicht mehr strittig</button>
+    {% else %}<input type="hidden" name="strittig" value="1"><button type="submit" class="zweitrangig">Als strittig markieren</button>{% endif %}
+  </form>
+</section>
+{% endif %}
+{% endblock %}

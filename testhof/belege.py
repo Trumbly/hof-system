@@ -14,6 +14,9 @@ gleiche Bytes). Was entsteht:
 - Ein offener Beleg aus dem Rechnungspostfach mit Arbeitsposten „Belege zuordnen“; der
   Lieferant ist erkannt, Objekt, Kostenart und Leistungsjahr stehen als Vorschlag drin.
 - Eine Mahnung eines Lieferanten, abgelegt am Lieferanten, ohne Buchung (H6.8).
+- Eine offene Eingangsrechnung (Schritt 3b), fällig zwei Wochen nach dem Stichtag, mit
+  Arbeitsposten „Rechnung zahlen“ und Frist (Zahlungsziel, drei Tage Vorlauf). Ihr Betrag
+  liegt über allen Ausgaben des Testhofs, damit kein Umsatz zufällig passt.
 
 Geschrieben wird über ``apps.dokumente.services``.
 """
@@ -22,10 +25,12 @@ from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
+from decimal import Decimal
 
 from apps.bank.models import Bankumsatz
 from apps.dokumente import dokumentarten, services
-from apps.dokumente.models import Beleg, Dokument, Dokumentbezug, Lieferant
+from apps.dokumente.models import Beleg, Dokument, Dokumentbezug, Eingangsrechnung, Lieferant
+from apps.fristen.models import Frist
 from apps.kern.models import Arbeitsposten
 from testhof import register
 from testhof.aufbau import Kontext
@@ -39,6 +44,9 @@ MONAT_BELEGE = (2026, 10)
 OHNE_BELEG = ("Material Baumarkt", "Kontoführung")
 #: Die Rechnung liegt so viele Tage vor der Abbuchung.
 RECHNUNG_VORLAUF = 10
+#: Offene Eingangsrechnung: Betrag und Zahlungsziel nach dem Stichtag
+OFFENE_RECHNUNG_BETRAG = Decimal("1234.56")
+OFFENE_RECHNUNG_TAGE = 14
 
 
 @dataclass
@@ -48,6 +56,7 @@ class BelegeDaten:
     sammelrechnung: list[Beleg]  # HOF, HALLE
     offen: Beleg
     mahnung: Dokument
+    rechnung: Eingangsrechnung
 
 
 def _art(umsatz: Bankumsatz) -> str | None:
@@ -189,20 +198,57 @@ def aufbauen(kontext: Kontext) -> BelegeDaten:
         herkunft=Dokument.Herkunft.TESTHOF,
     ).dokument
 
+    # Offene Eingangsrechnung (Schritt 3b): noch zu zahlen.
+    zahlen = lieferanten[ausgaben[1].gegen_iban]
+    datum = kontext.stichtag - datetime.timedelta(days=3)
+    nummer = "TH-2026-0815"
+    ablage = services.dokument_ablegen(
+        einfaches_pdf(
+            [
+                zahlen.name,
+                "Rechnung (erfunden, Testhof)",
+                f"Rechnungsnummer {nummer}",
+                f"Betrag {OFFENE_RECHNUNG_BETRAG:.2f} EUR",
+            ]
+        ),
+        art=dokumentarten.BELEG,
+        datum=datum,
+        herkunft=Dokument.Herkunft.TESTHOF,
+    )
+    beleg = services.beleg_bestaetigen(
+        services.beleg_anlegen(ablage.dokument, lieferant=zahlen, posten=False),
+        lieferant=zahlen,
+        betrag=OFFENE_RECHNUNG_BETRAG,
+        objekt=hof,
+        kategorie=kassenbuch.kategorien["Reparaturen und Instandhaltung"],
+        leistungsjahr=datum.year,
+        am=kontext.zeitpunkt,
+        faellig_am=kontext.stichtag + datetime.timedelta(days=OFFENE_RECHNUNG_TAGE),
+        rechnungsnummer=nummer,
+    )
+
     return BelegeDaten(
         lieferanten=lieferanten,
         belege=belege,
         sammelrechnung=sammelrechnung,
         offen=offen,
         mahnung=mahnung,
+        rechnung=beleg.eingangsrechnung,
     )
 
 
 def leeren() -> None:
     """Löscht Belege, Dokumente und Lieferanten (nur erfundene Daten, siehe ``aufbau.leeren``)."""
     Arbeitsposten.objects.filter(
-        art__in=[services.ART_BELEGE_ZUORDNEN, services.ART_MAIL_OHNE_PDF]
+        art__in=[
+            services.ART_BELEGE_ZUORDNEN,
+            services.ART_MAIL_OHNE_PDF,
+            services.ART_RECHNUNG_ZAHLEN,
+            services.ART_RECHNUNG_ZUORDNEN,
+        ]
     ).delete()
+    Frist.objects.filter(quelle=Frist.Quelle.EINGANGSRECHNUNG).delete()
+    Eingangsrechnung.objects.all().delete()
     Beleg.objects.all().delete()
     Dokumentbezug.objects.all().delete()
     for dokument in Dokument.objects.all():
@@ -215,7 +261,7 @@ def leeren() -> None:
 
 register.registrieren(
     NAME,
-    abhaengig_von=("kern", "bank", "kassenbuch", "dokumente"),
+    abhaengig_von=("kern", "bank", "kassenbuch", "dokumente", "fristen"),
     aufbauen=aufbauen,
     leeren=leeren,
 )

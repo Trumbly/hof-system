@@ -2,6 +2,7 @@
 <nav class="reiter" aria-label="Ablage">
   <a href="{% url 'dokumente:ablage' %}"{% if seite == 'ablage' or seite == 'dokument' or seite == 'beleg' %} aria-current="page"{% endif %}>Ablage</a>
   <a href="{% url 'dokumente:beleg_hochladen' %}"{% if seite == 'beleg_hochladen' %} aria-current="page"{% endif %}>Beleg hochladen</a>
+  <a href="{% url 'dokumente:rechnungen' %}"{% if 'rechnung' in seite %} aria-current="page"{% endif %}>Rechnungen</a>
   <a href="{% url 'dokumente:belegmappe' %}"{% if seite == 'belegmappe' %} aria-current="page"{% endif %}>Belegmappe</a>
   <a href="{% url 'dokumente:lieferanten' %}"{% if 'lieferant' in seite %} aria-current="page"{% endif %}>Lieferanten</a>
 </nav>

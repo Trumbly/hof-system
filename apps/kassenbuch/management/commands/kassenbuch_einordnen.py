@@ -7,6 +7,10 @@ anlegen und Zurückstellen. Idempotent: Ein zweiter Lauf bucht nichts doppelt un
 Posten doppelt an.
 
 Ohne ``--ab`` beginnt der Lauf bei ``HOF_KASSENBUCH_BEGINN`` (leer: beim ersten Umsatz).
+
+Danach laufen die angemeldeten Abgleiche (``services.abgleich_anmelden``): ab Schritt 3b die
+Eingangsrechnungen. Erkennt er die Abbuchung einer Rechnung eindeutig, verbindet er Buchung
+und Rechnung; Unsicheres wird ein Arbeitsposten.
 """
 
 from __future__ import annotations
@@ -40,7 +44,15 @@ class Command(LaufBefehl):
         self.gebucht(ergebnis.gebucht)
         self.koerbe.arbeitsposten += ergebnis.arbeitsposten
         self.fehler(ergebnis.fehler)
-        return (
+        meldung = (
             f"{ergebnis.gebucht} Umsätze gebucht, {ergebnis.arbeitsposten} neue Arbeitsposten, "
             f"{ergebnis.fehler} Fehler" + (f"; ab {ab:%d.%m.%Y}" if ab else "")
         )
+        for abgleich in services.abgleiche_ausfuehren(lauf=self.lauf):
+            self.koerbe.arbeitsposten += abgleich.arbeitsposten
+            self.fehler(abgleich.fehler)
+            meldung += (
+                f"; {abgleich.name}: {abgleich.verbunden} verbunden, "
+                f"{abgleich.arbeitsposten} Arbeitsposten"
+            )
+        return meldung

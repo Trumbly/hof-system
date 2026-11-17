@@ -1,4 +1,4 @@
-"""Anbindung an die Benachrichtigung aus Schritt 9a (Schritt 3a und 3c)."""
+"""Anbindung an die Benachrichtigung aus Schritt 9a (Schritt 3a, 3b und 3c)."""
 
 from __future__ import annotations
 
@@ -18,3 +18,10 @@ def test_belege_zuordnen_meldet_sich() -> None:
     """Schritt 3a: Ein neuer Beleg aus dem Postfach wartet als „Belege zuordnen“ auf Max;
     die Art steht im Standard der Benachrichtigung."""
     assert services.ART_BELEGE_ZUORDNEN in settings.HOF_BENACHRICHTIGUNG_ARTEN
+
+
+def test_posten_der_eingangsrechnungen_melden_sich() -> None:
+    """Schritt 3b: „Rechnung zahlen“ und unsichere Treffer („Rechnung zuordnen“) warten auf
+    Max; beide stehen im Standard der Benachrichtigung."""
+    arten = set(settings.HOF_BENACHRICHTIGUNG_ARTEN)
+    assert {services.ART_RECHNUNG_ZAHLEN, services.ART_RECHNUNG_ZUORDNEN} <= arten

@@ -8,6 +8,7 @@
 <dl class="angaben">
   <div><dt>Dokument</dt><dd><a href="{% url 'dokumente:dokument' beleg.dokument_id %}">#{{ beleg.dokument_id }}</a>, {{ beleg.dokument.get_herkunft_display }}, aufbewahren bis {{ beleg.dokument.loeschfrist|date:"d.m.Y" }}</dd></div>
   <div><dt>Buchung</dt><dd>{% if beleg.buchung %}<a href="{% url 'kassenbuch:umsatz' beleg.buchung.umsatz_id %}">#{{ beleg.buchung_id }}</a> vom {{ beleg.buchung.datum|date:"d.m.Y" }}{% else %}noch keine{% endif %}</dd></div>
+  {% if rechnung %}<div><dt>Eingangsrechnung</dt><dd><a href="{% url 'dokumente:rechnung' rechnung.pk %}">#{{ rechnung.pk }}</a> · {{ rechnung.get_status_display }} · fällig {{ rechnung.faellig_am|date:"d.m.Y" }}</dd></div>{% endif %}
   {% if geschwister %}<div><dt>Sammelrechnung</dt><dd>weitere Teile: {% for g in geschwister %}<a href="{% url 'dokumente:beleg' g.pk %}">#{{ g.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
 </dl>
 

@@ -207,6 +207,13 @@ def arbeitsposten_zurueckstellen(posten: Arbeitsposten) -> Arbeitsposten:
     return posten
 
 
+def arbeitsposten_hinweis_setzen(posten: Arbeitsposten, hinweis: str) -> Arbeitsposten:
+    """Ändert den Hinweis eines Postens, etwa „überfällig“ (nur IDs und Daten, keine Namen)."""
+    posten.hinweis = hinweis
+    posten.save(update_fields=["hinweis"])
+    return posten
+
+
 def arbeitsposten_wieder_oeffnen(posten: Arbeitsposten) -> Arbeitsposten:
     posten.status = Arbeitsposten.Status.OFFEN
     posten.erledigt_am = None
