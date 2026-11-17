@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% comment %}
+  Alle Seiten von django-allauth (Anmeldung, zweiter Faktor, Konto) im Layout des
+  Hof-Systems. allauth füllt die Blöcke head_title und content.
+{% endcomment %}
+{% block titel %}{% block head_title %}{% endblock head_title %}{% endblock titel %}
+{% block inhalt %}
+<div class="konto">
+  {% block body %}{% block content %}{% endblock content %}{% endblock body %}
+</div>
+{% block extra_body %}{% endblock extra_body %}
+{% endblock inhalt %}

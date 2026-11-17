@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block titel %}Arbeitslisten{% endblock %}
+
+{% block inhalt %}
+<h1>Arbeitslisten</h1>
+{% for art, posten_liste in gruppen %}
+<section class="gruppe" aria-labelledby="art-{{ forloop.counter }}">
+  <h2 id="art-{{ forloop.counter }}">{{ art }} <span class="zahl">{{ posten_liste|length }}</span></h2>
+  <ul class="posten-liste">
+    {% for posten in posten_liste %}{% include "kern/_arbeitsposten.html" %}{% endfor %}
+  </ul>
+</section>
+{% empty %}
+<p>Keine offenen Arbeitsposten.</p>
+{% endfor %}
+
+{% if zurueckgestellt %}
+<details class="gruppe">
+  <summary>Zurückgestellt <span class="zahl">{{ zurueckgestellt|length }}</span></summary>
+  <ul class="posten-liste">
+    {% for posten in zurueckgestellt %}{% include "kern/_arbeitsposten.html" %}{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

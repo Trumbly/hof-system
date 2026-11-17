@@ -4,5 +4,11 @@
 
 {% block inhalt %}
 <h1>Hof-System</h1>
-<p>Das Gerüst steht. Arbeitslisten, Fristen und Rückstände erscheinen hier ab Schritt 9.</p>
+<ul class="kacheln">
+  <li><a class="kachel" href="{% url 'kern:arbeitslisten' %}"><strong>{{ offene_posten }}</strong> offene Arbeitsposten</a></li>
+  <li><a class="kachel" href="{% url 'kern:laeufe' %}">Letzter Lauf:
+    {% if letzter_lauf %}<strong>{{ letzter_lauf.name }}</strong>, <span class="status status-{{ letzter_lauf.status }}">{{ letzter_lauf.get_status_display }}</span>{% else %}noch keiner{% endif %}</a></li>
+  <li><a class="kachel" href="{% url 'kern:protokoll' %}">Protokoll aller Änderungen</a></li>
+</ul>
+<p class="leise">Fristen, Rückstände und Freigaben erscheinen hier ab Schritt 9.</p>
 {% endblock %}

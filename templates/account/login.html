@@ -1,0 +1,29 @@
+{% extends "account/base_entrance.html" %}
+{% comment %}
+  Anmeldung mit E-Mail und Passwort. Ohne Hinweis auf eine Registrierung: Den Benutzer
+  legt `manage.py benutzer_anlegen` an. Danach folgt der zweite Faktor (TOTP).
+{% endcomment %}
+{% block head_title %}Anmelden{% endblock head_title %}
+{% block content %}
+<h1>Anmelden</h1>
+<form method="post" action="{% url 'account_login' %}" class="formular">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="formfehler" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <p>
+    <label for="{{ form.login.id_for_label }}">E-Mail</label>
+    <input type="email" name="{{ form.login.html_name }}" id="{{ form.login.id_for_label }}"
+           value="{{ form.login.value|default_if_none:'' }}" autocomplete="username" required autofocus>
+    {{ form.login.errors }}
+  </p>
+  <p>
+    <label for="{{ form.password.id_for_label }}">Passwort</label>
+    <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}"
+           autocomplete="current-password" required>
+    {{ form.password.errors }}
+  </p>
+  {{ redirect_field }}
+  <p><button type="submit">Anmelden</button></p>
+</form>
+<p class="leise">Danach fragt das Hof-System nach dem Code aus der Authenticator-App.</p>
+<p><a href="{% url 'account_reset_password' %}">Passwort vergessen?</a></p>
+{% endblock content %}

@@ -10,22 +10,28 @@
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <header class="kopf">
     <a class="marke" href="{% url 'kern:startseite' %}">Hof-System</a>
+    {% if user.is_authenticated %}
     <input type="checkbox" id="nav-schalter" class="nav-schalter" aria-label="Navigation öffnen">
     <label for="nav-schalter" class="nav-knopf" aria-hidden="true">☰</label>
     <nav class="nav" aria-label="Hauptnavigation">
+      {% with seite=request.resolver_match.view_name %}
       <ul>
         {% block navigation %}
-        <li><a href="{% url 'kern:startseite' %}"{% if request.resolver_match.view_name == 'kern:startseite' %} aria-current="page"{% endif %}>Start</a></li>
+        <li><a href="{% url 'kern:startseite' %}"{% if seite == 'kern:startseite' %} aria-current="page"{% endif %}>Start</a></li>
+        <li><a href="{% url 'kern:arbeitslisten' %}"{% if seite == 'kern:arbeitslisten' %} aria-current="page"{% endif %}>Arbeitslisten</a></li>
+        <li><a href="{% url 'kern:protokoll' %}"{% if seite == 'kern:protokoll' %} aria-current="page"{% endif %}>Protokoll</a></li>
+        <li><a href="{% url 'kern:laeufe' %}"{% if seite == 'kern:laeufe' %} aria-current="page"{% endif %}>Läufe</a></li>
         {% endblock %}
+        <li><a href="{% url 'mfa_index' %}"{% if seite == 'mfa_index' %} aria-current="page"{% endif %}>Konto</a></li>
         {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Verwaltung</a></li>{% endif %}
       </ul>
-      {% if user.is_authenticated %}
-      <form method="post" action="{% url 'admin:logout' %}" class="abmelden">
+      {% endwith %}
+      <form method="post" action="{% url 'account_logout' %}" class="abmelden">
         {% csrf_token %}
         <button type="submit">Abmelden</button>
       </form>
-      {% endif %}
     </nav>
+    {% endif %}
   </header>
 
   <main class="inhalt">

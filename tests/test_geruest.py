@@ -2,7 +2,6 @@
 
 import pytest
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import Client
 from django.urls import reverse
@@ -17,13 +16,9 @@ def test_startseite_leitet_zur_anmeldung_weiter(client: Client) -> None:
     assert antwort["Location"].startswith(reverse(settings.LOGIN_URL))
 
 
-@pytest.mark.django_db
-def test_startseite_zeigt_layout_mit_htmx_fuer_angemeldete(client: Client) -> None:
+def test_startseite_zeigt_layout_mit_htmx_fuer_angemeldete(angemeldet: Client) -> None:
     """Schritt 0a: Basis-Layout mit Navigation, HTMX und Handy-Viewport."""
-    benutzer = get_user_model().objects.create_user(username="testbenutzer", password="x")
-    client.force_login(benutzer)
-
-    antwort = client.get(reverse("kern:startseite"))
+    antwort = angemeldet.get(reverse("kern:startseite"))
 
     assert antwort.status_code == 200
     html = antwort.content.decode()

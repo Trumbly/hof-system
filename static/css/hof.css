@@ -232,3 +232,253 @@ td {
   opacity: 0.6;
   transition: opacity 0.2s;
 }
+
+/* Allgemeines */
+
+.leise {
+  color: var(--text-leise);
+  font-size: 0.9rem;
+}
+
+button.zweitrangig,
+.knopf.zweitrangig {
+  color: var(--akzent);
+  background: transparent;
+  border: 1px solid var(--akzent);
+}
+
+.zahl {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.4em;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--akzent-text);
+  background: var(--akzent);
+  border-radius: 999px;
+}
+
+/* Formulare (auch Anmeldung und zweiter Faktor von allauth) */
+
+.konto {
+  max-width: 28rem;
+}
+
+.konto form p,
+.formular p {
+  margin: 0 0 var(--abstand);
+}
+
+.konto label,
+.formular label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.konto input:not([type="checkbox"], [type="radio"], [type="hidden"]),
+.formular input:not([type="checkbox"], [type="radio"], [type="hidden"]),
+.filter select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.konto img {
+  display: block;
+  max-width: 14rem;
+  height: auto;
+  margin: 0 auto var(--abstand);
+  background: #ffffff;
+  padding: 0.5rem;
+}
+
+.konto .errorlist,
+.formfehler,
+.errorlist {
+  color: var(--fehler);
+  padding-left: 1.2rem;
+}
+
+/* Startseite */
+
+.kacheln {
+  list-style: none;
+  margin: 0 0 var(--abstand);
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.kachel {
+  display: block;
+  padding: var(--abstand);
+  color: var(--text);
+  text-decoration: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+@media (min-width: 48rem) {
+  .kacheln {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Arbeitslisten */
+
+.gruppe {
+  margin-bottom: 1.5rem;
+}
+
+.gruppe h2,
+.gruppe summary {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.gruppe summary {
+  min-height: 44px;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+
+.posten-liste,
+.protokoll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.posten,
+.eintrag {
+  padding: 0.75rem var(--abstand);
+  margin-bottom: 0.75rem;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.posten-kopf,
+.eintrag-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem var(--abstand);
+}
+
+.posten-titel {
+  font-weight: 600;
+}
+
+.faellig {
+  color: var(--warnung);
+}
+
+.posten-hinweis,
+.posten-meta,
+.posten-ergebnis,
+.eintrag-kontext {
+  margin: 0.4rem 0;
+  overflow-wrap: anywhere;
+}
+
+.aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.aktionen form {
+  margin: 0;
+}
+
+/* Protokoll */
+
+.filter {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin-bottom: var(--abstand);
+}
+
+@media (min-width: 48rem) {
+  .filter {
+    grid-template-columns: auto minmax(12rem, 20rem) auto;
+    align-items: center;
+  }
+}
+
+.aenderungen {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.eintrag-insert {
+  border-left: 4px solid var(--akzent);
+}
+
+.eintrag-delete {
+  border-left: 4px solid var(--fehler);
+}
+
+.hinweis-zurueck {
+  margin: 0.4rem 0 0;
+  color: var(--text-leise);
+  font-style: italic;
+}
+
+/* Läufe: am Handy wird jede Zeile zur Karte. */
+
+.status {
+  font-weight: 600;
+}
+
+.status-erfolgreich {
+  color: var(--akzent);
+}
+
+.status-mit_fehlern,
+.status-laeuft {
+  color: var(--warnung);
+}
+
+.status-abgebrochen {
+  color: var(--fehler);
+}
+
+@media (max-width: 47.99rem) {
+  .laeufe thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .laeufe tr {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--linie);
+  }
+
+  .laeufe td {
+    display: flex;
+    gap: var(--abstand);
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    border: 0;
+  }
+
+  .laeufe td::before {
+    content: attr(data-titel);
+    color: var(--text-leise);
+  }
+}
