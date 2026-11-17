@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block titel %}Schreiben #{{ schreiben.pk }}{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_reiter.html" %}
+<h1>Schreiben #{{ schreiben.pk }} <span class="leise">{{ schreiben.art }}</span></h1>
+<dl class="angaben">
+  <div><dt>Status</dt><dd class="status status-{{ schreiben.status }}">{{ schreiben.get_status_display }}{% if schreiben.ist_erledigt %} · erledigt{% endif %}</dd></div>
+  <div><dt>Versandweg</dt><dd>{{ versandweg }}{% if schreiben.versandweg == "mail" %} an {{ schreiben.empfaenger_email }}{% endif %}</dd></div>
+  <div><dt>Vorlage</dt><dd><a href="{% url 'dokumente:vorlage' schreiben.vorlage_id %}">{{ schreiben.vorlage.name }}</a>, Version {{ schreiben.vorlage_version }}</dd></div>
+  <div><dt>Bezug</dt><dd>{{ schreiben.bezug_typ.name }} #{{ schreiben.bezug_id }}{% if schreiben.serie %} · <a href="{% url 'dokumente:serie' schreiben.serie %}">Serie</a>{% endif %}</dd></div>
+  {% if schreiben.einseitige_erklaerung %}<div><dt>Art</dt><dd>einseitige Erklärung: erst mit Zustellnachweis erledigt</dd></div>{% endif %}
+  {% if schreiben.gesendet_am %}<div><dt>gesendet</dt><dd>{{ schreiben.gesendet_am|date:"d.m.Y H:i" }} von Benutzer #{{ schreiben.gesendet_von_id }}</dd></div>{% endif %}
+  {% if schreiben.dienst_auftrag %}<div><dt>Auftrag</dt><dd>{{ schreiben.dienst_auftrag }}</dd></div>{% endif %}
+  {% if schreiben.sendungsnummer %}<div><dt>Sendungsnummer</dt><dd>{{ schreiben.sendungsnummer }}</dd></div>{% endif %}
+  {% if schreiben.einlieferungsdatum %}<div><dt>eingeliefert</dt><dd>{{ schreiben.einlieferungsdatum|date:"d.m.Y" }}</dd></div>{% endif %}
+  {% if schreiben.zugestellt_am %}<div><dt>zugestellt</dt><dd>{{ schreiben.zugestellt_am|date:"d.m.Y" }}</dd></div>{% endif %}
+  {% if schreiben.zustellnachweis_vermerk %}<div><dt>Nachweis</dt><dd>{{ schreiben.zustellnachweis_vermerk|linebreaksbr }}</dd></div>{% endif %}
+  {% if schreiben.zustellnachweis %}<div><dt>Nachweis-Datei</dt><dd><a href="{% url 'dokumente:schreiben_nachweis' schreiben.pk %}">öffnen</a></dd></div>{% endif %}
+</dl>
+
+{% if schreiben.pdf %}
+<section class="vorschau" aria-label="Vorschau des PDFs">
+  <h2>Vorschau{% if schreiben.betreff %}: {{ schreiben.betreff }}{% endif %}</h2>
+  <iframe class="pdf-vorschau" src="{% url 'dokumente:schreiben_pdf' schreiben.pk %}" title="PDF von Schreiben #{{ schreiben.pk }}"></iframe>
+  <p><a href="{% url 'dokumente:schreiben_pdf' schreiben.pk %}" target="_blank" rel="noopener">PDF in neuem Fenster öffnen</a></p>
+</section>
+{% endif %}
+
+{% if schreiben.status == "bereit" %}
+<div class="aktionen senden">
+  <form method="post" action="{% url 'dokumente:schreiben_senden' schreiben.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="pruefsumme" value="{{ schreiben.pdf_sha256 }}">
+    <button type="submit">Senden ({{ versandweg }})</button>
+  </form>
+  <form method="post" action="{% url 'dokumente:schreiben_verwerfen' schreiben.pk %}">
+    {% csrf_token %}<button type="submit" class="zweitrangig">Verwerfen</button>
+  </form>
+</div>
+{% endif %}
+
+{% if schreiben.status == "gesendet" %}
+{% if schreiben.ist_brief %}
+<form method="post" action="{% url 'dokumente:schreiben_versandstand' schreiben.pk %}" class="aktionen">
+  {% csrf_token %}<button type="submit" class="zweitrangig">Versandstand bei LetterXpress abrufen</button>
+</form>
+{% endif %}
+<section class="gruppe">
+  <h2>Zustellung festhalten</h2>
+  {% if schreiben.einseitige_erklaerung %}<p class="faellig">Einseitige Erklärung: Ohne Zustellnachweis (Datei oder Vermerk) lässt sich das Schreiben nicht abschließen.</p>{% endif %}
+  <form method="post" action="{% url 'dokumente:schreiben_abschliessen' schreiben.pk %}" enctype="multipart/form-data" class="formular">
+    {% csrf_token %}
+    {{ abschluss.as_p }}
+    <button type="submit">Abschließen</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

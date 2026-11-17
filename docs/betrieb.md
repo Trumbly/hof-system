@@ -146,6 +146,19 @@ Vivid gibt den Zugriff für höchstens 180 Tage frei, VR (FinTS) etwa alle 90 Ta
 - **VR:** Die Freigabe erneuert der FinTS-Abruf auf dem hof-mac (TAN in der VR-App). Danach auf der Seite „Freigabe erneuern“ des VR-Kontos eintragen, bis wann sie gilt; nur so kennt das System die Frist.
 - Ist eine Freigabe schon abgelaufen, scheitert der Abruf („Bankabruf gescheitert“). Nach der Erneuerung holt der nächste Lauf die Lücke nach; von Hand: `sudo systemctl start hof-lauf@bank_abruf.service`.
 
+## Versand einrichten (Schritt 3c)
+
+Ohne diese Werte meldet der Versand „nicht eingerichtet“, und jedes Schreiben bleibt „bereit“. In `/opt/hof/.env`:
+
+- `EMAIL_URL=smtp+tls://kontakt%40<domain>:<passwort>@<smtp-host>:587` und `HOF_MAIL_ABSENDER=kontakt@<domain>`.
+- Kopie in „Gesendet“: `HOF_IMAP_URL=imaps://kontakt%40<domain>:<passwort>@<imap-host>:993`, `HOF_IMAP_ORDNER_GESENDET` (Standard `Sent`; je nach Anbieter z. B. `INBOX.Sent` oder `Gesendet`). Ohne `HOF_IMAP_URL` geht keine Mail hinaus.
+- LetterXpress: `LETTERXPRESS_BENUTZER`, `LETTERXPRESS_APIKEY` (Kundenbereich → Mein Konto → Zugangsdaten → LXP API), `LETTERXPRESS_MODUS=test` (Aufträge landen nur in der Postbox). `live` erst nach dem Testbrief und Max' Freigabe.
+- Briefkopf: `HOF_ABSENDER_NAME`, `HOF_ABSENDER_ANSCHRIFT` (Zeilen mit `;` trennen), `HOF_ABSENDER_TELEFON`, `HOF_ABSENDER_BANK`, `HOF_ABSENDER_STEUERNUMMER`. Der Briefkopf selbst ist eine Vorlage der Art „Briefkopf“; sie muss freigegeben sein.
+
+Vorlagen aus Notion übernehmen: Markdown-Export in den Container kopieren, dann `compose.sh exec app python manage.py vorlagen_import /pfad` (Probelauf), danach mit `--ausfuehren`. Alles kommt als Entwurf; freigeben auf der Seite „Vorlagen“.
+
+Den Lauf `versandstand_abrufen` (werktags 10 und 16 Uhr) trägt `systemd-einrichten.sh` ein.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

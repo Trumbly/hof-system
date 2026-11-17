@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block titel %}Vorlagen{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_reiter.html" %}
+<div class="kopfzeile">
+  <h1>Vorlagen</h1>
+  <a class="knopf" href="{% url 'dokumente:vorlage_neu' %}">Neue Vorlage</a>
+</div>
+<p class="leise">Vorlagen enthalten nur Platzhalter. Scharf verwenden lassen sich nur freigegebene Versionen.</p>
+{% for art, eintraege in gruppen %}
+<section class="gruppe">
+  <h2>{{ art }}</h2>
+  <ul class="posten-liste">
+    {% for v in eintraege %}
+    <li class="posten">
+      <div class="posten-kopf">
+        <a class="posten-titel" href="{% url 'dokumente:vorlage' v.pk %}">{{ v.name }}</a>
+        <span class="status status-{{ v.status }}">Version {{ v.version }} · {{ v.get_status_display }}</span>
+      </div>
+      {% if v.freigegeben_am %}<p class="leise posten-meta">freigegeben {{ v.freigegeben_am|date:"d.m.Y" }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% empty %}
+<p>Noch keine Vorlagen. Import aus Notion: <code>manage.py vorlagen_import &lt;ordner&gt; --ausfuehren</code>.</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,12 @@
+<li class="posten">
+  <div class="posten-kopf">
+    <a class="posten-titel" href="{% url 'dokumente:schreiben' s.pk %}">Schreiben #{{ s.pk }} · {{ s.art }}</a>
+    <span class="status status-{{ s.status }}">{{ s.get_status_display }}</span>
+  </div>
+  <p class="leise posten-meta">
+    {{ s.get_versandweg_display }} · Bezug: {{ s.bezug_typ.name }} #{{ s.bezug_id }}
+    {% if s.serie %} · <a href="{% url 'dokumente:serie' s.serie %}">Serie</a>{% endif %}
+    {% if s.einseitige_erklaerung and not s.ist_erledigt %} · <span class="faellig">Zustellnachweis nötig</span>{% endif %}
+    · erzeugt {{ s.erzeugt_am|date:"d.m.Y" }}
+  </p>
+</li>

@@ -9,7 +9,7 @@ import os
 os.environ.setdefault("DJANGO_ENV", "prod")
 
 from .base import *  # noqa: F403
-from .base import ALLOWED_HOSTS, MIDDLEWARE, env
+from .base import ALLOWED_HOSTS, DOKUMENTE, MIDDLEWARE, env
 
 DEBUG = False
 
@@ -39,5 +39,15 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = env.int("DJANGO_SECURE_HSTS_SECONDS", default=0)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
+
+# Versand: echte Clients. Ohne HOF_IMAP_URL bzw. LetterXpress-Zugang melden sie
+# „nicht eingerichtet“, und das Schreiben bleibt „bereit“.
+DOKUMENTE = {
+    **DOKUMENTE,
+    "IMAP_CLIENT": env.str("HOF_IMAP_CLIENT", default="apps.dokumente.versand.ImaplibClient"),
+    "BRIEF_CLIENT": env.str(
+        "HOF_BRIEF_CLIENT", default="apps.dokumente.letterxpress.LetterXpressClient"
+    ),
+}
 
 # LOGGING kommt aus base.py, mit dem Filter für Personenfelder.

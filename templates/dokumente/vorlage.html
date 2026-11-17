@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block titel %}Vorlage {{ vorlage.name }}{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_reiter.html" %}
+<h1>{{ vorlage.name }} <span class="leise">Version {{ vorlage.version }}</span></h1>
+<dl class="angaben">
+  <div><dt>Art</dt><dd>{{ vorlagenart.titel }}{% if vorlagenart.einseitige_erklaerung %} · einseitige Erklärung (Zustellnachweis Pflicht){% endif %}</dd></div>
+  <div><dt>Status</dt><dd class="status status-{{ vorlage.status }}">{{ vorlage.get_status_display }}</dd></div>
+  {% if vorlage.freigegeben_am %}<div><dt>freigegeben</dt><dd>{{ vorlage.freigegeben_am|date:"d.m.Y H:i" }} von Benutzer #{{ vorlage.freigegeben_von_id }}</dd></div>{% endif %}
+  {% if vorlage.herkunft %}<div><dt>Herkunft</dt><dd>{{ vorlage.herkunft }}</dd></div>{% endif %}
+  {% if vorlage.betreff %}<div><dt>Betreff</dt><dd><code>{{ vorlage.betreff }}</code></dd></div>{% endif %}
+</dl>
+
+<div class="aktionen">
+  <a class="knopf zweitrangig" href="{% url 'dokumente:vorlage_vorschau' vorlage.pk %}" target="_blank" rel="noopener">Vorschau als PDF</a>
+  {% if vorlage.status == "entwurf" %}
+  <a class="knopf zweitrangig" href="{% url 'dokumente:vorlage_bearbeiten' vorlage.pk %}">Bearbeiten</a>
+  <form method="post" action="{% url 'dokumente:vorlage_freigeben' vorlage.pk %}">
+    {% csrf_token %}<button type="submit">Freigeben</button>
+  </form>
+  {% else %}
+  <form method="post" action="{% url 'dokumente:vorlage_neue_version' vorlage.pk %}">
+    {% csrf_token %}<button type="submit" class="zweitrangig">Neue Version</button>
+  </form>
+  {% endif %}
+</div>
+
+<h2>Text</h2>
+<pre class="quelltext">{{ vorlage.text }}</pre>
+
+<details class="gruppe">
+  <summary>Erlaubte Platzhalter</summary>
+  <ul class="platzhalter">{% for p in platzhalter %}<li><code>{% templatetag openvariable %} {{ p }} {% templatetag closevariable %}</code></li>{% endfor %}</ul>
+  <p class="leise">Filter: euro, datum, date, linebreaksbr, default, upper, lower, title und weitere. Tags: nur if und for.</p>
+</details>
+
+{% if versionen|length > 1 %}
+<h2>Versionen</h2>
+<ul>
+  {% for v in versionen %}<li><a href="{% url 'dokumente:vorlage' v.pk %}"{% if v.pk == vorlage.pk %} aria-current="page"{% endif %}>Version {{ v.version }}</a> · {{ v.get_status_display }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

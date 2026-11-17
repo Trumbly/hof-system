@@ -1,6 +1,12 @@
 COMPOSE := docker compose -f docker-compose.dev.yml
 SERVICES := $(wildcard apps/*/services.py)
 
+# WeasyPrint (PDF) findet unter macOS die Bibliotheken aus Homebrew (brew install pango)
+# nur über diesen Pfad.
+ifeq ($(shell uname -s),Darwin)
+export DYLD_FALLBACK_LIBRARY_PATH ?= $(shell brew --prefix 2>/dev/null || echo /opt/homebrew)/lib
+endif
+
 .PHONY: dev dienste test lint fmt migrate stopp
 
 ## Postgres und Mailpit starten, migrieren, Django-Server starten
