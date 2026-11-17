@@ -1,0 +1,40 @@
+{% load static %}<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titel %}Hof-System{% endblock %} · Hof-System</title>
+  <link rel="stylesheet" href="{% static 'css/hof.css' %}">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <header class="kopf">
+    <a class="marke" href="{% url 'kern:startseite' %}">Hof-System</a>
+    <input type="checkbox" id="nav-schalter" class="nav-schalter" aria-label="Navigation öffnen">
+    <label for="nav-schalter" class="nav-knopf" aria-hidden="true">☰</label>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <ul>
+        {% block navigation %}
+        <li><a href="{% url 'kern:startseite' %}"{% if request.resolver_match.view_name == 'kern:startseite' %} aria-current="page"{% endif %}>Start</a></li>
+        {% endblock %}
+        {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Verwaltung</a></li>{% endif %}
+      </ul>
+      {% if user.is_authenticated %}
+      <form method="post" action="{% url 'admin:logout' %}" class="abmelden">
+        {% csrf_token %}
+        <button type="submit">Abmelden</button>
+      </form>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="inhalt">
+    {% if messages %}
+    <ul class="meldungen">
+      {% for meldung in messages %}<li class="meldung meldung-{{ meldung.tags }}">{{ meldung }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% block inhalt %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,61 @@
+[project]
+name = "hof-system"
+version = "0.1.0"
+description = "Hof-System des Hofs Noelle-Wying"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "django>=5.2,<6",
+    "django-environ>=0.14.0",
+    "psycopg[binary]>=3.3.9",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "django-stubs>=5.2,<5.3",
+    "mypy>=2.4.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.5",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "hof.settings.test"
+pythonpath = ["."]
+testpaths = ["tests", "apps"]
+python_files = ["test_*.py"]
+addopts = "--strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["static", "staticfiles"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "DJ", "S", "SIM", "RUF"]
+ignore = [
+    "RUF001",  # Umlaute und typografische Zeichen in Texten sind gewollt
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S106"]
+"**/migrations/**" = ["E501", "RUF012"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hof", "apps", "testhof"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "."
+explicit_package_bases = true
+
+[tool.django-stubs]
+django_settings_module = "hof.settings.test"

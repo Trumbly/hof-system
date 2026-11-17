@@ -1,0 +1,36 @@
+# Prüfungen vor jedem Commit. Einrichten mit: uv run pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: '\.min\.js$'  # vendorte Bibliotheken bleiben unverändert
+      - id: trailing-whitespace
+        exclude: '\.min\.js$'
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.5
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      # KI-Grenze: Echtdaten gehören nie ins Repository (CLAUDE.md, Abschnitt 1).
+      - id: keine-echtdaten
+        name: keine Datenordner und CSV-Dateien außerhalb von tests/fixtures und testhof
+        entry: "Diese Datei darf nicht ins Repository (Datenordner oder CSV). Testdaten nur über tests/fixtures/ oder testhof/."
+        language: fail
+        files: '^(data|import|backups)/|\.csv$'
+        exclude: '^(tests/fixtures|testhof)/'
