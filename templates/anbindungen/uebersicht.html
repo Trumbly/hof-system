@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% load anbindungen %}
+
+{% block titel %}Anbindungen{% endblock %}
+
+{% block inhalt %}
+<h1>Anbindungen</h1>
+{% include "anbindungen/_unternavigation.html" %}
+<ul class="kacheln">
+  <li><a class="kachel" href="{% url 'anbindungen:anfragen' %}"><strong>{{ anfragen_offen }}</strong> offene Buchungsanfragen von der Website</a></li>
+  <li><a class="kachel" href="{% url 'anbindungen:vermarktung' %}"><strong>{{ im_katalog }}</strong> von {{ vermarktet }} vermarkteten Einheiten im Katalog der Website</a></li>
+  <li><a class="kachel" href="{% url 'anbindungen:abweichungen' %}"><strong>{{ abweichungen_offen }}</strong> offene ID-Abweichungen</a></li>
+  {% kachel_wohnraum %}
+</ul>
+<p class="leise">Die Website liest den Katalog über <code>/api/website/katalog</code> und meldet Buchungen und Kündigungen über <code>/api/website/ereignis</code> (Token: <code>manage.py website_token</code>). Verwaltio liefert nachts nur Kennzahlen mit NW-ID.</p>
+{% endblock %}

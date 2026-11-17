@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load anbindungen %}
 
 {% block titel %}Start{% endblock %}
 
@@ -9,6 +10,7 @@
   <li><a class="kachel" href="{% url 'kern:laeufe' %}">Letzter Lauf:
     {% if letzter_lauf %}<strong>{{ letzter_lauf.name }}</strong>, <span class="status status-{{ letzter_lauf.status }}">{{ letzter_lauf.get_status_display }}</span>{% else %}noch keiner{% endif %}</a></li>
   <li><a class="kachel" href="{% url 'kern:protokoll' %}">Protokoll aller Änderungen</a></li>
+  {% kachel_wohnraum %}
 </ul>
 <h2>Objekte</h2>
 {% if objekte %}

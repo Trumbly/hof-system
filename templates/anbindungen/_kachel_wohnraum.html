@@ -1,0 +1,13 @@
+{# Kachel „Wohnraum“ (V12): nur Zähler, Summen und Daten aus Verwaltio, keine Namen. #}
+<li id="kachel-wohnraum"><a class="kachel" href="{% url 'anbindungen:kennzahlen' %}">
+  <strong>Wohnraum</strong>
+  {% if wohnraum.stand %}
+  <span class="leise">Stand {{ wohnraum.stand|date:"d.m.Y" }}{% if wohnraum.veraltet %} (veraltet){% endif %}, {{ wohnraum.mit_kennzahl }} von {{ wohnraum.wohneinheiten }} Wohnungen</span><br>
+  Offene Posten: <strong>{{ wohnraum.offene_posten }} €</strong><br>
+  Mahnfälle: <strong>{{ wohnraum.mahnfaelle }}</strong>{% if wohnraum.einheiten_mit_mahnung %} <span class="leise">({{ wohnraum.einheiten_mit_mahnung }} Wohnung{{ wohnraum.einheiten_mit_mahnung|pluralize:"en" }})</span>{% endif %}<br>
+  NKA{% if wohnraum.nka_jahr %} {{ wohnraum.nka_jahr }}{% endif %}: {% for titel, anzahl in wohnraum.nka %}{{ anzahl }} {{ titel }}{% if not forloop.last %}, {% endif %}{% empty %}–{% endfor %}<br>
+  Fristen: <strong>{{ wohnraum.fristen_offen }}</strong> offen{% if wohnraum.naechste_frist %}, nächste am {{ wohnraum.naechste_frist|date:"d.m.Y" }}{% endif %}
+  {% else %}
+  <span class="leise">Noch keine Kennzahlen aus Verwaltio (Lauf verwaltio_kennzahlen).</span>
+  {% endif %}
+</a></li>

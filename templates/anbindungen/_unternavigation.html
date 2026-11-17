@@ -1,0 +1,9 @@
+{% with name=request.resolver_match.url_name %}
+<nav class="reiter" aria-label="Anbindungen">
+  <a href="{% url 'anbindungen:uebersicht' %}"{% if name == 'uebersicht' %} aria-current="page"{% endif %}>Übersicht</a>
+  <a href="{% url 'anbindungen:anfragen' %}"{% if name == 'anfragen' or name == 'anfrage' %} aria-current="page"{% endif %}>Buchungsanfragen</a>
+  <a href="{% url 'anbindungen:vermarktung' %}"{% if name == 'vermarktung' or name == 'bilder' %} aria-current="page"{% endif %}>Katalog</a>
+  <a href="{% url 'anbindungen:kennzahlen' %}"{% if name == 'kennzahlen' %} aria-current="page"{% endif %}>Kennzahlen Wohnraum</a>
+  <a href="{% url 'anbindungen:abweichungen' %}"{% if name == 'abweichungen' %} aria-current="page"{% endif %}>ID-Abweichungen</a>
+</nav>
+{% endwith %}

@@ -1,21 +1,27 @@
 """Standardablauf 1: Neuvermietung außerhalb von Wohnraum (Prozessliste), mit dem Testhof.
 
 Ergebnis laut Prozessliste: ein aktiver Vertrag mit laufender Sollstellung. Gebaut ist
-alles außer Bankerkennung der Kaution (Schritt 6) und Meldung an die Website (Schritt 10).
-Diese Teile stehen unten als ``xfail`` mit Grund.
+alles außer Bankerkennung der Kaution (Schritt 6). Dieser Teil steht unten als ``xfail`` mit
+Grund. Die Belegung auf der Website (Schritt 10) prüft
+``test_standardablauf_1_belegung_an_website``.
 """
 
 from __future__ import annotations
 
 import datetime
 import importlib
+import json
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
+from apps.anbindungen import services as anbindungen
+from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
 from apps.soll import services as soll
@@ -184,6 +190,52 @@ def test_standardablauf_1_kaution_aus_bank() -> None:
     importlib.import_module("apps.abgleich.services")
 
 
-@pytest.mark.xfail(reason="Schritt 10: Die Belegung geht an die Website.")
-def test_standardablauf_1_belegung_an_website() -> None:
-    importlib.import_module("apps.anbindungen.services")
+def test_standardablauf_1_belegung_an_website(testhof: Testhof) -> None:
+    """Abnahme Schritt 10 (Standardablauf 1, Schritte 2–4): Die freie Einheit steht mit Preis
+    im Katalog der Website; eine Buchung dort erscheint als Anfrage an der Einheit; mit dem
+    Vertrag (von Hand) verschwindet sie aus dem Katalog."""
+    einheit = _freie_garage(testhof)
+    website = Client(HTTP_AUTHORIZATION=f"Bearer {anbindungen.website_token_erzeugen()}")
+
+    def katalog() -> dict[str, dict[str, Any]]:
+        antwort = website.get(reverse("anbindungen:katalog"))
+        assert antwort.status_code == 200
+        return {e["nw_id"]: e for e in antwort.json()["einheiten"]}
+
+    # 1. Die Einheit ist frei und steht mit Zielmiete und frei ab heute im Katalog.
+    eintrag = katalog()[einheit.nw_id]
+    ziel = einheit.zielmiete_am(timezone.localdate())
+    assert ziel is not None
+    assert eintrag["preis_monat"] == str(ziel.betrag)
+    assert eintrag["frei_ab"] == timezone.localdate().isoformat()
+
+    # 2.–3. Interessent bucht auf der Website: Anfrage an der Einheit, Arbeitsposten.
+    antwort = website.post(
+        reverse("anbindungen:ereignis"),
+        data=json.dumps(
+            {
+                "ereignis_id": "web-ablauf-1",
+                "art": "buchung",
+                "nw_id": einheit.nw_id,
+                "zeitpunkt": "2026-11-20T09:00:00+01:00",
+                "wunsch_ab": BEGINN.isoformat(),
+                "kontakt": {"name": "Nora Testmieterin", "email": "nora@testhof.invalid"},
+            }
+        ),
+        content_type="application/json",
+    )
+    assert antwort.status_code == 201
+    anfrage = Buchungsanfrage.objects.get(ereignis_id="web-ablauf-1")
+    assert anfrage.einheit == einheit
+    assert posten(anbindungen.ART_BUCHUNGSANFRAGE, anfrage, status="offen")
+
+    # 4. Du legst den Vertrag von Hand an und vermerkst ihn an der Anfrage.
+    vertrag = services.vertrag_anlegen(
+        einheiten=[einheit],
+        mieter=[services.partei_anlegen("person", vorname="Nora", nachname="Testmieterin")],
+        beginn=BEGINN,
+        miete=Decimal("89.00"),
+    )
+    anbindungen.buchungsanfrage_entscheiden(anfrage, "vertrag_angelegt", vertrag=vertrag)
+    assert einheit.nw_id not in katalog()
+    assert not posten(anbindungen.ART_BUCHUNGSANFRAGE, anfrage, status="offen")

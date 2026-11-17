@@ -201,6 +201,15 @@ Weichen die Spaltenköpfe ab, wird nur `apps/stammdaten/import_spalten.toml` ang
 3. Soll bis Dezember stellen: `compose.sh exec app python manage.py soll_monat --stichtag 2026-12-01`.
 4. Vergleich mit dem Soll-Export aus HelloHousing (CSV in den Container kopieren): `compose.sh exec app python manage.py soll_vergleich --export /pfad/soll.csv --von 2026-07-01 --bis 2026-12-31`. Der Bericht nennt je Vertrag nur Zähler, Vertragsnummer und NW-ID und darf mit Claude geteilt werden; danach die Datei löschen. Weichen die Spaltenköpfe ab, wird nur der Abschnitt `[vergleich_hellohousing]` in `apps/soll/konfiguration.toml` angepasst.
 
+## Website und Verwaltio (Schritt 10)
+
+Schnittstelle und Checkliste für die Website: `docs/website-anbindung.md`.
+
+- **Token der Website:** `compose.sh exec app python manage.py website_token --bezeichnung "Website-Server"`. Der Token erscheint einmal; auf dem Website-Server als `HOF_API_TOKEN` eintragen. Wechsel ohne Ausfall mit `--behalten`, alle sperren mit `--sperren`.
+- **Einstellungen** in `/opt/hof/.env`: `HOF_WEBSITE_URL` und `HOF_WEBSITE_TOKEN` (für den ID-Abgleich, Endpunkt `/api/hof/einheiten` der Website), optional `HOF_WEBSITE_IP_FREIGABE` (Tailscale-IP des Website-Servers), `VERWALTIO_URL` und `VERWALTIO_TOKEN`.
+- **Läufe:** `verwaltio_kennzahlen` (3:15) und `id_abgleich` (5:30). Ohne Einstellungen melden sie „nicht eingerichtet“ und enden ohne Fehler. Der echte Verwaltio-Client ist offen, bis die API-Dokumentation vorliegt; mit gesetzter `VERWALTIO_URL` bricht `verwaltio_kennzahlen` bis dahin mit `NotImplementedError` ab.
+- **Arbeitsposten:** „Buchungsanfrage prüfen“ (Seite „Anbindungen → Buchungsanfragen“) und „ID-Abweichung“ (schließt sich beim nächsten Lauf, sobald behoben). Beide melden sich über die Benachrichtigung.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

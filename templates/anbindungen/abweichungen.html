@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block titel %}ID-Abweichungen{% endblock %}
+
+{% block inhalt %}
+<h1>ID-Abweichungen</h1>
+{% include "anbindungen/_unternavigation.html" %}
+<p class="leise">Der Lauf <code>id_abgleich</code> vergleicht täglich die NW-IDs auf der Website und in Verwaltio mit dem Hof-System. Die NW-ID entsteht hier; behebe die Abweichung in der Quelle, dann schließt sie sich beim nächsten Lauf.</p>
+<h2>Offen ({{ offen|length }})</h2>
+<div class="tabelle-rahmen">
+<table class="karten">
+  <thead><tr><th>Quelle</th><th>NW-ID</th><th>Art</th><th>Wert in der Quelle</th><th>erkannt</th><th>zuletzt gesehen</th></tr></thead>
+  <tbody>
+  {% for a in offen %}
+  <tr id="abweichung-{{ a.pk }}">
+    <td data-titel="Quelle">{{ a.get_quelle_display }}</td>
+    <td data-titel="NW-ID">{{ a.nw_id }}</td>
+    <td data-titel="Art">{{ a.get_art_display }}</td>
+    <td data-titel="Wert in der Quelle">{{ a.gemeldet|default:"–" }}</td>
+    <td data-titel="erkannt">{{ a.erkannt_am|date:"d.m.Y" }}</td>
+    <td data-titel="zuletzt gesehen">{{ a.zuletzt_gesehen_am|date:"d.m.Y" }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6">Keine offenen Abweichungen.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if behoben %}
+<h2>Behoben</h2>
+<ul>{% for a in behoben %}<li id="abweichung-{{ a.pk }}">{{ a.get_quelle_display }} · {{ a.nw_id }} · {{ a.get_art_display }} · behoben am {{ a.behoben_am|date:"d.m.Y" }}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}
