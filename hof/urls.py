@@ -12,5 +12,6 @@ admin.site.site_header = "Hof-System · Verwaltung"
 urlpatterns = [
     path("verwaltung/", admin.site.urls),
     path("konto/", include("allauth.urls")),
+    path("", include("apps.bank.urls")),
     path("", include("apps.kern.urls")),
 ]

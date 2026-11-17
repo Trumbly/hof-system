@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block titel %}Import{% endblock %}
+
+{% block inhalt %}
+<h1>Import alter Umsätze</h1>
+{% include "bank/_unternavigation.html" %}
+<p class="leise">Erst ein Probelauf: Er zählt nur und ändert nichts. Übernommen werden Tage vor dem ersten Abruf des Kontos; Doppelte erkennt der Fingerabdruck.</p>
+
+{% if bericht %}
+<section class="gruppe" aria-labelledby="bericht">
+  <h2 id="bericht">{% if bericht.ausgefuehrt %}Ergebnis{% else %}Probelauf{% endif %}</h2>
+  <ul id="import-bericht">
+    {% for zeile in bericht.zeilen_text %}<li>{{ zeile }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if vorgemerkt %}
+<form method="post" class="formular">
+  {% csrf_token %}
+  <input type="hidden" name="schritt" value="ausfuehren">
+  <input type="hidden" name="pruefsumme" value="{{ vorgemerkt.pruefsumme }}">
+  <button type="submit">Ausführen</button>
+</form>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="formular">
+  {% csrf_token %}
+  <input type="hidden" name="schritt" value="pruefen">
+  {{ form.as_p }}
+  <button type="submit"{% if vorgemerkt %} class="zweitrangig"{% endif %}>Probelauf</button>
+</form>
+{% endblock %}

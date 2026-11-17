@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "pgtrigger",
     "pghistory",
     "apps.kern",
+    "apps.bank",
 ]
 
 MIDDLEWARE = [
@@ -120,6 +121,19 @@ MEDIA_ROOT = env.path("DJANGO_MEDIA_ROOT", default=BASE_DIR / "media")
 
 # Ausgerollte Version (Git-Tag), gesetzt von scripts/deploy.sh. Zeigt der Endpunkt /gesund.
 HOF_VERSION = env.str("HOF_VERSION", default="unbekannt")
+
+# Bank: Enable Banking für Vivid (PSD2, nur lesend). Der Client ist austauschbar; in
+# Entwicklung und Tests steht hier der Fake (hof/settings/dev.py, test.py).
+HOF_BANK_CLIENT = env.str("HOF_BANK_CLIENT", default="apps.bank.enablebanking.EnableBankingClient")
+ENABLE_BANKING_APP_ID = env.str("ENABLE_BANKING_APP_ID", default="")
+# Pfad zum privaten Schlüssel der App (PEM), auf dem Server außerhalb des Images.
+ENABLE_BANKING_SCHLUESSEL = env.str("ENABLE_BANKING_SCHLUESSEL", default="")
+ENABLE_BANKING_URL = env.str("ENABLE_BANKING_URL", default="https://api.enablebanking.com")
+# Rückkehr-Adresse nach der Freigabe; leer: aus der Anfrage (…/bank/freigabe/rueckkehr/).
+# Muss genau so in der App bei Enable Banking eingetragen sein.
+ENABLE_BANKING_REDIRECT_URL = env.str("ENABLE_BANKING_REDIRECT_URL", default="")
+ENABLE_BANKING_LAND = env.str("ENABLE_BANKING_LAND", default="DE")
+ENABLE_BANKING_FREIGABE_TAGE = env.int("ENABLE_BANKING_FREIGABE_TAGE", default=180)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

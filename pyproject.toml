@@ -10,7 +10,9 @@ dependencies = [
     "django-environ>=0.14.0",
     "django-pghistory>=3.9.2",
     "gunicorn>=27.0.1",
+    "httpx>=0.28.1",
     "psycopg[binary]>=3.3.9",
+    "pyjwt[crypto]>=2.15.1",
     "whitenoise>=6.12.0",
 ]
 

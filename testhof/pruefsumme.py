@@ -36,8 +36,9 @@ from django.utils import timezone
 PROTOKOLL_APPS = frozenset({"pghistory", "sessions", "admin"})
 #: Einzelne Modelle, die selbst ein Protokoll sind.
 PROTOKOLL_MODELLE = frozenset({"kern.Lauf"})
-#: Felder, die die Uhr bei Nutzung setzt (nicht über einen Standardwert erkennbar).
-UHR_FELDER = frozenset({"last_login", "last_used_at"})
+#: Felder, die die Uhr bei Nutzung setzt (nicht über einen Standardwert erkennbar), etwa
+#: das Ende eines Bankabrufs.
+UHR_FELDER = frozenset({"last_login", "last_used_at", "beendet_am"})
 #: Felder mit absichtlichem Zufall (Modell-Label, Feld).
 ZUFALLS_FELDER = frozenset({("kern.Benutzer", "password")})
 
