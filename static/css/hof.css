@@ -748,3 +748,35 @@ tr.aktuell {
 .bericht .summe td {
   font-weight: 700;
 }
+
+/* Offene Posten (Sollstellung) */
+
+@media (min-width: 48rem) {
+  .filter-soll {
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    align-items: end;
+  }
+}
+
+.filter-soll label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.filter-soll input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.soll-ueberfaellig {
+  border-left: 4px solid var(--fehler);
+}
+
+.posten-storniert {
+  opacity: 0.7;
+  text-decoration: line-through;
+}

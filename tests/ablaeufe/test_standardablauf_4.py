@@ -1,8 +1,8 @@
 """Standardablauf 4: Kündigung und Rückgabe (Prozessliste), mit dem Testhof.
 
-Ergebnis laut Prozessliste: Die Einheit ist frei, die Kaution abgerechnet. Offen bis zu
-ihren Schritten: Ende des Solls (5), offene Posten in der Kautionsabrechnung (5/6) und
-Meldung an die Website (10).
+Ergebnis laut Prozessliste: Die Einheit ist frei, die Kaution abgerechnet, das Soll endet
+zum Fristende (Schritt 5). Offen bis zu ihren Schritten: offene Posten in der
+Kautionsabrechnung (6) und Meldung an die Website (10).
 """
 
 from __future__ import annotations
@@ -12,12 +12,15 @@ import importlib
 from decimal import Decimal
 
 import pytest
+from django.db import models
 from django.test import Client
 from django.urls import reverse
 
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
+from apps.soll import services as soll
+from apps.soll.models import Sollposten
 from apps.stammdaten import services
 from apps.stammdaten.models import Checkliste, Einheit, Kaution, Kuendigung, Uebergabe, Vertrag
 from testhof.aufbau import Testhof
@@ -84,6 +87,8 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     assert frist.hinweis.startswith("Rückgabetermin")
     (fristende,) = fristen.fristen_zu(kuendigung, nur_offen=True)
     assert (fristende.art, fristende.datum) == (Frist.Art.KUENDIGUNG, FRISTENDE)
+    # Das Soll endet zum Fristende (Schritt 5).
+    assert not _soll(vertrag).filter(bis__gt=FRISTENDE).exists()
 
     # 3. Vor Ort: Rückgabe mit Protokoll, Fotos, Zählerstand und allen Schlüsseln.
     angemeldet.post(reverse("stammdaten:uebergabe_starten", args=[vertrag.pk, "rueckgabe"]))
@@ -138,9 +143,25 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     assert einheit.checklisten.filter(phase=Checkliste.Phase.VORBEREITUNG).exists()
 
 
-@pytest.mark.xfail(reason="Schritt 5: Das Soll endet zum Vertragsende (App soll).")
-def test_standardablauf_4_soll_endet() -> None:
-    importlib.import_module("apps.soll.services")
+def _soll(vertrag: Vertrag) -> models.QuerySet[Sollposten]:
+    return Sollposten.objects.filter(vertrag=vertrag, art="miete").exclude(status="storniert")
+
+
+def test_standardablauf_4_soll_endet(testhof: Testhof, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Abnahme Schritt 5 (Standardablauf 4): Die Kündigung beendet das Soll zum Fristende;
+    schon gestellte offene Posten danach werden storniert."""
+    monkeypatch.setattr(soll, "heute", lambda: ZUGANG)
+    vertrag = _garagenvertrag(testhof)
+    soll.sollstellung_erzeugen(vertrag, D(2027, 6, 30))
+    assert _soll(vertrag).order_by("von").last().von == D(2027, 6, 1)  # type: ignore[union-attr]
+
+    services.kuendigung_erfassen(vertrag, ZUGANG)
+
+    letzter = _soll(vertrag).order_by("von").last()
+    assert letzter is not None and (letzter.von, letzter.bis) == (D(2027, 1, 1), FRISTENDE)
+    storniert = Sollposten.objects.filter(vertrag=vertrag, status="storniert")
+    assert sorted(p.von for p in storniert) == [D(2027, m, 1) for m in range(2, 7)]
+    assert soll.sollstellung_erzeugen(vertrag, D(2027, 12, 31)).neu == []
 
 
 @pytest.mark.xfail(reason="Schritt 10: Die freie Einheit wird an die Website gemeldet.")

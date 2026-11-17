@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block titel %}Offene Posten {{ vertrag.nummer }}{% endblock %}
+
+{% block inhalt %}
+<h1>Offene Posten <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
+<p class="leise"><a href="{% url 'stammdaten:vertrag' vertrag.pk %}">Zum Vertrag</a> · {{ vertrag.get_status_display }} · {% for e in einheiten %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · {{ vertrag.beginn|date:"d.m.Y" }} bis {{ vertrag.ende|date:"d.m.Y"|default:"auf unbestimmte Zeit" }}</p>
+<ul class="kennzahlen">
+  <li>Offen: <strong>{{ summe_offen }} €</strong> in {{ offen|length }} Posten</li>
+  <li>Fälligkeit: {% if faelligkeit.art == "werktag" %}{{ faelligkeit.tag }}. Werktag des Monats{% else %}am {{ faelligkeit.tag }}. des Monats{% endif %}</li>
+  <li>Soll im Hof-System ab: {{ soll_ab|date:"d.m.Y"|default:"Vertragsbeginn" }}</li>
+</ul>
+
+<div class="aktionen">
+  <form method="post">{% csrf_token %}<input type="hidden" name="aktion" value="neu_stellen"><button type="submit" class="zweitrangig">Soll neu stellen</button></form>
+  <a class="knopf zweitrangig" href="{% url 'soll:liste' %}">Alle offenen Posten</a>
+</div>
+
+<section id="offen">
+  <h2>Offen</h2>
+  {% include "soll/_tabelle.html" with posten=offen mit_storno=True %}
+</section>
+
+<section id="erledigt">
+  <details>
+    <summary>Bezahlt und storniert ({{ erledigt|length }})</summary>
+    {% include "soll/_tabelle.html" with posten=erledigt %}
+  </details>
+</section>
+
+<section id="regel">
+  <h2>Fälligkeit und Beginn</h2>
+  <p class="leise">Gilt für diesen Vertrag statt des Standards. Offene Posten, die danach anders fällig sind, werden storniert und neu gestellt.</p>
+  {% include "stammdaten/_formular.html" with form=regel_form aktion="regel" %}
+</section>
+
+<section id="posten">
+  <h2>Posten von Hand</h2>
+  <p class="leise">Kaution oder Sonstiges. Miete und Pauschale entstehen aus den Konditionen.</p>
+  {% include "stammdaten/_formular.html" with form=posten_form aktion="posten" knopf="Posten anlegen" %}
+</section>
+{% endblock %}

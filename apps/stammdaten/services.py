@@ -143,6 +143,17 @@ def _fristen_erledigen(bezug: models.Model, am: datetime.date) -> None:
         fristen.frist_erledigen(frist, min(am, heute))
 
 
+def _soll_aktualisieren(vertrag: Vertrag) -> None:
+    """Meldet eine Änderung am Vertrag an die Sollstellung (Schritt 5).
+
+    Der eine Haken dafür: Kondition, Laufzeit, Kündigung, Übergabe und Rückgabe rufen ihn
+    auf. Rückwirkende Änderungen stornieren offene Posten und erzeugen neue.
+    """
+    from apps.soll import services as soll
+
+    soll.vertrag_geaendert(vertrag)
+
+
 # --- Zeitreihen ----------------------------------------------------------------------
 
 
@@ -515,6 +526,7 @@ def vertrag_anlegen(
         if status == Vertrag.Status.AKTIV:
             for einheit in einheiten:
                 _vermietet_ab(einheit, beginn)
+            _soll_aktualisieren(vertrag)
     logger.debug("Vertrag %s angelegt (%s)", vertrag.nummer, vertrag.status)
     return vertrag
 
@@ -554,7 +566,10 @@ def vertrag_aendern(vertrag: Vertrag, **felder: Any) -> Vertrag:
     _setzen(vertrag, felder, VERTRAG_FELDER)
     if {"beginn", "ende"} & set(felder) and vertrag.status in BINDENDE_STATUS:
         _einheiten_frei(list(vertrag.einheiten.all()), vertrag.beginn, vertrag.ende, ausser=vertrag)
-    _speichern(vertrag)
+    with transaction.atomic():
+        _speichern(vertrag)
+        if {"beginn", "ende"} & set(felder):
+            _soll_aktualisieren(vertrag)
     return vertrag
 
 
@@ -614,7 +629,9 @@ def kondition_ab(
         gueltig_ab=gueltig_ab,
     )
     with transaction.atomic():
-        return _zeitreihe_einfuegen(vertrag.konditionen.all(), kondition, gueltig_ab)
+        kondition = _zeitreihe_einfuegen(vertrag.konditionen.all(), kondition, gueltig_ab)
+        _soll_aktualisieren(vertrag)
+    return kondition
 
 
 def vertrag_unterschrieben(
@@ -711,6 +728,7 @@ def kuendigung_erfassen(
             datum_angleichen=True,
         )
         checkliste_anlegen(Checkliste.Phase.RUECKGABE, vertrag=vertrag)
+        _soll_aktualisieren(vertrag)  # das Soll endet zum Fristende
     logger.debug("Kündigung #%s für Vertrag %s, Fristende %s", kuendigung.pk, vertrag.nummer, ende)
     return kuendigung
 
@@ -1045,7 +1063,7 @@ def uebergabe_abschliessen(uebergabe: Uebergabe) -> Uebergabe:
     """Schließt Übergabe oder Rückgabe ab.
 
     - Übergabe (Standardablauf 1, Schritt 8): Schlüssel an den Mieter, Vertrag aktiv,
-      Einheiten vermietet ab dem Datum; damit beginnt ab Schritt 5 die Sollstellung.
+      Einheiten vermietet ab dem Datum; damit beginnt die Sollstellung (apps.soll).
     - Rückgabe (Standardablauf 4, Schritt 4): Schlüssel zurück an den Hof (Fehlendes wird
       ein Arbeitsposten), Einheiten frei ab dem Datum, Vertrag beendet, Kautionsabrechnung
       als Arbeitsposten mit Frist, Checkliste für die Neuvermietung.
@@ -1098,6 +1116,7 @@ def _uebergabe_abschliessen(uebergabe: Uebergabe) -> None:
     _speichern(vertrag)
     for einheit in vertrag.einheiten.all():
         _vermietet_ab(einheit, uebergabe.datum)
+    _soll_aktualisieren(vertrag)  # die Sollstellung beginnt
     if vertrag.ende is not None:
         fristen.frist_anlegen(
             Frist.Art.VERTRAGSENDE,
@@ -1144,6 +1163,7 @@ def _rueckgabe_abschliessen(uebergabe: Uebergabe) -> None:
         vertrag.ende = datum
     vertrag.status = Vertrag.Status.BEENDET
     _speichern(vertrag)
+    _soll_aktualisieren(vertrag)
     _fristen_erledigen(vertrag, datum)
     for kuendigung in vertrag.kuendigungen.all():
         _fristen_erledigen(kuendigung, datum)

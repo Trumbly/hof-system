@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.dokumente",
     "apps.kassenbuch",
     "apps.stammdaten",
+    "apps.soll",
 ]
 
 MIDDLEWARE = [
@@ -146,6 +147,12 @@ ENABLE_BANKING_FREIGABE_TAGE = env.int("ENABLE_BANKING_FREIGABE_TAGE", default=1
 _kassenbuch_beginn = env.str("HOF_KASSENBUCH_BEGINN", default="")
 KASSENBUCH_BEGINN = date.fromisoformat(_kassenbuch_beginn) if _kassenbuch_beginn else None
 
+# Sollstellung: erster Tag, ab dem das Hof-System das Soll führt. Perioden, die früher
+# beginnen, führt das alte System (HelloHousing); leer: ab Vertragsbeginn. Je Vertrag
+# abweichend über die Sollregel. Vorschlag für den Server: 2026-07-01 (Vergleich ab Juli).
+_soll_beginn = env.str("HOF_SOLL_BEGINN", default="")
+SOLL_BEGINN = date.fromisoformat(_soll_beginn) if _soll_beginn else None
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Setzt EMAIL_BACKEND, EMAIL_HOST, EMAIL_PORT usw. aus einer URL (Muster aus django-environ).
@@ -182,6 +189,8 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         # meldet sich über ihre Frist („Frist fällig“).
         "Schreiben erstellen",
         "Schlüssel fehlt",
+        # Sollstellung (apps.soll.services, ART_*)
+        "Sollposten prüfen",
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",

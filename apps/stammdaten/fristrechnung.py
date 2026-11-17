@@ -1,6 +1,10 @@
 """Rechnen mit Daten: Werktage, Monats- und Quartalsenden, Fristende einer Kündigung.
 
 Reine Funktionen ohne Datenbank. Die Regeln kommen aus ``konfiguration.toml``.
+
+Das ist die eine Stelle für Werktage und Feiertage im Hof-System: die Kündigungsfristen
+(nur bundesweite Feiertage, siehe ``konfiguration.toml``) und die Fälligkeit der Sollposten
+(mit den Feiertagen in NRW, ``apps.soll``) rechnen beide hiermit.
 """
 
 from __future__ import annotations
@@ -45,24 +49,69 @@ def bundesweite_feiertage(jahr: int) -> frozenset[datetime.date]:
     )
 
 
-def ist_werktag(datum: datetime.date, konfiguration: Konfiguration | None = None) -> bool:
+def _landesfeiertage_nw(jahr: int) -> frozenset[datetime.date]:
+    ostern = ostersonntag(jahr)
+    return frozenset(
+        {
+            ostern + datetime.timedelta(days=60),  # Fronleichnam
+            datetime.date(jahr, 11, 1),  # Allerheiligen
+        }
+    )
+
+
+#: Gesetzliche Feiertage je Land zusätzlich zu den bundesweiten (Kürzel wie ISO 3166-2:DE).
+LANDESFEIERTAGE = {"NW": _landesfeiertage_nw}
+
+
+def feiertage(jahr: int, land: str | None = None) -> frozenset[datetime.date]:
+    """Gesetzliche Feiertage eines Jahres: bundesweit, mit ``land`` auch die des Landes."""
+    tage = bundesweite_feiertage(jahr)
+    if land is None:
+        return tage
+    if land not in LANDESFEIERTAGE:
+        raise ValueError(f"Feiertage für das Land {land} sind nicht hinterlegt.")
+    return tage | LANDESFEIERTAGE[land](jahr)
+
+
+def ist_werktag(
+    datum: datetime.date,
+    konfiguration: Konfiguration | None = None,
+    *,
+    land: str | None = None,
+    samstag_ist_werktag: bool | None = None,
+) -> bool:
+    """Montag bis Freitag (oder Samstag, je nach Einstellung) ohne Feiertage.
+
+    Ohne Angaben gelten die Einstellungen der Kündigung aus ``konfiguration.toml``
+    (bundesweite Feiertage und ``zusaetzliche_feiertage``). ``land`` nimmt die Feiertage des
+    Landes dazu, ``samstag_ist_werktag`` übersteuert die Einstellung zum Samstag.
+    """
     konfiguration = konfiguration or laden()
-    letzter_werktag = 5 if konfiguration.samstag_ist_werktag else 4  # 0 = Montag
+    if samstag_ist_werktag is None:
+        samstag_ist_werktag = konfiguration.samstag_ist_werktag
+    letzter_werktag = 5 if samstag_ist_werktag else 4  # 0 = Montag
     if datum.weekday() > letzter_werktag:
         return False
-    if datum in bundesweite_feiertage(datum.year):
+    if datum in feiertage(datum.year, land):
         return False
     return datum not in konfiguration.zusaetzliche_feiertage
 
 
 def nter_werktag(
-    beginn: datetime.date, n: int, konfiguration: Konfiguration | None = None
+    beginn: datetime.date,
+    n: int,
+    konfiguration: Konfiguration | None = None,
+    *,
+    land: str | None = None,
+    samstag_ist_werktag: bool | None = None,
 ) -> datetime.date:
     """Der n-te Werktag ab ``beginn`` (``beginn`` mitgezählt, wenn Werktag)."""
+    if n < 1:
+        raise ValueError("n muss mindestens 1 sein.")
     tag = beginn
     gezaehlt = 0
     while True:
-        if ist_werktag(tag, konfiguration):
+        if ist_werktag(tag, konfiguration, land=land, samstag_ist_werktag=samstag_ist_werktag):
             gezaehlt += 1
             if gezaehlt == n:
                 return tag

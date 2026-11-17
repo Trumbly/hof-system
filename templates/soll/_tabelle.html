@@ -1,0 +1,25 @@
+<div class="tabelle-rahmen"><table class="karten sollposten">
+  <thead><tr>{% if mit_vertrag %}<th>Vertrag</th>{% endif %}<th>Art</th><th>Zeitraum</th><th>fällig</th><th class="zahl-rechts">Betrag</th><th class="zahl-rechts">offen</th><th>Status</th>{% if mit_storno %}<th>Aktion</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for p in posten %}
+  <tr id="posten-{{ p.pk }}" class="posten-{{ p.status }}{% if p.offen and p.faellig_am < heute %} soll-ueberfaellig{% endif %}">
+    {% if mit_vertrag %}<td data-titel="Vertrag"><a href="{% url 'soll:vertrag' p.vertrag_id %}">{{ p.vertrag.nummer }}</a> <span class="leise">{% for e in p.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>{% endif %}
+    <td data-titel="Art">{{ p.get_art_display }}{% if p.bezeichnung %} <span class="leise">{{ p.bezeichnung }}</span>{% endif %}</td>
+    <td data-titel="Zeitraum">{{ p.zeitraum_text }}</td>
+    <td data-titel="fällig">{{ p.faellig_am|date:"d.m.Y" }}</td>
+    <td data-titel="Betrag" class="zahl-rechts">{{ p.betrag }} €{% if p.steuer %} <span class="leise">inkl. {{ p.steuer }} € USt</span>{% endif %}</td>
+    <td data-titel="offen" class="zahl-rechts">{{ p.offen }} €</td>
+    <td data-titel="Status">{{ p.get_status_display }}{% if p.status == "storniert" %} <span class="leise">{{ p.storniert_am|date:"d.m.Y" }}</span>{% endif %}{% if p.ersetzt_id %} <span class="leise">ersetzt #{{ p.ersetzt_id }}</span>{% endif %}</td>
+    {% if mit_storno %}<td data-titel="Aktion">{% if p.status == "offen" and not p.bezahlt %}
+      <details><summary>Stornieren</summary>
+        <form method="post" action="{% url 'soll:stornieren' p.pk %}" class="formular">{% csrf_token %}
+          <p><label for="grund-{{ p.pk }}">Grund</label> <input id="grund-{{ p.pk }}" name="grund" maxlength="200" required></p>
+          <button type="submit" class="zweitrangig">Posten #{{ p.pk }} stornieren</button>
+        </form>
+      </details>{% endif %}</td>{% endif %}
+  </tr>
+  {% empty %}
+  <tr><td colspan="8">Keine Posten für diese Auswahl.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>

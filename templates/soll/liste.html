@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block titel %}Offene Posten{% endblock %}
+
+{% block inhalt %}
+<h1>Offene Posten</h1>
+<form method="get" class="filter filter-soll">
+  {% for feld in form %}
+  <div><label for="{{ feld.id_for_label }}">{{ feld.label }}</label> {{ feld }}</div>
+  {% endfor %}
+  <button type="submit" class="zweitrangig">Filtern</button>
+</form>
+
+<p class="leise">{{ posten|length }} Posten{% if abgeschnitten %} (die ersten {{ grenze }}, bitte enger filtern){% endif %} · offen zusammen <strong>{{ summe_offen }} €</strong></p>
+{% include "soll/_tabelle.html" with mit_vertrag=True %}
+{% endblock %}
