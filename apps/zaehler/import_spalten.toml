@@ -1,0 +1,51 @@
+# Spaltenzuordnung des Zähler-Imports (Schritt 8) – die eine Stelle dafür.
+#
+# Links steht das Feld im Hof-System, rechts der Spaltenkopf in der Datei. Das Format ist
+# eine Annahme nach den erfundenen Beispieldateien unter tests/fixtures/zaehler/. Weicht
+# die echte Liste ab, wird nur diese Datei angepasst.
+
+# --- Zähler -----------------------------------------------------------------------------
+
+[zaehler]
+trennzeichen = ";"
+dezimaltrennzeichen = ","
+datumsformat = "%d.%m.%Y"
+
+[zaehler.spalten]
+nummer = "Zählernummer"
+art = "Art"
+# Entweder NW-ID der Einheit oder Kürzel des Objekts (Hauptzähler).
+einheit = "Einheit"
+objekt = "Objekt"
+bezeichnung = "Lage"
+einbaudatum = "Einbau"
+eichfrist_bis = "Eichfrist bis"
+einbau_stand = "Einbaustand"
+
+# Wert in der Spalte „Art“ -> Art im Hof-System
+[zaehler.arten]
+"Strom" = "strom"
+"Wasser" = "wasser"
+"Gas" = "gas"
+"Wärme" = "waerme"
+"Waerme" = "waerme"
+
+# --- Zählerstände -----------------------------------------------------------------------
+
+[zaehlerstaende]
+trennzeichen = ";"
+dezimaltrennzeichen = ","
+datumsformat = "%d.%m.%Y"
+
+[zaehlerstaende.spalten]
+nummer = "Zählernummer"
+datum = "Datum"
+stand = "Stand"
+art = "Art"
+vermerk = "Vermerk"
+
+# Wert in der Spalte „Art“ -> Art des Stands. Leer heißt „abgelesen“.
+[zaehlerstaende.arten]
+"abgelesen" = "abgelesen"
+"geschätzt" = "geschaetzt"
+"geschaetzt" = "geschaetzt"

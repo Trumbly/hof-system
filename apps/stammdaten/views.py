@@ -31,6 +31,7 @@ from apps.stammdaten.models import (
     Vertrag,
     Vertragspartei,
 )
+from apps.zaehler import services as zaehler_services
 
 Handler = Callable[[HttpRequest, Any, forms.Form], str]
 
@@ -472,7 +473,6 @@ SCHRITTE: tuple[tuple[str, str], ...] = (
     ("unterschrift", "Zustand und Unterschrift"),
     ("abschluss", "Abschluss"),
 )
-ZAEHLER_ZEILEN = 3
 
 
 @login_required
@@ -487,17 +487,18 @@ def uebergabe_starten(request: HttpRequest, pk: int, art: str) -> HttpResponse:
     return redirect("stammdaten:uebergabe", uebergabe.pk, 1)
 
 
-def _zaehler_aus_post(request: HttpRequest) -> list[dict[str, str]]:
-    zeilen = []
-    i = 0
-    while f"nummer_{i}" in request.POST:
+def _zaehler_aus_post(request: HttpRequest, uebergabe: Uebergabe) -> list[dict[str, Any]]:
+    """Stand, Foto und Kennzeichen „geschätzt“ je Zähler der Einheiten des Vertrags."""
+    zeilen: list[dict[str, Any]] = []
+    for z in zaehler_services.zaehler_der_uebergabe(uebergabe):
         zeilen.append(
             {
-                "nummer": request.POST.get(f"nummer_{i}", ""),
-                "stand": request.POST.get(f"stand_{i}", ""),
+                "zaehler": z.pk,
+                "stand": request.POST.get(f"stand_{z.pk}", ""),
+                "foto": request.FILES.get(f"foto_{z.pk}"),
+                "art": "geschaetzt" if request.POST.get(f"geschaetzt_{z.pk}") else "abgelesen",
             }
         )
-        i += 1
     return zeilen
 
 
@@ -511,7 +512,11 @@ def _uebergabe_post(request: HttpRequest, uebergabe: Uebergabe, schritt: str) ->
         if form.cleaned_data["vertrag_unterschrieben"]:
             services.vertrag_unterschrieben(uebergabe.vertrag, form.cleaned_data["datum"])
     elif schritt == "zaehler":
-        services.uebergabe_speichern(uebergabe, zaehlerstaende=_zaehler_aus_post(request))
+        zeilen = _zaehler_aus_post(request, uebergabe)
+        for zeile in zeilen:
+            if zeile["foto"] is not None and (fehler := f.foto_pruefen(zeile["foto"])):
+                return fehler
+        services.uebergabe_speichern(uebergabe, zaehlerstaende=zeilen)
     elif schritt == "fotos":
         dateien = request.FILES.getlist("fotos")
         for datei in dateien:
@@ -567,7 +572,11 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
             return redirect("stammdaten:uebergabe", uebergabe.pk, schritt + 1)
 
     uebergabe.refresh_from_db()
-    zaehler = list(uebergabe.zaehlerstaende) + [{"nummer": "", "stand": ""}] * ZAEHLER_ZEILEN
+    erfasst = {s.zaehler_id: s for s in uebergabe.zaehlerstaende.all()}
+    zaehler_zeilen = [
+        (z, erfasst.get(z.pk), z.letzter_stand(uebergabe.datum - datetime.timedelta(days=1)))
+        for z in zaehler_services.zaehler_der_uebergabe(uebergabe)
+    ]
     schluessel = services.schluessel_der_uebergabe(uebergabe)
     gespeichert = {int(e["schluessel"]): int(e["anzahl"]) for e in uebergabe.schluessel}
     return render(
@@ -582,7 +591,8 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
             "schritte": SCHRITTE,
             "anzahl_schritte": len(SCHRITTE),
             "vorab_form": f.UebergabeVorabForm(initial={"datum": uebergabe.datum}),
-            "zaehler_zeilen": zaehler[: max(len(uebergabe.zaehlerstaende) + 1, ZAEHLER_ZEILEN)],
+            "zaehler_zeilen": zaehler_zeilen,
+            "zaehlerstaende": list(erfasst.values()),
             "schluessel_zeilen": [
                 (s, gespeichert.get(s.pk, s.anzahl if not gespeichert else 0)) for s in schluessel
             ],

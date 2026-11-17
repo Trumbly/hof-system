@@ -13,7 +13,7 @@ from django.urls import reverse
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
 from apps.kern.models import Arbeitsposten
-from apps.stammdaten import services
+from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import (
     Checkliste,
     Einheit,
@@ -23,6 +23,7 @@ from apps.stammdaten.models import (
     Uebergabe,
     Vertrag,
 )
+from apps.zaehler import services as zaehler_services
 from tests.stammdaten.conftest import foto
 
 pytestmark = pytest.mark.django_db
@@ -52,12 +53,16 @@ def test_kein_schluessel_vor_unterschrift_und_kaution(entwurf: Vertrag) -> None:
 
 def test_uebergabe_setzt_vertrag_aktiv(bereit: Vertrag, garage: Einheit, mieter: Partei) -> None:
     """Schritt 4, Aufgabe 4: Die Übergabe setzt den Vertrag aktiv; Schlüssel gehen gegen
-    Quittung an den Mieter, die Einheit ist ab dem Datum vermietet."""
+    Quittung an den Mieter, die Einheit ist ab dem Datum vermietet. Schritt 8, Aufgabe 5:
+    Der Zählerstand steht als Zählerstand „bei Übergabe“ am Zähler der Einheit."""
+    zaehler = zaehler_services.zaehler_anlegen(
+        "Z-7", "strom", einheit=garage, einbaudatum=D(2020, 1, 1), einbau_stand="0"
+    )
     uebergabe = services.uebergabe_beginnen(bereit, Uebergabe.Art.UEBERGABE, D(2026, 12, 1))
     (schluessel,) = services.schluessel_der_uebergabe(uebergabe)
     services.uebergabe_speichern(
         uebergabe,
-        zaehlerstaende=[{"nummer": "Z-7", "stand": "123,4"}, {"nummer": "", "stand": ""}],
+        zaehlerstaende=[{"zaehler": zaehler.pk, "stand": "123,4"}, {"zaehler": "", "stand": ""}],
         schluessel=[{"schluessel": schluessel.pk, "anzahl": 2}],
         zustand="sauber",
         unterschrift=foto("unterschrift.png"),
@@ -71,7 +76,12 @@ def test_uebergabe_setzt_vertrag_aktiv(bereit: Vertrag, garage: Einheit, mieter:
     assert bereit.status == Vertrag.Status.AKTIV
     assert garage.status_am(D(2026, 12, 1)).status == "vermietet"  # type: ignore[union-attr]
     assert uebergabe.status == Uebergabe.Status.ABGESCHLOSSEN
-    assert uebergabe.zaehlerstaende == [{"nummer": "Z-7", "stand": "123.4"}]
+    (stand,) = uebergabe.zaehlerstaende.all()
+    assert (stand.zaehler, stand.datum, stand.stand) == (zaehler, D(2026, 12, 1), Decimal("123.4"))
+    assert stand.bei_uebergabe and stand.art == "abgelesen"
+    assert schreiben.kontext_uebergabe(uebergabe)["uebergabe"]["zaehlerstaende"] == [
+        {"nummer": "Z-7", "stand": "123.4", "art": "abgelesen", "einheit": "NW-G-0001"}
+    ]
     assert uebergabe.schluessel == [
         {"einheit": "NW-G-0001", "art": "schluessel", "bezeichnung": "", "anzahl": 2}
     ]
@@ -85,12 +95,16 @@ def test_uebergabe_setzt_vertrag_aktiv(bereit: Vertrag, garage: Einheit, mieter:
         services.uebergabe_speichern(uebergabe, zustand="später")
 
 
-def test_zaehlerstand_muss_zahl_sein(bereit: Vertrag) -> None:
+def test_zaehlerstand_muss_zahl_sein(bereit: Vertrag, garage: Einheit) -> None:
+    zaehler_services.zaehler_anlegen("Z", "strom", einheit=garage)
     uebergabe = services.uebergabe_beginnen(bereit, Uebergabe.Art.UEBERGABE, D(2026, 12, 1))
-    with pytest.raises(services.StammdatenFehler):
+    with pytest.raises(services.StammdatenFehler, match="keine Zahl"):
         services.uebergabe_speichern(uebergabe, zaehlerstaende=[{"nummer": "Z", "stand": "viel"}])
-    with pytest.raises(services.StammdatenFehler):
+    with pytest.raises(services.StammdatenFehler, match="keiner Einheit"):
         services.uebergabe_speichern(uebergabe, zaehlerstaende=[{"nummer": "", "stand": "5"}])
+    with pytest.raises(services.StammdatenFehler, match="gehört ein Stand"):
+        services.uebergabe_speichern(uebergabe, zaehlerstaende=[{"nummer": "Z", "stand": ""}])
+    assert not uebergabe.zaehlerstaende.exists()
 
 
 @pytest.fixture
@@ -198,9 +212,13 @@ def test_checkliste_abhaken(garage: Einheit) -> None:
 # --- Seite am Handy -------------------------------------------------------------------
 
 
-def test_uebergabe_am_handy_in_schritten_mit_kamera(bereit: Vertrag, angemeldet: Client) -> None:
+def test_uebergabe_am_handy_in_schritten_mit_kamera(
+    bereit: Vertrag, garage: Einheit, angemeldet: Client
+) -> None:
     """Schritt 4, Aufgabe 4 (O1): eine Seite in Schritten, Fotos direkt aus der Kamera
-    (accept=image/* capture=environment), am Ende ist der Vertrag aktiv."""
+    (accept=image/* capture=environment), am Ende ist der Vertrag aktiv. Schritt 8,
+    Aufgabe 5: Der Schritt Zählerstände zeigt die Zähler der Einheit, mit Foto."""
+    zaehler = zaehler_services.zaehler_anlegen("Z-1", "strom", einheit=garage)
     antwort = angemeldet.post(
         reverse("stammdaten:uebergabe_starten", args=[bereit.pk, "uebergabe"])
     )
@@ -220,9 +238,15 @@ def test_uebergabe_am_handy_in_schritten_mit_kamera(bereit: Vertrag, angemeldet:
         antwort = angemeldet.post(url, daten)
         assert antwort.status_code == 302, antwort.content.decode()[:300]
 
+    zaehler_seite = angemeldet.get(
+        reverse("stammdaten:uebergabe", args=[uebergabe.pk, 2])
+    ).content.decode()
+    assert "Strom Z-1" in zaehler_seite
+    assert f'name="foto_{zaehler.pk}" accept="image/*" capture="environment"' in zaehler_seite
+
     schluessel = services.schluessel_der_uebergabe(uebergabe)[0]
     schritt(1, {"datum": "2026-12-01"})
-    schritt(2, {"nummer_0": "Z-1", "stand_0": "77", "nummer_1": "", "stand_1": ""})
+    schritt(2, {f"stand_{zaehler.pk}": "77", f"foto_{zaehler.pk}": foto("z.png")})
     schritt(3, {"fotos": [foto("a.png"), foto("b.png")]})
     schritt(4, {f"schluessel_{schluessel.pk}": "2"})
     schritt(5, {"zustand": "gut", "unterschrift": foto("u.png")})
@@ -231,6 +255,8 @@ def test_uebergabe_am_handy_in_schritten_mit_kamera(bereit: Vertrag, angemeldet:
     bereit.refresh_from_db()
     assert bereit.status == Vertrag.Status.AKTIV
     assert uebergabe.fotos.count() == 2
+    (stand,) = zaehler.staende.all()
+    assert (stand.stand, stand.uebergabe, bool(stand.foto)) == (Decimal("77"), uebergabe, True)
     foto_seite = angemeldet.get(
         reverse("stammdaten:uebergabe_foto", args=[uebergabe.fotos.first().pk])
     )  # type: ignore[union-attr]

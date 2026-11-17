@@ -48,6 +48,7 @@ from apps.stammdaten.models import (
     Uebergabe,
     Vertrag,
 )
+from apps.zaehler import services as zaehler
 
 #: Art des Arbeitspostens, wenn kein Schreiben entstehen kann.
 ART = "Schreiben erstellen"
@@ -249,7 +250,7 @@ def kontext_uebergabe(uebergabe: Uebergabe) -> Kontext:
     kontext["uebergabe"] = {
         "art": uebergabe.get_art_display(),
         "datum": uebergabe.datum,
-        "zaehlerstaende": list(uebergabe.zaehlerstaende),
+        "zaehlerstaende": zaehler.uebergabe_staende_protokoll(uebergabe),
         "schluessel": list(uebergabe.schluessel),
         "zustand": uebergabe.zustand,
         "zurueckgelassen": uebergabe.zurueckgelassen,

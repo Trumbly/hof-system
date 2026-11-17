@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.stammdaten",
     "apps.soll",
     "apps.anbindungen",
+    "apps.zaehler",
 ]
 
 MIDDLEWARE = [
@@ -195,6 +196,8 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         # Anbindungen (apps.anbindungen.services, ART_*)
         "Buchungsanfrage prüfen",
         "ID-Abweichung",
+        # Zähler (apps.zaehler.services, ART_*): nur im Ablesefenster um den Stichtag
+        "Ablesung fehlt",
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",

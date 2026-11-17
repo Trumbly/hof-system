@@ -147,11 +147,15 @@ punkte = [
 # Je Bereich die Pflichtfelder. Die Schlüssel nennen Prüfungen aus
 # apps.stammdaten.datenstand.PRUEFUNGEN; dort steht, was „vorhanden“ heißt.
 # Mit [datenstand.<bereich>.je_art.<art>] gelten für eine Art (Einheit: Typ, Vertrag:
-# Vertragsart) andere Pflichtfelder. Der Bereich Zähler kommt in Schritt 8 dazu.
+# Vertragsart, Zähler: Art) andere Pflichtfelder.
 
 [datenstand.einheit]
 titel = "Einheit"
 pflicht = ["typ", "flaeche", "objekt", "status", "zielmiete"]
+
+[datenstand.einheit.je_art.halle]
+# Hallen haben eigene Zähler (Bauplan: „Zähler zugeordnet, wo einer vorgesehen ist“).
+pflicht = ["typ", "flaeche", "objekt", "status", "zielmiete", "zaehler"]
 
 [datenstand.einheit.je_art.wohnung]
 # Wohnraum führt Verwaltio. Hier steht nur die NW-ID mit Objekt.
@@ -174,3 +178,9 @@ titel = "Schlüssel"
 pflicht = ["anzahl", "inhaber"]
 # Einheiten dieser Typen haben Schlüssel. Stellplätze, Gärten und Außenflächen nicht.
 typen = ["garage", "lager", "halle"]
+
+[datenstand.zaehler]
+titel = "Zähler"
+# Der Stand zum letzten Stichtag (siehe apps/zaehler/konfiguration.toml) mit Foto. Die
+# Liste „für deinen nächsten Besuch“ zeigt alle Zähler mit einer dieser Lücken.
+pflicht = ["nummer", "art", "einbaudatum", "eichfrist", "stand_stichtag", "foto_stichtag"]

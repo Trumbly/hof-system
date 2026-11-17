@@ -279,7 +279,7 @@ ERLAUBTE_ZEILEN = (
     r"- (Frist fällig|Bankfreigabe läuft ab|Bankfreigabe fehlt|Bankabruf gescheitert|"
     r"Bankumsätze fehlen|Saldo weicht ab|Mahnungen senden|Zahlungen klären|"
     r"Rechnung zahlen|Schreiben senden|Schreiben erstellen|Schlüssel fehlt|"
-    r"Buchungsanfrage prüfen|ID-Abweichung): \d+",
+    r"Buchungsanfrage prüfen|ID-Abweichung|Ablesung fehlt): \d+",
     r"Wartende Freigaben: \d+",
     rf"(Läufe|Arbeitslisten): {re.escape(BASIS)}/[a-z/]*",
     r"",

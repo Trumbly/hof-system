@@ -2,7 +2,8 @@
 
 Welche Felder Pflicht sind, steht in ``konfiguration.toml`` unter ``[datenstand.*]``.
 Hier steht nur, wie jedes Feld geprüft wird (``PRUEFUNGEN``) und wohin der Link zur
-Eingabe führt. Der Bereich Zähler kommt in Schritt 8 dazu.
+Eingabe führt. Den Bereich Zähler prüft ``apps.zaehler.services`` (Stand zum letzten
+Stichtag, siehe ``apps/zaehler/konfiguration.toml``).
 
 ``kennung`` einer Lücke ist eine ID (NW-ID, Vertragsnummer, „Partei #12“). Den Namen einer
 Partei zeigt nur die Seite selbst (``name``), nie ein Bericht.
@@ -19,6 +20,8 @@ from django.urls import reverse
 
 from apps.stammdaten import konfiguration
 from apps.stammdaten.models import Einheit, Kaution, Kondition, Partei, Schluessel, Vertrag
+from apps.zaehler import services as zaehler_services
+from apps.zaehler.models import Zaehler
 
 GEBUNDEN = (Vertrag.Status.ENTWURF, Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
 LAUFEND = (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
@@ -41,6 +44,22 @@ def _kaution(vertrag: Vertrag) -> Kaution | None:
     return Kaution.objects.filter(vertrag=vertrag).first()
 
 
+def _stand_ok(zaehler: Zaehler, stichtag: datetime.date) -> bool:
+    letzter = zaehler_services.letzter_stichtag(stichtag)
+    if not zaehler_services.braucht_stand(zaehler, letzter):
+        return True
+    return zaehler_services.stand_zum_stichtag(zaehler, letzter) is not None
+
+
+def _foto_ok(zaehler: Zaehler, stichtag: datetime.date) -> bool:
+    """Fehlt der Stand ganz, zählt nur er als Lücke, nicht noch einmal das Foto."""
+    letzter = zaehler_services.letzter_stichtag(stichtag)
+    if not zaehler_services.braucht_stand(zaehler, letzter):
+        return True
+    stand = zaehler_services.stand_zum_stichtag(zaehler, letzter)
+    return stand is None or bool(stand.foto)
+
+
 PRUEFUNGEN: dict[str, dict[str, Pruefung]] = {
     "einheit": {
         "typ": Pruefung("Typ", lambda e, _: bool(e.typ), "stammfelder"),
@@ -48,6 +67,9 @@ PRUEFUNGEN: dict[str, dict[str, Pruefung]] = {
         "objekt": Pruefung("Objekt", lambda e, _: e.objekt_id is not None, "stammfelder"),
         "status": Pruefung("Status", lambda e, t: e.status_am(t) is not None, "status"),
         "zielmiete": Pruefung("Zielmiete", lambda e, t: e.zielmiete_am(t) is not None, "zielmiete"),
+        "zaehler": Pruefung(
+            "Zähler", lambda e, _: e.zaehler.filter(ausgebaut_am__isnull=True).exists(), "zaehler"
+        ),
     },
     "partei": {
         "anschrift": Pruefung("Anschrift", lambda p, _: p.hat_anschrift, "stammfelder"),
@@ -89,6 +111,16 @@ PRUEFUNGEN: dict[str, dict[str, Pruefung]] = {
             lambda e, _: not e.schluessel.filter(inhaber=Schluessel.Inhaber.UNBEKANNT).exists(),
             "schluessel",
         ),
+    },
+    "zaehler": {
+        "nummer": Pruefung("Nummer", lambda z, _: bool(z.nummer), "stammfelder"),
+        "art": Pruefung("Art", lambda z, _: bool(z.art), "stammfelder"),
+        "einbaudatum": Pruefung(
+            "Einbaudatum", lambda z, _: z.einbaudatum is not None, "stammfelder"
+        ),
+        "eichfrist": Pruefung("Eichfrist", lambda z, _: z.eichfrist_bis is not None, "stammfelder"),
+        "stand_stichtag": Pruefung("Stand zum letzten Stichtag", _stand_ok, "staende"),
+        "foto_stichtag": Pruefung("Foto zum Stand am Stichtag", _foto_ok, "staende"),
     },
 }
 
@@ -155,6 +187,11 @@ def _objekte(bereich: str, typen: tuple[str, ...]) -> Iterable[tuple[Any, str | 
             einheiten = einheiten.filter(typ__in=typen)
         for e in einheiten.exclude(typ=Einheit.Typ.WOHNUNG):
             yield e, None
+    elif bereich == "zaehler":
+        for z in zaehler_services.eingebaute_zaehler().select_related(
+            "einheit", "objekt", "einheit__objekt"
+        ):
+            yield z, z.art
 
 
 def _kennung(bereich: str, objekt: Any) -> tuple[str, str, str]:
@@ -169,6 +206,8 @@ def _kennung(bereich: str, objekt: Any) -> tuple[str, str, str]:
         )
     if bereich == "vertrag":
         return objekt.nummer, reverse("stammdaten:vertrag", args=[objekt.pk]), ""
+    if bereich == "zaehler":
+        return f"Zähler {objekt.nummer}", reverse("zaehler:zaehler", args=[objekt.pk]), ""
     vertrag = objekt.vertrag
     return f"Kaution {vertrag.nummer}", reverse("stammdaten:vertrag", args=[vertrag.pk]), ""
 

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ zaehler }}{% endblock %}
+
+{% block inhalt %}
+<h1>{{ zaehler.get_art_display }} {{ zaehler.nummer }}</h1>
+<p class="leise">
+  {% if zaehler.einheit %}Einheit <a href="{% url 'stammdaten:einheit' zaehler.einheit.pk %}">{{ zaehler.einheit.nw_id }}</a>{% else %}Hauptzähler {{ zaehler.ort }}{% endif %}
+  {% if zaehler.bezeichnung %} · {{ zaehler.bezeichnung }}{% endif %}
+  · <a href="{% url 'zaehler:ablesung' zaehler.standort_objekt.pk %}">Ablesung {{ zaehler.standort_objekt.kuerzel }}</a>
+</p>
+{% if not zaehler.ist_eingebaut %}
+<p class="meldung meldung-warning">Ausgebaut am {{ zaehler.ausgebaut_am|date:"d.m.Y" }}.{% if zaehler.nachfolger %} Nachfolger: <a href="{% url 'zaehler:zaehler' zaehler.nachfolger.pk %}">{{ zaehler.nachfolger.nummer }}</a>.{% endif %}</p>
+{% endif %}
+{% if vorgaenger %}<p class="leise">Ersetzt Zähler <a href="{% url 'zaehler:zaehler' vorgaenger.pk %}">{{ vorgaenger.nummer }}</a> (ausgebaut am {{ vorgaenger.ausgebaut_am|date:"d.m.Y" }}).</p>{% endif %}
+
+<ul class="kennzahlen">
+  <li>Einbaudatum: <strong>{{ zaehler.einbaudatum|date:"d.m.Y"|default:"fehlt" }}</strong></li>
+  <li>Eichfrist bis: <strong>{{ zaehler.eichfrist_bis|date:"d.m.Y"|default:"fehlt" }}</strong></li>
+  <li>Stand zum {{ stichtag|date:"d.m.Y" }}: <strong>{% if stand_stichtag %}{{ stand_stichtag.stand_text }}{% if not stand_stichtag.foto %} (ohne Foto){% endif %}{% else %}fehlt{% endif %}</strong></li>
+</ul>
+
+<section id="stammfelder">
+  <h2>Stammfelder</h2>
+  {% include "stammdaten/_formular.html" with form=stammfelder aktion="stammfelder" %}
+</section>
+
+<section id="staende">
+  <h2>Stände</h2>
+  <div class="tabelle-rahmen"><table>
+    <thead><tr><th>Datum</th><th>Stand</th><th>Art</th><th>Foto</th><th>Vermerk</th></tr></thead>
+    <tbody>
+      {% for s in staende %}
+      <tr>
+        <td>{{ s.datum|date:"d.m.Y" }}</td>
+        <td class="zahl-rechts">{{ s.stand_text }}</td>
+        <td>{% if s.ist_geschaetzt %}<span class="kennzeichen-geschaetzt">geschätzt</span>{% else %}{{ s.get_art_display }}{% endif %}{% if s.bei_uebergabe %} · bei {% if s.uebergabe %}<a href="{% url 'stammdaten:vertrag' s.uebergabe.vertrag_id %}">{{ s.uebergabe }}</a>{% else %}Übergabe{% endif %}{% endif %}</td>
+        <td>{% if s.foto %}<a href="{% url 'zaehler:foto' s.pk %}">Foto</a>{% else %}–{% endif %}</td>
+        <td>{{ s.vermerk }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Noch keine Stände.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% if zaehler.ist_eingebaut %}
+  <h3>Stand erfassen</h3>
+  {% include "stammdaten/_formular.html" with form=stand aktion="stand" knopf="Stand speichern" %}
+  {% endif %}
+</section>
+
+{% if zaehler.ist_eingebaut %}
+<section id="wechsel">
+  <h2>Zählerwechsel</h2>
+  <p class="leise">Ausbaustand des alten und Einbaustand des neuen Zählers in einem Vorgang. Danach gehören neue Stände an den neuen Zähler.</p>
+  {% include "stammdaten/_formular.html" with form=wechsel aktion="wechsel" knopf="Zähler wechseln" %}
+</section>
+{% endif %}
+{% endblock %}

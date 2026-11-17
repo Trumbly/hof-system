@@ -17,6 +17,7 @@ urlpatterns = [
     path("dokumente/", include("apps.dokumente.urls")),
     path("stammdaten/", include("apps.stammdaten.urls")),
     path("soll/", include("apps.soll.urls")),
+    path("zaehler/", include("apps.zaehler.urls")),
     path("", include("apps.kassenbuch.urls")),
     path("", include("apps.anbindungen.urls")),
     path("", include("apps.kern.urls")),

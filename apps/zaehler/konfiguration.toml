@@ -1,0 +1,28 @@
+# Konfiguration der Zähler (Schritt 8).
+#
+# Hier steht an einer Stelle, was sich ohne Code-Änderung anpassen lässt. Geprüft wird die
+# Datei beim Start (apps.zaehler.konfiguration.laden) und im Test
+# tests/zaehler/test_konfiguration.py.
+
+# --- Stichtag der Ablesung (H7.2) ------------------------------------------------------
+#
+#   datum          Stichtag als MM-TT, Standard 31.12.
+#   erinnern_ab    MM-TT: Ab diesem Tag legt der Lauf zaehler_stichtag je Zähler ohne Stand
+#                  zum Stichtag einen Arbeitsposten „Ablesung fehlt“ an. Liegt der Tag im
+#                  Kalender nach dem Stichtag, gilt er für das Jahr davor.
+#   nachlauf_tage  Ein Stand gilt als Stand zum Stichtag, wenn er zwischen erinnern_ab und
+#                  so vielen Tagen nach dem Stichtag liegt (Ablesefenster). So lange bleiben
+#                  die Arbeitsposten offen.
+
+[stichtag]
+datum = "12-31"
+erinnern_ab = "12-15"
+nachlauf_tage = 15
+
+# --- Eichfrist -------------------------------------------------------------------------
+#
+#   vorlauf_tage   So viele Tage vor dem Ablauf der Eichfrist wird die Frist (Art Eichfrist,
+#                  Quelle Zähler) zum Arbeitsposten „Frist fällig“.
+
+[eichfrist]
+vorlauf_tage = 90

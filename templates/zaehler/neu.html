@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block titel %}Neuer Zähler{% endblock %}
+
+{% block inhalt %}
+<h1>Neuer Zähler</h1>
+<p class="leise">Ein Zähler hängt an einer Einheit oder, als Hauptzähler, an einem Objekt. Wohnraum führt Verwaltio.</p>
+{% include "stammdaten/_formular.html" with form=form aktion="neu" knopf="Anlegen" %}
+{% endblock %}

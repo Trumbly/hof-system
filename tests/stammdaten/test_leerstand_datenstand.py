@@ -127,6 +127,7 @@ def test_datenstand_zaehlt_luecken_je_bereich(objekt: Objekt) -> None:
         "vertrag": 3,
         "kaution": 2,
         "schluessel": 2,
+        "zaehler": 0,
     }
 
 

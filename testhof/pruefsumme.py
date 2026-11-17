@@ -13,7 +13,9 @@ weil sie sich bei gleichem Inhalt von Lauf zu Lauf unterscheiden müssen:
    halten fest, *wann* gespeichert wurde, nicht *was*. Fachliche Zeitpunkte (Buchungstag,
    Vertragsbeginn …) bleiben drin; die Module rechnen sie von ``aufbau.ZEITPUNKT`` aus.
    Ebenso fällt der Passwort-Hash weg (``ZUFALLS_FELDER``): Django salzt jedes Passwort
-   absichtlich mit Zufall, gleiches Passwort ergibt also nie denselben Hash.
+   absichtlich mit Zufall, gleiches Passwort ergibt also nie denselben Hash. Von Dateien
+   (``FileField``, etwa Fotos) zählt nur, ob eine da ist: Ihre Namen sind absichtlich
+   zufällig, damit sie keine Teile des Originalnamens tragen.
 3. **Protokoll-Tabellen.** Ereignisse von django-pghistory, deren Kontexte, das
    Laufprotokoll (``kern.Lauf``), das Protokoll der Verwaltungsseiten und die Sitzungen
    halten fest, was *wann* passiert ist. ``--leeren`` schreibt dort Löschungen hinein,
@@ -96,6 +98,13 @@ class _Hasher:
     def __init__(self) -> None:
         self._inhalte: dict[tuple[type[models.Model], Any], str] = {}
 
+    @staticmethod
+    def _wert(zeile: models.Model, f: models.Field[Any, Any]) -> Any:
+        wert = getattr(zeile, f.attname)
+        if isinstance(f, models.FileField):
+            return bool(wert)
+        return wert
+
     def eigener_inhalt(self, modell: type[models.Model], pk: Any) -> str:
         """Inhalt einer Zeile ohne Schlüssel und Verweise, als Hash (für Fremdschlüssel)."""
         if pk is None:
@@ -110,7 +119,7 @@ class _Hasher:
             else:
                 generisch = _generische_id_felder(modell)
                 werte = {
-                    f.attname: getattr(zeile, f.attname)
+                    f.attname: self._wert(zeile, f)
                     for f in _verglichene_felder(modell)
                     if not f.is_relation and f.attname not in generisch
                 }
@@ -122,7 +131,7 @@ class _Hasher:
         generisch = _generische_id_felder(modell)
         werte: dict[str, Any] = {}
         for f in _verglichene_felder(modell):
-            wert = getattr(zeile, f.attname)
+            wert = self._wert(zeile, f)
             if f.is_relation and f.related_model is not None:
                 ziel: type[models.Model] = f.related_model  # type: ignore[assignment]
                 if ziel is ContentType and wert is not None:

@@ -20,6 +20,7 @@
     <li class="leise">Vollständig.</li>
     {% endfor %}
   </ul>
+  {% if bereich.schluessel == "zaehler" %}<p><a class="knopf" href="{% url 'zaehler:besuch' %}">Liste für deinen nächsten Besuch</a> <span class="leise">sortiert nach Objekt, druckbar</span></p>{% endif %}
 </details>
 {% endfor %}
 {% endblock %}

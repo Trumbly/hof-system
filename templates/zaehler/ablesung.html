@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block titel %}Ablesung {{ objekt.kuerzel }}{% endblock %}
+
+{% block inhalt %}
+<h1>Ablesung <span class="leise">{{ objekt.kuerzel }}</span></h1>
+<p class="leise">Je Zähler Stand und Foto. Ein Stand, der kleiner ist als der letzte, wird abgelehnt; nach einem Wechsel bitte den Wechsel am Zähler erfassen.</p>
+
+<form method="post" class="formular" enctype="multipart/form-data">
+  {% csrf_token %}
+  <p><label for="datum">Datum</label><input type="date" id="datum" name="datum" value="{{ datum|date:'Y-m-d' }}"></p>
+  {% for zeile in zeilen %}
+  {% with z=zeile.zaehler %}
+  <fieldset class="zaehler-eingabe" id="zaehler-{{ z.pk }}">
+    <legend>{{ z.get_art_display }} {{ z.nummer }} <span class="leise">{{ z.ort }}{% if z.bezeichnung %} · {{ z.bezeichnung }}{% endif %}</span></legend>
+    {% if zeile.fehler %}<ul class="errorlist"><li>{{ zeile.fehler }}</li></ul>{% endif %}
+    {% if zeile.gespeichert %}<p class="leise" role="status">Gespeichert: {{ zeile.gespeichert.stand_text }}</p>{% endif %}
+    <p class="leise">Letzter Stand: {% if zeile.letzter %}{{ zeile.letzter.stand_text }} am {{ zeile.letzter.datum|date:"d.m.Y" }}{% if zeile.letzter.ist_geschaetzt %} <span class="kennzeichen-geschaetzt">geschätzt</span>{% endif %}{% else %}keiner{% endif %}</p>
+    <p><label for="stand_{{ z.pk }}">Stand</label><input id="stand_{{ z.pk }}" name="stand_{{ z.pk }}" value="{{ zeile.wert }}" inputmode="decimal" autocomplete="off"></p>
+    <p><label for="foto_{{ z.pk }}">Foto</label><input type="file" id="foto_{{ z.pk }}" name="foto_{{ z.pk }}" accept="image/*" capture="environment"></p>
+    <p><label><input type="checkbox" name="geschaetzt_{{ z.pk }}"{% if zeile.geschaetzt %} checked{% endif %}> geschätzt</label></p>
+  </fieldset>
+  {% endwith %}
+  {% empty %}
+  <p class="leise">An diesem Objekt hängt kein Zähler. <a href="{% url 'zaehler:neu' %}?objekt={{ objekt.pk }}">Zähler anlegen</a></p>
+  {% endfor %}
+  {% if zeilen %}<p><button type="submit">Stände speichern</button></p>{% endif %}
+</form>
+{% endblock %}

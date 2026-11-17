@@ -632,9 +632,9 @@ class Checkpunkt(ProtokolliertesModell):
 class Uebergabe(ProtokolliertesModell):
     """Übergabe oder Rückgabe vor Ort (H2.4, H2.9, O1), erfasst am Handy in Schritten.
 
-    ``zaehlerstaende`` ist bis Schritt 8 eine einfache Liste
-    ``[{"nummer": "Z-1", "stand": "1234.5"}, …]``; Schritt 8 stellt sie auf die Zähler-App
-    um. ``schluessel`` hält während der Erfassung die gewählten Schlüssel als
+    Die Zählerstände stehen seit Schritt 8 als ``zaehler.Zaehlerstand`` mit Bezug auf die
+    Übergabe (``uebergabe.zaehlerstaende``), erfasst über ``zaehler.services``.
+    ``schluessel`` hält während der Erfassung die gewählten Schlüssel als
     ``[{"schluessel": <id>, "anzahl": 2}, …]``; mit dem Abschluss wird daraus das Protokoll
     ``[{"einheit": "NW-G-0001", "art": "schluessel", "bezeichnung": "", "anzahl": 2}, …]``
     (bei der Rückgabe mit ``"fehlend"``), weil sich IDs beim Teilen und Zusammenlegen ändern.
@@ -656,7 +656,6 @@ class Uebergabe(ProtokolliertesModell):
     status = models.CharField(
         "Status", max_length=20, choices=Status.choices, default=Status.BEGONNEN
     )
-    zaehlerstaende = models.JSONField("Zählerstände", default=list, blank=True)
     schluessel = models.JSONField("Schlüssel", default=list, blank=True)
     zustand = models.TextField("Zustand", blank=True)
     zurueckgelassen = models.TextField("zurückgelassene Sachen", blank=True)
