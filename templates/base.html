@@ -20,6 +20,7 @@
         <li><a href="{% url 'kern:startseite' %}"{% if seite == 'kern:startseite' %} aria-current="page"{% endif %}>Start</a></li>
         <li><a href="{% url 'kern:arbeitslisten' %}"{% if seite == 'kern:arbeitslisten' %} aria-current="page"{% endif %}>Arbeitslisten</a></li>
         <li><a href="{% url 'bank:konten' %}"{% if request.resolver_match.app_name == 'bank' %} aria-current="page"{% endif %}>Bank</a></li>
+        <li><a href="{% url 'kassenbuch:buchungen' %}"{% if request.resolver_match.app_name == 'kassenbuch' %} aria-current="page"{% endif %}>Kassenbuch</a></li>
         <li><a href="{% url 'fristen:liste' %}"{% if seite == 'fristen:liste' %} aria-current="page"{% endif %}>Fristen</a></li>
         <li><a href="{% url 'dokumente:schreiben_liste' %}"{% if request.resolver_match.app_name == 'dokumente' %} aria-current="page"{% endif %}>Schreiben</a></li>
         <li><a href="{% url 'kern:protokoll' %}"{% if seite == 'kern:protokoll' %} aria-current="page"{% endif %}>Protokoll</a></li>

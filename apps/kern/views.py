@@ -79,6 +79,14 @@ def arbeitsposten_aktion(request: HttpRequest, pk: int, aktion: str) -> HttpResp
     if not aktionen.erlaubt(posten, aktion):
         return HttpResponseBadRequest("Diese Aktion ist für den Arbeitsposten nicht möglich.")
     ausfuehrung = aktionen.holen(aktion)
+    if ausfuehrung.seite is not None:
+        # Aktion mit Eingabe: weiter auf ihre Seite (bei HTMX als ganze Seite).
+        ziel = ausfuehrung.seite(posten)
+        if _ist_htmx(request):
+            weiter = HttpResponse(status=200)
+            weiter["HX-Redirect"] = ziel
+            return weiter
+        return redirect(ziel)
     benutzer = request.user
     if not isinstance(benutzer, Benutzer):  # login_required stellt das sicher
         return HttpResponseBadRequest("Nicht angemeldet.")

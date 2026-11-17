@@ -138,6 +138,26 @@ compose.sh exec app python manage.py bank_import /app/medien/import/vivid.csv --
 
 Der Bericht nennt nur Zähler und Fehlerarten. Übernommen werden nur Tage vor dem ersten Abruf des Kontos (Abruf und Export stellen Zwecke unterschiedlich dar); mit `--bis JJJJ-MM-TT` lässt sich die Grenze setzen. Die Spaltenzuordnung steht in `apps/bank/importformat.py`. Danach die Exportdatei löschen. Dasselbe geht über die Seite „Bank → Import“.
 
+## Kassenbuch
+
+**Täglicher Ablauf.** Um 6:30, nach dem Bankabruf, ordnet `kassenbuch_einordnen` die neuen Umsätze nach den Zuordnungsregeln ein (Seite „Kassenbuch → Regeln“). Eindeutig ist ein Umsatz, wenn genau eine Regel mit der höchsten Priorität passt; dann wird er gebucht. Sonst steht er in der Arbeitsliste „Umsätze einordnen“ mit Zuordnen, Aufteilen, Regel anlegen und Zurückstellen. Eine neue Regel zeigt erst eine Vorschau mit Zählern und bucht offene Umsätze rückwirkend erst nach dem Klick. Gebuchtes wird nie geändert: „Stornieren“ am Umsatz oder „Zurücknehmen“ im Protokoll legen eine Stornobuchung an.
+
+**Monatsabschluss (H6.6).** Am 3. jedes Monats um 7 Uhr schließt `kassenbuch_monatsabschluss` den Vormonat je Mandant mit Bankkonto ab: alle Umsätze eingeordnet, Saldo im Buch gleich Saldo der Bank (Kontostand am Monatsende; fehlt er, vom nächsten späteren Kontostand zurückgerechnet). Lücken stehen als „Monatsabschluss offen“ in der Arbeitsliste; nach dem Klären dort „Erneut prüfen“. Danach ist der Monat gesperrt (auch in der Datenbank). Ist ein Monat für alle Mandanten abgeschlossen, liegen die Monatsberichte je Objekt als PDF unter `/srv/hof/medien/kassenbuch/monatsberichte/<Jahr>/` und auf der Seite „Kassenbuch → Monatsbericht“.
+
+**Einrichten (einmalig).**
+
+1. In `/opt/hof/.env`: `HOF_KASSENBUCH_BEGINN=2026-01-01` (Läufe beginnen mit 2026; ältere Umsätze bleiben außen vor).
+2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt die Timer `kassenbuch_einordnen` und `kassenbuch_monatsabschluss` ein.
+3. Kategorien importieren (Datei nach `/srv/hof/medien/import/`, Spalten `Kategorie;Art;Mandant`, Zuordnung in `apps/kassenbuch/importformat.py`), erst prüfen, dann anlegen; danach die Datei löschen:
+
+```sh
+compose.sh exec app python manage.py kassenbuch_kategorien_import /app/medien/import/kategorien.csv               # Probelauf
+compose.sh exec app python manage.py kassenbuch_kategorien_import /app/medien/import/kategorien.csv --ausfuehren
+```
+
+4. Regeln auf der Seite „Kassenbuch → Regeln“ anlegen, dann `sudo systemctl start hof-lauf@kassenbuch_einordnen.service` und die Arbeitsliste abarbeiten.
+5. 2026 nachholen: `compose.sh exec app python manage.py kassenbuch_monatsabschluss --ab 2026-01 --bis 2026-12` (bzw. bis zum Vormonat). Er schließt der Reihe nach ab und hält beim ersten Monat mit Lücken an; nach dem Klären erneut starten.
+
 ## Bankfreigabe erneuern
 
 Vivid gibt den Zugriff für höchstens 180 Tage frei, VR (FinTS) etwa alle 90 Tage. 14 Tage vor Ablauf legt der Lauf `bank_abruf` einen Arbeitsposten „Bankfreigabe läuft ab“ an, je Freigabe genau einen; mit der neuen Freigabe ist er erledigt.

@@ -127,6 +127,32 @@ def test_logfilter_ersetzt_personenfelder_nach_namen() -> None:
     assert record.hinweis == ERSATZ
 
 
+def test_logfilter_laesst_attribute_des_logrecords_stehen(register_sichern: None) -> None:
+    """Heißt ein Personenfeld wie ein Attribut des LogRecord (etwa ``name``), bleibt der
+    Logger-Name stehen; Personenwerte aus ``extra=…`` werden trotzdem ersetzt."""
+    personenfelder._PERSONENFELDER.setdefault(Mandant, set()).update({"name", "levelname"})
+    record = logging.getLogger("apps.kassenbuch.services").makeRecord(
+        "apps.kassenbuch.services",
+        logging.INFO,
+        __file__,
+        1,
+        "Umsatz #%s gebucht",
+        (7,),
+        None,
+        extra={"bezeichnung": "Erika Beispiel"},
+    )
+
+    PersonenfelderFilter().filter(record)
+
+    assert {"name", "msg", "args", "levelname", "funcName", "taskName"} <= (
+        personenfelder.LOGRECORD_ATTRIBUTE
+    )
+    zeile = logging.Formatter("%(levelname)s %(name)s: %(message)s [%(bezeichnung)s]").format(
+        record
+    )
+    assert zeile == f"INFO apps.kassenbuch.services: Umsatz #7 gebucht [{ERSATZ}]"
+
+
 def test_logfilter_laesst_meldungen_ohne_personendaten_stehen() -> None:
     """Schritt 0b, Aufgabe 5: Meldungen mit IDs und Zählern bleiben unverändert."""
     record = _gefiltert("Lauf #%s: %s gebucht", (12, 3))

@@ -535,6 +535,27 @@ button.zweitrangig,
   gap: var(--abstand);
   padding: 0.3rem 0;
   border-bottom: 1px solid var(--linie);
+/* Kassenbuch */
+
+.betrag-ausgang {
+  color: var(--fehler);
+}
+
+.zahl-rechts {
+  text-align: right;
+  white-space: nowrap;
+}
+
+tr.storno td {
+  color: var(--text-leise);
+}
+
+.angaben {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem var(--abstand);
+  margin: 0 0 var(--abstand);
+  overflow-wrap: anywhere;
 }
 
 .angaben dt {
@@ -605,4 +626,19 @@ button.zweitrangig,
 .status-verworfen,
 .status-abgeloest {
   color: var(--text-leise);
+}
+
+.teil {
+  margin: 0 0 var(--abstand);
+  padding: 0.75rem var(--abstand);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.bericht .abschnitt th {
+  padding-top: 1rem;
+}
+
+.bericht .summe td {
+  font-weight: 700;
 }

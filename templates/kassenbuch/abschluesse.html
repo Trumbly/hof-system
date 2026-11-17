@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block titel %}Monatsabschlüsse{% endblock %}
+
+{% block inhalt %}
+<h1>Monatsabschlüsse</h1>
+{% include "kassenbuch/_unternavigation.html" %}
+<p class="leise">Der Lauf <code>kassenbuch_monatsabschluss</code> schließt am 3. jedes Monats den Vormonat ab: alle Umsätze eingeordnet, Saldo im Buch gleich Saldo der Bank. Danach ist der Monat gesperrt; geändert wird nur noch per Stornobuchung im offenen Monat.</p>
+{% for g in gruppen %}
+<section class="gruppe" aria-labelledby="mandant-{{ g.mandant.pk }}">
+  <h2 id="mandant-{{ g.mandant.pk }}">{{ g.mandant.kuerzel }}</h2>
+  {% if g.pruefung %}
+  <p class="{% if g.pruefung.ok %}leise{% else %}meldung meldung-warning{% endif %}">
+    Nächster Monat {{ g.pruefung.monat|date:"m/Y" }}: {% if g.pruefung.ok %}bereit zum Abschluss.{% else %}{{ g.pruefung.hinweis }}{% endif %}
+  </p>
+  {% endif %}
+  <div class="tabelle-rahmen">
+  <table>
+    <thead><tr><th>Monat</th><th>Stand</th><th>Saldo Bank</th><th>Saldo Buch</th></tr></thead>
+    <tbody>
+      {% for a in g.abschluesse %}
+      <tr id="abschluss-{{ a.pk }}">
+        <td data-titel="Monat">{{ a.monat|date:"m/Y" }}</td>
+        <td data-titel="Stand">{% if a.abgeschlossen %}abgeschlossen am {{ a.abgeschlossen_am|date:"d.m.Y H:i" }}{% else %}<strong>offen</strong>{% endif %}</td>
+        <td data-titel="Saldo Bank">{{ a.saldo_bank|floatformat:"2g"|default:"–" }}</td>
+        <td data-titel="Saldo Buch">{{ a.saldo_buch|floatformat:"2g"|default:"–" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Noch kein Abschluss.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% empty %}
+<p>Kein Mandant mit Bankkonto.</p>
+{% endfor %}
+{% endblock %}

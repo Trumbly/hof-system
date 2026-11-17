@@ -1,5 +1,6 @@
 """Gemeinsame Einstellungen für alle Umgebungen."""
 
+from datetime import date
 from pathlib import Path
 
 import environ
@@ -32,6 +33,7 @@ INSTALLED_APPS = [
     "apps.fristen",
     "apps.benachrichtigung",
     "apps.dokumente",
+    "apps.kassenbuch",
 ]
 
 MIDDLEWARE = [
@@ -138,6 +140,11 @@ ENABLE_BANKING_REDIRECT_URL = env.str("ENABLE_BANKING_REDIRECT_URL", default="")
 ENABLE_BANKING_LAND = env.str("ENABLE_BANKING_LAND", default="DE")
 ENABLE_BANKING_FREIGABE_TAGE = env.int("ENABLE_BANKING_FREIGABE_TAGE", default=180)
 
+# Kassenbuch: erster Tag, ab dem der Lauf kassenbuch_einordnen Umsätze einordnet und der
+# Monatsabschluss beginnt (leer: ab dem ersten Umsatz). Auf dem Server: 2026-01-01 (H6.3).
+_kassenbuch_beginn = env.str("HOF_KASSENBUCH_BEGINN", default="")
+KASSENBUCH_BEGINN = date.fromisoformat(_kassenbuch_beginn) if _kassenbuch_beginn else None
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Setzt EMAIL_BACKEND, EMAIL_HOST, EMAIL_PORT usw. aus einer URL (Muster aus django-environ).
@@ -164,6 +171,9 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "Bankabruf gescheitert",
         "Bankumsätze fehlen",
         "Saldo weicht ab",
+        # Kassenbuch (apps.kassenbuch.services, ART_*)
+        "Umsätze einordnen",
+        "Monatsabschluss offen",
         # Dokumente (apps.dokumente.services, ART_*)
         "Kopie in „Gesendet“ fehlt",
         "Brief storniert",

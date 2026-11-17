@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Monatsbericht {{ bericht.objekt.kuerzel }} {{ bericht.monat|date:"m/Y" }}</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; @bottom-right { content: "Seite " counter(page) " von " counter(pages); font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #5a645f; } }
+    body { font-family: "DejaVu Sans", "Liberation Sans", sans-serif; font-size: 9.5pt; color: #1d2321; }
+    h1 { font-size: 15pt; margin: 0 0 2mm; }
+    .unter { color: #5a645f; margin: 0 0 6mm; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 1.4mm 2mm; border-bottom: 0.3pt solid #dcd9d1; text-align: left; }
+    .zahl-rechts { text-align: right; white-space: nowrap; }
+    .abschnitt th { padding-top: 4mm; border-bottom: 0.6pt solid #1d2321; }
+    .summe td { font-weight: bold; }
+    .ergebnis td { border-top: 0.8pt solid #1d2321; }
+    .fuss { margin-top: 8mm; color: #5a645f; font-size: 8pt; }
+  </style>
+</head>
+<body>
+  <h1>Monatsbericht {{ bericht.objekt.kuerzel }} · {{ bericht.monat|date:"F Y" }}</h1>
+  <p class="unter">{{ bericht.objekt.bezeichnung }} · Beträge in Euro · Vergleich mit {{ bericht.vorjahresmonat|date:"F Y" }}</p>
+  {% include "kassenbuch/_bericht_tabelle.html" %}
+  <p class="fuss">{{ bericht.anzahl_buchungen }} Buchungen im Monat. {% if bericht.abgeschlossen %}Der Monat ist abgeschlossen.{% else %}Der Monat ist noch nicht abgeschlossen; die Zahlen können sich ändern.{% endif %} Aus dem Kassenbuch des Hof-Systems.</p>
+</body>
+</html>

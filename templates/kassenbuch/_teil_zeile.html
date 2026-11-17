@@ -1,0 +1,8 @@
+<fieldset class="teil" id="teil-{{ nummer }}">
+  <legend>Teil {{ nummer|add:1 }}</legend>
+  {{ form.as_p }}
+</fieldset>
+<input type="hidden" name="teile-TOTAL_FORMS" value="{{ naechste }}" id="id_teile-TOTAL_FORMS" hx-swap-oob="true">
+<button type="submit" name="mehr" value="1" id="teil-dazu" class="zweitrangig" hx-swap-oob="true"
+        hx-get="{% url 'kassenbuch:aufteilen_zeile' umsatz.pk %}?nummer={{ naechste }}"
+        hx-target="#teile" hx-swap="beforeend">Weitere Zeile</button>

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block titel %}{% if regel %}Regel #{{ regel.pk }}{% else %}Neue Regel{% endif %}{% endblock %}
+
+{% block inhalt %}
+<h1>{% if regel %}Regel #{{ regel.pk }} bearbeiten{% else %}Neue Regel{% endif %}</h1>
+{% include "kassenbuch/_unternavigation.html" %}
+{% if umsatz %}{% include "kassenbuch/_umsatz_kopf.html" %}{% endif %}
+<p class="leise">Gesetzte Bedingungen müssen alle passen. Nach dem Speichern zeigt eine Vorschau, welche offenen Umsätze die Regel rückwirkend bucht.</p>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Speichern und Vorschau</button>
+</form>
+{% endblock %}
