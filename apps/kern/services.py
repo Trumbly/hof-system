@@ -6,6 +6,8 @@ Views, Läufe und Importe rufen diese Funktionen auf, nie ``Model.objects.create
 
 from __future__ import annotations
 
+import base64
+import binascii
 import datetime
 import logging
 from collections.abc import Callable, Iterable
@@ -14,6 +16,8 @@ from typing import Any
 
 import pghistory
 from allauth.account.models import EmailAddress
+from allauth.mfa.models import Authenticator
+from allauth.mfa.totp.internal.auth import TOTP
 from django.apps import apps
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.contenttypes.models import ContentType
@@ -46,6 +50,23 @@ def benutzer_anlegen(email: str, passwort: str) -> Benutzer:
     EmailAddress.objects.create(user=benutzer, email=email, primary=True, verified=True)
     logger.info("Benutzer #%s angelegt", benutzer.pk)
     return benutzer
+
+
+def zweiten_faktor_einrichten(benutzer: Benutzer, geheimnis: str) -> Authenticator:
+    """Richtet den zweiten Faktor (TOTP) mit einem vorgegebenen Geheimnis ein.
+
+    Im Betrieb richtet der Benutzer TOTP bei der ersten Anmeldung selbst ein. Diese
+    Funktion ist für den Testhof und die Tests, die ein festes Geheimnis brauchen.
+    Das Geheimnis ist Base32 (wie in der Authenticator-App).
+    """
+    try:
+        base64.b32decode(geheimnis, casefold=True)
+    except binascii.Error as fehler:
+        raise ValueError("Das TOTP-Geheimnis ist kein gültiges Base32.") from fehler
+    totp: Any = TOTP.activate(benutzer, geheimnis)
+    authenticator: Authenticator = totp.instance
+    logger.info("Zweiter Faktor für Benutzer #%s eingerichtet", benutzer.pk)
+    return authenticator
 
 
 # --- Mandant und Objekt --------------------------------------------------------------

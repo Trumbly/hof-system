@@ -46,6 +46,17 @@ jobs:
         run: uv run mypy apps/*/services.py
       - name: pytest
         run: uv run pytest
+      - name: Testhof aufbauen (migrate, testhof --seed 42, zweimal gleich)
+        shell: bash  # mit pipefail: Ein Fehler des Befehls geht nicht im tee verloren
+        env:
+          DJANGO_SETTINGS_MODULE: hof.settings.test
+        run: |
+          uv run python manage.py migrate --no-input
+          uv run python manage.py testhof --seed 42 | tee erster-lauf.txt
+          uv run python manage.py testhof --seed 42 --leeren | tee zweiter-lauf.txt
+          erste=$(grep '^Prüfsumme:' erster-lauf.txt)
+          zweite=$(grep '^Prüfsumme:' zweiter-lauf.txt)
+          test -n "$erste" && test "$erste" = "$zweite"
 
   datenschutz:
     name: Keine Daten, keine Geheimnisse

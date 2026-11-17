@@ -1,18 +1,26 @@
-"""Gemeinsame Fixtures: Benutzer mit TOTP und eine echte Anmeldung mit zweitem Faktor."""
+"""Gemeinsame Fixtures: Benutzer mit TOTP, eine echte Anmeldung mit zweitem Faktor und
+der Testhof."""
 
 from __future__ import annotations
 
+import sys
 import time
 from collections.abc import Iterator
 
 import pytest
 from allauth.mfa.totp.internal.auth import TOTP, format_hotp_value, generate_totp_secret, hotp_value
 from django.core.cache import cache
+from django.db import transaction
 from django.test import Client
 from django.urls import reverse
+from pytest_django import DjangoDbBlocker
 
 from apps.kern.models import Benutzer
+from testhof.aufbau import Testhof, aufbauen
 from tests.factories import TESTPASSWORT, BenutzerFabrik
+
+#: Seed des Testhofs für alle Tests.
+TESTHOF_SEED = 42
 
 
 def totp_code(geheimnis: str, versatz: int = 0) -> str:
@@ -62,3 +70,51 @@ def angemeldet(client: Client, benutzer_mit_totp: Benutzer, totp_geheimnis: str)
     """Ein Client, der mit Passwort und zweitem Faktor angemeldet ist."""
     anmelden(client, benutzer_mit_totp, totp_geheimnis)
     return client
+
+
+# --- Testhof -------------------------------------------------------------------------
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Tests mit dem Testhof laufen zuletzt.
+
+    Der Testhof steht ab dem ersten Test, der ihn braucht, bis zum Ende des Testlaufs in
+    der Datenbank (eine offene Transaktion um alle folgenden Tests). Tests ohne Testhof
+    laufen deshalb vorher und sehen eine leere Datenbank wie bisher.
+    """
+    items.sort(key=lambda item: "testhof" in getattr(item, "fixturenames", ()))
+
+
+@pytest.fixture(scope="session")
+def _testhof_sitzung(
+    django_db_setup: None, django_db_blocker: DjangoDbBlocker
+) -> Iterator[Testhof]:
+    """Baut den Testhof einmal pro Testlauf in einer Transaktion auf, am Ende zurückgerollt.
+
+    Jeder Test läuft darin in einem eigenen Sicherungspunkt (pytest-django), seine
+    Änderungen verschwinden nach dem Test; der Testhof bleibt.
+    """
+    with django_db_blocker.unblock():
+        atomar = transaction.atomic()
+        atomar.__enter__()
+        try:
+            hof = aufbauen(seed=TESTHOF_SEED)
+        except BaseException:
+            atomar.__exit__(*sys.exc_info())
+            raise
+    try:
+        yield hof
+    finally:
+        with django_db_blocker.unblock():
+            transaction.set_rollback(True)
+            atomar.__exit__(None, None, None)
+
+
+@pytest.fixture
+def testhof(_testhof_sitzung: Testhof, db: None) -> Testhof:
+    """Der Testhof aus Seed 42 (``testhof.kern``: Mandanten, Objekte, Testbenutzer).
+
+    Nicht mit ``transaction=True`` kombinieren: Solche Tests leeren die Datenbank.
+    Wer Objekte des Testhofs im Test ändert, liest sie danach mit ``refresh_from_db()``.
+    """
+    return _testhof_sitzung

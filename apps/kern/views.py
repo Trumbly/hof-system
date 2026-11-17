@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 from pghistory.models import Events
 
 from apps.kern import aktionen, services
-from apps.kern.models import Arbeitsposten, Benutzer, Lauf
+from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 from apps.kern.protokoll import ART_TITEL, protokollierte_modelle
 
 PROTOKOLL_ANZAHL = 100
@@ -35,6 +35,7 @@ def startseite(request: HttpRequest) -> HttpResponse:
                 status=Arbeitsposten.Status.OFFEN
             ).count(),
             "letzter_lauf": Lauf.objects.first(),
+            "objekte": Objekt.objects.filter(aktiv=True).select_related("mandant"),
         },
     )
 
