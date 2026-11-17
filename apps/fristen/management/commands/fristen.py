@@ -1,0 +1,36 @@
+"""Lauf ``fristen`` (täglich): fällige und überfällige Fristen werden Arbeitsposten."""
+
+from __future__ import annotations
+
+import datetime
+from typing import Any
+
+from django.core.management.base import CommandParser
+from django.utils import timezone
+
+from apps.fristen import services
+from apps.kern.laeufe import LaufBefehl
+
+
+class Command(LaufBefehl):
+    help = (
+        "Legt für jede fällige oder überfällige Frist einen Arbeitsposten „Frist fällig“ an "
+        "(höchstens einen je Frist) und schließt Posten, deren Frist erledigt ist."
+    )
+
+    def add_arguments(self, parser: CommandParser) -> None:
+        parser.add_argument(
+            "--stichtag",
+            type=datetime.date.fromisoformat,
+            default=None,
+            help="Stichtag im Format JJJJ-MM-TT (Standard: heute).",
+        )
+
+    def ausfuehren(self, **optionen: Any) -> str:
+        stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        ergebnis = services.fristen_pruefen(stichtag, lauf=self.lauf)
+        self.koerbe.arbeitsposten += len(ergebnis.neue_posten)
+        return (
+            f"Stichtag {stichtag:%d.%m.%Y}: {ergebnis.faellig} Fristen fällig, "
+            f"{len(ergebnis.neue_posten)} Posten neu, {ergebnis.geschlossen} geschlossen."
+        )

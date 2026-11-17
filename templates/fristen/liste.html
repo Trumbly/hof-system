@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block titel %}Fristen{% endblock %}
+
+{% block inhalt %}
+<h1>Fristen</h1>
+<form method="get" class="filter filter-fristen">
+  <label for="zeitraum">Zeitraum</label>
+  <select name="zeitraum" id="zeitraum">
+    {% for wert, titel in zeitraeume %}<option value="{{ wert }}"{% if wert == gewaehlt.zeitraum %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+  </select>
+  <label for="art">Art</label>
+  <select name="art" id="art">
+    <option value="">alle</option>
+    {% for wert, titel in arten %}<option value="{{ wert }}"{% if wert == gewaehlt.art %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+  </select>
+  <label for="quelle">Quelle</label>
+  <select name="quelle" id="quelle">
+    <option value="">alle</option>
+    {% for wert, titel in quellen %}<option value="{{ wert }}"{% if wert == gewaehlt.quelle %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="zweitrangig">Filtern</button>
+</form>
+
+<p class="leise">{{ fristen|length }} Frist{{ fristen|length|pluralize:"en" }}</p>
+<ul class="posten-liste" id="fristen">
+  {% for frist in fristen %}{% include "fristen/_frist.html" %}{% empty %}
+  <li>Keine Fristen für diese Auswahl.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

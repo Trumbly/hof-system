@@ -55,6 +55,19 @@ Läufe sind Management-Befehle (`LaufBefehl`) und werden von `hof-lauf@<name>.ti
 
 Prüfen: `systemctl list-timers 'hof-*'`, `journalctl -u hof-lauf@<name> -n 50`, in der App die Seite „Läufe“. Von Hand starten: `sudo systemctl start hof-lauf@<name>.service`.
 
+## Benachrichtigung (H11.1)
+
+Der Lauf `benachrichtigen` (7:30, 12:30, 18:30) meldet sich nur, wenn ein Lauf in den letzten 24 Stunden abgebrochen ist oder Fehler hatte, oder wenn Arbeitsposten bestimmter Arten offen warten (Standard: Frist fällig, Bankfreigabe erneuern, Mahnungen senden, Zahlungen klären, Rechnung zahlen, Schreiben senden). Inhalt nur Zähler und Links, keine Namen oder Beträge. Dieselbe Lage kommt höchstens einmal am Tag; neu meldet sich nur, was dazukommt. Ohne Anlass bleibt es still.
+
+Einrichten in `/opt/hof/.env`:
+
+- `HOF_BASIS_URL=https://hof-system.<tailnet>.ts.net` (Ziel der Links)
+- Mail: `HOF_BENACHRICHTIGUNG_MAIL=<deine Adresse>`; versendet über `EMAIL_URL`.
+- Push über ntfy: `HOF_NTFY_URL=https://ntfy.sh` (oder der eigene Server), `HOF_NTFY_THEMA=<langes, zufälliges Thema>`, bei geschütztem Thema `HOF_NTFY_TOKEN=tk_…`. In der ntfy-App dasselbe Thema abonnieren.
+- Optional: `HOF_BENACHRICHTIGUNG_ARTEN` (Arten, durch Komma getrennt), `HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN` (Standard 24).
+
+Ein Kanal ohne Einstellung bleibt aus; `check --deploy` warnt, wenn keiner eingerichtet ist oder `HOF_BASIS_URL` fehlt. Fällt ein Kanal aus, steht der Lauf auf „mit Fehlern“. Die Seite „Läufe“ zeigt bei jedem Lauf `benachrichtigen`, ob und über welche Kanäle gemeldet wurde. Testen: `compose.sh exec app python manage.py benachrichtigen`.
+
 ## Sicherung
 
 **Einrichten.** Auf der Storage Box SSH einschalten, den Schlüssel aus `server-setup.sh` eintragen: `cat /root/.ssh/hof-storagebox.pub | ssh -p 23 u123456@u123456.your-storagebox.de install-ssh-key`. Dann als root:

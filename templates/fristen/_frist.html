@@ -1,0 +1,25 @@
+<li class="posten frist{% if frist.ist_erledigt %} frist-erledigt{% elif frist.datum < heute %} frist-ueberfaellig{% endif %}" id="frist-{{ frist.pk }}">
+  <div class="posten-kopf">
+    <span class="posten-titel">{{ frist.get_art_display }} <span class="leise">#{{ frist.pk }}</span></span>
+    <span class="faellig">{{ frist.datum|date:"d.m.Y" }}{% if not frist.ist_erledigt and frist.datum < heute %} · überfällig{% endif %}</span>
+  </div>
+  <p class="leise posten-meta">
+    Quelle: <strong class="frist-quelle">{{ frist.get_quelle_display }}</strong>
+    · Bezug: {{ frist.bezug_typ.name }} #{{ frist.bezug_id }}
+    {% if frist.vorlauf_tage %}· Vorlauf {{ frist.vorlauf_tage }} Tage{% endif %}
+    {% if frist.anzahl_verschoben %}· {{ frist.anzahl_verschoben }}× verschoben{% endif %}
+  </p>
+  {% if frist.hinweis %}<p class="posten-hinweis">{{ frist.hinweis }}</p>{% endif %}
+  {% if frist.ist_erledigt %}
+  <p class="posten-ergebnis"{% if gerade_erledigt %} role="status"{% endif %}>Erledigt am {{ frist.erledigt_am|date:"d.m.Y" }}.</p>
+  {% else %}
+  <div class="aktionen">
+    {% url 'fristen:erledigt' frist.pk as erledigt_url %}
+    <form method="post" action="{{ erledigt_url }}" hx-post="{{ erledigt_url }}" hx-target="#frist-{{ frist.pk }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      <input type="hidden" name="zurueck" value="{{ request.get_full_path }}">
+      <button type="submit">Erledigt</button>
+    </form>
+  </div>
+  {% endif %}
+</li>

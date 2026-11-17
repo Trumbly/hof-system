@@ -482,3 +482,19 @@ button.zweitrangig,
     color: var(--text-leise);
   }
 }
+
+/* Fristen */
+
+@media (min-width: 48rem) {
+  .filter-fristen {
+    grid-template-columns: auto 1fr auto 1fr auto 1fr auto;
+  }
+}
+
+.frist-ueberfaellig {
+  border-left: 4px solid var(--fehler);
+}
+
+.frist-erledigt {
+  opacity: 0.75;
+}

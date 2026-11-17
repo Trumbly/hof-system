@@ -20,3 +20,11 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+
+# Benachrichtigung: Mail landet in mail.outbox, ntfy im Fake. Nichts geht ins Netz.
+HOF_BASIS_URL = "https://hof-system.testhof.invalid"
+HOF_BENACHRICHTIGUNG_MAIL = "max@testhof.invalid"
+HOF_NTFY_URL = "https://ntfy.testhof.invalid"
+HOF_NTFY_THEMA = "hof-testhof"
+HOF_NTFY_TOKEN = ""
+HOF_BENACHRICHTIGUNG_NTFY_KANAL = "apps.benachrichtigung.kanaele.FakeNtfyKanal"
