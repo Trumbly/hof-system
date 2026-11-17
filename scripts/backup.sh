@@ -16,7 +16,7 @@
 #   RESTIC_REPOSITORY      Pflicht, z. B. sftp:storagebox:hof-restic
 #   RESTIC_PASSWORD_FILE   Datei mit dem Repo-Passwort (/etc/hof/restic-passwort).
 #                          Das Passwort kommt nur aus dieser Datei, nie aus der Umgebung.
-#   HOF_COMPOSE_PROJEKT    Name des Compose-Projekts (hof)
+#   HOF_COMPOSE_PROJEKT    Name des Compose-Projekts (hof-system)
 #   HOF_MEDIEN_DIR         Medienordner (/srv/hof/medien)
 #   HOF_SICHERUNG_DIR      Ablage für Dump und Zeilenzahlen während der Sicherung
 #                          (/var/lib/hof/sicherung); der Pfad steht so im Snapshot
@@ -34,7 +34,7 @@ export RESTIC_PASSWORD_FILE="${RESTIC_PASSWORD_FILE:-/etc/hof/restic-passwort}"
 # Das Passwort nur aus der Datei: Werte aus der Umgebung werden nicht benutzt.
 unset RESTIC_PASSWORD RESTIC_PASSWORD_COMMAND
 
-PROJEKT="${HOF_COMPOSE_PROJEKT:-hof}"
+PROJEKT="${HOF_COMPOSE_PROJEKT:-hof-system}"
 MEDIEN_DIR="${HOF_MEDIEN_DIR:-/srv/hof/medien}"
 SICHERUNG_DIR="${HOF_SICHERUNG_DIR:-/var/lib/hof/sicherung}"
 STATUS_DATEI="${HOF_BACKUP_STATUS:-/var/lib/hof/backup-status.json}"

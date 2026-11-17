@@ -19,4 +19,4 @@ set -a
 source "$BASIS/aktuell.env"
 set +a
 
-exec docker compose -p hof -f "$BASIS/aktuell/docker-compose.prod.yml" "$@"
+exec docker compose -p hof-system -f "$BASIS/aktuell/docker-compose.prod.yml" "$@"

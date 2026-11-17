@@ -14,7 +14,7 @@ NAME="${1:-}"
 [[ "$NAME" =~ ^[a-z][a-z0-9_]*$ ]] || { echo "Aufruf: lauf.sh <name des befehls>" >&2; exit 2; }
 shift
 
-PROJEKT="${HOF_COMPOSE_PROJEKT:-hof}"
+PROJEKT="${HOF_COMPOSE_PROJEKT:-hof-system}"
 APP=$(docker ps -q \
     --filter "label=com.docker.compose.project=$PROJEKT" \
     --filter "label=com.docker.compose.service=app" \

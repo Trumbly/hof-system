@@ -8,11 +8,11 @@ Stand: Schritt 0d. Der Server `hof-system` (Hetzner Cloud, Ubuntu 24.04) ist nur
 | --- | --- |
 | Adresse | `https://hof-system.<tailnet>.ts.net` (nur im Tailscale-Netz) |
 | Gesundheit | `https://hof-system.<tailnet>.ts.net/gesund` → `ok <version>` |
-| Dienste | Docker Compose, Projekt `hof`: `app` (gunicorn), `db` (Postgres 16), `caddy` |
+| Dienste | Docker Compose, Projekt `hof-system`: `app` (gunicorn), `db` (Postgres 16), `caddy` |
 | Code und Versionen | `/opt/hof/repo` (Klon), `/opt/hof/versionen/<tag>`, `/opt/hof/aktuell` → laufende Version |
 | Umgebungswerte | `/opt/hof/.env` (Besitzer `hof`, `chmod 600`) |
 | Dokumente | `/srv/hof/medien` (gehört UID 10001, dem Benutzer im Container) |
-| Datenbank | Docker-Volume `hof_db` |
+| Datenbank | Docker-Volume `hof-system_db` |
 | Sicherung | restic in die Storage Box; Zugang in `/etc/hof/backup.env` und `/etc/hof/restic-passwort` |
 | Status | `/var/lib/hof/backup-status.json`, `/var/lib/hof/rueckspielprobe-status.json` |
 | Dumps vor jedem Ausrollen | `/opt/hof/vor-deploy/` (die letzten fünf) |

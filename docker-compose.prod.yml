@@ -15,7 +15,7 @@
 # "${HOF_TAILSCALE_IP}:443:443" lauscht nur auf der Tailscale-Adresse. App und Datenbank
 # haben gar keinen veröffentlichten Port; sie sind nur im Docker-Netz erreichbar.
 
-name: hof
+name: hof-system
 
 x-umgebung: &umgebung
   env_file:

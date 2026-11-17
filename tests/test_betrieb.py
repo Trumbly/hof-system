@@ -65,7 +65,7 @@ def test_compose_dienste_mit_healthcheck_und_volumes(compose: dict[str, Any]) ->
     assert dienste["app"]["environment"]["HOF_VERSION"] == "${HOF_VERSION}"
     assert any(v.endswith(":/app/medien") for v in dienste["app"]["volumes"])
     assert "/gesund" in " ".join(dienste["app"]["healthcheck"]["test"])
-    assert compose["name"] == "hof"
+    assert compose["name"] == "hof-system"
 
 
 def test_umgebung_nur_ueber_env_file(compose: dict[str, Any]) -> None:
