@@ -6,8 +6,10 @@ from __future__ import annotations
 import sys
 import time
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import pytest
+from allauth.mfa.totp.internal import auth as totp_auth
 from allauth.mfa.totp.internal.auth import TOTP, format_hotp_value, generate_totp_secret, hotp_value
 from django.core.cache import cache
 from django.db import transaction
@@ -24,9 +26,25 @@ TESTHOF_SEED = 42
 
 
 def totp_code(geheimnis: str, versatz: int = 0) -> str:
-    """Der aktuelle TOTP-Code, wie ihn die Authenticator-App zeigt."""
-    zaehler = int(time.time()) // 30 + versatz
+    """Der aktuelle TOTP-Code, wie ihn die Authenticator-App zeigt.
+
+    Die Uhr ist dieselbe, mit der allauth prüft (in Tests angehalten, siehe
+    ``_totp_uhr_anhalten``).
+    """
+    zaehler = int(totp_auth.time.time()) // 30 + versatz
     return format_hotp_value(hotp_value(geheimnis, zaehler))
+
+
+@pytest.fixture(autouse=True)
+def _totp_uhr_anhalten(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hält die Uhr der TOTP-Prüfung von allauth für die Dauer eines Tests an.
+
+    Ohne das scheitert eine Anmeldung zufällig, wenn zwischen Erzeugen und Prüfen des Codes
+    die 30-Sekunden-Grenze liegt (allauth erlaubt keine Toleranz). Nur das Modul von allauth
+    sieht die angehaltene Uhr; ``time.time`` bleibt für alles andere echt.
+    """
+    jetzt = float(int(time.time()))
+    monkeypatch.setattr(totp_auth, "time", SimpleNamespace(time=lambda: jetzt))
 
 
 @pytest.fixture(autouse=True)
