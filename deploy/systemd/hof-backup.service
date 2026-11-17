@@ -1,0 +1,18 @@
+# Tägliche Sicherung mit restic (scripts/backup.sh). Gestartet von hof-backup.timer.
+# Von Hand: systemctl start hof-backup.service && journalctl -u hof-backup -n 50
+# Ergebnis: /var/lib/hof/backup-status.json
+
+[Unit]
+Description=Hof-System: Sicherung (Datenbank und Dokumente) mit restic
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# RESTIC_REPOSITORY und weitere Werte; das Passwort liegt in /etc/hof/restic-passwort.
+EnvironmentFile=/etc/hof/backup.env
+ExecStart=/opt/hof/aktuell/scripts/backup.sh
+TimeoutStartSec=6h
+Nice=10
+IOSchedulingClass=idle

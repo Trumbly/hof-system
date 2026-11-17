@@ -1,0 +1,17 @@
+# Rückspielprobe (H11.2, scripts/restore-probe.sh): letzte Sicherung in die Datenbank
+# hof_probe zurückspielen und Zeilenzahlen vergleichen. Gestartet von
+# hof-rueckspielprobe.timer. Ergebnis: /var/lib/hof/rueckspielprobe-status.json
+
+[Unit]
+Description=Hof-System: Rückspielprobe der letzten Sicherung
+Requires=docker.service
+After=docker.service network-online.target hof-backup.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/hof/backup.env
+ExecStart=/opt/hof/aktuell/scripts/restore-probe.sh
+TimeoutStartSec=6h
+Nice=10
+IOSchedulingClass=idle

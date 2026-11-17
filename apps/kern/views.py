@@ -1,4 +1,4 @@
-"""Seiten des Kerns: Start, Arbeitslisten, Protokoll, Läufe."""
+"""Seiten des Kerns: Start, Arbeitslisten, Protokoll, Läufe, Gesundheits-Endpunkt."""
 
 from __future__ import annotations
 
@@ -6,14 +6,17 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.db import DatabaseError, connection, transaction
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
-from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET, require_POST
 from pghistory.models import Events
 
 from apps.kern import aktionen, services
@@ -209,3 +212,27 @@ def zuruecknehmen(request: HttpRequest) -> HttpResponse:
 def laeufe(request: HttpRequest) -> HttpResponse:
     """Letzte Läufe mit Status und Zählern."""
     return render(request, "kern/laeufe.html", {"laeufe": Lauf.objects.all()[:LAEUFE_ANZAHL]})
+
+
+# --- Gesundheit ----------------------------------------------------------------------
+
+
+@transaction.non_atomic_requests
+@never_cache
+@require_GET
+def gesund(request: HttpRequest) -> HttpResponse:
+    """Gesundheits-Endpunkt für deploy.sh und die Healthchecks der Container.
+
+    Ohne Anmeldung, ohne Daten: nur „ok“ und die Version (``HOF_VERSION``). Erreichbar ist
+    er nur über Tailscale, weil Caddy und die Firewall nichts anderes durchlassen. Kann die
+    Datenbank nicht antworten, kommt 503 mit „fehler“ und wieder nur der Version.
+    """
+    version = settings.HOF_VERSION
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except DatabaseError:
+        return HttpResponse(
+            f"fehler {version}\n", status=503, content_type="text/plain; charset=utf-8"
+        )
+    return HttpResponse(f"ok {version}\n", content_type="text/plain; charset=utf-8")

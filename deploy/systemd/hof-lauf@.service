@@ -1,0 +1,17 @@
+# Vorlage für Läufe: hof-lauf@<name>.service führt `manage.py <name>` im App-Container aus.
+# Gestartet von hof-lauf@<name>.timer; der Zeitplan steht je Lauf in
+# deploy/systemd/laeufe/<name>.conf (siehe docs/betrieb.md, „Läufe eintragen“).
+# Von Hand: systemctl start hof-lauf@kern_selbsttest.service
+
+[Unit]
+Description=Hof-System: Lauf %i
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=hof
+Group=hof
+ExecStart=/opt/hof/aktuell/scripts/lauf.sh %i
+TimeoutStartSec=2h
+Nice=5
