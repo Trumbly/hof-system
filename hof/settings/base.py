@@ -187,6 +187,7 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         # Dokumente (apps.dokumente.services, ART_*)
         "Kopie in „Gesendet“ fehlt",
         "Brief storniert",
+        "Belege zuordnen",
         # Stammdaten (apps.stammdaten.services/schreiben, ART_*); die Kautionsabrechnung
         # meldet sich über ihre Frist („Frist fällig“).
         "Schreiben erstellen",
@@ -255,6 +256,37 @@ DOKUMENTE = {
         "telefon": env.str("HOF_ABSENDER_TELEFON", default=""),
         "bank": env.str("HOF_ABSENDER_BANK", default=""),
         "steuernummer": env.str("HOF_ABSENDER_STEUERNUMMER", default=""),
+    },
+    # Ablage und Belege (Schritt 3a). Das Rechnungspostfach liest der Lauf belege_postfach.
+    # Der Client ist austauschbar; Standard ist der Fake, prod.py nimmt imaplib.
+    "BELEGE_POSTFACH_CLIENT": env.str(
+        "HOF_BELEGE_POSTFACH_CLIENT", default="apps.dokumente.postfach.FakePostfach"
+    ),
+    # imaps://benutzer:passwort@host:993 des eigenen Rechnungspostfachs (nicht kontakt@)
+    "BELEGE_IMAP_URL": env.str("HOF_BELEGE_IMAP_URL", default=""),
+    "BELEGE_IMAP_ORDNER": env.str("HOF_BELEGE_IMAP_ORDNER", default="INBOX"),
+    # Was mit einer gelesenen Mail geschieht: „markieren“ (als gelesen) oder „verschieben“.
+    "BELEGE_NACH_DEM_LESEN": env.str("HOF_BELEGE_NACH_DEM_LESEN", default="markieren"),
+    "BELEGE_ZIELORDNER": env.str("HOF_BELEGE_ZIELORDNER", default="Abgelegt"),
+    # Aufbewahrung je Dokumentart in Jahren, gerechnet ab Ende des Jahres des Dokuments
+    # (H8.6). Nur Feld und Anzeige; den Löschlauf gibt es erst in v2.
+    "LOESCHFRIST_JAHRE": {
+        "beleg": 10,
+        "mahnung_lieferant": 6,
+        "ruecklastschrift": 6,
+        "vollstreckung": 10,
+        "sonstiges": 6,
+    },
+    # Monatsabschluss (H6.6): Welche Buchungen einen Beleg brauchen. Fehlt er, erscheint im
+    # Abschluss ein Hinweis und ein Arbeitsposten „Belege fehlen“; der Abschluss geht trotzdem.
+    "BELEGPFLICHT": {
+        # Arten der Kategorie (kassenbuch.Kategorie.Art), für die ein Beleg Pflicht ist
+        "ARTEN": env.list("HOF_BELEGPFLICHT_ARTEN", default=["ausgabe"]),
+        # ab diesem Betrag in Euro (einschließlich)
+        "AB_BETRAG": env.str("HOF_BELEGPFLICHT_AB_BETRAG", default="0.00"),
+        # Kategorien ohne Belegpflicht, nach Bezeichnung (z. B. Kontoführung: Beleg ist der
+        # Kontoauszug)
+        "OHNE_KATEGORIEN": env.list("HOF_BELEGPFLICHT_OHNE_KATEGORIEN", default=[]),
     },
 }
 

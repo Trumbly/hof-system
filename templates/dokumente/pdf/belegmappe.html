@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Belegmappe {{ mappe.objekt.kuerzel }} {{ mappe.jahr }}</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; @bottom-right { content: "Seite " counter(page); font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #5a645f; } }
+    body { font-family: "DejaVu Sans", "Liberation Sans", sans-serif; font-size: 9pt; color: #1d2321; }
+    h1 { font-size: 15pt; margin: 0 0 2mm; }
+    h2 { font-size: 11pt; margin: 6mm 0 2mm; }
+    .unter { color: #5a645f; margin: 0 0 4mm; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 1.2mm 1.6mm; border-bottom: 0.3pt solid #dcd9d1; text-align: left; vertical-align: top; }
+    th { border-bottom: 0.6pt solid #1d2321; }
+    .rechts { text-align: right; white-space: nowrap; }
+    .summe td { font-weight: bold; border-top: 0.8pt solid #1d2321; }
+    .abweichung td { color: #8a2b16; }
+    .hinweise { border: 0.8pt solid #8a2b16; padding: 2mm 3mm; margin: 4mm 0; }
+    .hinweise p { margin: 0 0 1mm; }
+    .stimmt { border: 0.8pt solid #2f6b3a; padding: 2mm 3mm; margin: 4mm 0; }
+  </style>
+</head>
+<body>
+  <h1>Belegmappe {{ mappe.objekt.kuerzel }} · Leistungsjahr {{ mappe.jahr }}</h1>
+  <p class="unter">{{ mappe.objekt.bezeichnung }} · {{ mappe.zeilen|length }} Belege · erstellt am {{ erstellt|date:"d.m.Y" }} · Beträge in Euro</p>
+
+  {% if hinweise %}
+  <div class="hinweise">
+    <p><strong>Abweichungen zum Kassenbuch</strong></p>
+    {% for hinweis in hinweise %}<p>{{ hinweis }}</p>{% endfor %}
+  </div>
+  {% else %}
+  <div class="stimmt"><p>Die Summen je Kostenart stimmen mit dem Kassenbuch; jede Buchung hat ihren Beleg.</p></div>
+  {% endif %}
+
+  <h2>Summen je Kostenart</h2>
+  <table>
+    <thead><tr><th>Kostenart</th><th class="rechts">Belege</th><th class="rechts">Kassenbuch</th><th class="rechts">umlagefähig</th></tr></thead>
+    <tbody>
+      {% for k in mappe.kostenarten %}
+      <tr{% if not k.stimmt %} class="abweichung"{% endif %}><td>{{ k.name }}</td><td class="rechts">{{ k.belege|floatformat:"2g" }}</td><td class="rechts">{{ k.kassenbuch|floatformat:"2g" }}</td><td class="rechts">{{ k.umlagefaehig|floatformat:"2g" }}</td></tr>
+      {% endfor %}
+      <tr class="summe"><td>Summe</td><td class="rechts">{{ mappe.summe_belege|floatformat:"2g" }}</td><td class="rechts">{{ mappe.summe_kassenbuch|floatformat:"2g" }}</td><td class="rechts">{{ mappe.summe_umlagefaehig|floatformat:"2g" }}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Inhaltsverzeichnis</h2>
+  <table>
+    <thead><tr><th>Nr.</th><th>Datum</th><th>Lieferant</th><th>Kostenart</th><th class="rechts">Betrag</th><th class="rechts">umlagef.</th><th>Buchung</th><th class="rechts">Seite</th></tr></thead>
+    <tbody>
+      {% for z in mappe.zeilen %}
+      <tr>
+        <td>{{ z.nummer }}</td>
+        <td>{{ z.beleg.dokument.datum|date:"d.m.Y" }}</td>
+        <td>{{ z.beleg.lieferant.name }}</td>
+        <td>{{ z.beleg.kategorie.bezeichnung }}</td>
+        <td class="rechts">{{ z.beleg.betrag|floatformat:"2g" }}</td>
+        <td class="rechts">{{ z.beleg.umlagefaehiger_anteil|floatformat:"-2" }} %</td>
+        <td>{% if z.beleg.buchung_id %}#{{ z.beleg.buchung_id }}{% else %}fehlt{% endif %}</td>
+        <td class="rechts">{% if z.seite %}{{ z.seite }}{% else %}–{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8">Keine bestätigten Belege für dieses Objekt und Jahr.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

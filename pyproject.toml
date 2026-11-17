@@ -12,8 +12,10 @@ dependencies = [
     "gunicorn>=27.0.1",
     "httpx>=0.28.1",
     "markdown>=3.11.3",
+    "pillow>=13.0.0",
     "psycopg[binary]>=3.3.9",
     "pyjwt[crypto]>=2.15.1",
+    "pypdf>=7.1.0",
     "weasyprint>=70.0",
     "whitenoise>=6.12.0",
 ]

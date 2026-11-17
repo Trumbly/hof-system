@@ -193,7 +193,9 @@ def test_lauf_schliesst_ab_und_erzeugt_berichte(januar: Januar, fake_pdf: list[s
     call_command("kassenbuch_monatsabschluss", "--bis", "2026-01", stdout=ausgabe)
 
     lauf = Lauf.objects.get(name="kassenbuch_monatsabschluss")
-    assert (lauf.status, lauf.gebucht, lauf.arbeitsposten, lauf.fehler) == ("erfolgreich", 1, 0, 0)
+    # Ab Schritt 3: Die Stromrechnung hat keinen Beleg; das ist ein Hinweis-Posten
+    # „Belege fehlen“, der Abschluss geht trotzdem (tests/dokumente/test_belegpflicht.py).
+    assert (lauf.status, lauf.gebucht, lauf.arbeitsposten, lauf.fehler) == ("erfolgreich", 1, 1, 0)
     assert Monatsabschluss.objects.get(mandant=januar.gbr, monat=JAN).abgeschlossen
     berichte = {b.objekt.kuerzel: b for b in Monatsbericht.objects.filter(monat=JAN)}
     assert set(berichte) == {"HOF", "HALLE"}

@@ -1,7 +1,7 @@
-"""Modelle für Vorlagen und Schreiben (Schritt 3c, H8.1 bis H8.4).
+"""Modelle der Dokumente: Ablage, Belege (Schritt 3a, H6.1, H6.2, H6.4, H6.8, H6.9) sowie
+Vorlagen und Schreiben (Schritt 3c, H8.1 bis H8.4).
 
 Geschrieben wird nur über ``apps.dokumente.services`` (CLAUDE.md, Regel 4.1).
-Ablage, Dokumentbezug und Belege (Schritt 3a) kommen in dieselbe App.
 """
 
 from __future__ import annotations
@@ -11,10 +11,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import Q
 
-from apps.dokumente import vorlagenarten
+from apps.dokumente import dokumentarten, vorlagenarten
 from apps.dokumente.vorlagenarten import Versandweg
+from apps.kassenbuch.models import Buchung, Kategorie
 from apps.kern import personenfelder
-from apps.kern.models import Benutzer
+from apps.kern.models import Benutzer, Objekt
 from apps.kern.protokoll import ProtokolliertesModell
 
 
@@ -205,6 +206,230 @@ class Schreiben(ProtokolliertesModell):
         return self.versandweg in (Versandweg.BRIEF, Versandweg.EINWURF_EINSCHREIBEN)
 
 
+# --- Ablage und Belege (Schritt 3a) --------------------------------------------------
+
+
+def _dokumentart_pruefen(wert: str) -> None:
+    from django.core.exceptions import ValidationError
+
+    try:
+        dokumentarten.holen(wert)
+    except dokumentarten.UnbekannteDokumentart as fehler:
+        raise ValidationError(f"Unbekannte Dokumentart: {wert}") from fehler
+
+
+def _dokument_pfad(dokument: Dokument, dateiname: str) -> str:
+    # Der Dateiname kommt aus dem Service: Art, Datum und ID, nie ein Personenname.
+    return f"ablage/{dokument.datum:%Y}/{dateiname}"
+
+
+def _original_pfad(dokument: Dokument, dateiname: str) -> str:
+    return f"ablage/{dokument.datum:%Y}/original/{dateiname}"
+
+
+class Lieferant(ProtokolliertesModell):
+    """Wer eine Rechnung stellt (H6.1). Kann eine Person sein: Name, IBAN und E-Mail sind
+    Personenfelder. Die E-Mail erkennt den Lieferanten im Rechnungspostfach, die IBAN die
+    Abbuchung im Kassenbuch (Schritt 3b)."""
+
+    name = models.CharField("Name", max_length=200)
+    iban = models.CharField("IBAN", max_length=34, blank=True)
+    email = models.EmailField("E-Mail (Absender der Rechnungen)", blank=True, db_index=True)
+    aktiv = models.BooleanField("aktiv", default=True)
+    angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Lieferant"
+        verbose_name_plural = "Lieferanten"
+        ordering = ("name", "pk")
+
+    def __str__(self) -> str:
+        return f"Lieferant #{self.pk}"
+
+
+class Dokument(ProtokolliertesModell):
+    """Eine Datei in der Ablage mit Art, Datum und Löschfrist (H6.1, H6.2, H8.6).
+
+    ``datei`` ist immer ein PDF; Fotos vom Handy werden beim Ablegen umgewandelt, das Foto
+    selbst bleibt als ``original``. ``sha256`` ist die Prüfsumme der eingegangenen Datei
+    (Foto oder PDF): Kommt dieselbe Datei noch einmal, ist sie eine Dublette. Der Dateiname
+    besteht aus Art, Datum und ID. Ausgeliefert wird nur über Django mit Anmeldung.
+    """
+
+    class Herkunft(models.TextChoices):
+        POSTFACH = "postfach", "Rechnungspostfach"
+        UPLOAD = "upload", "hochgeladen"
+        TESTHOF = "testhof", "Testhof"
+
+    art = models.CharField("Art", max_length=30, validators=[_dokumentart_pruefen], db_index=True)
+    datum = models.DateField("Datum des Dokuments", db_index=True)
+    datei = models.FileField("PDF", upload_to=_dokument_pfad, blank=True, max_length=200)
+    original = models.FileField(
+        "Original (Foto)", upload_to=_original_pfad, blank=True, max_length=200
+    )
+    sha256 = models.CharField("Prüfsumme der eingegangenen Datei", max_length=64, unique=True)
+    dateityp = models.CharField("Dateityp des Originals", max_length=100)
+    herkunft = models.CharField("Herkunft", max_length=20, choices=Herkunft.choices)
+    eingangskennung = models.CharField(
+        "Kennung des Eingangs",
+        max_length=255,
+        blank=True,
+        help_text="Message-ID der Mail aus dem Rechnungspostfach.",
+    )
+    loeschfrist = models.DateField(
+        "aufbewahren bis", help_text="Aus der Dokumentart (DOKUMENTE['LOESCHFRIST_JAHRE'])."
+    )
+    bemerkung = models.TextField("Bemerkung", blank=True)
+    eingegangen_am = models.DateTimeField("eingegangen am", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Dokument"
+        verbose_name_plural = "Dokumente"
+        ordering = ("-datum", "-pk")
+
+    def __str__(self) -> str:
+        return f"Dokument #{self.pk} ({self.art})"
+
+    @property
+    def dokumentart(self) -> dokumentarten.Dokumentart:
+        return dokumentarten.holen(self.art)
+
+    @property
+    def dateiname(self) -> str:
+        name: str = self.datei.name or ""
+        return name.rsplit("/", 1)[-1]
+
+
+class Dokumentbezug(ProtokolliertesModell):
+    """Woran ein Dokument hängt: generisch an jedem Modell (Buchung, Lieferant, Objekt, ab
+    Schritt 4 Einheit, Partei, Vertrag, später Vorgang). Ein Dokument kann an mehreren
+    Stellen hängen, an jeder höchstens einmal."""
+
+    dokument = models.ForeignKey(
+        Dokument, verbose_name="Dokument", on_delete=models.PROTECT, related_name="bezuege"
+    )
+    bezug_typ = models.ForeignKey(
+        ContentType, verbose_name="Bezug (Typ)", on_delete=models.PROTECT, related_name="+"
+    )
+    bezug_id = models.PositiveBigIntegerField("Bezug (ID)")
+    bezug = GenericForeignKey("bezug_typ", "bezug_id")
+    angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Dokumentbezug"
+        verbose_name_plural = "Dokumentbezüge"
+        ordering = ("dokument", "pk")
+        indexes = (models.Index(fields=["bezug_typ", "bezug_id"]),)
+        constraints = (
+            models.UniqueConstraint(
+                fields=["dokument", "bezug_typ", "bezug_id"], name="dokumentbezug_einmal"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Dokumentbezug #{self.pk}"
+
+
+class Beleg(ProtokolliertesModell):
+    """Ein Beleg zu einer Ausgabe (H6.1, H6.2, H6.4): Lieferant, Betrag, Objekt, Kostenart,
+    Leistungsjahr, umlagefähiger Anteil und die Buchung im Kassenbuch.
+
+    Die Kostenart ist die Kategorie des Kassenbuchs: Danach rechnen Monatsbericht und
+    Nebenkosten, und so passen die Summen der Belegmappe zum Kassenbuch. Eine Sammelrechnung
+    sind mehrere Belege auf demselben Dokument, einer je Objekt oder Kostenart.
+
+    Ein Beleg entsteht „offen“ (aus dem Postfach oder vom Handy). Mit allen Feldern wird er
+    „bestätigt“. Kein Beleg (etwa Werbung) wird „verworfen“, nie gelöscht.
+    """
+
+    class Status(models.TextChoices):
+        OFFEN = "offen", "offen"
+        BESTAETIGT = "bestaetigt", "bestätigt"
+        VERWORFEN = "verworfen", "verworfen"
+
+    dokument = models.ForeignKey(
+        Dokument, verbose_name="Dokument", on_delete=models.PROTECT, related_name="belege"
+    )
+    lieferant = models.ForeignKey(
+        Lieferant,
+        verbose_name="Lieferant",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="belege",
+    )
+    betrag = models.DecimalField("Betrag", max_digits=12, decimal_places=2, null=True, blank=True)
+    objekt = models.ForeignKey(
+        Objekt,
+        verbose_name="Objekt",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="belege",
+    )
+    kategorie = models.ForeignKey(
+        Kategorie,
+        verbose_name="Kostenart",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="belege",
+    )
+    leistungsjahr = models.PositiveSmallIntegerField("Leistungsjahr", null=True, blank=True)
+    umlagefaehiger_anteil = models.DecimalField(
+        "umlagefähiger Anteil (%)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    buchung = models.ForeignKey(
+        Buchung,
+        verbose_name="Buchung",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="belege",
+    )
+    status = models.CharField(
+        "Status", max_length=20, choices=Status.choices, default=Status.OFFEN, db_index=True
+    )
+    bestaetigt_am = models.DateTimeField("bestätigt am", null=True, blank=True)
+    angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Beleg"
+        verbose_name_plural = "Belege"
+        ordering = ("-dokument__datum", "-pk")
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(betrag__isnull=True) | Q(betrag__gt=0),
+                name="beleg_betrag_positiv",
+            ),
+            models.CheckConstraint(
+                condition=Q(umlagefaehiger_anteil__isnull=True)
+                | Q(umlagefaehiger_anteil__gte=0, umlagefaehiger_anteil__lte=100),
+                name="beleg_umlage_prozent",
+            ),
+            # Bestätigt heißt: alle Felder sind da (Abnahme Schritt 3).
+            models.CheckConstraint(
+                condition=~Q(status="bestaetigt")
+                | (
+                    Q(lieferant__isnull=False)
+                    & Q(betrag__isnull=False)
+                    & Q(objekt__isnull=False)
+                    & Q(kategorie__isnull=False)
+                    & Q(leistungsjahr__isnull=False)
+                    & Q(umlagefaehiger_anteil__isnull=False)
+                ),
+                name="beleg_bestaetigt_vollstaendig",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Beleg #{self.pk}"
+
+    @property
+    def ist_offen(self) -> bool:
+        return self.status == self.Status.OFFEN
+
+
 # --- Personenfelder (CLAUDE.md, Regel 4.6) ------------------------------------------
 
 # Vorlagen enthalten nur Platzhalter (Test: keine Namen aus dem Testhof).
@@ -215,3 +440,9 @@ personenfelder.unbedenklich(
     Schreiben,
     ["art", "pdf_sha256", "versandweg", "status", "dienst_auftrag", "sendungsnummer"],
 )
+
+personenfelder.register(Lieferant, ["name", "iban", "email"])
+personenfelder.unbedenklich(Dokument, ["art", "datei", "original", "sha256", "dateityp"])
+personenfelder.unbedenklich(Dokument, ["herkunft"])
+personenfelder.register(Dokument, ["eingangskennung", "bemerkung"])
+personenfelder.unbedenklich(Beleg, ["status"])

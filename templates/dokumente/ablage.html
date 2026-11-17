@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block titel %}Ablage{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Ablage</h1>
+<div class="aktionen">
+  <a class="knopf" href="{% url 'dokumente:beleg_hochladen' %}">Beleg hochladen</a>
+  <a class="knopf zweitrangig" href="{% url 'dokumente:belegmappe' %}">Belegmappe</a>
+</div>
+
+<section class="gruppe">
+  <h2>Belege zuordnen <span class="zahl">{{ offen|length }}</span></h2>
+  <ul class="posten-liste">
+    {% for b in offen %}
+    <li class="posten">
+      <div class="posten-kopf">
+        <a class="posten-titel" href="{% url 'dokumente:beleg' b.pk %}">Beleg #{{ b.pk }}</a>
+        <span class="faellig">{{ b.dokument.datum|date:"d.m.Y" }}</span>
+      </div>
+      <p class="leise posten-meta">{{ b.dokument.get_herkunft_display }}{% if b.lieferant %} · {{ b.lieferant.name }}{% endif %}</p>
+    </li>
+    {% empty %}<li class="leise">Keine.</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="gruppe">
+  <h2>Dokumente</h2>
+  <form method="get" class="filter">
+    <label for="art">Art</label>
+    <select name="art" id="art" onchange="this.form.submit()">
+      <option value="">alle</option>
+      {% for schluessel, titel in arten %}<option value="{{ schluessel }}"{% if schluessel == art %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+    </select>
+    <noscript><button type="submit">Zeigen</button></noscript>
+  </form>
+  <div class="tabelle-rahmen">
+  <table>
+    <thead><tr><th>Dokument</th><th>Art</th><th>Datum</th><th>Eingang</th><th>aufbewahren bis</th></tr></thead>
+    <tbody>
+      {% for d in dokumente %}
+      <tr>
+        <td data-titel="Dokument"><a href="{% url 'dokumente:dokument' d.pk %}">#{{ d.pk }}</a></td>
+        <td data-titel="Art">{{ d.dokumentart.titel }}</td>
+        <td data-titel="Datum">{{ d.datum|date:"d.m.Y" }}</td>
+        <td data-titel="Eingang">{{ d.get_herkunft_display }}, {{ d.eingegangen_am|date:"d.m.Y" }}</td>
+        <td data-titel="aufbewahren bis">{{ d.loeschfrist|date:"d.m.Y" }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="5" class="leise">Noch nichts abgelegt.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

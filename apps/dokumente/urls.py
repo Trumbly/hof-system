@@ -5,6 +5,23 @@ from . import views
 app_name = "dokumente"
 
 urlpatterns = [
+    # Ablage und Belege (Schritt 3a)
+    path("", views.ablage, name="ablage"),
+    path("dokument/<int:pk>/", views.dokument, name="dokument"),
+    path("dokument/<int:pk>/pdf", views.dokument_pdf, name="dokument_pdf"),
+    path("dokument/<int:pk>/original", views.dokument_original, name="dokument_original"),
+    path("belege/hochladen/", views.beleg_hochladen, name="beleg_hochladen"),
+    path("belege/vorschlag/", views.beleg_vorschlag, name="beleg_vorschlag"),
+    path("belege/<int:pk>/", views.beleg, name="beleg"),
+    path("belege/<int:pk>/buchung/", views.beleg_buchung, name="beleg_buchung"),
+    path("belege/<int:pk>/verwerfen/", views.beleg_verwerfen, name="beleg_verwerfen"),
+    path("belege/<int:pk>/umwidmen/", views.beleg_umwidmen, name="beleg_umwidmen"),
+    path("belege/<int:pk>/aufteilen/", views.beleg_aufteilen, name="beleg_aufteilen"),
+    path("lieferanten/", views.lieferanten, name="lieferanten"),
+    path("lieferanten/<int:pk>/", views.lieferant, name="lieferant"),
+    path("belegmappe/", views.belegmappe_seite, name="belegmappe"),
+    path("belegmappe/mappe.pdf", views.belegmappe_pdf, name="belegmappe_pdf"),
+    # Vorlagen und Schreiben (Schritt 3c)
     path("vorlagen/", views.vorlagen, name="vorlagen"),
     path("vorlagen/neu/", views.vorlage_neu, name="vorlage_neu"),
     path("vorlagen/<int:pk>/", views.vorlage, name="vorlage"),

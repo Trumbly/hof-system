@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block titel %}Beleg #{{ beleg.pk }}{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Beleg #{{ beleg.pk }} <span class="leise status status-{{ beleg.status }}">{{ beleg.get_status_display }}</span></h1>
+<dl class="angaben">
+  <div><dt>Dokument</dt><dd><a href="{% url 'dokumente:dokument' beleg.dokument_id %}">#{{ beleg.dokument_id }}</a>, {{ beleg.dokument.get_herkunft_display }}, aufbewahren bis {{ beleg.dokument.loeschfrist|date:"d.m.Y" }}</dd></div>
+  <div><dt>Buchung</dt><dd>{% if beleg.buchung %}<a href="{% url 'kassenbuch:umsatz' beleg.buchung.umsatz_id %}">#{{ beleg.buchung_id }}</a> vom {{ beleg.buchung.datum|date:"d.m.Y" }}{% else %}noch keine{% endif %}</dd></div>
+  {% if geschwister %}<div><dt>Sammelrechnung</dt><dd>weitere Teile: {% for g in geschwister %}<a href="{% url 'dokumente:beleg' g.pk %}">#{{ g.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
+</dl>
+
+{% if beleg.status != "verworfen" %}
+<form method="post" class="formular">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<p class="formfehler">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+  {% include "dokumente/_beleg_felder.html" %}
+  <div class="aktionen">
+    <button type="submit">{% if beleg.status == "bestaetigt" %}Speichern{% else %}Bestätigen{% endif %}</button>
+    <a class="knopf zweitrangig" href="{% url 'dokumente:beleg_aufteilen' beleg.pk %}">Sammelrechnung aufteilen</a>
+  </div>
+</form>
+{% endif %}
+
+{% if kandidaten %}
+<section class="gruppe">
+  <h2>Passende Buchungen</h2>
+  <p class="leise">Ausgaben mit gleichem Betrag um das Belegdatum, noch ohne Beleg.</p>
+  <ul class="posten-liste">
+    {% for b in kandidaten %}
+    <li class="posten">
+      <div class="posten-kopf"><span class="posten-titel">Buchung #{{ b.pk }}</span><span class="faellig">{{ b.datum|date:"d.m.Y" }}</span></div>
+      <p class="leise posten-meta">{{ b.objekt.kuerzel }} · {{ b.kategorie.bezeichnung }} · {{ b.betrag|floatformat:"2g" }} €</p>
+      <form method="post" action="{% url 'dokumente:beleg_buchung' beleg.pk %}">
+        {% csrf_token %}<input type="hidden" name="buchung" value="{{ b.pk }}">
+        <button type="submit">An diese Buchung hängen</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if beleg.status == "offen" %}
+<details class="gruppe">
+  <summary>Kein Beleg?</summary>
+  <form method="post" action="{% url 'dokumente:beleg_umwidmen' beleg.pk %}" class="formular">
+    {% csrf_token %}
+    <p class="leise">Mahnungen, Rücklastschriften und Vollstreckungen liegen am Lieferanten, ohne Buchung.</p>
+    {{ umwidmen.as_p }}
+    <button type="submit" class="zweitrangig">Am Lieferanten ablegen</button>
+  </form>
+  <form method="post" action="{% url 'dokumente:beleg_verwerfen' beleg.pk %}">
+    {% csrf_token %}<button type="submit" class="zweitrangig">Verwerfen (kein Beleg, Dokument bleibt)</button>
+  </form>
+</details>
+{% endif %}
+
+<section class="vorschau" aria-label="Vorschau">
+  <iframe class="pdf-vorschau" src="{% url 'dokumente:dokument_pdf' beleg.dokument_id %}" title="PDF von Dokument #{{ beleg.dokument_id }}"></iframe>
+  <p><a href="{% url 'dokumente:dokument_pdf' beleg.dokument_id %}" target="_blank" rel="noopener">PDF in neuem Fenster öffnen</a></p>
+</section>
+{% endblock %}
