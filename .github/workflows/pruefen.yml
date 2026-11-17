@@ -1,0 +1,69 @@
+name: Prüfen
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code:
+    name: ruff, mypy, pytest
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hof
+          POSTGRES_USER: hof
+          POSTGRES_PASSWORD: hof
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hof -d hof"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://hof:hof@localhost:5432/hof
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - name: Abhängigkeiten
+        run: uv sync --locked
+      - name: ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: mypy (services)
+        run: uv run mypy apps/*/services.py
+      - name: pytest
+        run: uv run pytest
+
+  datenschutz:
+    name: Keine Daten, keine Geheimnisse
+    runs-on: ubuntu-24.04
+    env:
+      GITLEAKS_VERSION: 8.30.1
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: pre-commit (Datenprüfung und Dateiprüfungen)
+        run: uvx pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: gitleaks,ruff-check,ruff-format
+      - name: gitleaks über den ganzen Verlauf
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks git --redact --verbose .

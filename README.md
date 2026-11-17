@@ -2,6 +2,30 @@
 
 Dieses Paket ist der Anfang des Repositorys `hof-system`. Es enthält die Regeln für Claude Code, den Bauplan, die Prozessliste und je Bauschritt einen fertigen Auftrag.
 
+## Entwicklung starten
+
+Voraussetzungen: Docker Desktop läuft, [`uv`](https://docs.astral.sh/uv/) ist installiert. Python 3.12 holt `uv` selbst.
+
+```sh
+uv sync                        # Abhängigkeiten in .venv
+uv run pre-commit install      # Prüfungen vor jedem Commit (ruff, gitleaks, Datenprüfung)
+make dev                       # Postgres + Mailpit starten, migrieren, Server auf http://localhost:8000
+```
+
+| Befehl | Was er tut |
+| --- | --- |
+| `make dev` | Postgres 16 und Mailpit starten, migrieren, Django-Server starten |
+| `make test` | Postgres starten, `pytest` laufen lassen |
+| `make lint` | `ruff check`, `ruff format --check`, `mypy` für `apps/*/services.py` |
+| `make fmt` | formatieren und einfache Lint-Fehler beheben |
+| `make migrate` | Migrationen anwenden |
+| `make stopp` | Postgres und Mailpit anhalten |
+
+- Mailpit zeigt lokal versendete Mails unter http://localhost:8025.
+- Ein Benutzer für die Anmeldung: `uv run python manage.py createsuperuser`.
+- Am eigenen Rechner braucht es keine `.env`; die Standardwerte stehen in `hof/settings/dev.py`. Für den Server zeigt `.env.example` alle Schlüssel.
+- Die Pipeline (`.github/workflows/pruefen.yml`) prüft jeden Push mit ruff, mypy und pytest gegen Postgres, dazu Datenprüfung und gitleaks über den ganzen Verlauf.
+
 ## Inhalt
 
 | Datei | Wofür |

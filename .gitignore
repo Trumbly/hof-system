@@ -26,3 +26,6 @@ media/
 # Sonstiges
 .DS_Store
 staticfiles/
+
+# Arbeitsbäume von Claude Code
+.claude/worktrees/
