@@ -29,6 +29,8 @@ INSTALLED_APPS = [
     "pghistory",
     "apps.kern",
     "apps.bank",
+    "apps.fristen",
+    "apps.benachrichtigung",
 ]
 
 MIDDLEWARE = [
@@ -141,6 +143,37 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 EMAIL_CONFIG = env.email("EMAIL_URL")
 vars().update(EMAIL_CONFIG)
 DEFAULT_FROM_EMAIL = env.str("DJANGO_DEFAULT_FROM_EMAIL", default="hof-system@localhost")
+
+# Benachrichtigung (H11.1): Nur wenn ein Lauf gescheitert ist oder Freigaben warten, an
+# Max per Mail und per Push über ntfy. Inhalt nur Zähler und Link. Ein Kanal ohne
+# Einstellung bleibt aus. Die Klassen der Kanäle sind austauschbar (Tests: Fakes).
+HOF_BASIS_URL = env.str("HOF_BASIS_URL", default="")  # z. B. https://hof-system.<tailnet>.ts.net
+HOF_BENACHRICHTIGUNG_MAIL = env.str("HOF_BENACHRICHTIGUNG_MAIL", default="")
+HOF_NTFY_URL = env.str("HOF_NTFY_URL", default="")  # z. B. https://ntfy.sh
+HOF_NTFY_THEMA = env.str("HOF_NTFY_THEMA", default="")
+HOF_NTFY_TOKEN = env.str("HOF_NTFY_TOKEN", default="")
+# Arten offener Arbeitsposten, die als wartende Freigabe gemeldet werden.
+HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
+    "HOF_BENACHRICHTIGUNG_ARTEN",
+    default=[
+        "Frist fällig",
+        # Bank (apps.bank.services, ART_*)
+        "Bankfreigabe läuft ab",
+        "Bankfreigabe fehlt",
+        "Bankabruf gescheitert",
+        "Bankumsätze fehlen",
+        "Saldo weicht ab",
+        # spätere Schritte
+        "Mahnungen senden",
+        "Zahlungen klären",
+        "Rechnung zahlen",
+        "Schreiben senden",
+    ],
+)
+# Wie weit zurück ein gescheiterter Lauf zählt.
+HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN = env.int("HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN", default=24)
+HOF_BENACHRICHTIGUNG_MAIL_KANAL = "apps.benachrichtigung.kanaele.MailKanal"
+HOF_BENACHRICHTIGUNG_NTFY_KANAL = "apps.benachrichtigung.kanaele.NtfyKanal"
 
 # Logs nennen IDs, keine Personendaten: Der Filter ersetzt Werte registrierter
 # Personenfelder (kern.personenfelder) durch ‹…›.

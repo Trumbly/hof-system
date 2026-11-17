@@ -162,7 +162,30 @@ def bankfreigabe_anlegen(
         kern_services.arbeitsposten_erledigen(posten)
     for posten in _posten_zu(ART_FREIGABE_FEHLT, [konto], offen=True):
         kern_services.arbeitsposten_erledigen(posten)
+    _freigabe_frist(freigabe)
     return freigabe
+
+
+def _freigabe_frist(freigabe: Bankfreigabe) -> None:
+    """Frist „Bankfreigabe erneuern“ zum Ablauf der Freigabe (H9.1, Quelle Bankfreigabe).
+
+    Die Fristen älterer Freigaben des Kontos sind damit erledigt, am Beginn der neuen
+    Freigabe (höchstens heute). Ohne Vorlauf: 14 Tage vorher warnt schon der eigene Posten
+    „Bankfreigabe läuft ab“ mit Link zur Erneuerung; ein Posten „Frist fällig“ entsteht
+    erst, wenn die Freigabe wirklich abgelaufen ist.
+    """
+    from apps.fristen import services as fristen
+    from apps.fristen.models import Frist
+
+    erledigt_am = min(freigabe.gueltig_ab, timezone.localdate())
+    for alte in freigabe.konto.freigaben.exclude(pk=freigabe.pk):
+        for frist in fristen.fristen_zu(alte, nur_offen=True).filter(
+            quelle=Frist.Quelle.BANKFREIGABE
+        ):
+            fristen.frist_erledigen(frist, am=erledigt_am)
+    fristen.frist_anlegen(
+        Frist.Art.BANKFREIGABE, freigabe.gueltig_bis, Frist.Quelle.BANKFREIGABE, freigabe
+    )
 
 
 def freigaben_pruefen(heute: datetime.date, *, lauf: Lauf | None = None) -> list[Arbeitsposten]:
