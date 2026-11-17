@@ -30,6 +30,7 @@ make dev                       # Postgres + Mailpit starten, migrieren, Server a
 - Seit Schritt 0b gibt es ein eigenes Benutzermodell (`kern.Benutzer`). Eine Entwicklungsdatenbank aus Schritt 0a einmal neu aufsetzen: `docker compose -f docker-compose.dev.yml down -v`, dann `make dev`.
 - Am eigenen Rechner braucht es keine `.env`; die Standardwerte stehen in `hof/settings/dev.py`. Für den Server zeigt `.env.example` alle Schlüssel.
 - Die Pipeline (`.github/workflows/pruefen.yml`) prüft jeden Push mit ruff, mypy und pytest gegen Postgres, dazu Datenprüfung und gitleaks über den ganzen Verlauf.
+- Vorlagen und Versand (Schritt 3c): Seiten „Schreiben“ und „Vorlagen“ unter `/dokumente/`. Lokal gehen Mails an Mailpit, die Kopie in „Gesendet“ und Briefe an Fakes im Speicher (nichts ins Netz). PDFs erzeugt WeasyPrint; unter macOS vorher `brew install pango` (das Makefile setzt `DYLD_FALLBACK_LIBRARY_PATH`). Vorlagen aus Notion: `uv run python manage.py vorlagen_import tests/fixtures/vorlagen` (Probelauf, mit `--ausfuehren` als Entwurf). Schnittstelle für andere Schritte: `apps.dokumente.services.schreiben_erzeugen` (Docstring des Moduls).
 - Betrieb auf dem Server (seit Schritt 0d): `docs/betrieb.md`. Produktions-Image aus `Dockerfile`, Dienste in `docker-compose.prod.yml` (App, Postgres, Caddy, nur über Tailscale), Skripte unter `scripts/` (`server-setup.sh`, `deploy.sh`, `backup.sh`, `restore-probe.sh`), systemd-Einheiten unter `deploy/systemd/`. Ausgeführt werden sie nur von Max auf dem Server.
 
 ## Inhalt

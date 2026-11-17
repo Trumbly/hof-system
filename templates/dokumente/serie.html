@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block titel %}Serie{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_reiter.html" %}
+<h1>Serie <span class="leise">{{ schreiben|length }} Schreiben</span></h1>
+<p class="leise">Vor dem Senden jedes PDF ansehen. „Alle senden“ sendet genau die Schreiben, die hier stehen.</p>
+<ul class="posten-liste">
+  {% for s in schreiben %}
+  <li class="posten">
+    <div class="posten-kopf">
+      <a class="posten-titel" href="{% url 'dokumente:schreiben' s.pk %}">Schreiben #{{ s.pk }}</a>
+      <span class="status status-{{ s.status }}">{{ s.get_status_display }}</span>
+    </div>
+    <p class="leise posten-meta">{{ s.get_versandweg_display }} · Bezug #{{ s.bezug_id }} ·
+      <a href="{% url 'dokumente:schreiben_pdf' s.pk %}" target="_blank" rel="noopener">PDF ansehen</a></p>
+  </li>
+  {% endfor %}
+</ul>
+{% if bereit %}
+<form method="post" action="{% url 'dokumente:serie_senden' serie %}" class="aktionen senden">
+  {% csrf_token %}
+  <input type="hidden" name="pruefsumme" value="{{ pruefsumme }}">
+  <button type="submit">Alle {{ bereit|length }} senden</button>
+</form>
+{% endif %}
+{% endblock %}

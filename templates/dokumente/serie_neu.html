@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block titel %}Serienmitteilung{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_reiter.html" %}
+<h1>Serienmitteilung</h1>
+<p class="leise">Eine Vorlage, viele Empfänger: Jedes Schreiben entsteht einzeln und wird einzeln abgelegt. Gesendet wird danach mit einem Klick, nach der Vorschau.</p>
+
+{% if arten|length > 1 %}
+<nav class="reiter" aria-label="Bezug">
+  {% for a in arten %}<a href="?bezug={{ a.schluessel }}"{% if a.schluessel == bezugsart.schluessel %} aria-current="page"{% endif %}>{{ a.titel }}</a>{% endfor %}
+</nav>
+{% endif %}
+
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <p>{{ form.vorlage.label_tag }} {{ form.vorlage }} {{ form.vorlage.errors }}</p>
+  <p>{{ form.versandweg.label_tag }} {{ form.versandweg }}</p>
+  <fieldset class="auswahl">
+    <legend>{{ bezugsart.titel }}</legend>
+    {{ form.auswahl.errors }}
+    {% for feld in form.auswahl %}<div class="auswahl-zeile">{{ feld }}</div>{% empty %}<p class="leise">Nichts zur Auswahl.</p>{% endfor %}
+  </fieldset>
+  <button type="submit">Schreiben erzeugen</button>
+</form>
+{% endblock %}

@@ -1,0 +1,293 @@
+"""Platzhalter in Vorlagen: Django-Template-Syntax in einer abgeschlossenen Engine.
+
+Eine Vorlage ist HTML mit Platzhaltern wie ``{{ empfaenger.name }}`` (CLAUDE.md,
+Abschnitt 1: Texte an Mieter sind Vorlagen mit Platzhaltern). Gerendert wird mit einer
+eigenen ``Engine``, die nur wenig kann:
+
+- **Tags:** nur ``{% if %}`` (mit ``elif``/``else``) und ``{% for %}`` (mit ``empty``).
+  ``{% load %}``, ``{% include %}``, ``{% extends %}``, ``{% url %}`` usw. gibt es nicht;
+  sie ergeben beim Prüfen einen Fehler.
+- **Filter:** eine feste Liste (``FILTER``), dazu ``euro``, ``datum`` und ``einzeilig``.
+- **Kontext:** nur einfache Werte (Text, Zahl, Decimal, Datum, Wahrheitswert, Listen,
+  Wörterbücher mit Text-Schlüsseln), nie Modell-Objekte (``kontext_pruefen``).
+- **Unbekannte Platzhalter** sind ein Fehler, kein leerer Text: beim Prüfen gegen die
+  erlaubten Platzhalter der Vorlagenart (``pruefen``) und beim Rendern gegen den
+  Kontext (``rendern``).
+- Werte werden für HTML maskiert (Autoescape).
+"""
+
+from __future__ import annotations
+
+import datetime
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Any
+
+from django.template import Context, Engine, Library, Template, TemplateSyntaxError, defaultfilters
+from django.template import defaulttags as dt
+from django.template.base import FilterExpression, Node, Variable, VariableNode
+from django.utils import translation
+
+
+class PlatzhalterFehler(ValueError):
+    """Eine Vorlage oder ihr Kontext passt nicht. Die Meldung nennt nur Platzhalter."""
+
+
+class UnbekannterPlatzhalter(PlatzhalterFehler):
+    def __init__(self, pfad: str) -> None:
+        self.pfad = pfad
+        super().__init__(f"Unbekannter Platzhalter: {pfad}")
+
+
+# --- Bibliothek der Engine -----------------------------------------------------------
+
+bibliothek = Library()
+bibliothek.tag("if", dt.do_if)
+bibliothek.tag("for", dt.do_for)
+
+#: Erlaubte Filter aus Django.
+FILTER = (
+    "capfirst",
+    "date",
+    "default",
+    "default_if_none",
+    "first",
+    "floatformat",
+    "join",
+    "last",
+    "length",
+    "linebreaks",
+    "linebreaksbr",
+    "lower",
+    "pluralize",
+    "title",
+    "upper",
+    "yesno",
+)
+for _name in FILTER:
+    bibliothek.filter(_name, getattr(defaultfilters, _name), is_safe=True)
+
+
+def _tausender(zahl: str) -> str:
+    gruppen: list[str] = []
+    while len(zahl) > 3:
+        gruppen.insert(0, zahl[-3:])
+        zahl = zahl[:-3]
+    gruppen.insert(0, zahl)
+    return ".".join(gruppen)
+
+
+@bibliothek.filter(name="euro", is_safe=True)
+def euro(wert: Any) -> str:
+    """Betrag in deutscher Schreibweise: ``1234.5`` → ``1.234,50 €``."""
+    if wert in (None, ""):
+        return ""
+    try:
+        betrag = Decimal(str(wert)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return str(wert)  # z. B. ‹betrag.offen› in der Vorschau
+    vorzeichen = "-" if betrag < 0 else ""
+    ganz, _, rest = f"{abs(betrag):.2f}".partition(".")
+    return f"{vorzeichen}{_tausender(ganz)},{rest} €"
+
+
+@bibliothek.filter(name="datum", is_safe=True)
+def datum(wert: Any) -> str:
+    """Datum als ``17.11.2026``."""
+    if isinstance(wert, datetime.datetime | datetime.date):
+        return wert.strftime("%d.%m.%Y")
+    return "" if wert is None else str(wert)
+
+
+@bibliothek.filter(name="einzeilig", is_safe=False)
+def einzeilig(wert: Any) -> str:
+    """Mehrzeiliges in eine Zeile: ``Weg 1\n12345 Ort`` → ``Weg 1 · 12345 Ort``."""
+    return " · ".join(z.strip() for z in str(wert or "").splitlines() if z.strip())
+
+
+class _Fehlwert(str):
+    """``string_if_invalid``: Statt eines leeren Texts bricht das Rendern ab.
+
+    Django prüft ``"%s" in string_if_invalid`` und ruft dann ``string_if_invalid % name``
+    auf; genau dort wirft dieser Wert den Fehler.
+    """
+
+    def __contains__(self, _: object) -> bool:
+        return True
+
+    def __mod__(self, pfad: object) -> str:
+        raise UnbekannterPlatzhalter(str(pfad))
+
+    def __bool__(self) -> bool:
+        return True
+
+
+class _Engine(Engine):
+    # Keine Standard-Bibliotheken: kein {% load %}, {% include %}, {% url %} …
+    default_builtins: list[str] = []  # noqa: RUF012  (wie in Django)
+
+
+# Engine.get_template_builtins importiert dieses Modul und liest ``register``.
+register = bibliothek
+
+ENGINE = _Engine(
+    dirs=[],
+    app_dirs=False,
+    libraries={},
+    builtins=["apps.dokumente.platzhalter"],
+    autoescape=True,
+    debug=False,
+    string_if_invalid=_Fehlwert("‹fehlt›"),
+)
+
+# --- Prüfen --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Verwendung:
+    """Alle Platzhalter einer Vorlage."""
+
+    pfade: frozenset[str]
+    schleifenvariablen: frozenset[str]
+
+
+def _ausdruecke_in_bedingung(bedingung: Any) -> Iterator[FilterExpression]:
+    if bedingung is None:
+        return
+    wert = getattr(bedingung, "value", None)
+    if isinstance(wert, FilterExpression):
+        yield wert
+    yield from _ausdruecke_in_bedingung(getattr(bedingung, "first", None))
+    yield from _ausdruecke_in_bedingung(getattr(bedingung, "second", None))
+
+
+def _variablen(ausdruck: FilterExpression) -> Iterator[Variable]:
+    if isinstance(ausdruck.var, Variable) and ausdruck.var.lookups is not None:
+        yield ausdruck.var
+    for _funktion, argumente in ausdruck.filters:
+        for ist_variable, argument in argumente:
+            if ist_variable and isinstance(argument, Variable) and argument.lookups is not None:
+                yield argument
+
+
+def kompilieren(text: str) -> Template:
+    try:
+        return Template(text, engine=ENGINE)
+    except TemplateSyntaxError as fehler:
+        raise PlatzhalterFehler(f"Vorlage lässt sich nicht lesen: {fehler}") from fehler
+
+
+def verwendung(text: str) -> Verwendung:
+    """Liest alle Platzhalter einer Vorlage, ohne sie zu rendern."""
+    vorlage = kompilieren(text)
+    ausdruecke: list[FilterExpression] = []
+    schleife: set[str] = {"forloop"}
+    for knoten in vorlage.nodelist.get_nodes_by_type(Node):
+        if isinstance(knoten, VariableNode):
+            ausdruecke.append(knoten.filter_expression)
+        elif isinstance(knoten, dt.IfNode):
+            for bedingung, _ in knoten.conditions_nodelists:
+                ausdruecke.extend(_ausdruecke_in_bedingung(bedingung))
+        elif isinstance(knoten, dt.ForNode):
+            if isinstance(knoten.sequence, FilterExpression):
+                ausdruecke.append(knoten.sequence)
+            schleife.update(knoten.loopvars)
+    pfade = {
+        ".".join(variable.lookups or ())
+        for ausdruck in ausdruecke
+        for variable in _variablen(ausdruck)
+    }
+    return Verwendung(pfade=frozenset(pfade), schleifenvariablen=frozenset(schleife))
+
+
+def _erlaubt(pfad: str, erlaubt: Iterable[str]) -> bool:
+    return any(
+        pfad == eintrag or pfad.startswith(eintrag + ".") or eintrag.startswith(pfad + ".")
+        for eintrag in erlaubt
+    )
+
+
+def unerlaubte_platzhalter(text: str, erlaubt: Iterable[str]) -> list[str]:
+    """Platzhalter der Vorlage, die nicht in ``erlaubt`` stehen (sortiert)."""
+    erlaubt = list(erlaubt)
+    genutzt = verwendung(text)
+    return sorted(
+        pfad
+        for pfad in genutzt.pfade
+        if pfad.split(".", 1)[0] not in genutzt.schleifenvariablen and not _erlaubt(pfad, erlaubt)
+    )
+
+
+def pruefen(text: str, erlaubt: Iterable[str]) -> None:
+    """Wirft ``PlatzhalterFehler``, wenn die Vorlage unlesbar ist oder Unbekanntes nutzt."""
+    unbekannt = unerlaubte_platzhalter(text, erlaubt)
+    if unbekannt:
+        raise PlatzhalterFehler(f"Unbekannte Platzhalter: {', '.join(unbekannt)}")
+
+
+# --- Kontext und Rendern -------------------------------------------------------------
+
+_EINFACH = (str, int, float, Decimal, datetime.date, bool, type(None))
+
+
+def kontext_pruefen(kontext: Mapping[str, Any], pfad: str = "") -> None:
+    """Nur einfache Werte: Modell-Objekte und andere Objekte sind nicht erlaubt."""
+    for schluessel, wert in kontext.items():
+        if not isinstance(schluessel, str) or not schluessel.isidentifier():
+            raise PlatzhalterFehler(f"Ungültiger Schlüssel im Kontext unter {pfad or 'oben'}.")
+        _wert_pruefen(wert, f"{pfad}{schluessel}")
+
+
+def _wert_pruefen(wert: Any, pfad: str) -> None:
+    if isinstance(wert, _EINFACH):
+        return
+    if isinstance(wert, Mapping):
+        kontext_pruefen(wert, pfad + ".")
+        return
+    if isinstance(wert, list | tuple):
+        for eintrag in wert:
+            _wert_pruefen(eintrag, pfad)
+        return
+    raise PlatzhalterFehler(
+        f"Kontext {pfad}: nur einfache Werte, kein {type(wert).__name__}. "
+        "Der Aufrufer gibt die Werte frei, die eine Vorlage lesen darf."
+    )
+
+
+def rendern(text: str, kontext: Mapping[str, Any]) -> str:
+    """Rendert eine Vorlage. Fehlt ein Platzhalter im Kontext, gibt es einen Fehler."""
+    kontext_pruefen(kontext)
+    vorlage = kompilieren(text)
+    genutzt = verwendung(text)
+    for pfad in genutzt.pfade:
+        wurzel = pfad.split(".", 1)[0]
+        if wurzel not in genutzt.schleifenvariablen and wurzel not in kontext:
+            raise UnbekannterPlatzhalter(pfad)
+    with translation.override("de"):
+        return vorlage.render(Context(dict(kontext), autoescape=True))
+
+
+def beispielkontext(erlaubt: Iterable[str], text: str = "") -> dict[str, Any]:
+    """Kontext für die Vorschau einer Vorlage: Jeder Platzhalter zeigt seinen Namen.
+
+    Mit ``text`` kommen die Platzhalter dazu, die die Vorlage unterhalb eines erlaubten
+    Eintrags nutzt (``betrag.offen`` unter ``betrag``).
+    """
+    pfade = set(erlaubt)
+    if text:
+        genutzt = verwendung(text)
+        pfade |= {p for p in genutzt.pfade if p.split(".", 1)[0] not in genutzt.schleifenvariablen}
+    # Ein Pfad, unter dem noch etwas steht, wird ein Wörterbuch statt eines Texts.
+    kontext: dict[str, Any] = {}
+    for pfad in sorted(pfade):
+        teile = pfad.split(".")
+        ziel = kontext
+        for teil in teile[:-1]:
+            unter = ziel.setdefault(teil, {})
+            if not isinstance(unter, dict):
+                unter = ziel[teil] = {}
+            ziel = unter
+        if not isinstance(ziel.get(teile[-1]), dict):
+            ziel[teile[-1]] = f"‹{pfad}›"
+    return kontext

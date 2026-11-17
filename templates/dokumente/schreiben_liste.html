@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block titel %}Schreiben{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_reiter.html" %}
+<h1>Schreiben</h1>
+
+<section class="gruppe">
+  <h2>Bereit zum Senden <span class="zahl">{{ bereit|length }}</span></h2>
+  <p class="leise">Nichts geht ohne Klick hinaus: Schreiben öffnen, PDF prüfen, dann senden.</p>
+  <ul class="posten-liste">
+    {% for s in bereit %}{% include "dokumente/_schreiben.html" %}{% empty %}<li class="leise">Keine.</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="gruppe">
+  <h2>Unterwegs <span class="zahl">{{ unterwegs|length }}</span></h2>
+  <ul class="posten-liste">
+    {% for s in unterwegs %}{% include "dokumente/_schreiben.html" %}{% empty %}<li class="leise">Keine.</li>{% endfor %}
+  </ul>
+</section>
+
+{% if erledigt %}
+<details class="gruppe">
+  <summary>Erledigt und verworfen</summary>
+  <ul class="posten-liste">
+    {% for s in erledigt %}{% include "dokumente/_schreiben.html" %}{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.bank",
     "apps.fristen",
     "apps.benachrichtigung",
+    "apps.dokumente",
 ]
 
 MIDDLEWARE = [
@@ -163,6 +164,9 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "Bankabruf gescheitert",
         "Bankumsätze fehlen",
         "Saldo weicht ab",
+        # Dokumente (apps.dokumente.services, ART_*)
+        "Kopie in „Gesendet“ fehlt",
+        "Brief storniert",
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",
@@ -174,6 +178,34 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
 HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN = env.int("HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN", default=24)
 HOF_BENACHRICHTIGUNG_MAIL_KANAL = "apps.benachrichtigung.kanaele.MailKanal"
 HOF_BENACHRICHTIGUNG_NTFY_KANAL = "apps.benachrichtigung.kanaele.NtfyKanal"
+
+# Vorlagen und Versand (Schritt 3c). Die Clients sind austauschbar; Standard sind die Fakes
+# (nichts geht ins Netz). prod.py nimmt die echten Clients, ohne Zugangsdaten melden sie
+# „nicht eingerichtet“. Die Fakes verweigern sich bei DJANGO_ENV=prod.
+DOKUMENTE = {
+    "MAIL_ABSENDER": env.str("HOF_MAIL_ABSENDER", default="kontakt@hof.invalid"),
+    "MAIL_CLIENT": "apps.dokumente.versand.DjangoMailClient",
+    "IMAP_CLIENT": env.str("HOF_IMAP_CLIENT", default="apps.dokumente.versand.FakeImapClient"),
+    # imaps://benutzer:passwort@host:993 (Sonderzeichen im Passwort URL-kodiert)
+    "IMAP_URL": env.str("HOF_IMAP_URL", default=""),
+    "IMAP_ORDNER_GESENDET": env.str("HOF_IMAP_ORDNER_GESENDET", default="Sent"),
+    "BRIEF_CLIENT": env.str(
+        "HOF_BRIEF_CLIENT", default="apps.dokumente.letterxpress.FakeLetterXpressClient"
+    ),
+    "LETTERXPRESS_BENUTZER": env.str("LETTERXPRESS_BENUTZER", default=""),
+    "LETTERXPRESS_APIKEY": env.str("LETTERXPRESS_APIKEY", default=""),
+    # „test“ legt Aufträge nur in die Postbox; „live“ erst nach Freigabe durch Max.
+    "LETTERXPRESS_MODUS": env.str("LETTERXPRESS_MODUS", default="test"),
+    # Absender im Briefkopf (Platzhalter absender.*). Zeilen der Anschrift mit „;“ trennen.
+    "ABSENDER": {
+        "name": env.str("HOF_ABSENDER_NAME", default="Hof (Absender nicht eingerichtet)"),
+        "anschrift": env.str("HOF_ABSENDER_ANSCHRIFT", default="").replace(";", "\n"),
+        "email": env.str("HOF_MAIL_ABSENDER", default="kontakt@hof.invalid"),
+        "telefon": env.str("HOF_ABSENDER_TELEFON", default=""),
+        "bank": env.str("HOF_ABSENDER_BANK", default=""),
+        "steuernummer": env.str("HOF_ABSENDER_STEUERNUMMER", default=""),
+    },
+}
 
 # Logs nennen IDs, keine Personendaten: Der Filter ersetzt Werte registrierter
 # Personenfelder (kern.personenfelder) durch ‹…›.

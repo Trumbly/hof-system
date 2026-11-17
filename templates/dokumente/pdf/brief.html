@@ -1,0 +1,64 @@
+<!doctype html>
+{% comment %}
+  Rahmen eines Briefs nach DIN 5008, Form B (Briefkopf 45 mm), für Fensterumschläge DL/C5/C4
+  mit Fenster links. Maße in Millimetern ab der linken oberen Ecke des Blatts:
+  - Anschriftfeld 85 × 45 mm bei links 20, oben 45: Zusatz- und Vermerkzone 17,7 mm
+    (Rücksendeangabe), darunter die Anschriftzone 27,3 mm.
+  - Informationsblock bei links 125, oben 50, Breite 75.
+  - Betreff und Text ab oben 98,5; Textrand links 25, rechts 20.
+  - Falzmarken bei 105 und 210, Lochmarke bei 148,5.
+  Der Briefkopf ist eine Vorlage (Art „briefkopf“) mit den Teilen .kopf, .ruecksendeangabe
+  und .fuss; der Fuß steht auf jeder Seite.
+{% endcomment %}
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>{{ zeichen }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 20mm 27mm 25mm;
+    @bottom-left { content: element(fuss); width: 140mm; vertical-align: top; padding-top: 4mm; }
+    @bottom-right { content: "Seite " counter(page) " von " counter(pages); width: 25mm; white-space: nowrap; font-size: 7.5pt; color: #555; vertical-align: top; padding-top: 4mm; }
+  }
+  @page :first { margin-top: 0; }
+  html { font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif; font-size: 10.5pt; line-height: 1.4; color: #000; }
+  body { margin: 0; }
+  .seite1 { position: relative; height: 98.5mm; width: 210mm; margin-left: -25mm; }
+  .seite1 > .kopf { position: absolute; top: 12mm; left: 25mm; width: 165mm; height: 30mm; overflow: hidden; }
+  .seite1 > .ruecksendeangabe { position: absolute; top: 52mm; left: 25mm; width: 80mm; font-size: 7pt; line-height: 1.2; white-space: nowrap; overflow: hidden; }
+  .seite1 > .fuss, .fuss { position: running(fuss); font-size: 7.5pt; line-height: 1.3; color: #333; }
+  .anschriftfeld { position: absolute; top: 62.7mm; left: 25mm; width: 80mm; height: 27.3mm; overflow: hidden; }
+  .anschriftfeld p { margin: 0; }
+  .infoblock { position: absolute; top: 50mm; left: 125mm; width: 75mm; font-size: 9pt; }
+  .infoblock dl { margin: 0; display: table; }
+  .infoblock div { display: table-row; }
+  .infoblock dt, .infoblock dd { display: table-cell; margin: 0; padding: 0 3mm 0.5mm 0; }
+  .infoblock dt { color: #444; }
+  .marke { position: absolute; left: 4mm; width: 5mm; border-top: 0.3pt solid #888; }
+  .betreff { font-weight: bold; margin: 0 0 8mm; }
+  .inhalt p { margin: 0 0 3.5mm; }
+  .inhalt table { border-collapse: collapse; }
+  .inhalt td, .inhalt th { padding: 0.5mm 3mm 0.5mm 0; text-align: left; vertical-align: top; }
+</style>
+</head>
+<body>
+  <div class="seite1">
+    {{ briefkopf_html|safe }}
+    <div class="anschriftfeld">
+      {% for zeile in anschrift_zeilen %}<p>{{ zeile }}</p>{% endfor %}
+    </div>
+    <div class="infoblock">
+      <dl>
+        <div><dt>Unser Zeichen</dt><dd>{{ zeichen }}</dd></div>
+        <div><dt>Datum</dt><dd>{{ datum|date:"d.m.Y" }}</dd></div>
+      </dl>
+    </div>
+    <div class="marke" style="top: 105mm"></div>
+    <div class="marke" style="top: 148.5mm; width: 7mm"></div>
+    <div class="marke" style="top: 210mm"></div>
+  </div>
+  {% if betreff %}<p class="betreff">{{ betreff }}</p>{% endif %}
+  <div class="inhalt">{{ inhalt_html|safe }}</div>
+</body>
+</html>
