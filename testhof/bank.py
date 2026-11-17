@@ -20,6 +20,14 @@ Sonderfälle (``testhof.sonderfaelle``):
 - ``rueckbuchung``: Eine eingegangene Miete wird drei Tage später zurückgebucht
   (``rueckbuchung``: Eingang und Ausgang).
 
+Für das Kassenbuch (``testhof/kassenbuch.py``) liefert Vivid außerdem je Monat
+
+- die Miete einer Wohnung (W-01, geführt in Verwaltio) auf demselben Konto: Sonderfall
+  „Wohnraummiete auf demselben Konto“ (``BankDaten.wohnraum_iban``),
+- eine Entnahme an einen Gesellschafter der GbR (``BankDaten.entnahme_iban``).
+
+Beide kommen aus einem eigenen Zufall, damit die übrigen Daten gleich bleiben.
+
 Alles entsteht über ``apps.bank.services``; alle Namen, IBANs und Zwecke sind erfunden.
 """
 
@@ -27,8 +35,11 @@ from __future__ import annotations
 
 import calendar
 import datetime
+import random
 from dataclasses import dataclass
 from decimal import Decimal
+
+from faker import Faker
 
 from apps.bank import services
 from apps.bank.models import (
@@ -131,6 +142,10 @@ class BankDaten:
     gleiche_zahlungen: tuple[Bankumsatz, Bankumsatz]
     #: Eingang und Rückbuchung (Ausgang) derselben Zahlung.
     rueckbuchung: tuple[Bankumsatz, Bankumsatz]
+    #: Gegen-IBAN der Wohnraummiete auf dem Vivid-Konto (Verwaltio, nie im Abgleich).
+    wohnraum_iban: str = ""
+    #: Gegen-IBAN der monatlichen Entnahme an einen Gesellschafter der GbR.
+    entnahme_iban: str = ""
 
 
 def _monate(beginn: datetime.date) -> list[tuple[int, int]]:
@@ -162,12 +177,69 @@ def _zahler(kontext: Kontext, plan: KontoPlan) -> list[Zahler]:
     ]
 
 
+@dataclass(frozen=True)
+class Zusatz:
+    """Wohnraummiete und Entnahme auf dem Vivid-Konto, aus eigenem Zufall."""
+
+    wohnraum: Zahler
+    gesellschafter: Zahler
+
+
+def _zusatz(kontext: Kontext) -> Zusatz:
+    z = random.Random(f"testhof:{kontext.seed}:bank:zusatz")
+    f = Faker("de_DE")
+    f.seed_instance(f"testhof:{kontext.seed}:bank:zusatz:faker")
+    return Zusatz(
+        wohnraum=Zahler(
+            name=f"{f.first_name()} {f.last_name()}",
+            iban=erfunden.erfundene_iban(z),
+            betrag=Decimal(z.randrange(60000, 110001, 500)) / 100,
+            einheit="W-01",
+        ),
+        gesellschafter=Zahler(
+            name=f"{f.first_name()} {f.last_name()}",
+            iban=erfunden.erfundene_iban(z),
+            betrag=Decimal(z.randrange(100000, 200001, 10000)) / 100,
+            einheit="",
+        ),
+    )
+
+
+def _vivid_zusatz(zusatz: Zusatz, jahr: int, monat: int) -> list[services.UmsatzDaten]:
+    miete = _tag(jahr, monat, 3)
+    entnahme = _tag(jahr, monat, 15)
+    w, g = zusatz.wohnraum, zusatz.gesellschafter
+    return [
+        services.UmsatzDaten(
+            buchungsdatum=miete,
+            valuta=miete,
+            betrag=w.betrag,
+            richtung=EINGANG,
+            gegenpartei=w.name,
+            gegen_iban=w.iban,
+            verwendungszweck=f"Miete Wohnung {w.einheit} {monat:02d}/{jahr}",
+            bank_referenz=f"TH-vivid-{jahr}{monat:02d}-{w.einheit}",
+        ),
+        services.UmsatzDaten(
+            buchungsdatum=entnahme,
+            valuta=entnahme,
+            betrag=g.betrag,
+            richtung=AUSGANG,
+            gegenpartei=g.name,
+            gegen_iban=g.iban,
+            verwendungszweck=f"Entnahme {monat:02d}/{jahr}",
+            bank_referenz=f"TH-vivid-{jahr}{monat:02d}-E",
+        ),
+    ]
+
+
 def _umsaetze(
     kontext: Kontext, plan: KontoPlan, monate: list[tuple[int, int]]
 ) -> dict[tuple[int, int], list[services.UmsatzDaten]]:
     """Alle Umsätze eines Kontos, je Monat, sortiert nach Tag."""
     z = kontext.zufall
     zahler = _zahler(kontext, plan)
+    zusatz = _zusatz(kontext) if plan.schluessel == "vivid" else None
     firmen = [(kontext.faker.company(), erfunden.erfundene_iban(z)) for _ in AUSGABEN]
     je_monat: dict[tuple[int, int], list[services.UmsatzDaten]] = {}
     for jahr, monat in monate:
@@ -220,6 +292,8 @@ def _umsaetze(
                     bank_referenz=f"TH-{plan.schluessel}-{jahr}{monat:02d}-A{nummer:02d}",
                 )
             )
+        if zusatz is not None:
+            liste += _vivid_zusatz(zusatz, jahr, monat)
         # Stabile Sortierung: gleiche Tage behalten die Reihenfolge der Erzeugung.
         je_monat[(jahr, monat)] = sorted(liste, key=lambda u: u.buchungsdatum)
     return je_monat
@@ -317,6 +391,8 @@ def aufbauen(kontext: Kontext) -> BankDaten:
         doppelt_geliefert=doppelt,
         gleiche_zahlungen=(_gleicher_erster(zweite), zweite),
         rueckbuchung=(eingang, zurueck),
+        wohnraum_iban=_zusatz(kontext).wohnraum.iban,
+        entnahme_iban=_zusatz(kontext).gesellschafter.iban,
     )
 
 

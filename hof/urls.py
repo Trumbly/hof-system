@@ -15,5 +15,6 @@ urlpatterns = [
     path("fristen/", include("apps.fristen.urls")),
     path("", include("apps.bank.urls")),
     path("dokumente/", include("apps.dokumente.urls")),
+    path("", include("apps.kassenbuch.urls")),
     path("", include("apps.kern.urls")),
 ]

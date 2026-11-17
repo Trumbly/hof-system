@@ -8,7 +8,10 @@ zurückstellen, wieder öffnen); spätere Apps melden ihre eigenen an, etwa
     aktionen.registrieren("zuordnen", "Zuordnen", meine_funktion)
 
 Die Funktion bekommt den Posten und den Benutzer und schreibt über die Services
-ihrer App.
+ihrer App. Braucht eine Aktion eine Eingabe (etwa Kategorie und Objekt), meldet sie statt
+der Funktion eine Seite an; der Knopf führt dann dorthin::
+
+    aktionen.registrieren("umsatz_zuordnen", "Zuordnen", seite=lambda p: reverse(...))
 """
 
 from __future__ import annotations
@@ -20,6 +23,11 @@ from apps.kern import services
 from apps.kern.models import Arbeitsposten, Benutzer
 
 Ausfuehrung = Callable[[Arbeitsposten, Benutzer], object]
+Seite = Callable[[Arbeitsposten], str]
+
+
+def _nur_ueber_seite(posten: Arbeitsposten, benutzer: Benutzer) -> object:
+    raise RuntimeError("Diese Aktion läuft über ihre Seite.")
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,8 @@ class Aktion:
     schluessel: str
     titel: str
     ausfuehren: Ausfuehrung
+    #: Adresse der Seite (oder des Formulars) für Aktionen mit Eingabe, sonst None.
+    seite: Seite | None = None
 
 
 _AKTIONEN: dict[str, Aktion] = {}
@@ -35,10 +45,24 @@ _AKTIONEN: dict[str, Aktion] = {}
 WIEDER_OEFFNEN = "wieder_oeffnen"
 
 
-def registrieren(schluessel: str, titel: str, ausfuehren: Ausfuehrung) -> None:
-    if schluessel in _AKTIONEN and _AKTIONEN[schluessel].ausfuehren is not ausfuehren:
+def registrieren(
+    schluessel: str,
+    titel: str,
+    ausfuehren: Ausfuehrung | None = None,
+    *,
+    seite: Seite | None = None,
+) -> None:
+    """Meldet eine Aktion an: entweder mit ``ausfuehren`` (sofort) oder mit ``seite``."""
+    if (ausfuehren is None) == (seite is None):
+        raise ValueError(f"Aktion {schluessel}: genau eins von ausfuehren und seite angeben.")
+    aktion = Aktion(schluessel, titel, ausfuehren or _nur_ueber_seite, seite)
+    vorhanden = _AKTIONEN.get(schluessel)
+    if vorhanden is not None and (vorhanden.ausfuehren, vorhanden.seite) != (
+        aktion.ausfuehren,
+        aktion.seite,
+    ):
         raise ValueError(f"Aktion {schluessel} ist schon registriert.")
-    _AKTIONEN[schluessel] = Aktion(schluessel, titel, ausfuehren)
+    _AKTIONEN[schluessel] = aktion
 
 
 def ist_registriert(schluessel: str) -> bool:

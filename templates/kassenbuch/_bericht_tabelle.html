@@ -1,0 +1,31 @@
+<table class="bericht">
+  <thead>
+    <tr><th>Position</th><th class="zahl-rechts">{{ bericht.monat|date:"m/Y" }}</th><th class="zahl-rechts">{{ bericht.vorjahresmonat|date:"m/Y" }}</th><th class="zahl-rechts">Differenz</th></tr>
+  </thead>
+  <tbody>
+    <tr class="abschnitt"><th colspan="4">Einnahmen</th></tr>
+    {% for z in bericht.einnahmen %}
+    <tr><td>{{ z.name }}</td><td class="zahl-rechts">{{ z.betrag|floatformat:"2g" }}</td><td class="zahl-rechts">{{ z.vorjahr|floatformat:"2g" }}</td><td class="zahl-rechts">{{ z.differenz|floatformat:"2g" }}</td></tr>
+    {% empty %}<tr><td colspan="4">keine</td></tr>{% endfor %}
+    <tr class="summe"><td>Summe Einnahmen</td><td class="zahl-rechts">{{ bericht.summe_einnahmen|floatformat:"2g" }}</td><td class="zahl-rechts">{{ bericht.vorjahr_einnahmen|floatformat:"2g" }}</td><td></td></tr>
+
+    <tr class="abschnitt"><th colspan="4">Kosten</th></tr>
+    {% for z in bericht.kosten %}
+    <tr><td>{{ z.name }}</td><td class="zahl-rechts">{{ z.betrag|floatformat:"2g" }}</td><td class="zahl-rechts">{{ z.vorjahr|floatformat:"2g" }}</td><td class="zahl-rechts">{{ z.differenz|floatformat:"2g" }}</td></tr>
+    {% empty %}<tr><td colspan="4">keine</td></tr>{% endfor %}
+    <tr class="summe"><td>Summe Kosten</td><td class="zahl-rechts">{{ bericht.summe_kosten|floatformat:"2g" }}</td><td class="zahl-rechts">{{ bericht.vorjahr_kosten|floatformat:"2g" }}</td><td></td></tr>
+
+    <tr class="summe ergebnis"><td>Ergebnis (Einnahmen − Kosten)</td><td class="zahl-rechts">{{ bericht.ergebnis|floatformat:"2g" }}</td><td class="zahl-rechts">{{ bericht.vorjahr_ergebnis|floatformat:"2g" }}</td><td></td></tr>
+
+    <tr class="abschnitt"><th colspan="4">Entnahmen je Mandant (nicht im Ergebnis)</th></tr>
+    {% for e in bericht.entnahmen %}
+    <tr><td>{{ e.mandant.kuerzel }}</td><td class="zahl-rechts">{{ e.betrag|floatformat:"2g" }}</td><td class="zahl-rechts">{{ e.vorjahr|floatformat:"2g" }}</td><td></td></tr>
+    {% empty %}<tr><td colspan="4">keine</td></tr>{% endfor %}
+    {% if bericht.umbuchungen %}
+    <tr class="abschnitt"><th colspan="4">Umbuchungen (nicht im Ergebnis)</th></tr>
+    {% for z in bericht.umbuchungen %}
+    <tr><td>{{ z.name }}</td><td class="zahl-rechts">{{ z.betrag|floatformat:"2g" }}</td><td class="zahl-rechts">{{ z.vorjahr|floatformat:"2g" }}</td><td></td></tr>
+    {% endfor %}
+    {% endif %}
+  </tbody>
+</table>

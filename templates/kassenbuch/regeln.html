@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block titel %}Regeln{% endblock %}
+
+{% block inhalt %}
+<h1>Zuordnungsregeln</h1>
+{% include "kassenbuch/_unternavigation.html" %}
+<p class="leise">Eine Regel passt, wenn alle ihre Bedingungen passen. Eindeutig ist ein Umsatz, wenn genau eine Regel mit der höchsten Priorität passt; sonst kommt er in die Arbeitsliste.</p>
+<p><a class="knopf" href="{% url 'kassenbuch:regel_neu' %}">Neue Regel</a></p>
+<div class="tabelle-rahmen">
+<table class="regeln">
+  <thead>
+    <tr><th>Prio</th><th>Regel</th><th>Bedingungen</th><th>Ergebnis</th><th>Buchungen</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for r in regeln %}
+    <tr id="regel-{{ r.pk }}"{% if not r.aktiv %} class="leise"{% endif %}>
+      <td data-titel="Prio">{{ r.prioritaet }}</td>
+      <td data-titel="Regel">{{ r.bezeichnung }} <span class="leise">#{{ r.pk }}{% if not r.aktiv %} · inaktiv{% endif %}</span></td>
+      <td data-titel="Bedingungen">
+        {% if r.richtung %}{{ r.get_richtung_display }} · {% endif %}
+        {% if r.konto %}Konto #{{ r.konto_id }} · {% endif %}
+        {% if r.gegen_iban %}<code>{{ r.gegen_iban }}</code> · {% endif %}
+        {% if r.gegenpartei %}Gegenpartei „{{ r.gegenpartei }}“ · {% endif %}
+        {% if r.zweck %}Zweck {% if r.zweck_regex %}Regex {% endif %}„{{ r.zweck }}“ · {% endif %}
+        {% if r.betrag_von is not None or r.betrag_bis is not None %}Betrag {{ r.betrag_von|default_if_none:"…" }} bis {{ r.betrag_bis|default_if_none:"…" }}{% endif %}
+      </td>
+      <td data-titel="Ergebnis">{{ r.kategorie.bezeichnung }} · {{ r.objekt.kuerzel }} · {{ r.mandant.kuerzel }}</td>
+      <td data-titel="Buchungen">{{ r.anzahl }}</td>
+      <td><a href="{% url 'kassenbuch:regel' r.pk %}">bearbeiten</a> · <a href="{% url 'kassenbuch:regel_anwenden' r.pk %}">rückwirkend anwenden</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">Noch keine Regeln.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
