@@ -158,7 +158,7 @@ class Schreiben(ProtokolliertesModell):
     )
     dienst_auftrag = models.CharField(
         "Auftrag beim Versanddienst",
-        max_length=100,
+        max_length=255,
         blank=True,
         help_text="Auftragsnummer bei LetterXpress oder Message-ID der Mail.",
     )

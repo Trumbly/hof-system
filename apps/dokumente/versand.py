@@ -19,6 +19,7 @@ import os
 import time
 import urllib.parse
 from dataclasses import dataclass
+from email.utils import formatdate, make_msgid
 from typing import Any, ClassVar, Protocol
 
 from django.conf import settings
@@ -142,6 +143,26 @@ def imap_client() -> ImapClient:
     return client
 
 
+#: Domain der Message-ID, wenn die Absenderadresse keine nennt.
+STANDARD_DOMAIN = "hof-system.invalid"
+
+
+def message_id_erzeugen() -> str:
+    """Eigene Message-ID mit der Domain der Absenderadresse.
+
+    Django nähme den Hostnamen des Rechners (``DNS_NAME``). Der gehört nicht in Mails
+    an Mieter und kann so lang sein, dass der Header beim Serialisieren umbricht.
+    """
+    absender = str(einstellung("MAIL_ABSENDER") or "")
+    domain = absender.rpartition("@")[2].strip().strip(">") or STANDARD_DOMAIN
+    return make_msgid(domain=domain)
+
+
+def header_wert(wert: object) -> str:
+    """Header-Wert entfaltet und ohne Leerraum (für Message-IDs und Vergleiche)."""
+    return "".join(str(wert or "").split())
+
+
 @dataclass(frozen=True)
 class MailErgebnis:
     message_id: str
@@ -157,12 +178,11 @@ def mail_senden(nachricht: EmailMessage) -> MailErgebnis:
     nur die Kopie, ist die Mail trotzdem versendet: Das Ergebnis nennt dann den Grund,
     damit der Aufrufer das Schreiben als gesendet führt und einen Arbeitsposten anlegt.
     """
-    roh = nachricht.message()
-    message_id = str(roh["Message-ID"])
+    message_id = message_id_erzeugen()
     nachricht.extra_headers = {
         **nachricht.extra_headers,
         "Message-ID": message_id,
-        "Date": str(roh["Date"]),
+        "Date": formatdate(localtime=True),
     }
     roh_bytes = nachricht.message().as_bytes()
     imap = imap_client()  # vor SMTP: fehlt die Einrichtung, geht nichts hinaus
@@ -170,5 +190,5 @@ def mail_senden(nachricht: EmailMessage) -> MailErgebnis:
     try:
         imap.in_gesendet_ablegen(roh_bytes)
     except VersandFehler as fehler:
-        return MailErgebnis(message_id, kopie_fehler=str(fehler))
-    return MailErgebnis(message_id)
+        return MailErgebnis(header_wert(message_id), kopie_fehler=str(fehler))
+    return MailErgebnis(header_wert(message_id))

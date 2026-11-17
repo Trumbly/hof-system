@@ -441,7 +441,7 @@ def _senden(schreiben: Schreiben, benutzer: Benutzer) -> Schreiben:
         )
         nachricht.attach(_dateiname(schreiben), daten, "application/pdf")
         ergebnis = mail_senden(nachricht)
-        schreiben.dienst_auftrag = ergebnis.message_id[:100]
+        schreiben.dienst_auftrag = ergebnis.message_id[:255]
         schreiben.einlieferungsdatum = timezone.localdate(jetzt)
         if ergebnis.kopie_fehler:
             kern_services.arbeitsposten_anlegen(

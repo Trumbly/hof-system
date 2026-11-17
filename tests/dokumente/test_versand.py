@@ -19,7 +19,12 @@ from django.urls import reverse
 from apps.dokumente import letterxpress, services, versand
 from apps.dokumente.letterxpress import FakeLetterXpressClient, LetterXpressClient
 from apps.dokumente.models import Schreiben, Vorlage
-from apps.dokumente.versand import FakeImapClient, ImaplibClient, VersandNichtEingerichtet
+from apps.dokumente.versand import (
+    FakeImapClient,
+    ImaplibClient,
+    VersandNichtEingerichtet,
+    header_wert,
+)
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 from tests.dokumente.conftest import kontext
@@ -115,9 +120,47 @@ def test_mail_von_kontakt_mit_pdf_und_kopie_in_gesendet(
     (kopie,) = FakeImapClient.gesendet
     kopie_mail = email.message_from_bytes(kopie)
     schreiben.refresh_from_db()
-    assert kopie_mail["Message-ID"] == schreiben.dienst_auftrag
-    assert kopie_mail["Message-ID"] == nachricht.message()["Message-ID"]
+    assert header_wert(kopie_mail["Message-ID"]) == schreiben.dienst_auftrag
+    assert header_wert(nachricht.message()["Message-ID"]) == schreiben.dienst_auftrag
+    assert schreiben.dienst_auftrag.endswith("@hof.invalid>")
     assert schreiben.einlieferungsdatum is not None
+
+
+def test_message_id_ohne_hostnamen_und_robust_gegen_umbruch(
+    mitteilung: Vorlage,
+    objekt: Objekt,
+    benutzer: Benutzer,
+    settings: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Schritt 3c, Aufgabe 4: Die Message-ID trägt die Domain des Absenders, nie den
+    Hostnamen des Rechners. Auch wenn der Header sehr lang wird und beim Serialisieren
+    umbricht (wie auf dem GitHub-Runner), passen Schreiben, Mail und Kopie zusammen."""
+    from django.core.mail import message as django_mail
+
+    langer_host = "runner-" + "x" * 90 + ".internal.cloudapp.net"
+    monkeypatch.setattr(django_mail, "DNS_NAME", langer_host)
+    lange_domain = "post." + "sehr-lange-erfundene-domain-" * 3 + "hof.invalid"
+    settings.DOKUMENTE = {**settings.DOKUMENTE, "MAIL_ABSENDER": f"kontakt@{lange_domain}"}
+
+    schreiben = services.schreiben_erzeugen(mitteilung, objekt, kontext(objekt), Versandweg.MAIL)
+    services.schreiben_senden(schreiben, benutzer, pruefsumme=schreiben.pdf_sha256)
+
+    schreiben.refresh_from_db()
+    (kopie,) = FakeImapClient.gesendet
+    zeilen = kopie.decode().split("\r\n" if b"\r\n" in kopie else "\n")
+    beginn = next(i for i, z in enumerate(zeilen) if z.lower().startswith("message-id:"))
+    assert zeilen[beginn + 1].startswith((" ", "\t"))  # der Header ist wirklich umbrochen
+    assert header_wert(email.message_from_bytes(kopie)["Message-ID"]) == schreiben.dienst_auftrag
+    assert header_wert(mail.outbox[0].message()["Message-ID"]) == schreiben.dienst_auftrag
+    assert schreiben.dienst_auftrag.endswith(f"@{lange_domain}>")
+    assert "runner-" not in kopie.decode()
+
+
+def test_message_id_ohne_domain_im_absender(settings: Any) -> None:
+    """Schritt 3c, Aufgabe 4: Ohne Domain im Absender gilt eine feste Domain."""
+    settings.DOKUMENTE = {**settings.DOKUMENTE, "MAIL_ABSENDER": ""}
+    assert versand.message_id_erzeugen().endswith("@hof-system.invalid>")
 
 
 def test_fehlt_die_kopie_ist_die_mail_trotzdem_gesendet_mit_arbeitsposten(
