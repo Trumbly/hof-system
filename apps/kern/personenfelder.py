@@ -136,6 +136,15 @@ def _personenwerte(objekt: models.Model) -> list[str]:
     return sorted(werte, key=len, reverse=True)
 
 
+#: Attribute, die jeder ``LogRecord`` selbst hat (``name``, ``msg``, ``args``, ``levelname`` …).
+#: Der Filter ersetzt sie nie, auch wenn ein Personenfeld so heißt: Sonst verschwände etwa der
+#: Name des Loggers. ``message`` und ``asctime`` setzt erst der Formatter.
+LOGRECORD_ATTRIBUTE = frozenset(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {
+    "message",
+    "asctime",
+}
+
+
 def _alle_personenfeldnamen() -> set[str]:
     namen: set[str] = set()
     for felder in _PERSONENFELDER.values():
@@ -150,7 +159,8 @@ class PersonenfelderFilter(logging.Filter):
     - Modell-Objekte unter den Argumenten der Meldung: Die Werte ihrer Personenfelder
       werden im fertigen Text ersetzt (auch wenn ``str(objekt)`` sie enthält),
     - Argumente als Wörterbuch (``logger.info("%(name)s", {...})``) und Angaben über
-      ``extra=...``, deren Schlüssel der Name eines Personenfelds ist.
+      ``extra=...``, deren Schlüssel der Name eines Personenfelds ist. Die eigenen Attribute
+      des ``LogRecord`` (``LOGRECORD_ATTRIBUTE``) bleiben immer stehen.
 
     Der Filter verwirft nie eine Meldung, er schreibt sie nur um.
     """
@@ -158,7 +168,7 @@ class PersonenfelderFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         namen = _alle_personenfeldnamen()
 
-        for schluessel in namen:
+        for schluessel in namen - LOGRECORD_ATTRIBUTE:
             if schluessel in record.__dict__:
                 setattr(record, schluessel, ERSATZ)
 
