@@ -1,4 +1,12 @@
-"""Einstellungen für den Server. Alle Werte kommen aus der Umgebung, ohne Standardwerte."""
+"""Einstellungen für den Server. Alle Werte kommen aus der Umgebung, ohne Standardwerte.
+
+Einzige Ausnahme: ``DJANGO_ENV`` steht hier immer auf ``prod``, wenn nichts gesetzt ist.
+Daran erkennen Werkzeuge wie der Testhof-Generator die Produktion und verweigern sich.
+"""
+
+import os
+
+os.environ.setdefault("DJANGO_ENV", "prod")
 
 from .base import *  # noqa: F403
 from .base import env

@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 
 from apps.kern import services
 from apps.kern.models import Arbeitsposten, Lauf, Mandant
-from tests.factories import MandantFabrik, ObjektFabrik
+from tests.factories import BenutzerFabrik, MandantFabrik, ObjektFabrik
 
 pytestmark = pytest.mark.django_db
 
@@ -121,3 +121,30 @@ def test_ereignis_laden() -> None:
     assert ereignis.art == "update"
     assert ereignis.daten["bezeichnung"] == "B"
     assert ereignis.vorher is not None and ereignis.vorher["bezeichnung"] == "A"
+
+
+def test_zweiten_faktor_einrichten_mit_festem_geheimnis() -> None:
+    """Schritt 0c: Der Testbenutzer bekommt TOTP über allauth-mfa mit festem Geheimnis."""
+    from allauth.mfa.models import Authenticator
+    from allauth.mfa.totp.internal.auth import TOTP
+
+    from tests.conftest import totp_code
+
+    benutzer = BenutzerFabrik()
+    geheimnis = "ORSXG5DIN5TC23TVOIWWIZLWFV2GK43U"
+
+    authenticator = services.zweiten_faktor_einrichten(benutzer, geheimnis)
+
+    assert authenticator.type == Authenticator.Type.TOTP
+    assert authenticator.user == benutzer
+    assert TOTP(authenticator).validate_code(totp_code(geheimnis))
+
+
+def test_zweiten_faktor_einrichten_weist_ungueltiges_geheimnis_ab() -> None:
+    from allauth.mfa.models import Authenticator
+
+    benutzer = BenutzerFabrik()
+
+    with pytest.raises(ValueError, match="Base32"):
+        services.zweiten_faktor_einrichten(benutzer, "kein base32!")
+    assert not Authenticator.objects.filter(user=benutzer).exists()

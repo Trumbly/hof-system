@@ -50,6 +50,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S106", "DJ008"]  # Testmodelle brauchen kein __str__
 "**/migrations/**" = ["E501", "RUF012"]
+# Zufall für erfundene Daten, nicht für Kryptografie
+"testhof/**" = ["S311"]
+"tests/testhof/**" = ["S311"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["hof", "apps", "testhof"]
