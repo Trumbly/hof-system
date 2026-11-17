@@ -22,6 +22,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "allauth",
+    "allauth.account",
+    "allauth.mfa",
+    "pgtrigger",
+    "pghistory",
     "apps.kern",
 ]
 
@@ -31,6 +36,11 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
+    # Ohne zweiten Faktor kommt niemand über die Anmeldung hinaus.
+    "apps.kern.middleware.ZweiterFaktorPflichtMiddleware",
+    # Jede Änderung aus einer Anfrage trägt den Benutzer als Kontext im Protokoll.
+    "pghistory.middleware.HistoryMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -67,9 +77,32 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# Anmeldung kommt mit django-allauth in Schritt 0b. Bis dahin leitet die
-# Startseite auf die Anmeldung der Verwaltungsseiten weiter.
-LOGIN_URL = "admin:login"
+# Anmeldung: django-allauth mit E-Mail und Passwort, zweiter Faktor (TOTP) ist Pflicht.
+# Eine Rolle, ein Benutzer; er entsteht mit `manage.py benutzer_anlegen`.
+AUTH_USER_MODEL = "kern.Benutzer"
+AUTHENTICATION_BACKENDS = [
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+LOGIN_URL = "account_login"
+LOGIN_REDIRECT_URL = "kern:startseite"
+ACCOUNT_ADAPTER = "apps.kern.anmeldung.KontoAdapter"
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"
+# Keine Frage „Angemeldet bleiben?“: Jede Sitzung gilt genau SESSION_COOKIE_AGE lang.
+ACCOUNT_SESSION_REMEMBER = True
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+MFA_TOTP_ISSUER = "Hof-System"
+
+# Sitzungen laufen 12 Stunden nach der Anmeldung ab, unabhängig von der Nutzung.
+SESSION_COOKIE_AGE = 12 * 60 * 60
+SESSION_SAVE_EVERY_REQUEST = False
+
+# Protokoll (django-pghistory): Ereignisse sind unveränderlich, die Zeit ist die
+# tatsächliche Uhrzeit, nicht der Beginn der Transaktion.
+PGHISTORY_APPEND_ONLY = True
+PGHISTORY_CREATED_AT_FUNCTION = "clock_timestamp()"
 
 LANGUAGE_CODE = "de-de"
 TIME_ZONE = "Europe/Berlin"
@@ -86,3 +119,20 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 EMAIL_CONFIG = env.email("EMAIL_URL")
 vars().update(EMAIL_CONFIG)
 DEFAULT_FROM_EMAIL = env.str("DJANGO_DEFAULT_FROM_EMAIL", default="hof-system@localhost")
+
+# Logs nennen IDs, keine Personendaten: Der Filter ersetzt Werte registrierter
+# Personenfelder (kern.personenfelder) durch ‹…›.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "personenfelder": {"()": "apps.kern.personenfelder.PersonenfelderFilter"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["personenfelder"],
+        },
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+}

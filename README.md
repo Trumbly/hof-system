@@ -22,7 +22,9 @@ make dev                       # Postgres + Mailpit starten, migrieren, Server a
 | `make stopp` | Postgres und Mailpit anhalten |
 
 - Mailpit zeigt lokal versendete Mails unter http://localhost:8025.
-- Ein Benutzer für die Anmeldung: `uv run python manage.py createsuperuser`.
+- Ein Benutzer für die Anmeldung: `uv run python manage.py benutzer_anlegen --email <adresse>` (fragt das Passwort ab). Bei der ersten Anmeldung richtet er den zweiten Faktor (TOTP) mit einer Authenticator-App ein; ohne ihn ist keine Seite erreichbar.
+- Selbsttest der Läufe: `uv run python manage.py kern_selbsttest` legt einen Lauf und einen Arbeitsposten an (Seiten „Läufe“ und „Arbeitslisten“).
+- Seit Schritt 0b gibt es ein eigenes Benutzermodell (`kern.Benutzer`). Eine Entwicklungsdatenbank aus Schritt 0a einmal neu aufsetzen: `docker compose -f docker-compose.dev.yml down -v`, dann `make dev`.
 - Am eigenen Rechner braucht es keine `.env`; die Standardwerte stehen in `hof/settings/dev.py`. Für den Server zeigt `.env.example` alle Schlüssel.
 - Die Pipeline (`.github/workflows/pruefen.yml`) prüft jeden Push mit ruff, mypy und pytest gegen Postgres, dazu Datenprüfung und gitleaks über den ganzen Verlauf.
 

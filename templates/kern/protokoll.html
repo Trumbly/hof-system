@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block titel %}Protokoll{% endblock %}
+
+{% block inhalt %}
+<h1>Protokoll</h1>
+<form method="get" class="filter">
+  <label for="modell">Modell</label>
+  <select name="modell" id="modell">
+    <option value="">alle</option>
+    {% for label, titel in modellwahl %}<option value="{{ label }}"{% if label == gewaehlt %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="zweitrangig">Filtern</button>
+</form>
+
+<ol class="protokoll" id="protokoll">
+  {% for z in zeilen %}
+  <li class="eintrag eintrag-{{ z.art }}">
+    <div class="eintrag-kopf">
+      <span><strong>{{ z.modell_titel }} #{{ z.objekt_id }}</strong> {{ z.art_titel }}</span>
+      <time class="leise" datetime="{{ z.zeit|date:'c' }}">{{ z.zeit|date:"d.m.Y H:i:s" }}</time>
+    </div>
+    {% if z.aenderungen %}
+    <ul class="aenderungen">
+      {% for feld, alt, neu in z.aenderungen %}<li><code>{{ feld }}</code>: {{ alt|default_if_none:"–" }} → {{ neu|default_if_none:"–" }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <p class="leise eintrag-kontext">{{ z.kontext }} · <code>{{ z.ereignis_id }}</code></p>
+    {% if z.zurueckgenommen %}
+    <p class="hinweis-zurueck">zurückgenommen</p>
+    {% else %}
+    <form method="post" action="{% url 'kern:zuruecknehmen' %}" hx-boost="true" hx-confirm="Diese Änderung zurücknehmen?">
+      {% csrf_token %}
+      <input type="hidden" name="ereignis" value="{{ z.ereignis_id }}">
+      <input type="hidden" name="modell" value="{{ gewaehlt }}">
+      <button type="submit" class="zweitrangig">Zurücknehmen</button>
+    </form>
+    {% endif %}
+  </li>
+  {% empty %}
+  <li>Noch keine Änderungen.</li>
+  {% endfor %}
+</ol>
+{% endblock %}
