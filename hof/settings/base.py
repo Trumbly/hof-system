@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.benachrichtigung",
     "apps.dokumente",
     "apps.kassenbuch",
+    "apps.stammdaten",
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block titel %}Parteien{% endblock %}
+
+{% block inhalt %}
+<h1>Parteien</h1>
+<p><a class="knopf" href="{% url 'stammdaten:partei_neu' %}">Neue Partei</a></p>
+<div class="tabelle-rahmen">
+<table class="karten">
+  <thead><tr><th>#</th><th>Name</th><th>Ort</th><th>Kontakt</th></tr></thead>
+  <tbody>
+  {% for p in parteien %}
+  <tr>
+    <td data-titel="#"><a href="{% url 'stammdaten:partei' p.pk %}">#{{ p.pk }}</a></td>
+    <td data-titel="Name"><a href="{% url 'stammdaten:partei' p.pk %}">{{ p.anzeigename }}</a></td>
+    <td data-titel="Ort">{{ p.ort|default:"–" }}</td>
+    <td data-titel="Kontakt">{% with k=p.kontaktwege.all|first %}{{ k.wert|default:"–" }}{% endwith %}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="4">Noch keine Parteien.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

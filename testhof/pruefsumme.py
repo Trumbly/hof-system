@@ -37,8 +37,9 @@ PROTOKOLL_APPS = frozenset({"pghistory", "sessions", "admin"})
 #: Einzelne Modelle, die selbst ein Protokoll sind.
 PROTOKOLL_MODELLE = frozenset({"kern.Lauf", "benachrichtigung.Benachrichtigung"})
 #: Felder, die die Uhr bei Nutzung setzt (nicht über einen Standardwert erkennbar), etwa
-#: das Ende eines Bankabrufs.
-UHR_FELDER = frozenset({"last_login", "last_used_at", "beendet_am"})
+#: das Ende eines Bankabrufs. ``erledigt_am`` setzt ``kern.services.arbeitsposten_erledigen``
+#: mit ``timezone.now()``.
+UHR_FELDER = frozenset({"last_login", "last_used_at", "beendet_am", "erledigt_am"})
 #: Felder mit absichtlichem Zufall (Modell-Label, Feld).
 ZUFALLS_FELDER = frozenset({("kern.Benutzer", "password")})
 

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block titel %}Vertrag {{ vertrag.nummer }}{% endblock %}
+
+{% block inhalt %}
+<h1>Vertrag {{ vertrag.nummer }} <span class="leise">{{ vertrag.get_status_display }}</span></h1>
+<p class="leise">{{ vertrag.get_vertragsart_display }} · Mandant {{ vertrag.mandant.kuerzel }} · {{ vertrag.beginn|date:"d.m.Y" }} bis {{ vertrag.ende|date:"d.m.Y"|default:"auf unbestimmte Zeit" }}</p>
+<ul class="kennzahlen">
+  <li>Einheiten: {% for e in einheiten %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</li>
+  <li>Miete heute: <strong>{% if kondition_heute %}{{ kondition_heute.miete }} €{% if kondition_heute.pauschale %} + {{ kondition_heute.pauschale }} € Pauschale{% endif %}, {{ kondition_heute.get_zahlweise_display }}{% else %}nicht erfasst{% endif %}</strong></li>
+  <li>Kündigungsfrist: {{ kuendigungsregel.titel }}{% if not vertrag.kuendigungsregel %} <span class="leise">(Standard der Vertragsart, am Vertrag noch nicht geprüft)</span>{% endif %}</li>
+</ul>
+
+<div class="aktionen">
+  {% if vertrag.status == "entwurf" %}
+  <form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}">{% csrf_token %}<button type="submit" class="zweitrangig">Vertragsdokument anfordern</button></form>
+  <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'uebergabe' %}">{% csrf_token %}<button type="submit">Übergabe am Handy</button></form>
+  {% elif vertrag.status == "aktiv" or vertrag.status == "gekuendigt" %}
+  <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit">Rückgabe am Handy</button></form>
+  {% endif %}
+</div>
+
+<section id="parteien">
+  <h2>Parteien</h2>
+  <ul>{% for vp in vertragsparteien %}<li>{{ vp.get_rolle_display }}: <a href="{% url 'stammdaten:partei' vp.partei.pk %}">{{ vp.partei.anzeigename }}</a></li>{% endfor %}</ul>
+  <details><summary>Partei hinzufügen</summary>{% include "stammdaten/_formular.html" with form=partei aktion="partei" knopf="Hinzufügen" %}</details>
+</section>
+
+<section id="kondition">
+  <h2>Miete und Konditionen</h2>
+  <p class="leise">Jede Änderung gilt ab einem Datum; der alte Stand bleibt stehen.</p>
+  <div class="tabelle-rahmen"><table class="karten">
+    <thead><tr><th>gültig ab</th><th>gültig bis</th><th>Miete</th><th>Pauschale</th><th>USt</th><th>Zahlweise</th><th>Grund</th></tr></thead>
+    <tbody>
+    {% for k in konditionen %}
+    <tr class="kondition{% if k == kondition_heute %} aktuell{% endif %}">
+      <td data-titel="gültig ab">{{ k.gueltig_ab|date:"d.m.Y" }}</td>
+      <td data-titel="gültig bis">{{ k.gueltig_bis|date:"d.m.Y"|default:"–" }}</td>
+      <td data-titel="Miete">{{ k.miete }} €</td>
+      <td data-titel="Pauschale">{{ k.pauschale }} €</td>
+      <td data-titel="USt">{{ k.steuersatz }} %</td>
+      <td data-titel="Zahlweise">{{ k.get_zahlweise_display }}</td>
+      <td data-titel="Grund">{{ k.grund }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">Noch keine Kondition.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <h3>Neue Miete ab Datum</h3>
+  {% include "stammdaten/_formular.html" with form=kondition aktion="kondition" knopf="Ab Datum übernehmen" %}
+</section>
+
+<section id="kaution">
+  <h2>Kaution</h2>
+  {% if kaution_obj %}
+  {% if kaution_obj.abgerechnet_am %}
+  <p>Abgerechnet am {{ kaution_obj.abgerechnet_am|date:"d.m.Y" }}: Einbehalt {{ kaution_obj.einbehalt }} €, ausgezahlt {{ kaution_obj.ausgezahlt }} €.</p>
+  {% elif kaution_obj.abrechnung_faellig_am %}
+  <p class="faellig">Abrechnung fällig bis {{ kaution_obj.abrechnung_faellig_am|date:"d.m.Y" }}.</p>
+  {% endif %}
+  {% include "stammdaten/_formular.html" with form=kaution aktion="kaution" %}
+  {% if kaution_obj.abrechnung_faellig_am and not kaution_obj.abgerechnet_am %}
+  <h3>Kaution abrechnen</h3>
+  {% include "stammdaten/_formular.html" with form=kaution_abrechnen aktion="kaution_abrechnen" knopf="Abrechnen" %}
+  {% endif %}
+  {% endif %}
+</section>
+
+<section id="unterschrift">
+  <h2>Unterschrift und Scan</h2>
+  <p>{% if vertrag.unterschrieben_am %}Unterschrieben am {{ vertrag.unterschrieben_am|date:"d.m.Y" }}.{% else %}Noch nicht unterschrieben.{% endif %}
+    {% if vertrag.unterschriebener_scan %}Scan liegt vor.{% else %}<span class="leise">Kein Scan.</span>{% endif %}</p>
+  {% include "stammdaten/_formular.html" with form=unterschrift aktion="unterschrift" %}
+</section>
+
+<section id="kuendigung">
+  <h2>Kündigung</h2>
+  {% for k in kuendigungen %}
+  <p>Zugang {{ k.zugang_am|date:"d.m.Y" }} ({{ k.get_von_display }}): Fristende <strong>{{ k.fristende|date:"d.m.Y" }}</strong>, Rückgabe am {{ k.rueckgabetermin|date:"d.m.Y" }}.</p>
+  {% endfor %}
+  {% if kuendigung %}
+  {% include "stammdaten/_formular.html" with form=kuendigung aktion="kuendigung" knopf="Kündigung erfassen" %}
+  {% elif not kuendigungen %}<p class="leise">Eine Kündigung lässt sich bei einem aktiven Vertrag erfassen.</p>{% endif %}
+</section>
+
+<section id="uebergaben">
+  <h2>Übergaben und Rückgaben</h2>
+  <ul>{% for u in uebergaben %}<li>{{ u.get_art_display }} am {{ u.datum|date:"d.m.Y" }} · {{ u.get_status_display }}{% if u.status == "begonnen" %} · <a href="{% url 'stammdaten:uebergabe' u.pk 1 %}">weiter</a>{% endif %}</li>{% empty %}<li class="leise">Keine.</li>{% endfor %}</ul>
+</section>
+
+<section id="stammfelder">
+  <h2>Vertragsdaten</h2>
+  {% include "stammdaten/_formular.html" with form=stammfelder aktion="stammfelder" %}
+</section>
+
+<section id="checklisten">
+  <h2>Checklisten</h2>
+  {% include "stammdaten/_checklisten.html" %}
+</section>
+{% endblock %}

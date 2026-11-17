@@ -1,0 +1,175 @@
+# Konfiguration der Stammdaten (Schritt 4).
+#
+# Hier steht an einer Stelle, was sich ohne Code-Änderung anpassen lässt:
+# - Kündigungsregeln und welche Regel je Vertragsart gilt (H2.8),
+# - Vorlagenart je Vertragsart für das Vertragsdokument (H2.3),
+# - Frist für die Kautionsabrechnung (H2.10),
+# - Checklisten je Phase der SOP (H2.1, H2.4, H2.9),
+# - Pflichtfelder der Seite „Datenstand“ (Bauplan, Abschnitt „Seite Datenstand“).
+#
+# Geprüft wird die Datei beim Start (apps.stammdaten.konfiguration.laden) und im Test
+# tests/stammdaten/test_konfiguration.py.
+
+# --- Kündigung -------------------------------------------------------------------------
+#
+# Eine Regel rechnet aus dem Zugang der Kündigung das Fristende:
+#   periode          "monat" oder "quartal"
+#   perioden         Anzahl der Perioden bis zum Ablauf
+#   karenz_werktage  > 0: Geht die Kündigung bis zum n-ten Werktag der laufenden Periode zu,
+#                    zählt diese Periode mit; sonst beginnt die Frist mit der nächsten
+#                    (§ 580a BGB). Ende ist der Ablauf der so gezählten letzten Periode.
+#                    = 0: Die Frist läuft ab Zugang; Ende ist das Periodenende, in das der
+#                    Tag nach Ablauf der Frist fällt („n Monate zum Monatsende“).
+# Werktage: Montag bis Freitag ohne bundesweite Feiertage (BGH VIII ZR 291/09: der Samstag
+# zählt bei der Karenz nicht). Landesfeiertage fehlen bewusst, siehe zusaetzliche_feiertage.
+
+[kuendigung]
+samstag_ist_werktag = false
+# Weitere arbeitsfreie Tage im Format JJJJ-MM-TT, z. B. Landesfeiertage.
+zusaetzliche_feiertage = []
+
+[kuendigung.regeln.monat_580a]
+titel = "spätestens am dritten Werktag eines Monats zum Ablauf des übernächsten Monats (§ 580a Abs. 1 Nr. 3 BGB)"
+periode = "monat"
+perioden = 2
+karenz_werktage = 3
+
+[kuendigung.regeln.quartal_580a]
+titel = "spätestens am dritten Werktag eines Quartals zum Ablauf des nächsten Quartals (§ 580a Abs. 2 BGB)"
+periode = "quartal"
+perioden = 1
+karenz_werktage = 3
+
+[kuendigung.regeln.ein_monat_monatsende]
+titel = "ein Monat zum Monatsende"
+periode = "monat"
+perioden = 1
+karenz_werktage = 0
+
+[kuendigung.regeln.drei_monate_monatsende]
+titel = "drei Monate zum Monatsende"
+periode = "monat"
+perioden = 3
+karenz_werktage = 0
+
+# --- Vertragsarten ---------------------------------------------------------------------
+#
+# Die Kürzel sind die Vertragsarten aus apps.stammdaten.models.Vertrag.Art.
+#   kuendigungsregel  Standard für neue Verträge dieser Art (am Vertrag änderbar)
+#   vorlage           Vorlagenart für das Vertragsdokument (Schritt 3, App dokumente)
+
+[vertragsarten.G]
+titel = "Garage"
+kuendigungsregel = "monat_580a"
+vorlage = "vertrag_garage"
+
+[vertragsarten.S]
+titel = "Stellplatz"
+kuendigungsregel = "monat_580a"
+vorlage = "vertrag_stellplatz"
+
+[vertragsarten.L]
+titel = "Lager"
+kuendigungsregel = "monat_580a"
+vorlage = "vertrag_lager"
+
+[vertragsarten.H]
+titel = "Halle"
+kuendigungsregel = "quartal_580a"
+vorlage = "vertrag_halle"
+
+[vertragsarten.GA]
+titel = "Garten"
+kuendigungsregel = "monat_580a"
+vorlage = "vertrag_garten"
+
+[vertragsarten.A]
+titel = "Außenfläche"
+kuendigungsregel = "monat_580a"
+vorlage = "vertrag_aussenflaeche"
+
+[vertragsarten.X]
+titel = "sonstige"
+kuendigungsregel = "monat_580a"
+vorlage = "vertrag_sonstige"
+
+# --- Kaution ---------------------------------------------------------------------------
+
+[kaution]
+# Frist für die Abrechnung nach der Rückgabe (SOP: rund sechs Monate).
+abrechnung_monate = 6
+
+# --- Checklisten je Phase der SOP ------------------------------------------------------
+
+[checklisten.vorbereitung]
+titel = "Phase 0: Einheit vorbereiten"
+punkte = [
+  "Objektakte geprüft",
+  "Zielmiete mit Datum und Begründung gesetzt",
+  "Pflichtunterlagen vollständig",
+  "Zustand mit Fotos festgehalten",
+  "Vertragsart festgelegt",
+  "Schlüssel gezählt",
+  "Vermarktung eingeschaltet",
+]
+
+[checklisten.vertrag]
+titel = "Phase 2: Vertrag schließen"
+punkte = [
+  "Identität und Nutzungszweck geprüft",
+  "Vertrag und Anlagen aus der Vorlage erzeugt",
+  "Vertrag vor Ort unterschrieben",
+  "Unterschriebenen Scan abgelegt",
+  "Kaution eingegangen",
+]
+
+[checklisten.uebergabe]
+titel = "Phase 3: Übergabe"
+punkte = [
+  "Protokoll mit Fotos erfasst",
+  "Zählerstände abgelesen",
+  "Schlüssel gegen Quittung ausgegeben",
+]
+
+[checklisten.rueckgabe]
+titel = "Phase 5: Rückgabe"
+punkte = [
+  "Protokoll mit Fotos erfasst",
+  "Zählerstände abgelesen",
+  "Alle Schlüssel zurück",
+  "Zurückgelassene Sachen festgehalten (14 Tage Abholfrist)",
+  "Kaution abgerechnet",
+]
+
+# --- Seite „Datenstand“ ----------------------------------------------------------------
+#
+# Je Bereich die Pflichtfelder. Die Schlüssel nennen Prüfungen aus
+# apps.stammdaten.datenstand.PRUEFUNGEN; dort steht, was „vorhanden“ heißt.
+# Mit [datenstand.<bereich>.je_art.<art>] gelten für eine Art (Einheit: Typ, Vertrag:
+# Vertragsart) andere Pflichtfelder. Der Bereich Zähler kommt in Schritt 8 dazu.
+
+[datenstand.einheit]
+titel = "Einheit"
+pflicht = ["typ", "flaeche", "objekt", "status", "zielmiete"]
+
+[datenstand.einheit.je_art.wohnung]
+# Wohnraum führt Verwaltio. Hier steht nur die NW-ID mit Objekt.
+pflicht = ["objekt"]
+
+[datenstand.partei]
+titel = "Partei"
+pflicht = ["anschrift", "kontaktweg"]
+
+[datenstand.vertrag]
+titel = "Vertrag"
+pflicht = ["beginn", "miete", "zahlweise", "kuendigungsfrist", "kaution", "scan"]
+
+[datenstand.kaution]
+titel = "Kaution"
+pflicht = ["betrag", "eingang", "konto"]
+
+[datenstand.schluessel]
+titel = "Schlüssel"
+pflicht = ["anzahl", "inhaber"]
+# Einheiten dieser Typen haben Schlüssel. Stellplätze, Gärten und Außenflächen nicht.
+typen = ["garage", "lager", "halle"]

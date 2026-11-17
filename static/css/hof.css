@@ -588,6 +588,21 @@ tr.storno td {
 .formular textarea,
 .formular select {
   width: 100%;
+
+/* Stammdaten (Schritt 4) */
+
+.kennzahlen {
+  padding-left: 1.2rem;
+}
+
+section {
+  margin-bottom: 1.5rem;
+}
+
+.formular select,
+.formular textarea {
+  width: 100%;
+  min-height: 44px;
   padding: 0.5rem;
   color: var(--text);
   background: var(--flaeche);
@@ -626,6 +641,97 @@ tr.storno td {
 .status-verworfen,
 .status-abgeloest {
   color: var(--text-leise);
+
+.formular input[type="checkbox"] {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.schritte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+}
+
+.schritte [aria-current="step"] a {
+  font-weight: 700;
+}
+
+.hindernisse {
+  color: var(--warnung);
+}
+
+.fotos {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: 0.5rem;
+}
+
+.fotos img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.zeile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.checkpunkte {
+  list-style: none;
+  padding: 0;
+}
+
+.checkpunkte form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+}
+
+button.haken {
+  min-width: 44px;
+  padding: 0.25rem;
+}
+
+tr.aktuell {
+  font-weight: 600;
+}
+
+/* Tabellen der Stammdaten: am Handy wird jede Zeile zur Karte. */
+@media (max-width: 47.99rem) {
+  .karten thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .karten tr {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--linie);
+  }
+
+  .karten td {
+    display: flex;
+    gap: var(--abstand);
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    border: 0;
+  }
+
+  .karten td::before {
+    content: attr(data-titel);
+    color: var(--text-leise);
+  }
 }
 
 .teil {

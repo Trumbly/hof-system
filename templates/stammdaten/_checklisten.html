@@ -1,0 +1,19 @@
+{% for liste in checklisten %}
+<details class="checkliste"{% if not liste.abgeschlossen_am %} open{% endif %}>
+  <summary>{{ liste.titel }}{% if liste.abgeschlossen_am %} <span class="leise">abgeschlossen {{ liste.abgeschlossen_am|date:"d.m.Y" }}</span>{% endif %}</summary>
+  <ul class="checkpunkte">
+    {% for punkt in liste.punkte.all %}
+    <li>
+      <form method="post" action="{% url 'stammdaten:checkpunkt' punkt.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="weiter" value="{{ request.path }}#checklisten">
+        <button type="submit" class="{% if punkt.erledigt_am %}zweitrangig {% endif %}haken" aria-label="{% if punkt.erledigt_am %}wieder öffnen{% else %}erledigt{% endif %}">{% if punkt.erledigt_am %}✓{% else %}○{% endif %}</button>
+        {{ punkt.text }}{% if punkt.erledigt_am %} <span class="leise">{{ punkt.erledigt_am|date:"d.m.Y" }}</span>{% endif %}
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% empty %}
+<p class="leise">Keine Checklisten.</p>
+{% endfor %}

@@ -1,0 +1,11 @@
+Mietverhältnis-Nr;Mieter-Nr;Mieterart;Anrede;Vorname;Nachname;Firma;Straße;PLZ;Ort;E-Mail;Telefon;Einheit;Mietbeginn;Mietende;Kaltmiete;Nebenkosten
+MV-1001;M-501;Person;Frau;Lena;Brückner;;Lindenweg 4;12345;Beispielstadt;lena.brueckner@beispielpost.invalid;030 23125 101;NW-G-0101;01.01.2025;;85,00;0,00
+MV-1002;M-502;Person;Herr;Tobias;Kranich;;Am Hang 12;12345;Beispielstadt;tobias.kranich@hofpost.invalid;;Garage 3 Scheune;15.03.2025;;80,00;0,00
+MV-1003;M-503;Firma;;;;Gartenbau Beispiel GmbH;Gewerbering 7;54321;Musterdorf;info@gartenbau-beispiel.invalid;069 90009 202;NW-H-0101;01.01.2023;;1.400,00;50,00
+MV-1004;M-501;Person;Frau;Lena;Brückner;;Lindenweg 4;12345;Beispielstadt;lena.brueckner@beispielpost.invalid;030 23125 101;NW-S-0101;01.05.2025;;35,00;0,00
+MV-1005;M-504;Person;Herr;Jan;Weidner;;Feldstraße 3;12345;Beispielstadt;jan.weidner@erfunden-mail.invalid;;NW-W-0101;01.01.2024;;650,00;150,00
+MV-1006;M-505;Person;Frau;Petra;Holm;;Mühlgasse 9;12345;Beispielstadt;;;NW-L-0101;01.03.2024;31.03.2026;240,00;0,00
+MV-1007;M-506;Person;Herr;Uwe;Sander;;;;;;0171 39200 33;Garage 99;01.02.2025;;80,00;0,00
+MV-1008;M-507;Person;Frau;Ines;Falk;;Bachweg 1;12345;Beispielstadt;ines.falk;;NW-L-0101;01.04.2026;;250,00;0,00
+MV-1009;M-508;Person;;Karl;Lenz;;;;;;;G17;01.06.2025;;70,00;0,00
+MV-1010;M-509;Person;Frau;Marta;Kühn;;Ringstraße 2;12345;Beispielstadt;marta.kuehn@testhof.invalid;;NW-G-0102;01.10.2026;;85,00;0,00

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block titel %}Einheiten{% endblock %}
+
+{% block inhalt %}
+<h1>Einheiten</h1>
+<p><a class="knopf" href="{% url 'stammdaten:einheit_neu' %}">Neue Einheit</a></p>
+<div class="tabelle-rahmen">
+<table class="karten">
+  <thead><tr><th>NW-ID</th><th>Typ</th><th>Objekt</th><th>Bezeichnung</th><th>Fläche</th><th>Status heute</th></tr></thead>
+  <tbody>
+  {% for einheit in einheiten %}
+  <tr id="einheit-{{ einheit.pk }}">
+    <td data-titel="NW-ID"><a href="{% url 'stammdaten:einheit' einheit.pk %}">{{ einheit.nw_id }}</a></td>
+    <td data-titel="Typ">{{ einheit.get_typ_display }}</td>
+    <td data-titel="Objekt">{{ einheit.objekt.kuerzel }}</td>
+    <td data-titel="Bezeichnung">{{ einheit.bezeichnung }}</td>
+    <td data-titel="Fläche">{% if einheit.flaeche_qm %}{{ einheit.flaeche_qm }} m²{% else %}–{% endif %}</td>
+    <td data-titel="Status">{% if einheit.ist_wohnraum %}<span class="leise">{{ einheit.hinweis }}</span>{% elif einheit.aufgeloest_am %}aufgelöst{% else %}{{ einheit.status_heute.get_status_display|default:"–" }}{% endif %}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6">Noch keine Einheiten.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

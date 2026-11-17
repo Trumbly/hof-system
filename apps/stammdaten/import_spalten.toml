@@ -1,0 +1,83 @@
+# Spaltenzuordnung der Importe (Schritt 4) – die eine Stelle dafür.
+#
+# Links steht das Feld im Hof-System, rechts der Spaltenkopf in der Datei. Die Formate
+# sind Annahmen nach erfundenen Beispieldateien (tests/fixtures/stammdaten/). Weicht der
+# echte Export ab, wird nur diese Datei angepasst.
+
+# --- Einheiten-Verzeichnis aus Notion (CSV-Export der Datenbank) -----------------------
+
+[notion_einheiten]
+trennzeichen = ","
+dezimaltrennzeichen = ","
+datumsformat = "%d.%m.%Y"
+
+[notion_einheiten.spalten]
+nw_id = "NW-ID"
+bezeichnung = "Name"
+typ = "Typ"
+objekt = "Objekt"
+flaeche = "Fläche (m²)"
+status = "Status"
+status_seit = "Status seit"
+zielmiete = "Zielmiete"
+website_slug = "Website-Slug"
+
+# Wert in der Spalte „Typ“ -> Typ im Hof-System
+[notion_einheiten.typen]
+"Garage" = "garage"
+"Stellplatz" = "stellplatz"
+"Lager" = "lager"
+"Halle" = "halle"
+"Garten" = "garten"
+"Außenfläche" = "aussenflaeche"
+"Wohnung" = "wohnung"
+"Sonstiges" = "sonstiges"
+
+# Wert in der Spalte „Status“ -> Status im Hof-System
+[notion_einheiten.status]
+"frei" = "frei"
+"vermietet" = "vermietet"
+"reserviert" = "reserviert"
+"in Vorbereitung" = "in_vorbereitung"
+"gesperrt" = "gesperrt"
+
+# --- HelloHousing: Mietverhältnisse mit Mieter und Miete ------------------------------
+
+[hellohousing_mieter]
+trennzeichen = ";"
+dezimaltrennzeichen = ","
+datumsformat = "%d.%m.%Y"
+# Wert in der Spalte „art“, der eine Firma bezeichnet (sonst Person).
+firma_wert = "Firma"
+
+[hellohousing_mieter.spalten]
+mietverhaeltnis = "Mietverhältnis-Nr"
+mieter_nr = "Mieter-Nr"
+art = "Mieterart"
+anrede = "Anrede"
+vorname = "Vorname"
+nachname = "Nachname"
+firma = "Firma"
+strasse = "Straße"
+plz = "PLZ"
+ort = "Ort"
+email = "E-Mail"
+telefon = "Telefon"
+einheit = "Einheit"
+beginn = "Mietbeginn"
+ende = "Mietende"
+miete = "Kaltmiete"
+pauschale = "Nebenkosten"
+
+# --- HelloHousing: Mietverlauf (Staffeln und Änderungen) -----------------------------
+
+[hellohousing_mietverlauf]
+trennzeichen = ";"
+dezimaltrennzeichen = ","
+datumsformat = "%d.%m.%Y"
+
+[hellohousing_mietverlauf.spalten]
+mietverhaeltnis = "Mietverhältnis-Nr"
+gueltig_ab = "Gültig ab"
+miete = "Kaltmiete"
+pauschale = "Nebenkosten"
