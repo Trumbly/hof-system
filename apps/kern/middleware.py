@@ -16,6 +16,11 @@ from apps.kern.anmeldung import (
     zweiten_faktor_bestanden,
 )
 
+# Adressen ohne Sitzung und ohne zweiten Faktor (als URL-Namen). Jede prüft selbst, wer
+# fragt: /gesund zeigt nur „ok“ und die Version, /api/bank/zulieferung verlangt ihren
+# eigenen Token für genau ein Konto (apps.bank.zulieferung).
+OHNE_SITZUNG = ("kern:gesund", "bank:zulieferung")
+
 # Seiten, die ein angemeldeter Benutzer ohne eingerichteten zweiten Faktor erreicht:
 # genau die Einrichtung von TOTP (mit erneuter Passwortabfrage) und das Abmelden.
 OHNE_ZWEITEN_FAKTOR_ERLAUBT = frozenset(
@@ -41,8 +46,9 @@ class ZweiterFaktorPflichtMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         # Der Gesundheits-Endpunkt gilt für jeden, angemeldet oder nicht (er zeigt nur
-        # „ok“ und die Version). Geprüft vor request.user, damit er keine Sitzung lädt.
-        if request.path_info == reverse("kern:gesund"):
+        # „ok“ und die Version); die Zulieferung der Bank prüft ihren Token selbst.
+        # Geprüft vor request.user, damit keine Sitzung geladen wird.
+        if request.path_info in {reverse(name) for name in OHNE_SITZUNG}:
             return self.get_response(request)
         benutzer = request.user
         if not benutzer.is_authenticated or request.path_info.startswith(

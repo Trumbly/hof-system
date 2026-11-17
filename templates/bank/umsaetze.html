@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block titel %}Umsätze{% endblock %}
+
+{% block inhalt %}
+<h1>Umsätze</h1>
+{% include "bank/_unternavigation.html" %}
+<form method="get" class="filter formular">
+  {{ filter.as_p }}
+  <button type="submit" class="zweitrangig">Filtern</button>
+</form>
+<p class="leise">{{ seite.paginator.count }} Umsätze</p>
+<div class="tabelle-rahmen">
+<table class="umsaetze">
+  <thead>
+    <tr><th>Datum</th><th>Konto</th><th>Betrag</th><th>Gegenpartei</th><th>Verwendungszweck</th></tr>
+  </thead>
+  <tbody>
+    {% for u in seite %}
+    <tr id="umsatz-{{ u.pk }}">
+      <td data-titel="Datum">{{ u.buchungsdatum|date:"d.m.Y" }}</td>
+      <td data-titel="Konto">{{ u.konto.bezeichnung }}</td>
+      <td data-titel="Betrag" class="betrag-{{ u.richtung }}">{% if u.richtung == 'ausgang' %}−{% endif %}{{ u.betrag|floatformat:"2g" }} {{ u.waehrung }}</td>
+      <td data-titel="Gegenpartei">{{ u.gegenpartei|default:"–" }}{% if u.gegen_iban %}<br><code class="leise">{{ u.gegen_iban }}</code>{% endif %}</td>
+      <td data-titel="Verwendungszweck">{{ u.verwendungszweck|default:"–" }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">Keine Umsätze.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if seite.has_other_pages %}
+<p class="filter">
+  {% if seite.has_previous %}<a href="?{{ parameter }}&amp;seite={{ seite.previous_page_number }}">← zurück</a>{% endif %}
+  Seite {{ seite.number }} von {{ seite.paginator.num_pages }}
+  {% if seite.has_next %}<a href="?{{ parameter }}&amp;seite={{ seite.next_page_number }}">weiter →</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}

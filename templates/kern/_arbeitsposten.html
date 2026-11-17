@@ -12,6 +12,8 @@
   {% if erledigte_aktion %}
   <p class="posten-ergebnis" role="status">{{ erledigte_aktion.titel }}: jetzt {{ posten.get_status_display }}.</p>
   {% endif %}
+  {% posten_verweis posten as verweis %}
+  {% if verweis and posten.status == "offen" %}<p class="posten-verweis"><a href="{{ verweis.url }}">{{ verweis.titel }}</a></p>{% endif %}
   {% posten_aktionen posten as knoepfe %}
   {% if knoepfe %}
   <div class="aktionen">

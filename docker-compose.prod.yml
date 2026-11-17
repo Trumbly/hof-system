@@ -49,6 +49,9 @@ services:
         condition: service_healthy
     volumes:
       - ${HOF_MEDIEN_DIR:-/srv/hof/medien}:/app/medien
+      # Geheimnisse als Dateien, nur lesbar (privater Schlüssel für Enable Banking).
+      # Ein Ordner statt einzelner Dateien: Fehlt er, startet die App trotzdem.
+      - ${HOF_GEHEIM_DIR:-/opt/hof/geheim}:/run/hof-geheim:ro
     healthcheck:
       test:
         - CMD

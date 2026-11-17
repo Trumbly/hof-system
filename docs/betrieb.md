@@ -101,9 +101,37 @@ Immer zuerst den Fehler eingrenzen und den jetzigen Stand sichern (`sudo systemc
 
 **Neuer Server:** Einrichtung 1–4 durchführen, `/etc/hof/` aus dem Passwortmanager wiederherstellen, einmal `deploy.sh <tag>` (legt die leere Datenbank an), dann Schritte 1–6 oben.
 
+## Bank
+
+Vivid läuft über Enable Banking (PSD2, nur lesend) auf dem Server. Das VR-Konto ruft der hof-mac über FinTS ab und liefert die Umsätze an `/api/bank/zulieferung`; die PIN bleibt auf dem hof-mac.
+
+**Täglicher Ablauf.** Der hof-mac liefert um 5:30 die VR-Umsätze der letzten 14 Tage samt Saldo (`zulieferung/vr_hochladen.py`, launchd). Um 6:00 startet `hof-lauf@bank_abruf.timer` den Lauf `bank_abruf`: Er holt die Vivid-Umsätze seit dem letzten Umsatz (7 Tage Überlappung; Doppelte weist der Fingerabdruck ab) und den Saldo, prüft dann für beide Konten Saldo gegen Umsätze je Tag, die Bankfreigaben (14 Tage Vorlauf) und ob jedes Konto in den letzten zwei Tagen einen Abruf hatte. Was nicht passt, steht in der Arbeitsliste: „Saldo weicht ab“ (Konto-ID und Datum), „Bankabruf gescheitert“, „Bankfreigabe läuft ab“, „Bankumsätze fehlen“. Prüfen: Seite „Läufe“ und „Bank“, `journalctl -u hof-lauf@bank_abruf -n 50`.
+
+**Einrichten (einmalig).**
+
+1. Bei Enable Banking eine App anlegen (Produktion), den privaten Schlüssel als PEM nach `/opt/hof/geheim/enablebanking.pem` legen: `chown 10001:10001` und `chmod 400` (der Container liest ihn als UID 10001). Als Rückkehr-Adresse der App `https://hof-system.<tailnet>.ts.net/bank/freigabe/rueckkehr/` eintragen.
+2. In `/opt/hof/.env`: `ENABLE_BANKING_APP_ID=<App-ID>` und `ENABLE_BANKING_SCHLUESSEL=/run/hof-geheim/enablebanking.pem` (der Ordner `/opt/hof/geheim` ist im Container nur lesbar unter `/run/hof-geheim` eingehängt). Optional `ENABLE_BANKING_REDIRECT_URL`, falls die Adresse anders lautet.
+3. Ausrollen, dann die Konten anlegen (IDs merken):
+   `compose.sh exec app python manage.py bank_konto_anlegen --mandant GBR --bank Vivid --bezeichnung "Vivid Geschäftskonto" --iban <IBAN> --zugang enable_banking --eb-bank-name "<Name der Bank bei Enable Banking>"` und dasselbe für VR mit `--zugang zulieferung`.
+4. Vivid freigeben (siehe unten). VR: Token erzeugen mit `compose.sh exec app python manage.py bank_zulieferung_token --konto <VR-ID>` (erscheint nur einmal) und den hof-mac einrichten, wie im Kopf von `zulieferung/vr_hochladen.py` beschrieben.
+5. `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Timer `bank_abruf` ein.
+
+**Import alter Umsätze (H3.3).** Den Export nach `/srv/hof/medien/import/` auf dem Server kopieren (im Container `/app/medien/import/`; nie ins Repository), dann erst prüfen, dann übernehmen:
+
+```sh
+compose.sh exec app python manage.py bank_import /app/medien/import/vivid.csv --konto <id>              # Probelauf
+compose.sh exec app python manage.py bank_import /app/medien/import/vivid.csv --konto <id> --ausfuehren
+```
+
+Der Bericht nennt nur Zähler und Fehlerarten. Übernommen werden nur Tage vor dem ersten Abruf des Kontos (Abruf und Export stellen Zwecke unterschiedlich dar); mit `--bis JJJJ-MM-TT` lässt sich die Grenze setzen. Die Spaltenzuordnung steht in `apps/bank/importformat.py`. Danach die Exportdatei löschen. Dasselbe geht über die Seite „Bank → Import“.
+
 ## Bankfreigabe erneuern
 
-*Platzhalter, wird mit Schritt 1 (Bank, Enable Banking für Vivid) gefüllt.* Vorgesehen: Das System meldet rechtzeitig einen Arbeitsposten „Bankfreigabe läuft ab“; Max öffnet die Seite „Bankfreigaben“, startet die Freigabe neu und bestätigt sie in der Vivid-App. Der VR-Abruf läuft über FinTS auf dem hof-mac und braucht keine Freigabe auf dem Server.
+Vivid gibt den Zugriff für höchstens 180 Tage frei, VR (FinTS) etwa alle 90 Tage. 14 Tage vor Ablauf legt der Lauf `bank_abruf` einen Arbeitsposten „Bankfreigabe läuft ab“ an, je Freigabe genau einen; mit der neuen Freigabe ist er erledigt.
+
+- **Vivid:** Im Arbeitsposten auf „Freigabe erneuern“ (oder „Bank → Konten → erneuern“), dann „Bei der Bank freigeben“. Es geht zu Vivid, dort in der App bestätigen; danach landet man wieder im Hof-System, die neue Freigabe steht mit Ablaufdatum unter „Konten“. Klappt die Rückkehr nicht, stimmt meist die Rückkehr-Adresse bei Enable Banking nicht.
+- **VR:** Die Freigabe erneuert der FinTS-Abruf auf dem hof-mac (TAN in der VR-App). Danach auf der Seite „Freigabe erneuern“ des VR-Kontos eintragen, bis wann sie gilt; nur so kennt das System die Frist.
+- Ist eine Freigabe schon abgelaufen, scheitert der Abruf („Bankabruf gescheitert“). Nach der Erneuerung holt der nächste Lauf die Lücke nach; von Hand: `sudo systemctl start hof-lauf@bank_abruf.service`.
 
 ## Was tun bei Ausfall
 

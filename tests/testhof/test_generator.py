@@ -59,7 +59,7 @@ def test_kern_mandanten_objekte_und_testbenutzer() -> None:
 
     assert TOTP(totp).validate_code(totp_code(kern.TOTP_GEHEIMNIS))
 
-    assert hof.module == ["kern"]
+    assert hof.module == ["kern", "bank"]
     assert hof.kern.benutzer == benutzer
     assert set(hof.kern.objekte) == {"HOF", "HALLE", "FELD"}
     assert hof.kern.objekte["HALLE"].mandant.art == Mandant.Art.KG_LINIE

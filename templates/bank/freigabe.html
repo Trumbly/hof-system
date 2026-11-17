@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block titel %}Bankfreigabe{% endblock %}
+
+{% block inhalt %}
+<h1>Bankfreigabe · {{ konto.bezeichnung }}</h1>
+{% include "bank/_unternavigation.html" %}
+<p>Konto #{{ konto.pk }} · {{ konto.bank }} · {{ konto.get_zugang_display }}</p>
+<p>{% if freigabe %}Aktuelle Freigabe gilt bis <strong>{{ freigabe.gueltig_bis|date:"d.m.Y" }}</strong>.{% else %}Es gibt noch keine Freigabe.{% endif %}</p>
+
+{% if enable_banking %}
+<p>Die Freigabe läuft über Enable Banking: Nach dem Klick geht es zur Bank, dort in der App bestätigen. Danach kommst du hierher zurück.</p>
+<form method="post">
+  {% csrf_token %}
+  <button type="submit">Bei der Bank freigeben</button>
+</form>
+{% else %}
+<p>Dieses Konto ruft der hof-mac über FinTS ab. Nach der Freigabe am hof-mac (TAN) hier eintragen, bis wann sie gilt.</p>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ von_hand.as_p }}
+  <button type="submit">Eintragen</button>
+</form>
+{% endif %}
+{% endblock %}
