@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import datetime
 import logging
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 
@@ -46,6 +46,7 @@ from apps.stammdaten.models import (
     Vertragspartei,
     Zielmiete,
 )
+from apps.zaehler import services as zaehler
 
 logger = logging.getLogger(__name__)
 
@@ -951,23 +952,6 @@ def uebergabe_beginnen(vertrag: Vertrag, art: str, datum: datetime.date) -> Uebe
     return uebergabe
 
 
-def _zaehlerstaende_pruefen(staende: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
-    ergebnis = []
-    for eintrag in staende:
-        nummer = str(eintrag.get("nummer", "")).strip()
-        stand = str(eintrag.get("stand", "")).strip().replace(",", ".")
-        if not nummer and not stand:
-            continue
-        try:
-            wert = Decimal(stand)
-        except ArithmeticError as fehler:
-            raise StammdatenFehler(f"Zähler {nummer or '?'}: Stand ist keine Zahl.") from fehler
-        if not nummer or wert < 0:
-            raise StammdatenFehler("Jeder Zählerstand braucht eine Nummer und einen Stand ≥ 0.")
-        ergebnis.append({"nummer": nummer, "stand": str(wert)})
-    return ergebnis
-
-
 def _offen(uebergabe: Uebergabe) -> None:
     if uebergabe.status != Uebergabe.Status.BEGONNEN:
         raise UebergabeNichtMoeglich(f"{uebergabe} ist schon abgeschlossen.")
@@ -977,18 +961,22 @@ def uebergabe_speichern(
     uebergabe: Uebergabe,
     *,
     datum: datetime.date | None = None,
-    zaehlerstaende: Iterable[dict[str, Any]] | None = None,
+    zaehlerstaende: Iterable[Mapping[str, Any]] | None = None,
     schluessel: Iterable[dict[str, int]] | None = None,
     zustand: str | None = None,
     zurueckgelassen: str | None = None,
     unterschrift: File[Any] | None = None,
 ) -> Uebergabe:
-    """Speichert einen Schritt der Erfassung vor Ort."""
+    """Speichert einen Schritt der Erfassung vor Ort.
+
+    ``zaehlerstaende`` erfasst über ``zaehler.services.uebergabe_staende_erfassen``: je
+    Eintrag ``{"zaehler": <Zähler oder ID>, "stand": "123,4", "foto": <Datei>}`` (statt
+    der ID auch ``"nummer"``); nur Zähler der Einheiten des Vertrags.
+    """
     _offen(uebergabe)
+    datum_neu = datum is not None and datum != uebergabe.datum
     if datum is not None:
         uebergabe.datum = datum
-    if zaehlerstaende is not None:
-        uebergabe.zaehlerstaende = _zaehlerstaende_pruefen(zaehlerstaende)
     if schluessel is not None:
         erlaubt = set(_schluessel_der_uebergabe(uebergabe).values_list("pk", flat=True))
         eintraege = []
@@ -1007,7 +995,15 @@ def uebergabe_speichern(
         uebergabe.unterschrift.save(
             unterschrift.name or "unterschrift.jpg", unterschrift, save=False
         )
-    _speichern(uebergabe)
+    try:
+        with transaction.atomic():
+            _speichern(uebergabe)
+            if datum_neu:
+                zaehler.uebergabe_datum_angleichen(uebergabe)
+            if zaehlerstaende is not None:
+                zaehler.uebergabe_staende_erfassen(uebergabe, zaehlerstaende)
+    except zaehler.ZaehlerFehler as fehler:
+        raise StammdatenFehler(str(fehler)) from fehler
     return uebergabe
 
 
@@ -1068,13 +1064,19 @@ def uebergabe_abschliessen(uebergabe: Uebergabe) -> Uebergabe:
       ein Arbeitsposten), Einheiten frei ab dem Datum, Vertrag beendet, Kautionsabrechnung
       als Arbeitsposten mit Frist, Checkliste für die Neuvermietung.
 
-    In beiden Fällen wird das Protokoll aus der Vorlage angefordert.
+    In beiden Fällen wird das Protokoll aus der Vorlage angefordert. Zählerstände (über
+    ``zaehler.services``, auf das Datum der Übergabe) und Sollstellung (``soll``) laufen in
+    derselben Transaktion: Scheitert eines, bleibt die Übergabe begonnen.
     """
     _offen(uebergabe)
     hindernisse = uebergabe_hindernisse(uebergabe)
     if hindernisse:
         raise UebergabeNichtMoeglich(" ".join(hindernisse))
     with transaction.atomic():
+        try:
+            zaehler.uebergabe_datum_angleichen(uebergabe)
+        except zaehler.ZaehlerFehler as fehler:
+            raise UebergabeNichtMoeglich(str(fehler)) from fehler
         if uebergabe.art == Uebergabe.Art.UEBERGABE:
             _uebergabe_abschliessen(uebergabe)
         else:

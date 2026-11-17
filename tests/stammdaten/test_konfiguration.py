@@ -21,11 +21,11 @@ def test_kuendigungsfristen_je_vertragsart_stehen_in_der_konfiguration() -> None
 
 
 def test_pflichtfelder_je_bereich_wie_im_bauplan() -> None:
-    """Schritt 4, Aufgabe 7: Pflichtfelder je Art als Konfiguration, Bereiche und Regeln wie in
-    der Tabelle des Bauplans (ohne Zähler, die in Schritt 8 dazukommen)."""
+    """Schritt 4, Aufgabe 7 und Schritt 8, Aufgabe 6: Pflichtfelder je Art als Konfiguration,
+    Bereiche und Regeln wie in der Tabelle des Bauplans."""
     bereiche = konfiguration.laden().datenstand
 
-    assert list(bereiche) == ["einheit", "partei", "vertrag", "kaution", "schluessel"]
+    assert list(bereiche) == ["einheit", "partei", "vertrag", "kaution", "schluessel", "zaehler"]
     assert set(bereiche["einheit"].pflicht) == {"typ", "flaeche", "objekt", "status", "zielmiete"}
     assert set(bereiche["partei"].pflicht) == {"anschrift", "kontaktweg"}
     assert set(bereiche["vertrag"].pflicht) == {
@@ -38,8 +38,18 @@ def test_pflichtfelder_je_bereich_wie_im_bauplan() -> None:
     }
     assert set(bereiche["kaution"].pflicht) == {"betrag", "eingang", "konto"}
     assert set(bereiche["schluessel"].pflicht) == {"anzahl", "inhaber"}
-    # Wohnraum: nur NW-ID mit Objekt
+    # Zähler: Nummer, Art, Einbaudatum, Eichfrist, Stand zum letzten Stichtag mit Foto
+    assert set(bereiche["zaehler"].pflicht) == {
+        "nummer",
+        "art",
+        "einbaudatum",
+        "eichfrist",
+        "stand_stichtag",
+        "foto_stichtag",
+    }
+    # Wohnraum: nur NW-ID mit Objekt; Hallen brauchen einen Zähler.
     assert bereiche["einheit"].pflicht_fuer(Einheit.Typ.WOHNUNG) == ("objekt",)
+    assert "zaehler" in bereiche["einheit"].pflicht_fuer(Einheit.Typ.HALLE)
     assert datenstand.konfiguration_pruefen() == []
 
 

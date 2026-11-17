@@ -210,6 +210,12 @@ Schnittstelle und Checkliste für die Website: `docs/website-anbindung.md`.
 - **Läufe:** `verwaltio_kennzahlen` (3:15) und `id_abgleich` (5:30). Ohne Einstellungen melden sie „nicht eingerichtet“ und enden ohne Fehler. Der echte Verwaltio-Client ist offen, bis die API-Dokumentation vorliegt; mit gesetzter `VERWALTIO_URL` bricht `verwaltio_kennzahlen` bis dahin mit `NotImplementedError` ab.
 - **Arbeitsposten:** „Buchungsanfrage prüfen“ (Seite „Anbindungen → Buchungsanfragen“) und „ID-Abweichung“ (schließt sich beim nächsten Lauf, sobald behoben). Beide melden sich über die Benachrichtigung.
 
+## Zähler (Schritt 8)
+
+Import nach den Einheiten: `compose.sh exec app python manage.py import_zaehler /pfad/zaehler.csv --staende /pfad/staende.csv` (Probelauf; Bericht nennt Anzahlen, Zählernummern und Zeilennummern), dann mit `--ausfuehren`. Spalten in `apps/zaehler/import_spalten.toml`, Beispiel unter `tests/fixtures/zaehler/`.
+
+Der Lauf `zaehler_stichtag` (täglich 6:20, prüft selbst) legt im Ablesefenster (15.12. bis 15.01.) je Zähler ohne Stand zum 31.12. einen Arbeitsposten „Ablesung fehlt“ an; er meldet sich über die Benachrichtigung. Stichtag, Fenster und Vorlauf der Eichfrist stehen in `apps/zaehler/konfiguration.toml`. Vor dem Besuch: Zähler → „Liste für deinen nächsten Besuch“ drucken, vor Ort Zähler → „Ablesen <Objekt>“ am Handy.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

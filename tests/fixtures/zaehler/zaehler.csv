@@ -1,0 +1,7 @@
+Zählernummer;Art;Einheit;Objekt;Lage;Einbau;Eichfrist bis;Einbaustand
+TB-S-1001;Strom;NW-G-0001;;Garage, links neben dem Tor;01.03.2021;31.12.2028;0
+TB-S-1002;Strom;NW-H-0001;;Verteilung Halle;15.06.2019;31.12.2027;1.250,0
+TB-W-2001;Wasser;;HOF;Hauptwasserzähler Keller;01.01.2020;;
+TB-S-1003;Strom;NW-G-0999;;;;;
+TB-X-9001;Öl;NW-G-0001;;;;;
+TB-W-2002;Wasser;;;;;;

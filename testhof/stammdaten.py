@@ -12,7 +12,8 @@
   ``vertrag_monatsmitte`` (Beginn am 15., befristetes Ende am 15.),
   ``staffelmiete`` (Stufe am 01.01.2026, im Testzeitraum),
   ``kuendigung_rueckgabe_kaution`` (Kündigung, Rückgabe und Kautionsabrechnung über die
-  Services, wie im Standardablauf 4).
+  Services, wie im Standardablauf 4). Die Zählerstände der Rückgaben erfasst das
+  Testhof-Modul ``zaehler``.
 
 Alle Daten rechnen von festen Daten aus (``aufbau.STICHTAG``), nie von ``heute``.
 Geschrieben wird über ``apps.stammdaten.services``.
@@ -320,7 +321,6 @@ def _aufbauen(kontext: Kontext) -> StammdatenDaten:
     )
     services.uebergabe_speichern(
         rueckgabe,
-        zaehlerstaende=[{"nummer": "TH-Z-01", "stand": "1520.4"}],
         schluessel=[
             {"schluessel": s.pk, "anzahl": s.anzahl}
             for s in services.schluessel_der_uebergabe(rueckgabe)
@@ -337,7 +337,6 @@ def _aufbauen(kontext: Kontext) -> StammdatenDaten:
     )
     services.uebergabe_speichern(
         rueckgabe,
-        zaehlerstaende=[{"nummer": "TH-Z-02", "stand": "8812"}],
         schluessel=[
             {"schluessel": s.pk, "anzahl": s.anzahl}
             for s in services.schluessel_der_uebergabe(rueckgabe)

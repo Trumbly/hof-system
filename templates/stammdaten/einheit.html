@@ -56,6 +56,12 @@
   {% include "stammdaten/_formular.html" with form=schluessel aktion="schluessel" knopf="Hinzufügen" %}
 </section>
 
+<section id="zaehler">
+  <h2>Zähler</h2>
+  <ul>{% for z in einheit.zaehler.all %}<li><a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.get_art_display }} {{ z.nummer }}</a>{% if z.ausgebaut_am %} · ausgebaut am {{ z.ausgebaut_am|date:"d.m.Y" }}{% endif %}</li>{% empty %}<li class="leise">Kein Zähler.</li>{% endfor %}</ul>
+  <p><a href="{% url 'zaehler:neu' %}?einheit={{ einheit.pk }}">Zähler anlegen</a></p>
+</section>
+
 <section id="vertraege">
   <h2>Verträge</h2>
   <ul>{% for v in vertraege %}<li><a href="{% url 'stammdaten:vertrag' v.pk %}">{{ v.nummer }}</a> · {{ v.get_status_display }} · {{ v.beginn|date:"d.m.Y" }} bis {{ v.ende|date:"d.m.Y"|default:"offen" }}</li>{% empty %}<li class="leise">Keine Verträge.</li>{% endfor %}</ul>

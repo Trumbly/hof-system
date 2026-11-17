@@ -21,12 +21,17 @@
   {% if hindernisse %}<ul class="hindernisse">{% for h in hindernisse %}<li>{{ h }}</li>{% endfor %}</ul>{% endif %}
 
   {% elif schritt_name == "zaehler" %}
-  <p class="leise">Zählernummer und Stand. Leere Zeilen bleiben unberücksichtigt.</p>
-  {% for z in zaehler_zeilen %}
-  <div class="zeile">
-    <p><label for="nummer_{{ forloop.counter0 }}">Zähler</label><input id="nummer_{{ forloop.counter0 }}" name="nummer_{{ forloop.counter0 }}" value="{{ z.nummer }}"></p>
-    <p><label for="stand_{{ forloop.counter0 }}">Stand</label><input id="stand_{{ forloop.counter0 }}" name="stand_{{ forloop.counter0 }}" value="{{ z.stand }}" inputmode="decimal"></p>
-  </div>
+  <p class="leise">Zähler der Einheit{{ einheiten|length|pluralize:"en" }}, Stand am {{ uebergabe.datum|date:"d.m.Y" }}. Leere Felder bleiben unberücksichtigt.</p>
+  {% for z, erfasst, davor in zaehler_zeilen %}
+  <fieldset class="zaehler-eingabe" id="zaehler-{{ z.pk }}">
+    <legend>{{ z.get_art_display }} {{ z.nummer }} <span class="leise">{{ z.ort }}{% if z.bezeichnung %} · {{ z.bezeichnung }}{% endif %}</span></legend>
+    {% if davor %}<p class="leise">Letzter Stand: {{ davor.stand_text }} am {{ davor.datum|date:"d.m.Y" }}{% if davor.ist_geschaetzt %} <span class="kennzeichen-geschaetzt">geschätzt</span>{% endif %}</p>{% endif %}
+    <p><label for="stand_{{ z.pk }}">Stand</label><input id="stand_{{ z.pk }}" name="stand_{{ z.pk }}" value="{{ erfasst.stand_text|default:'' }}" inputmode="decimal"></p>
+    <p><label for="foto_{{ z.pk }}">Foto des Zählers</label><input type="file" id="foto_{{ z.pk }}" name="foto_{{ z.pk }}" accept="image/*" capture="environment">{% if erfasst.foto %} <span class="leise">Foto liegt vor.</span>{% endif %}</p>
+    <p><label><input type="checkbox" name="geschaetzt_{{ z.pk }}"{% if erfasst.ist_geschaetzt %} checked{% endif %}> geschätzt</label></p>
+  </fieldset>
+  {% empty %}
+  <p class="leise">An {% if einheiten|length == 1 %}dieser Einheit hängt{% else %}diesen Einheiten hängt{% endif %} kein Zähler. Zähler legst du unter <a href="{% url 'zaehler:uebersicht' %}">Zähler</a> an.</p>
   {% endfor %}
 
   {% elif schritt_name == "fotos" %}
@@ -55,7 +60,7 @@
   {% elif schritt_name == "abschluss" %}
   <ul class="kennzahlen">
     <li>Datum: {{ uebergabe.datum|date:"d.m.Y" }}</li>
-    <li>Zählerstände: {{ uebergabe.zaehlerstaende|length }}</li>
+    <li>Zählerstände: {{ zaehlerstaende|length }} von {{ zaehler_zeilen|length }}</li>
     <li>Fotos: {{ fotos|length }}</li>
     <li>Schlüssel: {% for e in uebergabe.schluessel %}{{ e.anzahl }}{% if not forloop.last %} + {% endif %}{% empty %}keine{% endfor %}</li>
   </ul>

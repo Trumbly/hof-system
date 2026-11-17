@@ -28,6 +28,7 @@ from apps.soll import services as soll
 from apps.soll.models import Sollposten
 from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import Einheit, Partei, Schluessel, Uebergabe, Vertrag
+from apps.zaehler import services as zaehler_services
 from testhof.aufbau import STICHTAG, Testhof
 from tests.ablaeufe.hilfen import posten, schritt
 from tests.stammdaten.conftest import braucht_weasyprint, foto
@@ -125,8 +126,14 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
     uebergabe = Uebergabe.objects.get(vertrag=vertrag)
     schluessel = services.schluessel_der_uebergabe(uebergabe)
     assert schluessel
+    # Der Schritt Zählerstände zeigt die Zähler der Einheit (Schritt 8).
+    zaehler = zaehler_services.zaehler_der_einheiten([einheit]) or [
+        zaehler_services.zaehler_anlegen("Z-G-1", "strom", einheit=einheit)
+    ]
+    letzter = zaehler[0].letzter_stand()
+    neuer_stand = (letzter.stand if letzter else Decimal(0)) + Decimal("100.5")
     schritt(angemeldet, uebergabe.pk, 1, {"datum": BEGINN.isoformat()})
-    schritt(angemeldet, uebergabe.pk, 2, {"nummer_0": "Z-G-1", "stand_0": "100,5"})
+    schritt(angemeldet, uebergabe.pk, 2, {f"stand_{zaehler[0].pk}": str(neuer_stand)})
     schritt(angemeldet, uebergabe.pk, 3, {"fotos": [foto("innen.png"), foto("tor.png")]})
     schritt(angemeldet, uebergabe.pk, 4, {f"schluessel_{s.pk}": str(s.anzahl) for s in schluessel})
     schritt(angemeldet, uebergabe.pk, 5, {"zustand": "neuwertig", "unterschrift": foto("q.png")})
@@ -139,7 +146,8 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
     assert vertrag.unterschriebener_scan
     assert einheit.status_am(BEGINN).status == "vermietet"  # type: ignore[union-attr]
     assert {s.partei for s in einheit.schluessel.all()} == {partei}
-    assert uebergabe.zaehlerstaende == [{"nummer": "Z-G-1", "stand": "100.5"}]
+    (stand,) = uebergabe.zaehlerstaende.all()
+    assert (stand.zaehler, stand.datum, stand.stand) == (zaehler[0], BEGINN, neuer_stand)
     assert uebergabe.fotos.count() == 2
     assert Schreiben.objects.filter(art="uebergabeprotokoll", bezug_id=uebergabe.pk).exists()
     # Fristen: Der unbefristete Vertrag hat keine; Vertragsende entsteht mit der Kündigung.
