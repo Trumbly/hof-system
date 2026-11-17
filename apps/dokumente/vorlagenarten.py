@@ -77,6 +77,24 @@ _VERTRAG = (
     "objekt.anschrift",
 )
 
+#: Weitere Werte aus dem Vertragsstamm (``apps.stammdaten.schreiben.kontext_vertrag``).
+_STAMMDATEN = (
+    "vertrag.art",
+    "vertrag.art_titel",
+    "vertrag.sonderabreden",
+    "einheit.nw_id",
+    "einheit.typ",
+    "einheit.flaeche_qm",
+    "einheiten",
+    "mandant.bezeichnung",
+    "mieter",
+    "zahler",
+    "buergen",
+    "kondition",
+    "staffel",
+    "kaution",
+)
+
 
 @dataclass(frozen=True)
 class Vorlagenart:
@@ -103,9 +121,35 @@ VORLAGENARTEN: tuple[Vorlagenart, ...] = (
         platzhalter=("objekt.kuerzel", "objekt.bezeichnung", "objekt.anschrift"),
     ),
     Vorlagenart(
-        "vertrag", "Vertrag", versandweg=Versandweg.SELBST, platzhalter=(*_VERTRAG, "betrag")
+        "vertrag",
+        "Vertrag",
+        versandweg=Versandweg.SELBST,
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, "betrag"),
     ),
-    Vorlagenart("kuendigungsbestaetigung", "Kündigungsbestätigung", platzhalter=_VERTRAG),
+    Vorlagenart(
+        "kuendigungsbestaetigung",
+        "Kündigungsbestätigung",
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, "kuendigung"),
+    ),
+    # Stammdaten (Schritt 4): Kautionsabrechnung, Übergabe- und Rückgabeprotokoll
+    Vorlagenart(
+        "kautionsabrechnung",
+        "Kautionsabrechnung",
+        versandweg=Versandweg.BRIEF,
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, "abrechnung"),
+    ),
+    Vorlagenart(
+        "uebergabeprotokoll",
+        "Übergabeprotokoll",
+        versandweg=Versandweg.SELBST,
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, "uebergabe"),
+    ),
+    Vorlagenart(
+        "rueckgabeprotokoll",
+        "Rückgabeprotokoll",
+        versandweg=Versandweg.SELBST,
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, "uebergabe"),
+    ),
     Vorlagenart(
         "kuendigung",
         "Kündigung durch den Hof",

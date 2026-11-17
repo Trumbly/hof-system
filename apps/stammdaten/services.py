@@ -21,10 +21,13 @@ from django.core.files import File
 from django.core.validators import validate_email
 from django.db import models, transaction
 from django.db.models import Q
+from django.utils import timezone
 
+from apps.fristen import services as fristen
+from apps.fristen.models import Frist
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
-from apps.stammdaten import fristen, fristrechnung, konfiguration, schreiben
+from apps.stammdaten import fristrechnung, konfiguration, schreiben
 from apps.stammdaten.models import (
     Checkliste,
     Checkpunkt,
@@ -75,6 +78,10 @@ TYP_VERTRAGSART: dict[str, str] = {
 BINDENDE_STATUS = (Vertrag.Status.ENTWURF, Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
 
 ART_CHECKLISTE = "Checkliste offen"
+#: Tage, die eine Frist vor ihrem Datum zum Arbeitsposten „Frist fällig“ wird.
+VORLAUF_RUECKGABE = 7
+VORLAUF_VERTRAGSENDE = 60
+VORLAUF_KAUTION = 30
 ART_KAUTION_ABRECHNEN = "Kaution abrechnen"
 ART_SCHLUESSEL_FEHLT = "Schlüssel fehlt"
 
@@ -127,6 +134,13 @@ def _arbeitsposten_erledigen(art: str, bezug: models.Model, hinweis_beginnt: str
         kern.arbeitsposten_erledigen(p)
         anzahl += 1
     return anzahl
+
+
+def _fristen_erledigen(bezug: models.Model, am: datetime.date) -> None:
+    """Erledigt die offenen Fristen eines Bezugs (Erledigt-Datum nie in der Zukunft)."""
+    heute = timezone.localdate()
+    for frist in fristen.fristen_zu(bezug, nur_offen=True):
+        fristen.frist_erledigen(frist, min(am, heute))
 
 
 # --- Zeitreihen ----------------------------------------------------------------------
@@ -614,11 +628,15 @@ def vertrag_unterschrieben(
     return vertrag
 
 
-def vertragsdokument_anfordern(vertrag: Vertrag) -> Arbeitsposten:
-    """Vertrag und Anlagen aus der Vorlage der Vertragsart (H2.3, Andockstelle Schritt 3c)."""
+def vertragsdokument_erzeugen(vertrag: Vertrag) -> schreiben.Ergebnis:
+    """Vertrag und Anlagen als PDF aus der Vorlage der Vertragsart (H2.3).
+
+    Ergebnis ist ein Schreiben im Status „bereit“ oder, wenn keine freigegebene Vorlage
+    da ist, ein Arbeitsposten „Schreiben erstellen“.
+    """
     if vertrag.status != Vertrag.Status.ENTWURF:
         raise StammdatenFehler(f"Vertrag {vertrag.nummer} ist kein Entwurf mehr.")
-    return schreiben.vertragsdokument_anfordern(vertrag)
+    return schreiben.vertragsdokument_erzeugen(vertrag)
 
 
 # --- Kündigung -----------------------------------------------------------------------
@@ -674,9 +692,23 @@ def kuendigung_erfassen(
         vertrag.ende = ende
         vertrag.status = Vertrag.Status.GEKUENDIGT
         _speichern(vertrag)
-        schreiben.kuendigungsbestaetigung_anfordern(kuendigung)
-        fristen.fristen_anfordern(
-            "rueckgabetermin", rueckgabe, vertrag, hinweis=f"Vertrag {vertrag.nummer}"
+        schreiben.kuendigungsbestaetigung_erzeugen(kuendigung)
+        fristen.frist_anlegen(
+            Frist.Art.KUENDIGUNG,
+            ende,
+            Frist.Quelle.VERTRAG,
+            kuendigung,
+            hinweis=f"Fristende der Kündigung, Vertrag {vertrag.nummer}",
+        )
+        # Rückgabetermin: Eine Frist Vertragsende je Vertrag (bei Befristung wandert sie mit).
+        fristen.frist_anlegen(
+            Frist.Art.VERTRAGSENDE,
+            rueckgabe,
+            Frist.Quelle.VERTRAG,
+            vertrag,
+            hinweis=f"Rückgabetermin, Vertrag {vertrag.nummer}",
+            vorlauf_tage=VORLAUF_RUECKGABE,
+            datum_angleichen=True,
         )
         checkliste_anlegen(Checkliste.Phase.RUECKGABE, vertrag=vertrag)
     logger.debug("Kündigung #%s für Vertrag %s, Fristende %s", kuendigung.pk, vertrag.nummer, ende)
@@ -718,9 +750,9 @@ def kaution_abrechnen(
         kaution.abgerechnet_am = datum
         kaution.abrechnung_notiz = notiz
         _speichern(kaution)
-        schreiben.kautionsabrechnung_anfordern(kaution)
+        schreiben.kautionsabrechnung_erzeugen(kaution)
         _arbeitsposten_erledigen(ART_KAUTION_ABRECHNEN, kaution)
-        _arbeitsposten_erledigen(fristen.ART, kaution)
+        _fristen_erledigen(kaution, datum)
     return kaution
 
 
@@ -1031,7 +1063,7 @@ def uebergabe_abschliessen(uebergabe: Uebergabe) -> Uebergabe:
             _rueckgabe_abschliessen(uebergabe)
         uebergabe.status = Uebergabe.Status.ABGESCHLOSSEN
         _speichern(uebergabe)
-        schreiben.protokoll_anfordern(uebergabe)
+        schreiben.protokoll_erzeugen(uebergabe)
     logger.debug("%s für Vertrag %s abgeschlossen", uebergabe, uebergabe.vertrag.nummer)
     return uebergabe
 
@@ -1067,8 +1099,14 @@ def _uebergabe_abschliessen(uebergabe: Uebergabe) -> None:
     for einheit in vertrag.einheiten.all():
         _vermietet_ab(einheit, uebergabe.datum)
     if vertrag.ende is not None:
-        fristen.fristen_anfordern(
-            "vertragsende", vertrag.ende, vertrag, hinweis=f"Vertrag {vertrag.nummer}"
+        fristen.frist_anlegen(
+            Frist.Art.VERTRAGSENDE,
+            vertrag.ende,
+            Frist.Quelle.VERTRAG,
+            vertrag,
+            hinweis=f"Vertragsende (befristet), Vertrag {vertrag.nummer}",
+            vorlauf_tage=VORLAUF_VERTRAGSENDE,
+            datum_angleichen=True,
         )
 
 
@@ -1106,7 +1144,9 @@ def _rueckgabe_abschliessen(uebergabe: Uebergabe) -> None:
         vertrag.ende = datum
     vertrag.status = Vertrag.Status.BEENDET
     _speichern(vertrag)
-    _arbeitsposten_erledigen(fristen.ART, vertrag, fristen.FRISTARTEN["rueckgabetermin"])
+    _fristen_erledigen(vertrag, datum)
+    for kuendigung in vertrag.kuendigungen.all():
+        _fristen_erledigen(kuendigung, datum)
 
     kaution: Kaution | None = getattr(vertrag, "kaution", None)
     if kaution is not None and kaution.betrag and kaution.abgerechnet_am is None:
@@ -1121,6 +1161,11 @@ def _rueckgabe_abschliessen(uebergabe: Uebergabe) -> None:
             faellig_am=faellig,
             hinweis=f"Vertrag {vertrag.nummer}: Rückgabe am {datum:%d.%m.%Y}",
         )
-        fristen.fristen_anfordern(
-            "kautionsabrechnung", faellig, kaution, hinweis=f"Vertrag {vertrag.nummer}"
+        fristen.frist_anlegen(
+            Frist.Art.KAUTIONSABRECHNUNG,
+            faellig,
+            Frist.Quelle.KAUTION,
+            kaution,
+            hinweis=f"Kautionsabrechnung, Vertrag {vertrag.nummer}",
+            vorlauf_tage=VORLAUF_KAUTION,
         )

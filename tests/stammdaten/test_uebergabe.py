@@ -10,6 +10,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 
+from apps.fristen import services as fristen
+from apps.fristen.models import Frist
 from apps.kern.models import Arbeitsposten
 from apps.stammdaten import services
 from apps.stammdaten.models import (
@@ -120,13 +122,15 @@ def test_rueckgabe_gibt_einheit_frei_und_stoesst_kautionsabrechnung_an(
     assert kaution.abrechnung_faellig_am == D(2027, 7, 29)
     posten = Arbeitsposten.objects.get(art="Kaution abrechnen")
     assert (posten.bezug, posten.faellig_am) == (kaution, D(2027, 7, 29))
-    assert Arbeitsposten.objects.filter(
-        art="Frist", hinweis__startswith="Kautionsabrechnung"
-    ).exists()
-    # Rückgabetermin ist erfüllt; ein Schlüssel fehlt.
-    assert not Arbeitsposten.objects.filter(
-        art="Frist", hinweis__startswith="Rückgabetermin", status="offen"
-    ).exists()
+    (frist,) = fristen.fristen_zu(kaution, nur_offen=True)
+    assert (frist.art, frist.quelle, frist.datum) == (
+        Frist.Art.KAUTIONSABRECHNUNG,
+        Frist.Quelle.KAUTION,
+        D(2027, 7, 29),
+    )
+    # Rückgabetermin und Fristende sind erledigt; ein Schlüssel fehlt.
+    assert not fristen.fristen_zu(gekuendigt, nur_offen=True).exists()
+    assert not fristen.fristen_zu(gekuendigt.kuendigungen.get(), nur_offen=True).exists()
     fehlt = Arbeitsposten.objects.get(art="Schlüssel fehlt")
     assert "NW-G-0001: 1 ×" in fehlt.hinweis
     assert {(s.inhaber, s.anzahl) for s in garage.schluessel.all()} == {("hof", 1), ("partei", 1)}
@@ -147,6 +151,7 @@ def test_kaution_abrechnen(gekuendigt: Vertrag) -> None:
     kaution.refresh_from_db()
     assert (kaution.einbehalt, kaution.ausgezahlt) == (Decimal("30.00"), Decimal("150.00"))
     assert not Arbeitsposten.objects.filter(art="Kaution abrechnen", status="offen").exists()
+    assert not fristen.fristen_zu(kaution, nur_offen=True).exists()
     assert Arbeitsposten.objects.filter(
         art="Schreiben erstellen", hinweis__startswith="Vorlagenart kautionsabrechnung"
     ).exists()

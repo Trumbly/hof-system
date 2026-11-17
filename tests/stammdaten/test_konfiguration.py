@@ -14,7 +14,7 @@ def test_kuendigungsfristen_je_vertragsart_stehen_in_der_konfiguration() -> None
     assert set(k.vertragsarten) == set(Vertrag.Art.values)
     for art in k.vertragsarten.values():
         assert art.kuendigungsregel in k.kuendigungsregeln
-        assert art.vorlage.startswith("vertrag_")
+        assert art.vorlage.startswith("Vertrag ")
     assert k.kuendigungsregeln["monat_580a"].karenz_werktage == 3
     assert k.kuendigungsregeln["quartal_580a"].periode == "quartal"
     assert konfiguration.DATEI.name == "konfiguration.toml"

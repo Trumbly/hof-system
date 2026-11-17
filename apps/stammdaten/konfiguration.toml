@@ -2,7 +2,7 @@
 #
 # Hier steht an einer Stelle, was sich ohne Code-Änderung anpassen lässt:
 # - Kündigungsregeln und welche Regel je Vertragsart gilt (H2.8),
-# - Vorlagenart je Vertragsart für das Vertragsdokument (H2.3),
+# - Name der Vertragsvorlage je Vertragsart (H2.3),
 # - Frist für die Kautionsabrechnung (H2.10),
 # - Checklisten je Phase der SOP (H2.1, H2.4, H2.9),
 # - Pflichtfelder der Seite „Datenstand“ (Bauplan, Abschnitt „Seite Datenstand“).
@@ -56,42 +56,43 @@ karenz_werktage = 0
 #
 # Die Kürzel sind die Vertragsarten aus apps.stammdaten.models.Vertrag.Art.
 #   kuendigungsregel  Standard für neue Verträge dieser Art (am Vertrag änderbar)
-#   vorlage           Vorlagenart für das Vertragsdokument (Schritt 3, App dokumente)
+#   vorlage           Name der Vorlage (Art „vertrag“ in der App dokumente) für das
+#                     Vertragsdokument; fehlt sie, gilt die neueste freigegebene der Art
 
 [vertragsarten.G]
 titel = "Garage"
 kuendigungsregel = "monat_580a"
-vorlage = "vertrag_garage"
+vorlage = "Vertrag Garage"
 
 [vertragsarten.S]
 titel = "Stellplatz"
 kuendigungsregel = "monat_580a"
-vorlage = "vertrag_stellplatz"
+vorlage = "Vertrag Stellplatz"
 
 [vertragsarten.L]
 titel = "Lager"
 kuendigungsregel = "monat_580a"
-vorlage = "vertrag_lager"
+vorlage = "Vertrag Lager"
 
 [vertragsarten.H]
 titel = "Halle"
 kuendigungsregel = "quartal_580a"
-vorlage = "vertrag_halle"
+vorlage = "Vertrag Halle"
 
 [vertragsarten.GA]
 titel = "Garten"
 kuendigungsregel = "monat_580a"
-vorlage = "vertrag_garten"
+vorlage = "Vertrag Garten"
 
 [vertragsarten.A]
 titel = "Außenfläche"
 kuendigungsregel = "monat_580a"
-vorlage = "vertrag_aussenflaeche"
+vorlage = "Vertrag Außenfläche"
 
 [vertragsarten.X]
 titel = "sonstige"
 kuendigungsregel = "monat_580a"
-vorlage = "vertrag_sonstige"
+vorlage = "Vertrag sonstige Fläche"
 
 # --- Kaution ---------------------------------------------------------------------------
 

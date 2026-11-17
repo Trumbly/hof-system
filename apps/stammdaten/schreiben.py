@@ -1,55 +1,74 @@
-"""Andockstelle zur App ``dokumente`` (Schritt 3c): Schreiben aus Vorlagen.
+"""Schreiben der Stammdaten über die App ``dokumente`` (Schritt 3c).
 
-Die Stammdaten fordern hier Schreiben an: Vertragsdokument (H2.3), Kündigungsbestätigung
-(H2.8), Kautionsabrechnung (H2.10), Übergabe- und Rückgabeprotokoll (H2.4, H2.9).
+Die Stammdaten erzeugen hier Schreiben aus freigegebenen Vorlagen: Vertragsdokument
+(H2.3), Kündigungsbestätigung (H2.8), Kautionsabrechnung (H2.10), Übergabe- und
+Rückgabeprotokoll (H2.4, H2.9).
 
 Jede Art hat
-- eine **Vorlagenart** (``VORLAGEN``; beim Vertrag je Vertragsart aus ``konfiguration.toml``),
-- einen **Versandweg** und
-- einen **Kontext** (``kontext_vertrag`` usw.): die Werte für die Platzhalter. Die Werte
-  sind roh (``Decimal``, ``date``, ``str``); das Format setzt die Vorlage.
+- eine **Vorlagenart** aus ``apps.dokumente.vorlagenarten`` (``vertrag``,
+  ``kuendigungsbestaetigung``, ``kautionsabrechnung``, ``uebergabeprotokoll``,
+  ``rueckgabeprotokoll``). Beim Vertrag nennt ``konfiguration.toml`` je Vertragsart den
+  Namen der Vorlage (z. B. „Vertrag Garage“); fehlt sie, gilt die neueste freigegebene
+  Vorlage der Art ``vertrag``.
+- einen **Versandweg** (Standard der Vorlagenart; die Kündigungsbestätigung geht per Mail,
+  wenn eine Adresse da ist, sonst als Brief) und
+- einen **Kontext** (``kontext_vertrag`` usw.): nur einfache Werte (``Decimal``, ``date``,
+  ``str``, Listen, Wörterbücher). Das Format setzt die Vorlage.
 
-**Heute (vor Schritt 3c):** ``_anfordern`` legt einen Arbeitsposten „Schreiben erstellen“
-an, mit Vorlagenart und Versandweg im Hinweis und dem Bezug (Vertrag, Kündigung …).
-
-**Umstellung, sobald ``apps.dokumente`` steht:** Nur ``_anfordern`` ändert sich, etwa::
-
-    from apps.dokumente import services as dokumente
-
-    vorlage = dokumente.vorlage_fuer(vorlagenart)   # freigegebene Version der Vorlagenart
-    return dokumente.schreiben_erzeugen(vorlage, bezug, kontext, versandweg)
-
-Das Schreiben entsteht dann im Status „bereit“; versendet wird es erst über den
-Senden-Knopf (CLAUDE.md, Regel 4.8). Die öffentlichen Funktionen und ihre Aufrufer in
-``stammdaten.services`` bleiben gleich.
+Das Schreiben entsteht im Status „bereit“ mit PDF; versendet wird es erst über den
+Senden-Knopf (CLAUDE.md, Regel 4.8). Fehlt eine freigegebene Vorlage, fehlen Angaben zum
+Empfänger oder lässt sich kein PDF erzeugen, entsteht statt eines Fehlers ein
+Arbeitsposten „Schreiben erstellen“ mit Vorlagenart und Grund (ohne Namen).
 """
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import datetime
+from collections.abc import Iterator
 from decimal import Decimal
 from typing import Any
 
-from django.db import models
+from django.db import models, transaction
 
+from apps.dokumente import pdf
+from apps.dokumente import services as dokumente
+from apps.dokumente.models import Schreiben
+from apps.dokumente.vorlagenarten import Versandweg
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten
 from apps.stammdaten import konfiguration
-from apps.stammdaten.models import Einheit, Kaution, Kuendigung, Partei, Uebergabe, Vertrag
+from apps.stammdaten.models import (
+    Einheit,
+    Kaution,
+    Kontaktweg,
+    Kuendigung,
+    Partei,
+    Uebergabe,
+    Vertrag,
+)
 
-#: Art der Arbeitsposten, solange die App dokumente fehlt.
+#: Art des Arbeitspostens, wenn kein Schreiben entstehen kann.
 ART = "Schreiben erstellen"
 
-#: Vorlagenart und Versandweg je Schreiben (außer Vertrag: Vorlage je Vertragsart).
-VORLAGEN: dict[str, tuple[str, str]] = {
-    "vertrag": ("", "vor_ort"),
-    "kuendigungsbestaetigung": ("kuendigungsbestaetigung", "mail"),
-    "kautionsabrechnung": ("kautionsabrechnung", "brief"),
-    "uebergabeprotokoll": ("uebergabeprotokoll", "vor_ort"),
-    "rueckgabeprotokoll": ("rueckgabeprotokoll", "vor_ort"),
-}
-
 Kontext = dict[str, Any]
+Ergebnis = Schreiben | Arbeitsposten
+
+_OHNE_SCHREIBEN: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "stammdaten_ohne_schreiben", default=""
+)
+
+
+@contextlib.contextmanager
+def ohne_schreiben(grund: str) -> Iterator[None]:
+    """Legt in diesem Block statt Schreiben nur Arbeitsposten an (z. B. im Testhof, der
+    keine Schreiben anlegt, damit gleicher Seed gleiche Daten ergibt)."""
+    marke = _OHNE_SCHREIBEN.set(grund)
+    try:
+        yield
+    finally:
+        _OHNE_SCHREIBEN.reset(marke)
 
 
 # --- Kontexte ------------------------------------------------------------------------
@@ -70,11 +89,41 @@ def _partei(partei: Partei) -> Kontext:
     }
 
 
+def _briefanrede(partei: Partei) -> str:
+    if partei.art == Partei.Art.FIRMA:
+        return "Sehr geehrte Damen und Herren"
+    if partei.anrede == "Frau" and partei.nachname:
+        return f"Sehr geehrte Frau {partei.nachname}"
+    if partei.anrede == "Herr" and partei.nachname:
+        return f"Sehr geehrter Herr {partei.nachname}"
+    return f"Guten Tag {partei.anzeigename}".strip()
+
+
+def _empfaenger(partei: Partei | None) -> Kontext:
+    """Empfänger im Format der App dokumente: name, anrede, anschrift, email."""
+    if partei is None:
+        return {"name": "", "anrede": "", "anschrift": "", "email": ""}
+    zeilen = [partei.adresszusatz, partei.strasse, f"{partei.plz} {partei.ort}".strip()]
+    mail = (
+        partei.kontaktwege.filter(art=Kontaktweg.Art.EMAIL)
+        .order_by("-bevorzugt", "pk")
+        .values_list("wert", flat=True)
+        .first()
+    )
+    return {
+        "name": partei.anzeigename,
+        "anrede": _briefanrede(partei),
+        "anschrift": "\n".join(z for z in zeilen if z) if partei.hat_anschrift else "",
+        "email": mail or "",
+    }
+
+
 def _einheit(einheit: Einheit) -> Kontext:
     return {
         "nw_id": einheit.nw_id,
+        "kuerzel": einheit.nw_id,
         "typ": einheit.get_typ_display(),
-        "bezeichnung": einheit.bezeichnung,
+        "bezeichnung": einheit.bezeichnung or einheit.nw_id,
         "flaeche_qm": einheit.flaeche_qm,
         "objekt": einheit.objekt.bezeichnung,
         "objekt_anschrift": einheit.objekt.anschrift,
@@ -89,27 +138,39 @@ def _brutto(miete: Decimal, pauschale: Decimal, steuersatz: Decimal) -> Decimal:
 def kontext_vertrag(vertrag: Vertrag, stichtag: datetime.date | None = None) -> Kontext:
     """Platzhalter für Vertragsdokument und alle Schreiben zu einem Vertrag.
 
-    ``kondition`` ist die am Stichtag (Standard: Vertragsbeginn) gültige; ``staffel`` nennt
-    alle Stufen in zeitlicher Folge.
+    ``empfaenger`` ist der erste Mieter; ``einheit`` und ``objekt`` die erste Einheit (alle
+    stehen in ``einheiten``). ``kondition`` ist die am Stichtag (Standard: Vertragsbeginn)
+    gültige; ``staffel`` nennt alle Stufen in zeitlicher Folge.
     """
     stichtag = stichtag or vertrag.beginn
     art = konfiguration.vertragsart(vertrag.vertragsart)
-    regel = (
-        konfiguration.kuendigungsregel(vertrag.kuendigungsregel)
-        if vertrag.kuendigungsregel
-        else konfiguration.kuendigungsregel(art.kuendigungsregel)
-    )
+    regel = konfiguration.kuendigungsregel(vertrag.kuendigungsregel or art.kuendigungsregel)
     konditionen = list(vertrag.konditionen.order_by("gueltig_ab"))
     aktuell = vertrag.kondition_am(stichtag) or (konditionen[0] if konditionen else None)
-    kaution: Kaution | None = getattr(vertrag, "kaution", None)
-    rollen = {
+    kaution: Kaution | None = Kaution.objects.filter(vertrag=vertrag).first()
+    parteien = {
         rolle: [
-            _partei(vp.partei)
+            vp.partei
             for vp in vertrag.vertragsparteien.filter(rolle=rolle).select_related("partei")
         ]
         for rolle in ("mieter", "zahler", "buerge")
     }
+    einheiten = list(vertrag.einheiten.select_related("objekt"))
+    erste = einheiten[0] if einheiten else None
+    kondition = (
+        {
+            "miete": aktuell.miete,
+            "pauschale": aktuell.pauschale,
+            "steuersatz": aktuell.steuersatz,
+            "brutto": _brutto(aktuell.miete, aktuell.pauschale, aktuell.steuersatz),
+            "zahlweise": aktuell.get_zahlweise_display(),
+            "gueltig_ab": aktuell.gueltig_ab,
+        }
+        if aktuell
+        else None
+    )
     return {
+        "empfaenger": _empfaenger(parteien["mieter"][0] if parteien["mieter"] else None),
         "vertrag": {
             "nummer": vertrag.nummer,
             "art": vertrag.vertragsart,
@@ -120,22 +181,26 @@ def kontext_vertrag(vertrag: Vertrag, stichtag: datetime.date | None = None) -> 
             "sonderabreden": vertrag.sonderabreden,
         },
         "mandant": {"bezeichnung": vertrag.mandant.bezeichnung},
-        "mieter": rollen["mieter"],
-        "zahler": rollen["zahler"],
-        "buergen": rollen["buerge"],
-        "einheiten": [_einheit(e) for e in vertrag.einheiten.select_related("objekt")],
-        "kondition": (
+        "mieter": [_partei(p) for p in parteien["mieter"]],
+        "zahler": [_partei(p) for p in parteien["zahler"]],
+        "buergen": [_partei(p) for p in parteien["buerge"]],
+        "einheit": _einheit(erste) if erste else {},
+        "objekt": (
             {
-                "miete": aktuell.miete,
-                "pauschale": aktuell.pauschale,
-                "steuersatz": aktuell.steuersatz,
-                "brutto": _brutto(aktuell.miete, aktuell.pauschale, aktuell.steuersatz),
-                "zahlweise": aktuell.get_zahlweise_display(),
-                "gueltig_ab": aktuell.gueltig_ab,
+                "kuerzel": erste.objekt.kuerzel,
+                "bezeichnung": erste.objekt.bezeichnung,
+                "anschrift": erste.objekt.anschrift,
             }
-            if aktuell
-            else None
+            if erste
+            else {}
         ),
+        "einheiten": [_einheit(e) for e in einheiten],
+        "kondition": kondition,
+        "betrag": {
+            "miete": kondition["miete"] if kondition else None,
+            "brutto": kondition["brutto"] if kondition else None,
+            "kaution": kaution.betrag if kaution is not None else None,
+        },
         "staffel": [
             {"gueltig_ab": k.gueltig_ab, "gueltig_bis": k.gueltig_bis, "miete": k.miete}
             for k in konditionen
@@ -172,6 +237,7 @@ def kontext_kautionsabrechnung(kaution: Kaution) -> Kontext:
         "einbehalt": kaution.einbehalt,
         "ausgezahlt": kaution.ausgezahlt,
         "abgerechnet_am": kaution.abgerechnet_am,
+        "notiz": kaution.abrechnung_notiz,
         "offene_posten": [],
     }
     return kontext
@@ -192,50 +258,74 @@ def kontext_uebergabe(uebergabe: Uebergabe) -> Kontext:
     return kontext
 
 
-# --- Anfordern -----------------------------------------------------------------------
+# --- Erzeugen ------------------------------------------------------------------------
 
 
-def _anfordern(
-    vorlagenart: str, bezug: models.Model, kontext: Kontext, versandweg: str
-) -> Arbeitsposten:
-    """Die eine Stelle, die bei Schritt 3c auf ``dokumente.services`` umgestellt wird.
-
-    Bis dahin: Arbeitsposten mit Vorlagenart und Versandweg. Der Kontext wird nicht
-    gespeichert (er enthält Personendaten); er entsteht beim Erzeugen neu.
-    """
+def _arbeitsposten(vorlagenart: str, bezug: models.Model, grund: str) -> Arbeitsposten:
     return kern.arbeitsposten_anlegen(
-        ART,
-        bezug=bezug,
-        hinweis=f"Vorlagenart {vorlagenart}, Versandweg {versandweg}",
+        ART, bezug=bezug, hinweis=f"Vorlagenart {vorlagenart}: {grund}"
     )
 
 
-def vorlagenart_vertrag(vertrag: Vertrag) -> str:
-    return konfiguration.vertragsart(vertrag.vertragsart).vorlage
+def _erzeugen(
+    vorlagenart: str,
+    bezug: models.Model,
+    kontext: Kontext,
+    versandweg: str | None = None,
+    *,
+    name: str | None = None,
+) -> Ergebnis:
+    """Die eine Stelle, die ``dokumente.schreiben_erzeugen`` aufruft.
+
+    ``name`` wählt eine bestimmte Vorlage der Art; fehlt sie, gilt die neueste freigegebene
+    der Art. Geht es nicht, entsteht ein Arbeitsposten mit dem Grund (Meldungen der App
+    dokumente nennen keine Namen).
+    """
+    grund = _OHNE_SCHREIBEN.get()
+    if grund:
+        return _arbeitsposten(vorlagenart, bezug, grund)
+    try:
+        with transaction.atomic():
+            try:
+                vorlage = dokumente.freigegebene_vorlage(vorlagenart, name)
+            except dokumente.VorlageNichtFreigegeben:
+                if name is None:
+                    raise
+                vorlage = dokumente.freigegebene_vorlage(vorlagenart)
+            return dokumente.schreiben_erzeugen(vorlage, bezug, kontext, versandweg)
+    except (
+        dokumente.SchreibenFehler,
+        dokumente.PlatzhalterFehler,
+        pdf.PdfNichtVerfuegbar,
+    ) as fehler:
+        return _arbeitsposten(vorlagenart, bezug, str(fehler))
 
 
-def vertragsdokument_anfordern(vertrag: Vertrag) -> Arbeitsposten:
-    """Vertrag und Anlagen aus der Vorlage der Vertragsart (H2.3)."""
-    _, versandweg = VORLAGEN["vertrag"]
-    return _anfordern(vorlagenart_vertrag(vertrag), vertrag, kontext_vertrag(vertrag), versandweg)
+def _mail_oder_brief(kontext: Kontext) -> str:
+    return Versandweg.MAIL if kontext["empfaenger"]["email"] else Versandweg.BRIEF
 
 
-def kuendigungsbestaetigung_anfordern(kuendigung: Kuendigung) -> Arbeitsposten:
+def vertragsdokument_erzeugen(vertrag: Vertrag) -> Ergebnis:
+    """Vertrag und Anlagen aus der Vorlage der Vertragsart (H2.3); unterschrieben wird vor
+    Ort (Versandweg „selbst“)."""
+    name = konfiguration.vertragsart(vertrag.vertragsart).vorlage
+    return _erzeugen("vertrag", vertrag, kontext_vertrag(vertrag), name=name)
+
+
+def kuendigungsbestaetigung_erzeugen(kuendigung: Kuendigung) -> Ergebnis:
     """Bestätigung der Kündigung mit Fristende und Rückgabetermin (H2.8)."""
-    vorlagenart, versandweg = VORLAGEN["kuendigungsbestaetigung"]
-    return _anfordern(vorlagenart, kuendigung, kontext_kuendigung(kuendigung), versandweg)
+    kontext = kontext_kuendigung(kuendigung)
+    return _erzeugen("kuendigungsbestaetigung", kuendigung, kontext, _mail_oder_brief(kontext))
 
 
-def kautionsabrechnung_anfordern(kaution: Kaution) -> Arbeitsposten:
+def kautionsabrechnung_erzeugen(kaution: Kaution) -> Ergebnis:
     """Abrechnung der Kaution nach der Rückgabe (H2.10)."""
-    vorlagenart, versandweg = VORLAGEN["kautionsabrechnung"]
-    return _anfordern(vorlagenart, kaution, kontext_kautionsabrechnung(kaution), versandweg)
+    kontext = kontext_kautionsabrechnung(kaution)
+    weg = Versandweg.BRIEF if kontext["empfaenger"]["anschrift"] else _mail_oder_brief(kontext)
+    return _erzeugen("kautionsabrechnung", kaution, kontext, weg)
 
 
-def protokoll_anfordern(uebergabe: Uebergabe) -> Arbeitsposten:
+def protokoll_erzeugen(uebergabe: Uebergabe) -> Ergebnis:
     """Übergabe- oder Rückgabeprotokoll (H2.4, H2.9)."""
-    schluessel = (
-        "uebergabeprotokoll" if uebergabe.art == Uebergabe.Art.UEBERGABE else "rueckgabeprotokoll"
-    )
-    vorlagenart, versandweg = VORLAGEN[schluessel]
-    return _anfordern(vorlagenart, uebergabe, kontext_uebergabe(uebergabe), versandweg)
+    art = "uebergabeprotokoll" if uebergabe.art == Uebergabe.Art.UEBERGABE else "rueckgabeprotokoll"
+    return _erzeugen(art, uebergabe, kontext_uebergabe(uebergabe))

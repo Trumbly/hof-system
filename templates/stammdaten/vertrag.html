@@ -13,7 +13,7 @@
 
 <div class="aktionen">
   {% if vertrag.status == "entwurf" %}
-  <form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}">{% csrf_token %}<button type="submit" class="zweitrangig">Vertragsdokument anfordern</button></form>
+  <form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}">{% csrf_token %}<button type="submit" class="zweitrangig">Vertragsdokument als PDF erzeugen</button></form>
   <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'uebergabe' %}">{% csrf_token %}<button type="submit">Übergabe am Handy</button></form>
   {% elif vertrag.status == "aktiv" or vertrag.status == "gekuendigt" %}
   <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit">Rückgabe am Handy</button></form>

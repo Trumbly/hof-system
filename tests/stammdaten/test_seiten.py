@@ -76,7 +76,7 @@ def test_neuer_vertrag_fordert_das_dokument_an(
     assert vertrag.kaution.betrag == Decimal("176.00")
     assert (
         Arbeitsposten.objects.filter(
-            art="Schreiben erstellen", hinweis__startswith="Vorlagenart vertrag_garage"
+            art="Schreiben erstellen", hinweis__startswith="Vorlagenart vertrag:"
         ).count()
         == 1
     )

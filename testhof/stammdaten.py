@@ -26,8 +26,9 @@ from decimal import Decimal
 
 from django.contrib.contenttypes.models import ContentType
 
+from apps.fristen.models import Frist, Fristverschiebung
 from apps.kern.models import Arbeitsposten, Objekt
-from apps.stammdaten import services
+from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import (
     Checkliste,
     Checkpunkt,
@@ -218,6 +219,13 @@ def _schluessel(kontext: Kontext, einheit: Einheit, mieter: Partei | None, numme
 
 
 def aufbauen(kontext: Kontext) -> StammdatenDaten:
+    # Der Testhof legt keine Schreiben an (Dateinamen und PDFs hingen sonst von Datum und
+    # IDs ab); Kündigungsbestätigung, Protokolle und Kautionsabrechnung werden Arbeitsposten.
+    with schreiben.ohne_schreiben("Testhof legt keine Schreiben an"):
+        return _aufbauen(kontext)
+
+
+def _aufbauen(kontext: Kontext) -> StammdatenDaten:
     objekte: dict[str, Objekt] = kontext.ablage["kern"].objekte
     z = kontext.zufall
     einheiten = _einheiten(kontext, objekte)
@@ -353,6 +361,12 @@ def leeren() -> None:
     """Löscht die Stammdaten des Testhofs samt ihrer Arbeitsposten (nur erfundene Daten)."""
     typen = ContentType.objects.filter(app_label="stammdaten")
     Arbeitsposten.objects.filter(bezug_typ__in=typen).delete()
+    fristen = Frist.objects.filter(bezug_typ__in=typen)
+    Arbeitsposten.objects.filter(
+        bezug_typ=ContentType.objects.get_for_model(Frist), bezug_id__in=fristen.values("pk")
+    ).delete()
+    Fristverschiebung.objects.filter(frist__in=fristen).delete()
+    fristen.delete()
     for modell in (
         UebergabeFoto,
         Uebergabe,

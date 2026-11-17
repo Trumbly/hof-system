@@ -1,9 +1,8 @@
 """Standardablauf 1: Neuvermietung außerhalb von Wohnraum (Prozessliste), mit dem Testhof.
 
-Ergebnis laut Prozessliste: ein aktiver Vertrag mit laufender Sollstellung. Gebaut ist bis
-Schritt 4 alles außer PDF (Schritt 3c), Sollstellung (Schritt 5), Bankerkennung der Kaution
-(Schritt 6), Fristen-App (Schritt 9) und Meldung an die Website (Schritt 10). Diese Teile
-stehen unten als ``xfail`` mit Grund.
+Ergebnis laut Prozessliste: ein aktiver Vertrag mit laufender Sollstellung. Gebaut ist
+alles außer Sollstellung (Schritt 5), Bankerkennung der Kaution (Schritt 6) und Meldung an
+die Website (Schritt 10). Diese Teile stehen unten als ``xfail`` mit Grund.
 """
 
 from __future__ import annotations
@@ -16,11 +15,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 
+from apps.dokumente.models import Schreiben
+from apps.fristen import services as fristen
 from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import Einheit, Partei, Schluessel, Uebergabe, Vertrag
 from testhof.aufbau import STICHTAG, Testhof
 from tests.ablaeufe.hilfen import posten, schritt
-from tests.stammdaten.conftest import foto
+from tests.stammdaten.conftest import braucht_weasyprint, foto
 
 D = datetime.date
 BEGINN = D(2026, 12, 1)
@@ -32,9 +33,10 @@ def _freie_garage(testhof: Testhof) -> Einheit:
     return frei[0]
 
 
+@braucht_weasyprint
 def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) -> None:
-    """Abnahme Schritt 4 (Standardablauf 1): Aus dem Vertragsstamm wird der Vertrag
-    angefordert; die Übergabe am Handy setzt ihn aktiv."""
+    """Abnahme Schritt 4 (Standardablauf 1): Ein neuer Vertrag entsteht aus dem
+    Vertragsstamm als PDF; die Übergabe am Handy setzt ihn aktiv."""
     # 1. System: Die Einheit ist frei.
     einheit = _freie_garage(testhof)
     assert einheit.status_am(STICHTAG).status == "frei"  # type: ignore[union-attr]
@@ -42,7 +44,7 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
 
     # 2.–3. Interessent und Prüfung laufen über die Website (Schritt 10, v2).
 
-    # 4. System: legt Partei und Vertrag an und fordert Vertrag und Anlagen aus der Vorlage an.
+    # 4. System: legt Partei und Vertrag an und füllt den Vertrag aus der Vorlage.
     antwort = angemeldet.post(
         reverse("stammdaten:partei_neu"),
         {
@@ -69,8 +71,13 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
     )
     vertrag = Vertrag.objects.get(vertragseinheiten__einheit=einheit, status="entwurf")
     assert antwort["Location"] == reverse("stammdaten:vertrag", args=[vertrag.pk])
-    (anforderung,) = posten(schreiben.ART, vertrag)
-    assert anforderung.hinweis == "Vorlagenart vertrag_garage, Versandweg vor_ort"
+    # Vertrag als PDF aus der freigegebenen Vorlage des Testhofs, bereit zum Drucken.
+    dokument = Schreiben.objects.get(art="vertrag", bezug_id=vertrag.pk)
+    assert dokument.bezug == vertrag
+    assert (dokument.status, dokument.versandweg) == ("bereit", "selbst")
+    assert dokument.pdf.read().startswith(b"%PDF")
+    assert "Nora Testmieterin" in dokument.inhalt_html
+    assert not posten(schreiben.ART, vertrag)
     kontext = schreiben.kontext_vertrag(vertrag)
     assert kontext["mieter"][0]["name"] == "Nora Testmieterin"
     assert kontext["einheiten"][0]["nw_id"] == einheit.nw_id
@@ -125,17 +132,11 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
     assert {s.partei for s in einheit.schluessel.all()} == {partei}
     assert uebergabe.zaehlerstaende == [{"nummer": "Z-G-1", "stand": "100.5"}]
     assert uebergabe.fotos.count() == 2
-    assert posten(schreiben.ART, uebergabe, hinweis__contains="uebergabeprotokoll")
+    assert Schreiben.objects.filter(art="uebergabeprotokoll", bezug_id=uebergabe.pk).exists()
+    # Fristen: Der unbefristete Vertrag hat keine; Vertragsende entsteht mit der Kündigung.
+    assert not fristen.fristen_zu(vertrag).exists()
     seite = angemeldet.get(url).content.decode()
     assert "aktiv" in seite and "Übergabe am 01.12.2026" in seite
-
-
-@pytest.mark.xfail(reason="Schritt 3c: Die App dokumente erzeugt das Vertrags-PDF noch nicht.")
-def test_standardablauf_1_vertrag_entsteht_als_pdf() -> None:
-    """Abnahme Schritt 4: Ein neuer Vertrag entsteht aus dem Vertragsstamm als PDF."""
-    dokumente = importlib.import_module("apps.dokumente.services")
-    assert hasattr(dokumente, "schreiben_erzeugen")
-    assert "dokumente" in schreiben._anfordern.__code__.co_names
 
 
 @pytest.mark.xfail(reason="Schritt 5: Die Sollstellung startet mit dem aktiven Vertrag.")
@@ -146,14 +147,6 @@ def test_standardablauf_1_sollstellung_startet() -> None:
 @pytest.mark.xfail(reason="Schritt 6: Der Abgleich erkennt Kaution und erste Miete über die Bank.")
 def test_standardablauf_1_kaution_aus_bank() -> None:
     importlib.import_module("apps.abgleich.services")
-
-
-@pytest.mark.xfail(reason="Schritt 9: Fristen des Vertrags stehen in der App fristen.")
-def test_standardablauf_1_fristen_angelegt() -> None:
-    importlib.import_module("apps.fristen.services")
-    from apps.stammdaten import fristen
-
-    assert "fristen" in fristen.fristen_anfordern.__code__.co_names
 
 
 @pytest.mark.xfail(reason="Schritt 10: Die Belegung geht an die Website.")

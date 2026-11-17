@@ -17,7 +17,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.stammdaten import datenstand, leerstand, services
+from apps.dokumente.models import Schreiben
+from apps.stammdaten import datenstand, leerstand, schreiben, services
 from apps.stammdaten import forms as f
 from apps.stammdaten.models import (
     Checkpunkt,
@@ -288,6 +289,18 @@ def vertraege(request: HttpRequest) -> HttpResponse:
     return render(request, "stammdaten/vertraege.html", {"vertraege": liste})
 
 
+def _dokument_melden(request: HttpRequest, ergebnis: schreiben.Ergebnis) -> None:
+    if isinstance(ergebnis, Schreiben):
+        messages.success(
+            request,
+            f"Vertragsdokument als PDF erzeugt (Schreiben #{ergebnis.pk}, Seite „Schreiben“).",
+        )
+    else:
+        messages.warning(
+            request, f"Kein PDF: {ergebnis.hinweis} (Arbeitsliste „Schreiben erstellen“)."
+        )
+
+
 @login_required
 def vertrag_neu(request: HttpRequest) -> HttpResponse:
     initial = {}
@@ -312,15 +325,12 @@ def vertrag_neu(request: HttpRequest) -> HttpResponse:
                 kuendigungsregel=d["kuendigungsregel"] or None,
             )
             services.checkliste_anlegen("vertrag", vertrag=vertrag)
-            services.vertragsdokument_anfordern(vertrag)
+            ergebnis = services.vertragsdokument_erzeugen(vertrag)
         except services.StammdatenFehler as fehler:
             messages.error(request, str(fehler))
         else:
-            messages.success(
-                request,
-                f"Vertrag {vertrag.nummer} als Entwurf angelegt; "
-                "das Vertragsdokument ist angefordert.",
-            )
+            messages.success(request, f"Vertrag {vertrag.nummer} als Entwurf angelegt.")
+            _dokument_melden(request, ergebnis)
             return redirect("stammdaten:vertrag", vertrag.pk)
     return render(request, "stammdaten/neu.html", {"form": form, "titel": "Neuer Vertrag"})
 
@@ -430,13 +440,11 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
 def vertragsdokument(request: HttpRequest, pk: int) -> HttpResponse:
     vertrag = get_object_or_404(Vertrag, pk=pk)
     try:
-        services.vertragsdokument_anfordern(vertrag)
+        ergebnis = services.vertragsdokument_erzeugen(vertrag)
     except services.StammdatenFehler as fehler:
         messages.error(request, str(fehler))
     else:
-        messages.success(
-            request, "Vertragsdokument angefordert (Arbeitsliste „Schreiben erstellen“)."
-        )
+        _dokument_melden(request, ergebnis)
     return redirect("stammdaten:vertrag", pk)
 
 

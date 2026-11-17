@@ -3,15 +3,28 @@
 from __future__ import annotations
 
 import datetime
+import os
 from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from apps.kern.models import Objekt
+from apps.dokumente import pdf
+from apps.dokumente import services as dokumente
+from apps.dokumente.models import Vorlage
+from apps.kern.models import Benutzer, Objekt
 from apps.stammdaten import services
 from apps.stammdaten.models import Einheit, EinheitStatus, Kontaktweg, Partei, Vertrag
-from tests.factories import ObjektFabrik
+from testhof.dokumente import VORLAGEN
+from tests.factories import BenutzerFabrik, ObjektFabrik
+
+PDF_DA, PDF_GRUND = pdf.verfuegbar()
+# In der Pipeline sind die Bibliotheken installiert: Dort ist Überspringen ein Fehler.
+if os.environ.get("HOF_PDF_PFLICHT") and not PDF_DA:
+    raise RuntimeError(f"HOF_PDF_PFLICHT gesetzt, aber: {PDF_GRUND}")
+
+#: Für Tests, die ein echtes PDF erzeugen.
+braucht_weasyprint = pytest.mark.skipif(not PDF_DA, reason=f"PDF-Test übersprungen: {PDF_GRUND}")
 
 BASIS = datetime.date(2026, 1, 1)
 
@@ -103,3 +116,14 @@ def aktiver_vertrag(garage: Einheit, mieter: Partei) -> Vertrag:
         vertrag.kaution, datetime.date(2026, 1, 25), "Vivid Kautionen"
     )
     return vertrag
+
+
+@pytest.fixture
+def vorlagen(db: None) -> dict[str, Vorlage]:
+    """Briefkopf und die Beispielvorlagen des Testhofs, freigegeben."""
+    benutzer: Benutzer = BenutzerFabrik()
+    ergebnis = {}
+    for name, art, betreff, text in VORLAGEN:
+        vorlage = dokumente.vorlage_anlegen(name, art, text, betreff=betreff, herkunft="test")
+        ergebnis[art] = dokumente.vorlage_freigeben(vorlage, benutzer)
+    return ergebnis

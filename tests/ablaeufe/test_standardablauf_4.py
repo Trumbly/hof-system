@@ -1,8 +1,8 @@
 """Standardablauf 4: Kündigung und Rückgabe (Prozessliste), mit dem Testhof.
 
 Ergebnis laut Prozessliste: Die Einheit ist frei, die Kaution abgerechnet. Offen bis zu
-ihren Schritten: Bestätigung als PDF (3c), Ende des Solls (5), offene Posten in der
-Kautionsabrechnung (5/6), Fristen-App (9), Meldung an die Website (10).
+ihren Schritten: Ende des Solls (5), offene Posten in der Kautionsabrechnung (5/6) und
+Meldung an die Website (10).
 """
 
 from __future__ import annotations
@@ -15,11 +15,14 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from apps.stammdaten import fristen, schreiben, services
+from apps.dokumente.models import Schreiben
+from apps.fristen import services as fristen
+from apps.fristen.models import Frist
+from apps.stammdaten import services
 from apps.stammdaten.models import Checkliste, Einheit, Kaution, Kuendigung, Uebergabe, Vertrag
 from testhof.aufbau import Testhof
 from tests.ablaeufe.hilfen import posten, schritt
-from tests.stammdaten.conftest import foto
+from tests.stammdaten.conftest import braucht_weasyprint, foto
 
 D = datetime.date
 ZUGANG = D(2026, 11, 3)
@@ -36,11 +39,14 @@ def _garagenvertrag(testhof: Testhof) -> Vertrag:
             and kaution.betrag
             and kaution.eingang_am
             and vertrag.einheiten.get().schluessel.filter(inhaber="partei").exists()
+            and (mieter := vertrag.parteien_mit_rolle("mieter")[0]).hat_anschrift
+            and mieter.kontaktwege.filter(art="email").exists()
         ):
             return vertrag
     raise AssertionError("Kein passender Garagenvertrag im Testhof")
 
 
+@braucht_weasyprint
 def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet: Client) -> None:
     """Abnahme Schritt 4 (Standardablauf 4): Die Kündigung erzeugt Fristende, Bestätigung und
     Rückgabetermin; die Rückgabe gibt die Einheit frei und stößt die Kautionsabrechnung an."""
@@ -64,12 +70,20 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     assert (kuendigung.fristende, kuendigung.rueckgabetermin) == (FRISTENDE, FRISTENDE)
     vertrag.refresh_from_db()
     assert (vertrag.status, vertrag.ende) == (Vertrag.Status.GEKUENDIGT, FRISTENDE)
-    (bestaetigung,) = posten(schreiben.ART, kuendigung)
-    assert "kuendigungsbestaetigung" in bestaetigung.hinweis
-    kontext = schreiben.kontext_kuendigung(kuendigung)
-    assert kontext["kuendigung"]["rueckgabetermin"] == FRISTENDE
-    (frist,) = posten(fristen.ART, vertrag, status="offen")
-    assert frist.faellig_am == FRISTENDE and frist.hinweis.startswith("Rückgabetermin")
+    bestaetigung = Schreiben.objects.get(art="kuendigungsbestaetigung", bezug_id=kuendigung.pk)
+    assert bestaetigung.bezug == kuendigung
+    assert (bestaetigung.status, bestaetigung.versandweg) == ("bereit", "mail")
+    assert bestaetigung.pdf.read().startswith(b"%PDF")
+    assert "31.01.2027" in bestaetigung.inhalt_html  # Fristende und Rückgabetermin
+    (frist,) = fristen.fristen_zu(vertrag, nur_offen=True)
+    assert (frist.art, frist.quelle, frist.datum) == (
+        Frist.Art.VERTRAGSENDE,
+        Frist.Quelle.VERTRAG,
+        FRISTENDE,
+    )
+    assert frist.hinweis.startswith("Rückgabetermin")
+    (fristende,) = fristen.fristen_zu(kuendigung, nur_offen=True)
+    assert (fristende.art, fristende.datum) == (Frist.Art.KUENDIGUNG, FRISTENDE)
 
     # 3. Vor Ort: Rückgabe mit Protokoll, Fotos, Zählerstand und allen Schlüsseln.
     angemeldet.post(reverse("stammdaten:uebergabe_starten", args=[vertrag.pk, "rueckgabe"]))
@@ -92,8 +106,14 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     assert kaution.abrechnung_faellig_am == D(2027, 7, 31)
     (abrechnen,) = posten(services.ART_KAUTION_ABRECHNEN, kaution)
     assert abrechnen.faellig_am == D(2027, 7, 31)
-    assert posten(fristen.ART, kaution, hinweis__startswith="Kautionsabrechnung")
-    assert not posten(fristen.ART, vertrag, status="offen")  # Rückgabetermin erfüllt
+    (kautionsfrist,) = fristen.fristen_zu(kaution, nur_offen=True)
+    assert (kautionsfrist.art, kautionsfrist.quelle, kautionsfrist.datum) == (
+        Frist.Art.KAUTIONSABRECHNUNG,
+        Frist.Quelle.KAUTION,
+        D(2027, 7, 31),
+    )
+    assert not fristen.fristen_zu(vertrag, nur_offen=True).exists()  # Rückgabe erfolgt
+    assert Schreiben.objects.filter(art="rueckgabeprotokoll", bezug_id=rueckgabe.pk).exists()
 
     # 5. Du: rechnest die Kaution über die Vorlage ab.
     antwort = angemeldet.post(
@@ -108,7 +128,9 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     kaution.refresh_from_db()
     assert kaution.abgerechnet_am == D(2027, 2, 15)
     assert kaution.ausgezahlt == kaution.betrag - Decimal("20.00")  # type: ignore[operator]
-    assert posten(schreiben.ART, kaution, hinweis__startswith="Vorlagenart kautionsabrechnung")
+    abrechnung = Schreiben.objects.get(art="kautionsabrechnung", bezug_id=kaution.pk)
+    assert (abrechnung.status, abrechnung.versandweg) == ("bereit", "brief")
+    assert not fristen.fristen_zu(kaution, nur_offen=True).exists()
     abrechnen.refresh_from_db()
     assert abrechnen.status == "erledigt"
 
@@ -116,23 +138,9 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     assert einheit.checklisten.filter(phase=Checkliste.Phase.VORBEREITUNG).exists()
 
 
-@pytest.mark.xfail(
-    reason="Schritt 3c: Die Bestätigung entsteht noch nicht als PDF (App dokumente)."
-)
-def test_standardablauf_4_bestaetigung_als_pdf() -> None:
-    importlib.import_module("apps.dokumente.services")
-    assert "dokumente" in schreiben._anfordern.__code__.co_names
-
-
 @pytest.mark.xfail(reason="Schritt 5: Das Soll endet zum Vertragsende (App soll).")
 def test_standardablauf_4_soll_endet() -> None:
     importlib.import_module("apps.soll.services")
-
-
-@pytest.mark.xfail(reason="Schritt 9: Rückgabetermin und Kautionsfrist stehen in der App fristen.")
-def test_standardablauf_4_fristen_in_der_fristen_app() -> None:
-    importlib.import_module("apps.fristen.services")
-    assert "fristen" in fristen.fristen_anfordern.__code__.co_names
 
 
 @pytest.mark.xfail(reason="Schritt 10: Die freie Einheit wird an die Website gemeldet.")

@@ -86,6 +86,95 @@ im Objekt {{ objekt.bezeichnung }} fristgerecht zum {{ vertrag.ende|datum }}.</p
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
 """,
     ),
+    # Stammdaten (Schritt 4): Vertrag, Kündigungsbestätigung, Kaution, Protokolle
+    (
+        "Vertrag",
+        "vertrag",
+        "{{ vertrag.art_titel }}-Mietvertrag {{ vertrag.nummer }}",
+        """\
+<h2>{{ vertrag.art_titel }}-Mietvertrag {{ vertrag.nummer }}</h2>
+<p>zwischen {{ mandant.bezeichnung }} (Vermieter) und
+{% for m in mieter %}{{ m.name }}, {{ m.strasse }}, {{ m.plz }} {{ m.ort }}
+{% if not forloop.last %}; {% endif %}{% endfor %} (Mieter).</p>
+<h3>§ 1 Mietsache</h3>
+<ul>{% for e in einheiten %}<li>{{ e.nw_id }}: {{ e.typ }} {{ e.bezeichnung }}
+{% if e.flaeche_qm %}({{ e.flaeche_qm }} m²){% endif %}, {{ e.objekt }}</li>{% endfor %}</ul>
+<h3>§ 2 Mietzeit</h3>
+<p>Das Mietverhältnis beginnt am {{ vertrag.beginn|datum }}{% if vertrag.ende %} und endet am
+{{ vertrag.ende|datum }}{% else %} und läuft auf unbestimmte Zeit{% endif %}.
+Kündigungsfrist: {{ vertrag.kuendigungsfrist }}.</p>
+<h3>§ 3 Miete</h3>
+{% if kondition %}<p>Die Miete beträgt {{ kondition.miete|euro }} je Monat
+{% if kondition.pauschale %}zuzüglich einer Pauschale von {{ kondition.pauschale|euro }}{% endif %},
+zahlbar {{ kondition.zahlweise }}.</p>{% endif %}
+{% if staffel|length > 1 %}<p>Staffel:</p><ul>{% for s in staffel %}<li>ab {{ s.gueltig_ab|datum }}:
+{{ s.miete|euro }}</li>{% endfor %}</ul>{% endif %}
+<h3>§ 4 Kaution</h3>
+<p>{% if kaution.betrag %}Der Mieter leistet eine Kaution von {{ kaution.betrag|euro }}.
+{% else %}Eine Kaution ist nicht vereinbart.{% endif %}</p>
+{% if vertrag.sonderabreden %}<h3>§ 5 Sonderabreden</h3>
+<p>{{ vertrag.sonderabreden }}</p>{% endif %}
+<p style="margin-top: 3em">Ort, Datum, Vermieter ______________ Mieter ______________</p>
+""",
+    ),
+    (
+        "Kündigungsbestätigung",
+        "kuendigungsbestaetigung",
+        "Bestätigung Ihrer Kündigung, Vertrag {{ vertrag.nummer }}",
+        """\
+<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>Ihre Kündigung des Vertrags {{ vertrag.nummer }} über {{ einheit.bezeichnung }}
+({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} bei uns eingegangen.</p>
+<p>Das Mietverhältnis endet nach der vereinbarten Frist ({{ kuendigung.kuendigungsfrist }})
+am {{ kuendigung.fristende|datum }}.</p>
+<p>Als Termin für die Rückgabe mit Protokoll und allen Schlüsseln schlagen wir den
+{{ kuendigung.rueckgabetermin|datum }} vor.</p>
+<p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
+""",
+    ),
+    (
+        "Kautionsabrechnung",
+        "kautionsabrechnung",
+        "Abrechnung der Kaution, Vertrag {{ vertrag.nummer }}",
+        """\
+<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>für den Vertrag {{ vertrag.nummer }} rechnen wir die Kaution ab:</p>
+<table>
+<tr><td>Kaution</td><td>{{ abrechnung.betrag|euro }}</td></tr>
+<tr><td>Einbehalt</td><td>{{ abrechnung.einbehalt|euro }}</td></tr>
+<tr><td>Auszahlung</td><td>{{ abrechnung.ausgezahlt|euro }}</td></tr>
+</table>
+<p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
+""",
+    ),
+    (
+        "Übergabeprotokoll",
+        "uebergabeprotokoll",
+        "Übergabeprotokoll Vertrag {{ vertrag.nummer }}",
+        """\
+<p>Übergabe am {{ uebergabe.datum|datum }}:
+{% for e in einheiten %}{{ e.nw_id }} {% endfor %}</p>
+<p>Zählerstände: {% for z in uebergabe.zaehlerstaende %}{{ z.nummer }}: {{ z.stand }}
+{% empty %}keine{% endfor %}</p>
+<p>Schlüssel: {% for s in uebergabe.schluessel %}{{ s.anzahl }} × {{ s.art }}
+{% empty %}keine{% endfor %}</p>
+<p>Zustand: {{ uebergabe.zustand }} · Fotos: {{ uebergabe.fotos }}</p>
+""",
+    ),
+    (
+        "Rückgabeprotokoll",
+        "rueckgabeprotokoll",
+        "Rückgabeprotokoll Vertrag {{ vertrag.nummer }}",
+        """\
+<p>Rückgabe am {{ uebergabe.datum|datum }}:
+{% for e in einheiten %}{{ e.nw_id }} {% endfor %}</p>
+<p>Zählerstände: {% for z in uebergabe.zaehlerstaende %}{{ z.nummer }}: {{ z.stand }}
+{% empty %}keine{% endfor %}</p>
+<p>Schlüssel zurück: {% for s in uebergabe.schluessel %}{{ s.anzahl }} × {{ s.art }}
+{% if s.fehlend %}({{ s.fehlend }} fehlen){% endif %} {% empty %}keine{% endfor %}</p>
+<p>Zustand: {{ uebergabe.zustand }} · Zurückgelassen: {{ uebergabe.zurueckgelassen }}</p>
+""",
+    ),
 )
 
 
