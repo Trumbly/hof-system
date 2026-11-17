@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block titel %}Bilder {{ einheit.nw_id }}{% endblock %}
+
+{% block inhalt %}
+<h1>Bilder {{ einheit.nw_id }}</h1>
+{% include "anbindungen/_unternavigation.html" %}
+<p class="leise">Vermarktungsbilder für den Katalog der Website. Sie zeigen die Einheit, keine Personen und keine Kennzeichen.</p>
+<ul class="fotos">
+  {% for b in bilder %}
+  <li id="bild-{{ b.pk }}">
+    <img src="{% url 'anbindungen:bild' b.pk %}" alt="{{ b.beschreibung }}" loading="lazy" width="240">
+    <span>{{ b.reihenfolge }}. {{ b.beschreibung|default:"ohne Beschreibung" }}</span>
+    <form method="post" action="{% url 'anbindungen:bild_entfernen' b.pk %}">{% csrf_token %}<button type="submit" class="zweitrangig">Aus dem Katalog nehmen</button></form>
+  </li>
+  {% empty %}
+  <li class="leise">Noch keine Bilder.</li>
+  {% endfor %}
+</ul>
+<h2>Bild hinzufügen</h2>
+{% include "stammdaten/_formular.html" with form=formular aktion="bild" knopf="Hochladen" %}
+{% endblock %}

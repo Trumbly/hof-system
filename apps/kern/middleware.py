@@ -18,8 +18,11 @@ from apps.kern.anmeldung import (
 
 # Adressen ohne Sitzung und ohne zweiten Faktor (als URL-Namen). Jede prüft selbst, wer
 # fragt: /gesund zeigt nur „ok“ und die Version, /api/bank/zulieferung verlangt ihren
-# eigenen Token für genau ein Konto (apps.bank.zulieferung).
-OHNE_SITZUNG = ("kern:gesund", "bank:zulieferung")
+# eigenen Token für genau ein Konto (apps.bank.zulieferung), die Schnittstelle der Website
+# ihren Website-Token (apps.anbindungen.api).
+OHNE_SITZUNG = ("kern:gesund", "bank:zulieferung", "anbindungen:katalog", "anbindungen:ereignis")
+# Ebenso alles unter diesen Pfaden (Adressen mit ID, etwa die Bilder des Katalogs).
+OHNE_SITZUNG_PFADE = ("/api/website/",)
 
 # Seiten, die ein angemeldeter Benutzer ohne eingerichteten zweiten Faktor erreicht:
 # genau die Einrichtung von TOTP (mit erneuter Passwortabfrage) und das Abmelden.
@@ -48,7 +51,9 @@ class ZweiterFaktorPflichtMiddleware:
         # Der Gesundheits-Endpunkt gilt für jeden, angemeldet oder nicht (er zeigt nur
         # „ok“ und die Version); die Zulieferung der Bank prüft ihren Token selbst.
         # Geprüft vor request.user, damit keine Sitzung geladen wird.
-        if request.path_info in {reverse(name) for name in OHNE_SITZUNG}:
+        if request.path_info in {reverse(name) for name in OHNE_SITZUNG} or (
+            request.path_info.startswith(OHNE_SITZUNG_PFADE)
+        ):
             return self.get_response(request)
         benutzer = request.user
         if not benutzer.is_authenticated or request.path_info.startswith(

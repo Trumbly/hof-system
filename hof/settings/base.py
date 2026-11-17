@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.kassenbuch",
     "apps.stammdaten",
     "apps.soll",
+    "apps.anbindungen",
 ]
 
 MIDDLEWARE = [
@@ -191,6 +192,9 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "Schlüssel fehlt",
         # Sollstellung (apps.soll.services, ART_*)
         "Sollposten prüfen",
+        # Anbindungen (apps.anbindungen.services, ART_*)
+        "Buchungsanfrage prüfen",
+        "ID-Abweichung",
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",
@@ -202,6 +206,26 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
 HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN = env.int("HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN", default=24)
 HOF_BENACHRICHTIGUNG_MAIL_KANAL = "apps.benachrichtigung.kanaele.MailKanal"
 HOF_BENACHRICHTIGUNG_NTFY_KANAL = "apps.benachrichtigung.kanaele.NtfyKanal"
+
+# Anbindungen (Schritt 10): Website und Verwaltio. Die Clients sind austauschbar; in
+# Entwicklung und Tests stehen hier die Fakes (hof/settings/dev.py, test.py). Ohne Adresse
+# und Token melden die echten Clients „nicht eingerichtet“, und die Läufe überspringen sie.
+HOF_WEBSITE_CLIENT = env.str(
+    "HOF_WEBSITE_CLIENT", default="apps.anbindungen.website.WebsiteHttpClient"
+)
+# Adresse und Token, mit denen das Hof-System die NW-IDs der Website abfragt (H1.6).
+HOF_WEBSITE_URL = env.str("HOF_WEBSITE_URL", default="")  # z. B. https://noelle-wying.de
+HOF_WEBSITE_TOKEN = env.str("HOF_WEBSITE_TOKEN", default="")
+# Optional: Adressen oder Netze, von denen die Website Katalog und Ereignisse abrufen darf
+# (Komma-getrennt, z. B. „100.64.0.7,2001:db8::/64“). Leer: jede Adresse mit gültigem Token
+# (der Zugang ist dann nur über Tailscale offen).
+HOF_WEBSITE_IP_FREIGABE: list[str] = env.list("HOF_WEBSITE_IP_FREIGABE", default=[])
+# Verwaltio (V12): Der echte Client ist offen, bis die API-Dokumentation vorliegt.
+HOF_VERWALTIO_CLIENT = env.str(
+    "HOF_VERWALTIO_CLIENT", default="apps.anbindungen.verwaltio.VerwaltioApiClient"
+)
+VERWALTIO_URL = env.str("VERWALTIO_URL", default="")
+VERWALTIO_TOKEN = env.str("VERWALTIO_TOKEN", default="")
 
 # Vorlagen und Versand (Schritt 3c). Die Clients sind austauschbar; Standard sind die Fakes
 # (nichts geht ins Netz). prod.py nimmt die echten Clients, ohne Zugangsdaten melden sie

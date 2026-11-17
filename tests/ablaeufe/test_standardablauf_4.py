@@ -1,27 +1,29 @@
 """Standardablauf 4: Kündigung und Rückgabe (Prozessliste), mit dem Testhof.
 
 Ergebnis laut Prozessliste: Die Einheit ist frei, die Kaution abgerechnet, das Soll endet
-zum Fristende (Schritt 5). Offen bis zu ihren Schritten: offene Posten in der
-Kautionsabrechnung (6) und Meldung an die Website (10).
+zum Fristende (Schritt 5). Offen bis zu seinem Schritt: offene Posten in der
+Kautionsabrechnung (6). Die Meldung an die Website (10) prüft
+``test_standardablauf_4_website_meldung``.
 """
 
 from __future__ import annotations
 
 import datetime
-import importlib
 from decimal import Decimal
 
 import pytest
 from django.db import models
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
+from apps.anbindungen import services as anbindungen
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
 from apps.soll import services as soll
 from apps.soll.models import Sollposten
-from apps.stammdaten import services
+from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import Checkliste, Einheit, Kaution, Kuendigung, Uebergabe, Vertrag
 from testhof.aufbau import Testhof
 from tests.ablaeufe.hilfen import posten, schritt
@@ -164,6 +166,30 @@ def test_standardablauf_4_soll_endet(testhof: Testhof, monkeypatch: pytest.Monke
     assert soll.sollstellung_erzeugen(vertrag, D(2027, 12, 31)).neu == []
 
 
-@pytest.mark.xfail(reason="Schritt 10: Die freie Einheit wird an die Website gemeldet.")
-def test_standardablauf_4_website_meldung() -> None:
-    importlib.import_module("apps.anbindungen.services")
+def test_standardablauf_4_website_meldung(testhof: Testhof) -> None:
+    """Abnahme Schritt 10 (Standardablauf 4): Nach Kündigung und Rückgabe steht die Einheit
+    ohne Handgriff wieder im Katalog der Website, frei ab dem Rückgabetag."""
+    vertrag = _garagenvertrag(testhof)
+    einheit: Einheit = vertrag.einheiten.get()
+    heute = timezone.localdate()
+    im_katalog = {e.nw_id for e in anbindungen.katalog(heute)}
+    assert einheit.nw_id not in im_katalog
+
+    with schreiben.ohne_schreiben("Ablauf ohne PDF"):
+        services.kuendigung_erfassen(vertrag, ZUGANG)
+        assert einheit.nw_id not in {e.nw_id for e in anbindungen.katalog(heute)}
+        rueckgabe = services.uebergabe_beginnen(vertrag, Uebergabe.Art.RUECKGABE, FRISTENDE)
+        services.uebergabe_speichern(
+            rueckgabe,
+            schluessel=[
+                {"schluessel": s.pk, "anzahl": s.anzahl}
+                for s in services.schluessel_der_uebergabe(rueckgabe)
+            ],
+            zustand="besenrein",
+        )
+        services.uebergabe_abschliessen(rueckgabe)
+
+    (eintrag,) = [e for e in anbindungen.katalog(heute) if e.nw_id == einheit.nw_id]
+    assert eintrag.frei_ab == max(FRISTENDE, heute)
+    assert eintrag.preis_monat == einheit.zielmiete_am(eintrag.frei_ab).betrag  # type: ignore[union-attr]
+    assert {e.nw_id for e in anbindungen.katalog(heute)} == im_katalog | {einheit.nw_id}
