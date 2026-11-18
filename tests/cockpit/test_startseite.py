@@ -70,7 +70,8 @@ def test_startseite_zeigt_alle_kacheln_in_reihenfolge(angemeldet: Client) -> Non
         ("laeufe", reverse("kern:laeufe")),
     ):
         assert f'href="{ziel}"' in _kachel(html, name), name
-    assert "Kommen mit dem Abgleich" in _kachel(html, "rueckstaende")
+    # Seit Schritt 6 die echte Kachel des Abgleichs statt des Platzhalters.
+    assert "Verträge mit Rückstand" in _kachel(html, "rueckstaende")
 
 
 def test_startseite_liest_direkt_aus_der_datenbank(

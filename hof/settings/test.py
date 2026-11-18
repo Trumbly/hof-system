@@ -7,6 +7,8 @@ os.environ.setdefault("DATABASE_URL", "postgres://hof:hof@localhost:5432/hof")
 os.environ.setdefault("EMAIL_URL", "smtp://localhost:1025")
 # Kein Aufruf ins Netz: Enable Banking als Fake.
 os.environ.setdefault("HOF_BANK_CLIENT", "apps.bank.enablebanking.FakeEnableBanking")
+# Der Testhof gleicht ab Juli 2026 ab (testhof/abgleich.py); davor führt das alte System.
+os.environ.setdefault("HOF_ABGLEICH_BEGINN", "2026-07-01")
 # Website und Verwaltio als Fakes (spiegeln die Einheiten des Hof-Systems).
 os.environ.setdefault("HOF_WEBSITE_CLIENT", "apps.anbindungen.website.FakeWebsite")
 os.environ.setdefault("HOF_VERWALTIO_CLIENT", "apps.anbindungen.verwaltio.FakeVerwaltio")

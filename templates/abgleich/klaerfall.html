@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block titel %}Zahlung klären{% endblock %}
+
+{% block inhalt %}
+<h1>Zahlung klären <span class="leise">#{{ klaerfall.pk }}</span></h1>
+{% include "abgleich/_buchung_kopf.html" %}
+{% if klaerfall.offen %}
+<div class="aktionen">
+  {% if klaerfall.art == "rueckbuchung" %}
+  <a class="knopf" href="{% url 'kern:arbeitslisten' %}">Zur Arbeitsliste</a>
+  {% else %}
+  <a class="knopf" href="{% url 'abgleich:zuordnen' klaerfall.pk %}">Zuordnen</a>
+  <a class="knopf zweitrangig" href="{% url 'abgleich:aufteilen' klaerfall.pk %}">Aufteilen</a>
+  <a class="knopf zweitrangig" href="{% url 'abgleich:regel_aus_klaerfall' klaerfall.pk %}">Regel anlegen</a>
+  {% endif %}
+</div>
+{% endif %}
+{% if zuordnungen %}
+<h2>Zuordnungen</h2>
+<ul>{% for z in zuordnungen %}<li>{{ z.sollposten.vertrag.nummer }} · Posten #{{ z.sollposten_id }}: {{ z.betrag|floatformat:"2g" }} €{% if z.storniert_am %} <span class="leise">(storniert)</span>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

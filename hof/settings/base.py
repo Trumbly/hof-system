@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.soll",
     "apps.anbindungen",
     "apps.zaehler",
+    "apps.abgleich",
     "apps.cockpit",
 ]
 
@@ -155,6 +156,12 @@ KASSENBUCH_BEGINN = date.fromisoformat(_kassenbuch_beginn) if _kassenbuch_beginn
 # abweichend über die Sollregel. Vorschlag für den Server: 2026-07-01 (Vergleich ab Juli).
 _soll_beginn = env.str("HOF_SOLL_BEGINN", default="")
 SOLL_BEGINN = date.fromisoformat(_soll_beginn) if _soll_beginn else None
+
+# Abgleich: erster Tag, ab dem der Lauf abgleich Zahlungen und Posten ansieht. Zahlungen davor
+# und Posten, deren Zeitraum davor endet, führt das alte System (Vortrag). Leer: wie
+# HOF_SOLL_BEGINN. Vorschlag für den Server: 2026-07-01 (Rückrechnung ab Juli).
+_abgleich_beginn = env.str("HOF_ABGLEICH_BEGINN", default="")
+ABGLEICH_BEGINN = date.fromisoformat(_abgleich_beginn) if _abgleich_beginn else None
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

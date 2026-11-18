@@ -18,6 +18,7 @@ urlpatterns = [
     path("stammdaten/", include("apps.stammdaten.urls")),
     path("soll/", include("apps.soll.urls")),
     path("zaehler/", include("apps.zaehler.urls")),
+    path("abgleich/", include("apps.abgleich.urls")),
     path("", include("apps.kassenbuch.urls")),
     path("", include("apps.anbindungen.urls")),
     path("", include("apps.kern.urls")),

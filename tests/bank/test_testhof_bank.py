@@ -73,7 +73,7 @@ def test_sonderfaelle_angemeldet() -> None:
     module = sonderfaelle.erzeugende_module()
     assert module["doppelter_umsatz"] == ["bank"]
     assert module["rueckbuchung"] == ["bank"]
-    assert register.laden()["bank"].abhaengig_von == ("kern",)
+    assert register.laden()["bank"].abhaengig_von == ("kern", "soll")
 
 
 def test_sonderfall_doppelter_umsatz(testhof: Testhof) -> None:

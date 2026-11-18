@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block titel %}Zahlung aufteilen{% endblock %}
+
+{% block inhalt %}
+<h1>Aufteilen</h1>
+{% include "abgleich/_buchung_kopf.html" %}
+<p class="leise">Posten und Guthaben ergeben zusammen genau den offenen Betrag.</p>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}{{ formset.non_form_errors }}{% endif %}
+  {% for f in formset %}<fieldset class="zeile">{{ f.as_p }}</fieldset>{% endfor %}
+  {{ guthaben_form.as_p }}
+  <button type="submit">Aufteilen</button>
+</form>
+{% endblock %}

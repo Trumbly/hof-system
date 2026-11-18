@@ -46,7 +46,9 @@ def test_soll_aller_vertraege_bis_zum_stichtag(testhof: Testhof) -> None:
     assert Sollposten.objects.count() == 1028
     assert Sollposten.objects.filter(von__lt=SOLL_AB).count() == 0
     assert Sollposten.objects.filter(von__gt=STICHTAG).count() == 0
-    assert set(Sollposten.objects.values_list("status", flat=True)) == {"offen"}
+    # Bezahlt ist nur die Barzahlung aus dem Abgleich (testhof/abgleich.py, Schritt 6).
+    assert set(Sollposten.objects.values_list("status", flat=True)) == {"offen", "bezahlt"}
+    assert Sollposten.objects.filter(status="bezahlt").count() == 1
     ergebnis = testhof.soll.ergebnis
     assert (len(ergebnis.neu), ergebnis.vertraege, ergebnis.fehler) == (1028, 45, [])
 
