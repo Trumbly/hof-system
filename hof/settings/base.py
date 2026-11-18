@@ -188,6 +188,8 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "Kopie in „Gesendet“ fehlt",
         "Brief storniert",
         "Belege zuordnen",
+        "Rechnung zahlen",
+        "Rechnung zuordnen",
         # Stammdaten (apps.stammdaten.services/schreiben, ART_*); die Kautionsabrechnung
         # meldet sich über ihre Frist („Frist fällig“).
         "Schreiben erstellen",
@@ -202,7 +204,6 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",
-        "Rechnung zahlen",
         "Schreiben senden",
     ],
 )

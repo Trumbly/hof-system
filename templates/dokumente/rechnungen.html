@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block titel %}Eingangsrechnungen{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Eingangsrechnungen</h1>
+
+<section class="gruppe">
+  <h2>Zu zahlen <span class="zahl">{{ offen|length }}</span></h2>
+  <p class="leise">Drei Tage vor der Fälligkeit kommt die Erinnerung; nach der Abbuchung schließt sich die Rechnung von selbst.</p>
+  <ul class="posten-liste">
+    {% for r in offen %}
+    <li class="posten">
+      <div class="posten-kopf">
+        <a class="posten-titel" href="{% url 'dokumente:rechnung' r.pk %}">Eingangsrechnung #{{ r.pk }}</a>
+        <span class="faellig">{% if r.faellig_am < heute %}überfällig seit {% else %}fällig {% endif %}{{ r.faellig_am|date:"d.m.Y" }}</span>
+      </div>
+      <p class="leise posten-meta">{{ r.beleg.lieferant.name }} · {{ r.betrag|floatformat:"2g" }} € · {{ r.get_status_display }}{% if r.rechnungsnummer %} · Nr. {{ r.rechnungsnummer }}{% endif %}</p>
+    </li>
+    {% empty %}<li class="leise">Keine.</li>{% endfor %}
+  </ul>
+</section>
+
+{% if bezahlt %}
+<details class="gruppe">
+  <summary>Bezahlt</summary>
+  <ul class="posten-liste">
+    {% for r in bezahlt %}
+    <li class="posten"><a href="{% url 'dokumente:rechnung' r.pk %}">Eingangsrechnung #{{ r.pk }}</a> · bezahlt {{ r.bezahlt_am|date:"d.m.Y" }} · Buchung #{{ r.bezahlt_durch_id }}</li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

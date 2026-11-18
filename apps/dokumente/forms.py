@@ -164,6 +164,18 @@ class BelegFelder(forms.Form):
         widget=_zahl(),
         localize=True,
     )
+    faellig_am = forms.DateField(
+        label="fällig am",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Noch zu zahlen? Dann wird der Beleg ein offener Posten mit Erinnerung.",
+    )
+    rechnungsnummer = forms.CharField(
+        label="Rechnungsnummer",
+        max_length=100,
+        required=False,
+        help_text="Erkennt die Abbuchung im Verwendungszweck.",
+    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

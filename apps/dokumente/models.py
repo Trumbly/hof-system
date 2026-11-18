@@ -430,6 +430,69 @@ class Beleg(ProtokolliertesModell):
         return self.status == self.Status.OFFEN
 
 
+class Eingangsrechnung(ProtokolliertesModell):
+    """Ein offener Posten aus einem Beleg mit Fälligkeit (H6.1, Standardablauf 6).
+
+    Entsteht beim Bestätigen eines Belegs mit Fälligkeit, zusammen mit dem Arbeitsposten
+    „Rechnung zahlen“ und einer Frist (Zahlungsziel, drei Tage Vorlauf). Bezahlt ist sie, wenn
+    der Lauf ``kassenbuch_einordnen`` die Abbuchung erkennt (oder Max sie zuordnet):
+    ``bezahlt_durch`` zeigt dann auf die Buchung. Bei einer Sammelrechnung zeigt ``beleg`` auf
+    den ersten Teil; ``betrag`` ist der Betrag der ganzen Rechnung.
+    """
+
+    class Status(models.TextChoices):
+        OFFEN = "offen", "offen"
+        BEZAHLT = "bezahlt", "bezahlt"
+        STRITTIG = "strittig", "strittig"
+
+    beleg = models.OneToOneField(
+        Beleg, verbose_name="Beleg", on_delete=models.PROTECT, related_name="eingangsrechnung"
+    )
+    betrag = models.DecimalField("Betrag", max_digits=12, decimal_places=2)
+    rechnungsnummer = models.CharField("Rechnungsnummer", max_length=100, blank=True)
+    faellig_am = models.DateField("fällig am", db_index=True)
+    status = models.CharField(
+        "Status", max_length=20, choices=Status.choices, default=Status.OFFEN, db_index=True
+    )
+    bezahlt_durch = models.ForeignKey(
+        Buchung,
+        verbose_name="bezahlt durch Buchung",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="eingangsrechnungen",
+    )
+    bezahlt_am = models.DateField("bezahlt am", null=True, blank=True)
+    ueberfaellig_seit = models.DateField(
+        "als überfällig markiert am",
+        null=True,
+        blank=True,
+        help_text="Setzt der Lauf fristen am Tag nach der Fälligkeit.",
+    )
+    angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Eingangsrechnung"
+        verbose_name_plural = "Eingangsrechnungen"
+        ordering = ("faellig_am", "pk")
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(betrag__gt=0), name="eingangsrechnung_betrag_positiv"
+            ),
+            models.CheckConstraint(
+                condition=~Q(status="bezahlt") | Q(bezahlt_durch__isnull=False),
+                name="eingangsrechnung_bezahlt_mit_buchung",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Eingangsrechnung #{self.pk}"
+
+    @property
+    def ist_offen(self) -> bool:
+        return self.status == self.Status.OFFEN
+
+
 # --- Personenfelder (CLAUDE.md, Regel 4.6) ------------------------------------------
 
 # Vorlagen enthalten nur Platzhalter (Test: keine Namen aus dem Testhof).
@@ -446,3 +509,5 @@ personenfelder.unbedenklich(Dokument, ["art", "datei", "original", "sha256", "da
 personenfelder.unbedenklich(Dokument, ["herkunft"])
 personenfelder.register(Dokument, ["eingangskennung", "bemerkung"])
 personenfelder.unbedenklich(Beleg, ["status"])
+personenfelder.register(Eingangsrechnung, ["rechnungsnummer"])
+personenfelder.unbedenklich(Eingangsrechnung, ["status"])

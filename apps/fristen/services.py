@@ -40,7 +40,8 @@ from __future__ import annotations
 
 import datetime
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, models, transaction
@@ -263,6 +264,20 @@ class Fristenpruefung:
     faellig: int
     neue_posten: list[Arbeitsposten]
     geschlossen: int
+    #: Zähler der angemeldeten weiteren Prüfungen, nach Name (siehe ``pruefung_anmelden``)
+    weitere: dict[str, int] = field(default_factory=dict)
+
+
+#: Erweiterungsstelle: Weitere tägliche Prüfungen, die zum Lauf ``fristen`` gehören, etwa
+#: überfällige Eingangsrechnungen (Dokumente, Schritt 3b). Die Funktion bekommt Stichtag und
+#: Lauf und liefert eine Anzahl (z. B. markierte Posten).
+Pruefung = Callable[[datetime.date, Lauf | None], int]
+_PRUEFUNGEN: dict[str, Pruefung] = {}
+
+
+def pruefung_anmelden(name: str, funktion: Pruefung) -> None:
+    """Meldet eine weitere Prüfung für den Lauf ``fristen`` an (beim Start der App)."""
+    _PRUEFUNGEN[name] = funktion
 
 
 def _posten_hinweis(frist: Frist) -> str:
@@ -306,7 +321,10 @@ def fristen_pruefen(stichtag: datetime.date, *, lauf: Lauf | None = None) -> Fri
     for posten in offene_posten.exclude(bezug_id__in=faellige_ids).select_for_update():
         kern_services.arbeitsposten_erledigen(posten)
         geschlossen += 1
-    return Fristenpruefung(faellig=len(faellig), neue_posten=neue, geschlossen=geschlossen)
+    weitere = {name: funktion(stichtag, lauf) for name, funktion in sorted(_PRUEFUNGEN.items())}
+    return Fristenpruefung(
+        faellig=len(faellig), neue_posten=neue, geschlossen=geschlossen, weitere=weitere
+    )
 
 
 def frist_zum_posten(posten: Arbeitsposten) -> Frist:
@@ -336,4 +354,5 @@ __all__ = [
     "fristen_pruefen",
     "fristen_zu",
     "offene_fristen",
+    "pruefung_anmelden",
 ]

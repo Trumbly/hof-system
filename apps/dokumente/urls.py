@@ -19,6 +19,10 @@ urlpatterns = [
     path("belege/<int:pk>/aufteilen/", views.beleg_aufteilen, name="beleg_aufteilen"),
     path("lieferanten/", views.lieferanten, name="lieferanten"),
     path("lieferanten/<int:pk>/", views.lieferant, name="lieferant"),
+    path("rechnungen/", views.rechnungen, name="rechnungen"),
+    path("rechnungen/<int:pk>/", views.rechnung, name="rechnung"),
+    path("rechnungen/<int:pk>/verbinden/", views.rechnung_verbinden, name="rechnung_verbinden"),
+    path("rechnungen/<int:pk>/strittig/", views.rechnung_strittig, name="rechnung_strittig"),
     path("belegmappe/", views.belegmappe_seite, name="belegmappe"),
     path("belegmappe/mappe.pdf", views.belegmappe_pdf, name="belegmappe_pdf"),
     # Vorlagen und Schreiben (Schritt 3c)

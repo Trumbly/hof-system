@@ -77,6 +77,7 @@ from apps.dokumente.models import (
     Beleg,
     Dokument,
     Dokumentbezug,
+    Eingangsrechnung,
     Lieferant,
     Schreiben,
     Vorlage,
@@ -84,8 +85,11 @@ from apps.dokumente.models import (
 from apps.dokumente.platzhalter import PlatzhalterFehler
 from apps.dokumente.versand import VersandFehler, mail_senden
 from apps.dokumente.vorlagenarten import Versandweg
+from apps.fristen import services as fristen_services
+from apps.fristen.models import Frist
 from apps.kassenbuch import services as kassenbuch_services
 from apps.kassenbuch.models import Buchung, Kategorie
+from apps.kern import aufgaben
 from apps.kern import services as kern_services
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 
@@ -1085,12 +1089,18 @@ def beleg_bestaetigen(
     umlagefaehiger_anteil: Decimal | None = None,
     datum: datetime.date | None = None,
     am: datetime.datetime | None = None,
+    faellig_am: datetime.date | None = None,
+    rechnungsnummer: str = "",
 ) -> Beleg:
     """Bestätigt einen Beleg mit allen Feldern (Standardablauf 6, Schritt 3).
 
     Ohne umlagefähigen Anteil gilt die Vorgabe der Kostenart. Ein anderes Datum ändert das
     Datum des Dokuments (mit Löschfrist und Dateiname). Der Posten „Belege zuordnen“ ist
     danach erledigt; das Dokument hängt am Lieferanten.
+
+    Mit ``faellig_am`` (Schritt 3b) entsteht dazu die Eingangsrechnung mit Arbeitsposten
+    „Rechnung zahlen“ und Frist (``eingangsrechnung_anlegen``), solange der Beleg noch an
+    keiner Buchung hängt.
     """
     beleg = Beleg.objects.select_for_update().select_related("dokument").get(pk=beleg.pk)
     if beleg.status == Beleg.Status.VERWORFEN:
@@ -1114,6 +1124,18 @@ def beleg_bestaetigen(
     _beleg_posten_schliessen(beleg)
     dokument_bezug_setzen(beleg.dokument, lieferant)
     logger.info("Beleg #%s bestätigt", beleg.pk)
+    if faellig_am is not None:
+        vorhanden = Eingangsrechnung.objects.filter(beleg__dokument=beleg.dokument_id).first()
+        if vorhanden is not None and vorhanden.status == Eingangsrechnung.Status.BEZAHLT:
+            return beleg  # schon bezahlt: Fälligkeit und Nummer bleiben, wie sie waren
+        if vorhanden is None and beleg.buchung_id is not None:
+            raise RechnungFehler(f"Beleg #{beleg.pk} hängt schon an einer Buchung (bezahlt).")
+        eingangsrechnung_anlegen(
+            vorhanden.beleg if vorhanden is not None else beleg,
+            faellig_am=faellig_am,
+            rechnungsnummer=rechnungsnummer,
+            betrag=vorhanden.betrag if vorhanden is not None else None,
+        )
     return beleg
 
 
@@ -1237,12 +1259,14 @@ def beleg_hochladen(
     leistungsjahr: int | None = None,
     umlagefaehiger_anteil: Decimal | None = None,
     bemerkung: str = "",
+    faellig_am: datetime.date | None = None,
+    rechnungsnummer: str = "",
 ) -> Hochgeladen:
     """Beleg vom Handy (H6.2): Foto oder PDF, die Felder von Hand (keine Texterkennung).
 
     Leere Felder füllt der Vorschlag aus früheren Belegen des Lieferanten. Sind danach alle
-    Felder da, ist der Beleg bestätigt; sonst bleibt er offen mit Arbeitsposten „Belege
-    zuordnen“. Eine Dublette legt nichts Neues an.
+    Felder da, ist der Beleg bestätigt (mit ``faellig_am`` auch als Eingangsrechnung); sonst
+    bleibt er offen mit Arbeitsposten „Belege zuordnen“. Eine Dublette legt nichts Neues an.
     """
     ablage = dokument_ablegen(
         inhalt,
@@ -1269,7 +1293,11 @@ def beleg_hochladen(
             kategorie=kategorie,
             leistungsjahr=leistungsjahr,
             umlagefaehiger_anteil=umlagefaehiger_anteil,
+            faellig_am=faellig_am,
+            rechnungsnummer=rechnungsnummer,
         )
+    elif faellig_am is not None:
+        raise RechnungFehler("Mit Fälligkeit braucht der Beleg alle Felder.")
     else:
         beleg.betrag = betrag
         beleg.objekt = objekt
@@ -1447,3 +1475,345 @@ def belege_aus_postfach(
             ergebnis.arbeitsposten += 1
         ergebnis.erledigt.append(mail.uid)
     return ergebnis
+
+
+# =====================================================================================
+# Eingangsrechnungen (Schritt 3b, H6.1, Standardablauf 6)
+# =====================================================================================
+
+#: Arbeitsposten je offener Rechnung; meldet sich über die Benachrichtigung und als Aufgabe
+#: im Hof-Backlog (``kern.aufgaben.melden``).
+ART_RECHNUNG_ZAHLEN = "Rechnung zahlen"
+AKTIONEN_RECHNUNG = ("rechnung_ansehen", "zurueckstellen")
+#: Unsicherer Treffer im Kassenbuch (etwa zwei Rechnungen mit gleichem Betrag): nie automatisch.
+ART_RECHNUNG_ZUORDNEN = "Rechnung zuordnen"
+AKTIONEN_RECHNUNG_ZUORDNEN = ("rechnung_ansehen", "zurueckstellen")
+#: Erinnerung über den Lauf ``fristen``: so viele Tage vor der Fälligkeit (Arbeitsposten
+#: „Frist fällig“, gemeldet von der Benachrichtigung).
+ERINNERUNG_TAGE = 3
+#: So viele Tage vor dem Belegdatum kann eine Abbuchung frühestens liegen.
+ABBUCHUNG_VORLAUF_TAGE = 7
+UEBERFAELLIG = "Überfällig"
+
+
+class RechnungFehler(BelegFehler):
+    pass
+
+
+def _rechnung_posten(rechnung: Eingangsrechnung, art: str) -> list[Arbeitsposten]:
+    return list(
+        Arbeitsposten.objects.filter(
+            art=art,
+            bezug_typ=ContentType.objects.get_for_model(Eingangsrechnung),
+            bezug_id=rechnung.pk,
+            status__in=[Arbeitsposten.Status.OFFEN, Arbeitsposten.Status.ZURUECKGESTELLT],
+        )
+    )
+
+
+def _rechnung_hinweis(rechnung: Eingangsrechnung) -> str:
+    """Hinweis am Posten „Rechnung zahlen“: nur Datum und Status, keine Namen, keine Beträge."""
+    text = (
+        f"Rechnung fällig am {rechnung.faellig_am:%d.%m.%Y}. Zahlung in Vivid freigeben; "
+        "der Link führt zum Beleg."
+    )
+    if rechnung.ueberfaellig_seit is not None:
+        text = f"{UEBERFAELLIG} seit {rechnung.ueberfaellig_seit:%d.%m.%Y}. " + text
+    return text
+
+
+def normale_nummer(text: str) -> str:
+    """Rechnungsnummer zum Vergleichen: ohne Leerraum, ohne Groß und Klein."""
+    return re.sub(r"\s+", "", text or "").casefold()
+
+
+@transaction.atomic
+def eingangsrechnung_anlegen(
+    beleg: Beleg,
+    *,
+    faellig_am: datetime.date,
+    rechnungsnummer: str = "",
+    betrag: Decimal | None = None,
+    lauf: Lauf | None = None,
+) -> Eingangsrechnung:
+    """Macht aus einem bestätigten Beleg einen offenen Posten (Standardablauf 6, Schritt 4).
+
+    Es entstehen die Eingangsrechnung, ein Arbeitsposten „Rechnung zahlen“ (gemeldet an das
+    Hof-Backlog) und eine Frist (Zahlungsziel, drei Tage Vorlauf: die Erinnerung). Ohne Betrag
+    gilt der Betrag des Belegs. Gibt es zum Beleg schon eine offene Rechnung, werden
+    Fälligkeit und Nummer angeglichen; die Frist wandert mit.
+    """
+    beleg = Beleg.objects.select_for_update().select_related("dokument").get(pk=beleg.pk)
+    if beleg.status != Beleg.Status.BESTAETIGT:
+        raise RechnungFehler(f"Beleg #{beleg.pk} ist nicht bestätigt.")
+    wert = _betrag_pruefen(betrag if betrag is not None else beleg.betrag)
+    rechnung = Eingangsrechnung.objects.filter(beleg=beleg).first()
+    if rechnung is not None and rechnung.status == Eingangsrechnung.Status.BEZAHLT:
+        raise RechnungFehler(f"Eingangsrechnung #{rechnung.pk} ist schon bezahlt.")
+    neu = rechnung is None
+    if rechnung is None:
+        rechnung = Eingangsrechnung(beleg=beleg)
+    rechnung.betrag = wert
+    rechnung.faellig_am = faellig_am
+    rechnung.rechnungsnummer = rechnungsnummer.strip()[:100]
+    rechnung.full_clean()
+    rechnung.save()
+    fristen_services.frist_anlegen(
+        Frist.Art.ZAHLUNGSZIEL,
+        faellig_am,
+        Frist.Quelle.EINGANGSRECHNUNG,
+        rechnung,
+        hinweis=f"Eingangsrechnung, fällig am {faellig_am:%d.%m.%Y}",
+        vorlauf_tage=ERINNERUNG_TAGE,
+        datum_angleichen=True,
+    )
+    if neu or not _rechnung_posten(rechnung, ART_RECHNUNG_ZAHLEN):
+        posten = kern_services.arbeitsposten_anlegen(
+            ART_RECHNUNG_ZAHLEN,
+            bezug=rechnung,
+            aktionen=AKTIONEN_RECHNUNG,
+            faellig_am=faellig_am,
+            hinweis=_rechnung_hinweis(rechnung),
+            lauf=lauf,
+        )
+        aufgaben.melden(posten)
+    logger.info("Eingangsrechnung #%s angelegt (Beleg #%s)", rechnung.pk, beleg.pk)
+    return rechnung
+
+
+def _posten_schliessen(rechnung: Eingangsrechnung) -> None:
+    for art in (ART_RECHNUNG_ZAHLEN, ART_RECHNUNG_ZUORDNEN):
+        for posten in _rechnung_posten(rechnung, art):
+            kern_services.arbeitsposten_erledigen(posten)
+            aufgaben.melden(posten)
+
+
+def _buchung_fuer(beleg: Beleg, buchungen: Sequence[Buchung]) -> Buchung:
+    """Die Buchung eines Umsatzes, an die ein Teil der Rechnung gehört: gleiches Objekt und
+    gleicher Betrag, sonst gleiches Objekt, sonst die erste."""
+    for buchung in buchungen:
+        if buchung.objekt_id == beleg.objekt_id and buchung.betrag == beleg.betrag:
+            return buchung
+    for buchung in buchungen:
+        if buchung.objekt_id == beleg.objekt_id:
+            return buchung
+    return buchungen[0]
+
+
+@transaction.atomic
+def rechnung_bezahlt(
+    rechnung: Eingangsrechnung, umsatz: Bankumsatz, *, lauf: Lauf | None = None
+) -> Eingangsrechnung:
+    """Verbindet Rechnung und Abbuchung (Standardablauf 6, Schritt 6).
+
+    Die Rechnung ist danach bezahlt durch die (erste) gültige Buchung des Umsatzes; Posten
+    „Rechnung zahlen“ und „Rechnung zuordnen“ sowie die Frist sind erledigt, und jeder Beleg
+    der Rechnung (bei einer Sammelrechnung jeder Teil) hängt an seiner Buchung.
+    """
+    rechnung = (
+        Eingangsrechnung.objects.select_for_update()
+        .select_related("beleg__dokument")
+        .get(pk=rechnung.pk)
+    )
+    if rechnung.status == Eingangsrechnung.Status.BEZAHLT:
+        raise RechnungFehler(f"Eingangsrechnung #{rechnung.pk} ist schon bezahlt.")
+    if umsatz.richtung != Bankumsatz.Richtung.AUSGANG:
+        raise RechnungFehler(f"Umsatz #{umsatz.pk} ist keine Abbuchung.")
+    if Eingangsrechnung.objects.filter(bezahlt_durch__umsatz=umsatz).exists():
+        raise RechnungFehler(f"Umsatz #{umsatz.pk} bezahlt schon eine andere Rechnung.")
+    buchungen = list(kassenbuch_services.gueltige_buchungen().filter(umsatz=umsatz).order_by("pk"))
+    if not buchungen:
+        raise RechnungFehler(f"Umsatz #{umsatz.pk} ist noch nicht gebucht.")
+    rechnung.status = Eingangsrechnung.Status.BEZAHLT
+    rechnung.bezahlt_durch = buchungen[0]
+    rechnung.bezahlt_am = umsatz.buchungsdatum
+    rechnung.save()
+    _posten_schliessen(rechnung)
+    for frist in fristen_services.fristen_zu(rechnung, nur_offen=True):
+        fristen_services.frist_erledigen(frist)
+    teile = rechnung.beleg.dokument.belege.filter(status=Beleg.Status.BESTAETIGT, buchung=None)
+    for teil in teile.order_by("pk"):
+        beleg_an_buchung(teil, _buchung_fuer(teil, buchungen))
+    logger.info("Eingangsrechnung #%s bezahlt durch Umsatz #%s", rechnung.pk, umsatz.pk)
+    return rechnung
+
+
+def rechnung_strittig(rechnung: Eingangsrechnung, strittig: bool = True) -> Eingangsrechnung:
+    """Markiert eine offene Rechnung als strittig (wird nie automatisch verbunden) oder
+    wieder als offen."""
+    if rechnung.status == Eingangsrechnung.Status.BEZAHLT:
+        raise RechnungFehler(f"Eingangsrechnung #{rechnung.pk} ist schon bezahlt.")
+    rechnung.status = (
+        Eingangsrechnung.Status.STRITTIG if strittig else Eingangsrechnung.Status.OFFEN
+    )
+    rechnung.save(update_fields=["status"])
+    return rechnung
+
+
+# --- Abgleich im Lauf kassenbuch_einordnen -------------------------------------------
+
+
+@dataclass(frozen=True)
+class Treffer:
+    rechnung: Eingangsrechnung
+    umsatz: Bankumsatz
+    #: Die Rechnungsnummer steht im Verwendungszweck (sonst passt nur die Gegen-IBAN).
+    nummer: bool
+
+
+def _kandidaten_umsaetze(rechnungen: Sequence[Eingangsrechnung]) -> list[Bankumsatz]:
+    if not rechnungen:
+        return []
+    frueheste = min(r.beleg.dokument.datum for r in rechnungen) - datetime.timedelta(
+        days=ABBUCHUNG_VORLAUF_TAGE
+    )
+    schon_bezahlt = Eingangsrechnung.objects.filter(bezahlt_durch__isnull=False).values(
+        "bezahlt_durch__umsatz_id"
+    )
+    gebucht = kassenbuch_services.gueltige_buchungen().values("umsatz_id")
+    return list(
+        Bankumsatz.objects.filter(
+            richtung=Bankumsatz.Richtung.AUSGANG,
+            betrag__in={r.betrag for r in rechnungen},
+            buchungsdatum__gte=frueheste,
+            pk__in=gebucht,
+        )
+        .exclude(pk__in=schon_bezahlt)
+        .order_by("buchungsdatum", "pk")
+    )
+
+
+def treffer(rechnungen: Sequence[Eingangsrechnung] | None = None) -> list[Treffer]:
+    """Alle Paare aus offener Rechnung und gebuchter Abbuchung mit gleichem Betrag, bei denen
+    die Gegen-IBAN die des Lieferanten ist oder die Rechnungsnummer im Zweck steht."""
+    if rechnungen is None:
+        rechnungen = list(
+            Eingangsrechnung.objects.filter(status=Eingangsrechnung.Status.OFFEN).select_related(
+                "beleg__dokument", "beleg__lieferant"
+            )
+        )
+    ergebnis = []
+    for umsatz in _kandidaten_umsaetze(rechnungen):
+        zweck = normale_nummer(umsatz.verwendungszweck)
+        iban = fingerabdruck.iban_normal(umsatz.gegen_iban)
+        for rechnung in rechnungen:
+            if rechnung.betrag != umsatz.betrag:
+                continue
+            if umsatz.buchungsdatum < rechnung.beleg.dokument.datum - datetime.timedelta(
+                days=ABBUCHUNG_VORLAUF_TAGE
+            ):
+                continue
+            nummer = normale_nummer(rechnung.rechnungsnummer)
+            mit_nummer = bool(nummer) and nummer in zweck
+            lieferant = rechnung.beleg.lieferant
+            mit_iban = bool(iban) and lieferant is not None and lieferant.iban == iban
+            if mit_nummer or mit_iban:
+                ergebnis.append(Treffer(rechnung=rechnung, umsatz=umsatz, nummer=mit_nummer))
+    return ergebnis
+
+
+def _eindeutig(alle: list[Treffer]) -> tuple[list[Treffer], dict[int, list[Treffer]]]:
+    """(eindeutige Treffer, unsichere Treffer je Rechnung).
+
+    Eindeutig ist ein Paar, wenn die Rechnung genau eine Abbuchung hat und die Abbuchung genau
+    zu dieser Rechnung passt. Steht die Rechnungsnummer im Zweck, zählen zuerst nur diese
+    Treffer (die Nummer sticht die IBAN).
+    """
+    je_rechnung: dict[int, list[Treffer]] = {}
+    je_umsatz: dict[int, list[Treffer]] = {}
+    for t in alle:
+        je_rechnung.setdefault(t.rechnung.pk, []).append(t)
+        je_umsatz.setdefault(t.umsatz.pk, []).append(t)
+
+    def beste(liste: list[Treffer]) -> list[Treffer]:
+        mit_nummer = [t for t in liste if t.nummer]
+        return mit_nummer or liste
+
+    sicher, unsicher = [], {}
+    for rechnung_id, liste in je_rechnung.items():
+        auswahl = beste(liste)
+        if len(auswahl) == 1:
+            kandidat = auswahl[0]
+            gegen = beste(je_umsatz[kandidat.umsatz.pk])
+            if [t.rechnung.pk for t in gegen] == [rechnung_id]:
+                sicher.append(kandidat)
+                continue
+        unsicher[rechnung_id] = liste
+    return sicher, unsicher
+
+
+def _unsicher_hinweis(liste: list[Treffer], alle: list[Treffer]) -> str:
+    umsaetze = sorted({t.umsatz.pk for t in liste})
+    andere = sorted(
+        {t.rechnung.pk for t in alle if t.umsatz.pk in umsaetze} - {liste[0].rechnung.pk}
+    )
+    text = "Mögliche Abbuchungen: " + ", ".join(f"Umsatz #{u}" for u in umsaetze) + "."
+    if andere:
+        text += " Sie passen auch zu " + ", ".join(f"Eingangsrechnung #{r}" for r in andere) + "."
+    return text + " Bitte auf der Seite der Rechnung die richtige Abbuchung wählen."
+
+
+def rechnungen_abgleichen(lauf: Lauf | None = None) -> kassenbuch_services.Abgleich:
+    """Erkennt die Abbuchungen offener Eingangsrechnungen (Standardablauf 6, Schritt 6).
+
+    Eindeutige Treffer werden verbunden (``rechnung_bezahlt``). Unsichere Treffer, etwa zwei
+    Rechnungen mit gleichem Betrag beim selben Lieferanten, werden je Rechnung ein
+    Arbeitsposten „Rechnung zuordnen“, nie eine Verbindung.
+    """
+    alle = treffer()
+    sicher, unsicher = _eindeutig(alle)
+    verbunden = arbeitsposten = fehler = 0
+    for t in sicher:
+        try:
+            with transaction.atomic():
+                rechnung_bezahlt(t.rechnung, t.umsatz, lauf=lauf)
+        except RechnungFehler:
+            logger.warning("Eingangsrechnung #%s: Verbinden gescheitert", t.rechnung.pk)
+            fehler += 1
+            continue
+        verbunden += 1
+    for liste in unsicher.values():
+        rechnung = liste[0].rechnung
+        if _rechnung_posten(rechnung, ART_RECHNUNG_ZUORDNEN):
+            continue
+        kern_services.arbeitsposten_anlegen(
+            ART_RECHNUNG_ZUORDNEN,
+            bezug=rechnung,
+            aktionen=AKTIONEN_RECHNUNG_ZUORDNEN,
+            faellig_am=timezone.localdate(),
+            hinweis=_unsicher_hinweis(liste, alle),
+            lauf=lauf,
+        )
+        arbeitsposten += 1
+    return kassenbuch_services.Abgleich(
+        name="Eingangsrechnungen",
+        verbunden=verbunden,
+        arbeitsposten=arbeitsposten,
+        fehler=fehler,
+    )
+
+
+def abbuchung_kandidaten(rechnung: Eingangsrechnung) -> list[Bankumsatz]:
+    """Für die Seite der Rechnung: gebuchte Abbuchungen mit gleichem Betrag ab dem Belegdatum
+    (ohne IBAN oder Nummer), die noch keine Rechnung bezahlen."""
+    return _kandidaten_umsaetze([rechnung])
+
+
+# --- Überfällig (Lauf fristen) -------------------------------------------------------
+
+
+def rechnungen_ueberfaellig_markieren(stichtag: datetime.date, lauf: Lauf | None = None) -> int:
+    """Nach Ablauf der Fälligkeit ist der Posten „Rechnung zahlen“ überfällig markiert
+    (Hinweis beginnt mit „Überfällig seit …“). Läuft im Lauf ``fristen``; je Rechnung einmal."""
+    anzahl = 0
+    faellige = Eingangsrechnung.objects.filter(
+        status=Eingangsrechnung.Status.OFFEN, faellig_am__lt=stichtag, ueberfaellig_seit=None
+    ).order_by("faellig_am", "pk")
+    for rechnung in faellige:
+        rechnung.ueberfaellig_seit = stichtag
+        rechnung.save(update_fields=["ueberfaellig_seit"])
+        for posten in _rechnung_posten(rechnung, ART_RECHNUNG_ZAHLEN):
+            kern_services.arbeitsposten_hinweis_setzen(posten, _rechnung_hinweis(rechnung))
+            aufgaben.melden(posten)
+        anzahl += 1
+    return anzahl

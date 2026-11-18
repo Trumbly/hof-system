@@ -30,7 +30,8 @@ class Command(LaufBefehl):
         stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
         ergebnis = services.fristen_pruefen(stichtag, lauf=self.lauf)
         self.koerbe.arbeitsposten += len(ergebnis.neue_posten)
+        weitere = "".join(f" {name}: {anzahl}." for name, anzahl in ergebnis.weitere.items())
         return (
             f"Stichtag {stichtag:%d.%m.%Y}: {ergebnis.faellig} Fristen fällig, "
-            f"{len(ergebnis.neue_posten)} Posten neu, {ergebnis.geschlossen} geschlossen."
+            f"{len(ergebnis.neue_posten)} Posten neu, {ergebnis.geschlossen} geschlossen." + weitere
         )

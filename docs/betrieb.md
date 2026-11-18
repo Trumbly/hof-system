@@ -188,7 +188,9 @@ Der Lauf `belege_postfach` (stündlich 7 bis 21 Uhr) legt jede PDF-Anlage des Re
 - Belegpflicht im Monatsabschluss: `HOF_BELEGPFLICHT_ARTEN` (Standard `ausgabe`), `HOF_BELEGPFLICHT_AB_BETRAG` (Standard `0.00`), `HOF_BELEGPFLICHT_OHNE_KATEGORIEN` (Bezeichnungen mit Komma, z. B. `Kontoführung`). Fehlt ein Beleg, kommt ein Arbeitsposten „Belege fehlen“; der Abschluss geht trotzdem.
 - Aufbewahrung je Dokumentart: `DOKUMENTE["LOESCHFRIST_JAHRE"]` in `hof/settings/base.py`. Gelöscht wird noch nichts (Löschlauf in v2).
 
-Damit der Lieferant einer Mail erkannt wird, auf „Dokumente → Lieferanten“ seine Absenderadresse eintragen. Belege vom Handy: „Dokumente → Beleg hochladen“ (Foto oder PDF). Die Belegmappe je Objekt und Jahr entsteht auf „Dokumente → Belegmappe“.
+Eingangsrechnungen (Schritt 3b): Wer beim Bestätigen eines Belegs „fällig am“ einträgt, bekommt eine offene Rechnung mit Arbeitsposten „Rechnung zahlen“ und einer Frist; drei Tage vorher erinnert der Lauf `fristen` (Posten „Frist fällig“), nach der Fälligkeit steht am Posten „Überfällig seit …“. Der Lauf `kassenbuch_einordnen` erkennt die Abbuchung an Betrag und Gegen-IBAN des Lieferanten oder an der Rechnungsnummer im Zweck, verbindet Buchung und Rechnung, schließt Posten und Frist und hängt den Beleg an die Buchung. Unsichere Treffer werden ein Arbeitsposten „Rechnung zuordnen“. Die Meldung ans Hof-Backlog in Notion (`apps/kern/aufgaben.py`) kommt mit Schritt 9.
+
+Damit der Lieferant einer Mail erkannt wird, auf „Dokumente → Lieferanten“ seine Absenderadresse eintragen; für die Abbuchung seine IBAN. Belege vom Handy: „Dokumente → Beleg hochladen“ (Foto oder PDF). Die Belegmappe je Objekt und Jahr entsteht auf „Dokumente → Belegmappe“.
 
 ## Stammdaten importieren (Schritt 4)
 

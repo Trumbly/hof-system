@@ -22,6 +22,7 @@ from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
+from apps.bank.models import Bankumsatz
 from apps.dokumente import (
     belegmappe,
     bezuege,
@@ -43,9 +44,17 @@ from apps.dokumente.forms import (
     SerieForm,
     VorlageForm,
 )
-from apps.dokumente.models import Beleg, Dokument, Lieferant, Schreiben, Vorlage
+from apps.dokumente.models import (
+    Beleg,
+    Dokument,
+    Eingangsrechnung,
+    Lieferant,
+    Schreiben,
+    Vorlage,
+)
 from apps.dokumente.platzhalter import PlatzhalterFehler
 from apps.dokumente.versand import VersandFehler
+from apps.fristen import services as fristen_services
 from apps.kassenbuch.models import Buchung
 from apps.kern.models import Benutzer
 
@@ -383,6 +392,8 @@ BELEG_FELDER = (
     "kategorie",
     "leistungsjahr",
     "umlagefaehiger_anteil",
+    "faellig_am",
+    "rechnungsnummer",
 )
 ABLAGE_ANZAHL = 100
 
@@ -517,6 +528,8 @@ def beleg_hochladen(request: HttpRequest) -> HttpResponse:
                     leistungsjahr=daten["leistungsjahr"],
                     umlagefaehiger_anteil=daten["umlagefaehiger_anteil"],
                     bemerkung=daten["bemerkung"],
+                    faellig_am=daten["faellig_am"],
+                    rechnungsnummer=daten["rechnungsnummer"],
                 )
         except ABLAGE_FEHLER as fehler:
             form.add_error(None, str(fehler))
@@ -560,7 +573,12 @@ def beleg_vorschlag(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _rechnung_zu(eintrag: Beleg) -> Eingangsrechnung | None:
+    return Eingangsrechnung.objects.filter(beleg__dokument=eintrag.dokument_id).first()
+
+
 def _beleg_initial(eintrag: Beleg) -> dict[str, Any]:
+    rechnung = _rechnung_zu(eintrag)
     return {
         "lieferant": eintrag.lieferant,
         "datum": eintrag.dokument.datum,
@@ -569,6 +587,8 @@ def _beleg_initial(eintrag: Beleg) -> dict[str, Any]:
         "kategorie": eintrag.kategorie,
         "leistungsjahr": eintrag.leistungsjahr,
         "umlagefaehiger_anteil": eintrag.umlagefaehiger_anteil,
+        "faellig_am": rechnung.faellig_am if rechnung else None,
+        "rechnungsnummer": rechnung.rechnungsnummer if rechnung else "",
     }
 
 
@@ -594,6 +614,8 @@ def beleg(request: HttpRequest, pk: int) -> HttpResponse:
                     leistungsjahr=daten["leistungsjahr"],
                     umlagefaehiger_anteil=daten["umlagefaehiger_anteil"],
                     datum=daten["datum"],
+                    faellig_am=daten["faellig_am"],
+                    rechnungsnummer=daten["rechnungsnummer"],
                 )
         except ABLAGE_FEHLER as fehler:
             form.add_error(None, str(fehler))
@@ -616,6 +638,7 @@ def beleg(request: HttpRequest, pk: int) -> HttpResponse:
             "geschwister": eintrag.dokument.belege.exclude(pk=eintrag.pk).order_by("pk"),
             "umwidmen": BelegUmwidmenForm(initial={"lieferant": eintrag.lieferant}),
             "vorschlag": services.vorschlag(eintrag.lieferant, eintrag.dokument.datum),
+            "rechnung": _rechnung_zu(eintrag),
         },
     )
 
@@ -789,3 +812,75 @@ def belegmappe_pdf(request: HttpRequest) -> HttpResponse:
             f"Keine Belegmappe: {fehler}", status=409, content_type="text/plain; charset=utf-8"
         )
     return _pdf_antwort(daten, None, mappe.dateiname)
+
+
+# --- Eingangsrechnungen (Schritt 3b) -------------------------------------------------
+
+
+@login_required
+def rechnungen(request: HttpRequest) -> HttpResponse:
+    """Offene und strittige Eingangsrechnungen nach Fälligkeit, darunter die bezahlten."""
+    alle = Eingangsrechnung.objects.select_related("beleg__lieferant", "beleg__dokument")
+    return render(
+        request,
+        "dokumente/rechnungen.html",
+        {
+            "offen": alle.exclude(status=Eingangsrechnung.Status.BEZAHLT).order_by(
+                "faellig_am", "pk"
+            ),
+            "bezahlt": alle.filter(status=Eingangsrechnung.Status.BEZAHLT).order_by(
+                "-bezahlt_am", "-pk"
+            )[:ABLAGE_ANZAHL],
+            "heute": timezone.localdate(),
+        },
+    )
+
+
+@login_required
+def rechnung(request: HttpRequest, pk: int) -> HttpResponse:
+    eintrag = get_object_or_404(
+        Eingangsrechnung.objects.select_related(
+            "beleg__lieferant", "beleg__dokument", "bezahlt_durch"
+        ),
+        pk=pk,
+    )
+    return render(
+        request,
+        "dokumente/rechnung.html",
+        {
+            "rechnung": eintrag,
+            "kandidaten": (
+                services.abbuchung_kandidaten(eintrag)
+                if eintrag.status != Eingangsrechnung.Status.BEZAHLT
+                else []
+            ),
+            "fristen": fristen_services.fristen_zu(eintrag),
+            "heute": timezone.localdate(),
+        },
+    )
+
+
+@login_required
+@require_POST
+def rechnung_verbinden(request: HttpRequest, pk: int) -> HttpResponse:
+    """Max wählt die Abbuchung (bei einem unsicheren Treffer)."""
+    eintrag = get_object_or_404(Eingangsrechnung, pk=pk)
+    umsatz = get_object_or_404(Bankumsatz, pk=request.POST.get("umsatz") or 0)
+    try:
+        services.rechnung_bezahlt(eintrag, umsatz)
+    except ABLAGE_FEHLER as fehler:
+        messages.error(request, str(fehler))
+    else:
+        messages.success(request, f"Eingangsrechnung #{eintrag.pk} ist bezahlt.")
+    return redirect("dokumente:rechnung", pk=pk)
+
+
+@login_required
+@require_POST
+def rechnung_strittig(request: HttpRequest, pk: int) -> HttpResponse:
+    eintrag = get_object_or_404(Eingangsrechnung, pk=pk)
+    try:
+        services.rechnung_strittig(eintrag, request.POST.get("strittig") == "1")
+    except ABLAGE_FEHLER as fehler:
+        messages.error(request, str(fehler))
+    return redirect("dokumente:rechnung", pk=pk)

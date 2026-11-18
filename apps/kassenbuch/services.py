@@ -785,6 +785,35 @@ def umsaetze_einordnen(
     return ergebnis
 
 
+# --- Abgleiche nach dem Einordnen (Erweiterungsstelle) --------------------------------
+
+
+@dataclass(frozen=True)
+class Abgleich:
+    """Ergebnis eines Abgleichs nach dem Einordnen, nur Zähler (für das Laufprotokoll)."""
+
+    name: str
+    verbunden: int = 0
+    arbeitsposten: int = 0
+    fehler: int = 0
+
+
+#: Läuft im Lauf ``kassenbuch_einordnen`` nach dem Einordnen, etwa der Abgleich der
+#: Eingangsrechnungen mit den Abbuchungen (Dokumente, Schritt 3b), später der Abgleich mit
+#: den Sollposten (Schritt 6). Bekommt den Lauf, liefert ein ``Abgleich``.
+AbgleichFunktion = Callable[[Lauf | None], Abgleich]
+_ABGLEICHE: dict[str, AbgleichFunktion] = {}
+
+
+def abgleich_anmelden(name: str, funktion: AbgleichFunktion) -> None:
+    _ABGLEICHE[name] = funktion
+
+
+def abgleiche_ausfuehren(*, lauf: Lauf | None = None) -> list[Abgleich]:
+    """Alle angemeldeten Abgleiche, nach Namen sortiert."""
+    return [funktion(lauf) for _, funktion in sorted(_ABGLEICHE.items())]
+
+
 # --- Rückwirkende Regel mit Vorschau -------------------------------------------------
 
 
