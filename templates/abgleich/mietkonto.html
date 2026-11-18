@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block titel %}Mietkonto {{ vertrag.nummer }}{% endblock %}
+
+{% block inhalt %}
+<h1>Mietkonto <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
+<p class="leise"><a href="{% url 'stammdaten:vertrag' vertrag.pk %}">Zum Vertrag</a> · <a href="{% url 'soll:vertrag' vertrag.pk %}">Offene Posten</a> · {% for e in vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+<ul class="kennzahlen">
+  <li>Fälliges Soll: {{ konto.soll_faellig|floatformat:"2g" }} €</li>
+  <li>Bezahlt: {{ konto.bezahlt|floatformat:"2g" }} €</li>
+  <li>Guthaben: {{ konto.guthaben_summe|floatformat:"2g" }} €</li>
+  <li>Saldo: <strong>{{ konto.saldo|floatformat:"2g" }} €</strong></li>
+</ul>
+<div class="aktionen"><a class="knopf" href="{% url 'abgleich:handzahlung' vertrag.pk %}">Handzahlung erfassen</a></div>
+{% if konto.klaerfaelle %}<p class="meldung meldung-warning">In Klärung: {% for k in konto.klaerfaelle %}<a href="{% url 'abgleich:klaerfall' k.pk %}">#{{ k.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+<div class="tabelle-rahmen">
+<table class="tabelle">
+  <thead><tr><th>Posten</th><th>fällig</th><th class="zahl">Betrag</th><th class="zahl">bezahlt</th><th>Status</th><th>Zahlungen</th></tr></thead>
+  <tbody>
+  {% for z in konto.zeilen %}
+  <tr id="posten-{{ z.posten.pk }}">
+    <td>{{ z.posten.get_art_display }} {{ z.posten.zeitraum_text }}</td>
+    <td>{{ z.posten.faellig_am|date:"d.m.Y" }}</td>
+    <td class="zahl">{{ z.posten.betrag|floatformat:"2g" }}</td>
+    <td class="zahl">{{ z.posten.bezahlt|floatformat:"2g" }}</td>
+    <td>{{ z.posten.get_status_display }}</td>
+    <td>{% for zu in z.zuordnungen %}
+      <div>{{ zu.datum|date:"d.m.Y" }}: {{ zu.betrag|floatformat:"2g" }} € {% if zu.buchung_id %}Buchung #{{ zu.buchung_id }}{% else %}Handzahlung #{{ zu.handzahlung_id }}{% endif %}{% if zu.guthaben_id %} (Guthaben){% endif %}
+        <details><summary>Stornieren</summary>
+          <form method="post" class="formular">{% csrf_token %}<input type="hidden" name="zuordnung" value="{{ zu.pk }}">{{ storno.as_p }}<button type="submit" class="zweitrangig">Zuordnung stornieren</button></form>
+        </details></div>
+    {% endfor %}</td>
+  </tr>
+  {% empty %}<tr><td colspan="6">Keine Posten im Abgleich.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% if konto.guthaben %}<h2>Guthaben</h2><ul>{% for g in konto.guthaben %}<li>#{{ g.pk }}: {{ g.betrag|floatformat:"2g" }} €</li>{% endfor %}</ul>{% endif %}
+{% if konto.handzahlungen %}
+<h2>Handzahlungen</h2>
+<ul>{% for h in konto.handzahlungen %}
+  <li>{{ h.datum|date:"d.m.Y" }} · {{ h.get_art_display }} · {{ h.betrag|floatformat:"2g" }} €{% if h.storniert_am %} <span class="leise">(storniert)</span>{% else %}
+    <details><summary>Stornieren</summary><form method="post" class="formular">{% csrf_token %}<input type="hidden" name="handzahlung" value="{{ h.pk }}">{{ storno.as_p }}<button type="submit" class="zweitrangig">Handzahlung stornieren</button></form></details>{% endif %}</li>
+{% endfor %}</ul>
+{% endif %}
+{% endblock %}

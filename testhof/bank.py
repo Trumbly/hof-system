@@ -28,6 +28,11 @@ Für das Kassenbuch (``testhof/kassenbuch.py``) liefert Vivid außerdem je Monat
 
 Beide kommen aus einem eigenen Zufall, damit die übrigen Daten gleich bleiben.
 
+Für den Abgleich (``testhof/abgleich.py``, Schritt 6) zahlen die 45 Mieter ab Juli 2026
+nicht mehr ihren Zufallsbetrag, sondern das Soll ihres Vertrags, samt den Sonderfällen des
+Abgleichs. Der Zufall der übrigen Umsätze bleibt unberührt (der Tag wird weiter gezogen);
+das Modul hängt dafür von der Sollstellung ab.
+
 Alles entsteht über ``apps.bank.services``; alle Namen, IBANs und Zwecke sind erfunden.
 """
 
@@ -62,6 +67,8 @@ AUSGANG = Bankumsatz.Richtung.AUSGANG
 #: Monat der Sonderfälle (Jahr, Monat).
 MONAT_RUECKBUCHUNG = (2026, 3)
 MONAT_GLEICHE_ZAHLUNGEN = (2025, 6)
+#: Ab diesem Monat zahlen die Mieter auf Vivid das Soll ihres Vertrags (Abgleich, Schritt 6).
+ABGLEICH_AB = (2026, 7)
 
 
 @dataclass(frozen=True)
@@ -244,8 +251,11 @@ def _umsaetze(
     je_monat: dict[tuple[int, int], list[services.UmsatzDaten]] = {}
     for jahr, monat in monate:
         liste: list[services.UmsatzDaten] = []
+        ab_soll = plan.schluessel == "vivid" and (jahr, monat) >= ABGLEICH_AB
         for person in zahler:
             datum = _tag(jahr, monat, z.randint(1, 5))
+            if ab_soll:
+                continue  # ab Juli 2026 zahlen die Mieter ihr Soll (testhof/abgleich.py)
             daten = services.UmsatzDaten(
                 buchungsdatum=datum,
                 valuta=datum,
@@ -294,6 +304,10 @@ def _umsaetze(
             )
         if zusatz is not None:
             liste += _vivid_zusatz(zusatz, jahr, monat)
+        if ab_soll:
+            from testhof import abgleich
+
+            liste += abgleich.bankzahlungen(kontext.seed, zahler, jahr, monat)
         # Stabile Sortierung: gleiche Tage behalten die Reihenfolge der Erzeugung.
         je_monat[(jahr, monat)] = sorted(liste, key=lambda u: u.buchungsdatum)
     return je_monat
@@ -419,7 +433,7 @@ def leeren() -> None:
 
 register.registrieren(
     NAME,
-    abhaengig_von=("kern",),
+    abhaengig_von=("kern", "soll"),
     aufbauen=aufbauen,
     leeren=leeren,
     sonderfaelle=("doppelter_umsatz", "rueckbuchung"),

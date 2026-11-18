@@ -1,15 +1,14 @@
 """Standardablauf 1: Neuvermietung außerhalb von Wohnraum (Prozessliste), mit dem Testhof.
 
 Ergebnis laut Prozessliste: ein aktiver Vertrag mit laufender Sollstellung. Gebaut ist
-alles außer Bankerkennung der Kaution (Schritt 6). Dieser Teil steht unten als ``xfail`` mit
-Grund. Die Belegung auf der Website (Schritt 10) prüft
-``test_standardablauf_1_belegung_an_website``.
+alles: Kaution und erste Miete über die Bank erkennt seit Schritt 6 der Abgleich
+(``test_standardablauf_1_kaution_und_erste_miete_aus_bank``), die Belegung auf der Website
+(Schritt 10) prüft ``test_standardablauf_1_belegung_an_website``.
 """
 
 from __future__ import annotations
 
 import datetime
-import importlib
 import json
 from decimal import Decimal
 from typing import Any
@@ -193,9 +192,89 @@ def test_standardablauf_1_sollstellung_startet(
     assert Sollposten.objects.filter(vertrag=vertrag).count() == 1
 
 
-@pytest.mark.xfail(reason="Schritt 6: Der Abgleich erkennt Kaution und erste Miete über die Bank.")
-def test_standardablauf_1_kaution_aus_bank() -> None:
-    importlib.import_module("apps.abgleich.services")
+def test_standardablauf_1_kaution_und_erste_miete_aus_bank(
+    testhof: Testhof, monkeypatch: pytest.MonkeyPatch, settings: Any
+) -> None:
+    """Abnahme Schritt 6 (Standardablauf 1, Schritt 6): Das System erkennt den Eingang von
+    Kaution und erster Miete über die Bank. Die Kaution eines neuen Zahlers wird ein Klärfall
+    mit Vorschlag (nie still gebucht); „Regel anlegen“ ordnet sie zu und trägt den Eingang
+    ein. Die erste Miete bucht danach der Lauf selbst."""
+    from apps.abgleich import services as abgleich
+    from apps.bank import services as bank
+    from apps.kassenbuch import services as kassenbuch
+    from apps.kassenbuch.models import Buchung
+
+    settings.ABGLEICH_BEGINN = D(2026, 7, 1)
+    heute = {"tag": D(2026, 11, 28)}
+    monkeypatch.setattr(soll, "heute", lambda: heute["tag"])
+    monkeypatch.setattr(abgleich, "heute", lambda: heute["tag"])
+    einheit = _freie_garage(testhof)
+    with schreiben.ohne_schreiben("Test ohne PDF"):
+        vertrag = services.vertrag_anlegen(
+            einheiten=[einheit],
+            mieter=[testhof.stammdaten.parteien[-1]],
+            beginn=BEGINN,
+            miete=Decimal("89.00"),
+            kaution=Decimal("178.00"),
+        )
+    vivid = testhof.bank.konten["vivid"]
+    iban = "DE02012345670000004711"
+
+    def eingang(tag: datetime.date, betrag: str, zweck: str) -> Buchung:
+        (umsatz,) = bank.umsaetze_uebernehmen(
+            vivid,
+            [
+                bank.UmsatzDaten(
+                    buchungsdatum=tag,
+                    betrag=Decimal(betrag),
+                    richtung="eingang",
+                    gegenpartei="Nora Testmieterin",
+                    gegen_iban=iban,
+                    verwendungszweck=zweck,
+                )
+            ],
+        ).umsaetze
+        treffer = kassenbuch.einordnen(umsatz, kassenbuch.aktive_regeln()).regel
+        if treffer is not None:
+            kassenbuch.nach_regel_buchen(umsatz, treffer)
+        else:  # neuer Zahler: im Kassenbuch von Hand eingeordnet
+            kassenbuch.umsatz_zuordnen(
+                umsatz,
+                kategorie=testhof.kassenbuch.kategorien["Kautionen (durchlaufend)"],
+                objekt=einheit.objekt,
+            )
+        return Buchung.objects.get(umsatz=umsatz)
+
+    # Kaution geht ein, bevor der Vertrag aktiv ist.
+    kaution = eingang(D(2026, 11, 29), "178.00", f"Kaution {vertrag.nummer}")
+    ergebnis = abgleich.abgleichen()
+    assert ergebnis.kautionsposten == 1 and ergebnis.gebucht == 0
+    (fall,) = kaution.klaerfaelle.all()
+    assert fall.vorschlag["vertrag"] == vertrag.pk and fall.konfidenz == Decimal("0.80")
+
+    regel = abgleich.klaerfall_regel_anlegen(
+        fall,
+        vertrag=vertrag,
+        kategorie=testhof.kassenbuch.kategorien["Mieteinnahmen Garagen"],
+        objekt=einheit.objekt,
+    )
+    assert regel.gebucht and regel.neue_regel is not None
+    vertrag.kaution.refresh_from_db()
+    assert vertrag.kaution.eingang_am == D(2026, 11, 29)
+
+    # Übergabe: Der Vertrag wird aktiv, das Soll beginnt.
+    heute["tag"] = D(2026, 12, 2)
+    with schreiben.ohne_schreiben("Test ohne PDF"):
+        services.vertrag_unterschrieben(vertrag, D(2026, 11, 28))
+        uebergabe = services.uebergabe_beginnen(vertrag, "uebergabe", BEGINN)
+        services.uebergabe_speichern(uebergabe, unterschrift=foto("q.png"))
+        services.uebergabe_abschliessen(uebergabe)
+
+    # Erste Miete: Der Lauf bucht sie über die neue Zahlerregel selbst.
+    eingang(D(2026, 12, 3), "89.00", "Miete Dezember")
+    assert abgleich.abgleichen().gebucht == 1
+    assert _erste_miete(vertrag)[2] == Decimal("89.00")
+    assert Sollposten.objects.get(vertrag=vertrag, art="miete").status == "bezahlt"
 
 
 def test_standardablauf_1_belegung_an_website(testhof: Testhof) -> None:

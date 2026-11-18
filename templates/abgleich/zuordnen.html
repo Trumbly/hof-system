@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block titel %}Zahlung zuordnen{% endblock %}
+
+{% block inhalt %}
+<h1>Zuordnen</h1>
+{% include "abgleich/_buchung_kopf.html" %}
+<p class="leise">Der offene Betrag geht auf die offenen Posten des Vertrags, älteste zuerst.</p>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <div class="aktionen">
+    <button type="submit">Zuordnen</button>
+    <a class="knopf zweitrangig" href="{% url 'abgleich:aufteilen' klaerfall.pk %}">Lieber aufteilen</a>
+  </div>
+</form>
+{% endblock %}

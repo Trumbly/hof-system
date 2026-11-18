@@ -1,0 +1,45 @@
+# Erfundenes Beispiel für die Mietregeln aus hof-fints (regeln.yaml).
+# Das echte Format ist unbekannt; dies ist eine Annahme. Die Zuordnung der Felder steht an
+# einer Stelle: apps/abgleich/importformat.py. Alle Namen, IBANs und Zwecke sind erfunden.
+version: 1
+mietregeln:
+  - id: 1
+    zahler:
+      name: "Erika Beispiel"
+      iban: "DE38 0494 1417 5814 5518 89"
+    vertrag: "V-0020"
+    betrag: 85.00
+  - id: 2
+    zahler:
+      iban: "DE30037984174247057035"
+      zweck: "Mieten Garagen"
+    vertraege: ["V-0030", "V-0031"]
+  - id: 3
+    zahler:
+      name: "Testfirma GmbH"
+      zweck: "Lager"
+    vertrag: "V-0021"
+  - id: 4
+    zahler:
+      iban: "DE92046467835624995916"
+    vertrag: "V-9999"
+    betrag: 40.00
+  - id: 5
+    zahler:
+      iban: "DE97056938089869608783"
+    nw_id: "NW-W-0001"
+  - id: 6
+    vertrag: "V-0022"
+  - id: 7
+    zahler:
+      iban: "DE38049414175814551889"
+    vertrag: "V-0023"
+  - id: 8
+    zahler:
+      iban: "DE10054223252020994922"
+    nw_id: "NW-G-0099"
+pachtregeln:
+  - id: 50
+    zahler:
+      name: "Landwirt Muster"
+      zweck: "Pacht Feld"

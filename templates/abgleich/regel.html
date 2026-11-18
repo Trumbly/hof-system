@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block titel %}Zahlerregel anlegen{% endblock %}
+
+{% block inhalt %}
+<h1>Regel anlegen</h1>
+{% include "abgleich/_buchung_kopf.html" %}
+<p class="leise">Ist die Buchung nach einer Regel ohne Zahlerregel gebucht, bekommt diese den Vertrag. Sonst entsteht im Kassenbuch eine Regel nach der Gegen-IBAN mit der gewählten Kategorie und dem Objekt. Danach wird die Zahlung abgeglichen; gebucht wird nur, was genau passt.</p>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Regel anlegen</button>
+</form>
+{% endblock %}

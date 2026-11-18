@@ -268,6 +268,19 @@ Import nach den Einheiten: `compose.sh exec app python manage.py import_zaehler 
 
 Der Lauf `zaehler_stichtag` (täglich im Tageslauf, prüft selbst) legt im Ablesefenster (15.12. bis 15.01.) je Zähler ohne Stand zum 31.12. einen Arbeitsposten „Ablesung fehlt“ an; er meldet sich über die Benachrichtigung. Stichtag, Fenster und Vorlauf der Eichfrist stehen in `apps/zaehler/konfiguration.toml`. Vor dem Besuch: Zähler → „Liste für deinen nächsten Besuch“ drucken, vor Ort Zähler → „Ablesen <Objekt>“ am Handy.
 
+## Abgleich (Schritt 6)
+
+**Ablauf.** Um 6:45, nach dem Einordnen im Kassenbuch, gleicht `abgleich` die Einnahme-Buchungen ohne Wohnraum-Merkmal mit den offenen Sollposten ab. Gebucht wird nur, was genau passt (centgenau und genau ein Kandidat): Zahlerregel mit Vertrag auf die ältesten offenen Posten, Sammelzahler auf die Posten der Vertragsliste, Jahreszahler auf die Posten eines Jahres. Der Verwendungszweck wird immer geprüft. Überzahlungen werden Guthaben und mit dem nächsten Posten verrechnet; Teilzahlungen mit klarem Betrag bleiben als Rest offen. Alles andere steht in der Arbeitsliste „Zahlungen klären“ mit Vorschlag und Konfidenz und den Aktionen Zuordnen, Aufteilen, Regel anlegen, Zurückstellen und Nicht vertragsbezogen; Rückbuchungen mit Bestätigen oder Keine Rückbuchung. Barzahlung, Zahlung auf ein fremdes Konto und Erstattung erfasst du im Mietkonto des Vertrags als Handzahlung mit Grund und Beleg. Die Seite „Rückstände“ (Startseite) zeigt je Vertrag den Rückstand nach Alter; Posten, die nach dem Stand der Bankdaten fällig wurden, gelten als nicht prüfbar.
+
+Der Beleg einer Handzahlung ist vorerst eine Datei am Datensatz (`abgleich/handzahlungen/<Jahr>/`). Sobald die Belegablage (Schritt 3a) steht, wird er ein Verweis auf das Dokument; die Dateien werden dann übernommen.
+
+**Einrichten (einmalig).**
+
+1. In `/opt/hof/.env`: `HOF_ABGLEICH_BEGINN=2026-07-01` (Zahlungen davor und Posten, die davor enden, führt das alte System; leer heißt wie `HOF_SOLL_BEGINN`).
+2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Timer `abgleich` ein.
+3. Mietregeln aus hof-fints (Datei in den Container kopieren): `compose.sh exec app python manage.py abgleich_regeln_import /pfad/regeln.yaml`, Bericht prüfen, dann mit `--ausfuehren`. Der Bericht nennt nur Zähler, Eintrag-IDs und NW-IDs. Weicht das Format ab, wird nur `apps/abgleich/importformat.py` angepasst. Danach die Datei löschen.
+4. Rückrechnung: `compose.sh exec app python manage.py abgleich_rueckrechnung --von 2026-07 --bis 2026-12`. Sie rechnet in einer Kopie (nichts wird gespeichert) und nennt je Vertrag bezahlt, offen oder in Klärung; den Vergleich mit dem alten Mietabgleich machst du. Der Bericht darf mit Claude geteilt werden.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

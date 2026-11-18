@@ -82,7 +82,9 @@ def test_nach_dem_lauf_ist_jeder_umsatz_gebucht_oder_arbeitsposten(testhof: Test
 
     gesamt = Bankumsatz.objects.count()
     assert lauf.status == "erfolgreich"
-    assert (lauf.gebucht, lauf.arbeitsposten, lauf.fehler) == (gesamt - 1 - 49, 49, 0)
+    # 50 Posten: 24 Material, 24 Versicherung, 2 Rückbuchungen (eine aus dem Abgleich,
+    # testhof/abgleich.py, Schritt 6). Gebucht ist alles andere bis auf die Sammelrechnung.
+    assert (lauf.gebucht, lauf.arbeitsposten, lauf.fehler) == (gesamt - 1 - 50, 50, 0)
 
     mit_posten = services.offene_posten_umsatz_ids()
     summen = dict(

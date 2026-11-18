@@ -1,0 +1,21 @@
+<section class="gruppe umsatz-kopf" aria-labelledby="zahlung-titel">
+  <h2 id="zahlung-titel">Zahlung: Buchung #{{ buchung.pk }}</h2>
+  <dl class="angaben">
+    <dt>Datum</dt><dd>{{ umsatz.buchungsdatum|date:"d.m.Y" }}</dd>
+    <dt>Konto</dt><dd>{{ umsatz.konto.bezeichnung }} <span class="leise">#{{ umsatz.konto_id }}</span></dd>
+    <dt>Betrag</dt><dd>{{ buchung.betrag|floatformat:"2g" }} € <span class="leise">(noch offen {{ offen|floatformat:"2g" }} €)</span></dd>
+    <dt>Gegenpartei</dt><dd>{{ umsatz.gegenpartei|default:"–" }}{% if umsatz.gegen_iban %}<br><code class="leise">{{ umsatz.gegen_iban }}</code>{% endif %}</dd>
+    <dt>Zweck</dt><dd>{{ umsatz.verwendungszweck|default:"–" }}</dd>
+    <dt>Klärfall</dt><dd>{{ klaerfall.get_art_display }} · Konfidenz {% widthratio klaerfall.konfidenz 1 100 %} %{% if not klaerfall.offen %} · {{ klaerfall.get_ergebnis_display }}{% endif %}</dd>
+  </dl>
+  {% if posten_arbeit and posten_arbeit.hinweis %}<p class="leise">{{ posten_arbeit.hinweis }}</p>{% endif %}
+  {% if vorschlag_vertrag or vorschlag_posten %}
+  <p><strong>Vorschlag:</strong>
+    {% if vorschlag_vertrag %}Vertrag <a href="{% url 'abgleich:mietkonto' vorschlag_vertrag.pk %}">{{ vorschlag_vertrag.nummer }}</a>{% endif %}
+    {% for p, b in vorschlag_posten %}{% if forloop.first %} – {% endif %}{{ p.vertrag.nummer }} {{ p.get_art_display }} {{ p.zeitraum_text }}: {{ b|floatformat:"2g" }} €{% if not forloop.last %}; {% endif %}{% endfor %}
+    {% if vorschlag_guthaben %} · Guthaben {{ vorschlag_guthaben|floatformat:"2g" }} €{% endif %}
+  </p>
+  {% endif %}
+  {% if alternativen %}<p class="leise">Auch möglich: {% for v in alternativen %}<a href="{% url 'abgleich:mietkonto' v.pk %}">{{ v.nummer }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  <p class="leise"><a href="{% url 'kassenbuch:umsatz' umsatz.pk %}">Umsatz im Kassenbuch</a></p>
+</section>
