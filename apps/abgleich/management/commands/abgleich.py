@@ -1,4 +1,4 @@
-"""Lauf ``abgleich`` (H3.5): täglich um 6:45, nach dem Einordnen im Kassenbuch um 6:30.
+"""Lauf ``abgleich`` (H3.5): täglich im Tageslauf, nach Bankabruf und Einordnen im Kassenbuch.
 
 Gleicht die Einnahme-Buchungen ohne Wohnraum-Merkmal mit den offenen Sollposten ab (Stufen
 in ``apps.abgleich.services``). Sichere Treffer werden gebucht, der Rest wird ein

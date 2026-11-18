@@ -19,8 +19,8 @@ alten Zuordnung des Zahlers, nicht der Einheit des Vertrags: im Testhof bewusst 
   NW-ID der Einheit von Vertrag 10 (Klärfall, nie gebucht).
 - ``ueberzahlung_guthaben``: Vertrag 11 zahlt im August 20 € zu viel (Guthaben, verrechnet
   mit dem Folgemonat).
-- ``barzahlung``: Vertrag 13 zahlt die Septembermiete bar (Handzahlung mit Beleg, kein
-  Bankumsatz).
+- ``barzahlung``: Vertrag 13 zahlt die Septembermiete bar (Handzahlung mit Quittung als
+  Beleg in der Ablage, kein Bankumsatz).
 - ``teilzahlung_nachzahlung``: Vertrag 14 zahlt im August 60 %, im September den Rest und
   die Septembermiete.
 - ``dauerauftrag_alte_miete``: Vertrag 4 (Staffel ab 01.01.2026) zahlt per Dauerauftrag die
@@ -45,8 +45,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.contrib.contenttypes.models import ContentType
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 
 from apps.abgleich import services
 from apps.abgleich.models import (
@@ -56,15 +54,15 @@ from apps.abgleich.models import (
     Sammelvertrag,
     Zahlerregel,
     Zuordnung,
-    beleg_pfad,
 )
 from apps.bank import services as bank_services
 from apps.bank.models import Bankumsatz
+from apps.dokumente.models import Dokument
 from apps.kassenbuch.models import Zuordnungsregel
 from apps.kern.models import Arbeitsposten
 from apps.soll.models import Sollposten
 from apps.stammdaten.models import Partei, Vertrag, Vertragspartei
-from testhof import register
+from testhof import pdfs, register
 from testhof.aufbau import Kontext
 
 if TYPE_CHECKING:
@@ -275,17 +273,20 @@ def aufbauen(kontext: Kontext) -> AbgleichDaten:
     bar = vertraege[BARZAHLUNG]
     posten = _monatsposten(bar, *MONAT_BARZAHLUNG)
     betrag = sum((p.betrag for p in posten), Decimal("0.00"))
-    vorlage = Handzahlung(vertrag=bar, art=Handzahlung.Art.BAR, datum=TAG_BARZAHLUNG)
-    pfad = beleg_pfad(vorlage, "quittung.txt")
-    if default_storage.exists(pfad):  # Rest eines früheren Aufbaus im Speicher
-        default_storage.delete(pfad)
+    beleg = services.beleg_ablegen(
+        pdfs.einfaches_pdf(
+            ["Quittung über eine Barzahlung (erfunden)", f"Vertrag {bar.nummer}", "Miete 09/2026"]
+        ),
+        datum=TAG_BARZAHLUNG,
+        herkunft=Dokument.Herkunft.TESTHOF,
+    )
     handzahlung = services.handzahlung_erfassen(
         bar,
         Handzahlung.Art.BAR,
         datum=TAG_BARZAHLUNG,
         betrag=betrag,
         grund="Barzahlung der Septembermiete gegen Quittung (Testhof)",
-        beleg=ContentFile(b"Quittung Barzahlung (erfunden)", name="quittung.txt"),
+        beleg=beleg,
         anteile=[services.Anteil(p, p.betrag) for p in posten],
     )
     return AbgleichDaten(
@@ -315,8 +316,6 @@ def leeren() -> None:
     while Guthaben.objects.exists():
         Guthaben.objects.filter(reste__isnull=True).delete()
     Klaerfall.objects.all().delete()
-    for handzahlung in Handzahlung.objects.exclude(beleg=""):
-        handzahlung.beleg.delete(save=False)
     Handzahlung.objects.all().delete()
     Sammelvertrag.objects.all().delete()
     Zahlerregel.objects.all().delete()
@@ -324,7 +323,7 @@ def leeren() -> None:
 
 register.registrieren(
     NAME,
-    abhaengig_von=("bank", "kassenbuch", "soll"),
+    abhaengig_von=("bank", "belege", "kassenbuch", "soll"),
     aufbauen=aufbauen,
     leeren=leeren,
     sonderfaelle=SONDERFAELLE,

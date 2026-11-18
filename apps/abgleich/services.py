@@ -64,7 +64,6 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.core.files.base import File
 from django.db import IntegrityError, models, transaction
 from django.db.models import Exists, F, Max, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce
@@ -80,6 +79,9 @@ from apps.abgleich.models import (
 )
 from apps.bank import fingerabdruck
 from apps.bank.models import Bankkonto, Bankumsatz, Kontostand
+from apps.dokumente import dokumentarten, umwandeln
+from apps.dokumente import services as dokumente
+from apps.dokumente.models import Dokument, Lieferant
 from apps.kassenbuch import services as kassenbuch
 from apps.kassenbuch.models import Buchung, Kategorie, Zuordnungsregel
 from apps.kern import services as kern
@@ -661,6 +663,23 @@ def guthaben_verrechnen(
 # --- Handzahlungen (H3.7) ------------------------------------------------------------
 
 
+def beleg_ablegen(
+    inhalt: bytes, *, datum: datetime.date, herkunft: str = Dokument.Herkunft.UPLOAD
+) -> Dokument:
+    """Legt den Beleg einer Handzahlung (PDF oder Foto) in die Ablage, Dokumentart „Beleg“.
+    Eine schon abgelegte Datei (gleiche Prüfsumme) wird wiederverwendet.
+
+    Raises:
+        AbgleichFehler: weder PDF noch lesbares Foto.
+    """
+    try:
+        return dokumente.dokument_ablegen(
+            inhalt, art=dokumentarten.BELEG, datum=datum, herkunft=herkunft
+        ).dokument
+    except (umwandeln.DateiUngueltig, dokumente.AblageFehler) as fehler:
+        raise AbgleichFehler(f"Der Beleg lässt sich nicht ablegen ({fehler}).") from fehler
+
+
 @transaction.atomic
 def handzahlung_erfassen(
     vertrag: Vertrag,
@@ -669,7 +688,7 @@ def handzahlung_erfassen(
     datum: datetime.date,
     betrag: Decimal,
     grund: str,
-    beleg: File[Any],
+    beleg: Dokument,
     anteile: Sequence[Anteil] | None = None,
 ) -> Handzahlung:
     """Erfasst eine Zahlung ohne Bankumsatz. Grund und Beleg sind Pflicht.
@@ -687,7 +706,7 @@ def handzahlung_erfassen(
     grund = grund.strip()
     if not grund:
         raise AbgleichFehler(f"Vertrag {vertrag.nummer}: Eine Handzahlung braucht einen Grund.")
-    if not beleg:
+    if not isinstance(beleg, Dokument) or beleg.pk is None:
         raise AbgleichFehler(f"Vertrag {vertrag.nummer}: Eine Handzahlung braucht einen Beleg.")
     if art == Handzahlung.Art.ERSTATTUNG and betrag > guthaben_summe(vertrag):
         raise AbgleichFehler(
@@ -698,6 +717,7 @@ def handzahlung_erfassen(
     )
     handzahlung.full_clean()
     handzahlung.save()
+    dokumente.dokument_bezug_setzen(beleg, handzahlung)
     if art == Handzahlung.Art.ERSTATTUNG:
         _erstatten(handzahlung)
         return handzahlung
@@ -1527,15 +1547,17 @@ def offene_buchungen(*, bis: datetime.date | None = None) -> QuerySet[Buchung]:
 
 
 def _lieferanten_iban(buchung: Buchung) -> bool:
-    """Zahlte das Hof-System an diese IBAN Ausgaben (Kategorie Ausgabe), und hat sie nie für
-    einen Vertrag gezahlt? Dann ist der Eingang eher eine Erstattung als eine Miete."""
+    """Gehört die IBAN einem Lieferanten (``dokumente.Lieferant``) oder zahlte das Hof-System
+    an sie Ausgaben, und hat sie nie für einen Vertrag gezahlt? Dann ist der Eingang eher eine
+    Erstattung oder Rücklastschrift als eine Miete."""
     iban = fingerabdruck.iban_normal(buchung.umsatz.gegen_iban)
     if not iban:
         return False
     ausgaben = kassenbuch.gueltige_buchungen().filter(
         richtung=AUSGANG, kategorie__art__in=LIEFERANT_ARTEN, umsatz__gegen_iban=iban
     )
-    if not ausgaben.exists():
+    lieferant = Lieferant.objects.filter(iban__iexact=iban).exists()
+    if not (lieferant or ausgaben.exists()):
         return False
     return not _gueltige_zuordnungen().filter(buchung__umsatz__gegen_iban=iban).exists()
 
@@ -1753,6 +1775,18 @@ def vertraege_in_klaerung() -> set[int]:
         if zahlerregel is not None:
             ids.update(v.pk for v in zahlerregel.vertraege())
     return ids
+
+
+def kachel_rueckstaende() -> dict[str, Any]:
+    """Kontext der Kachel „Rückstände“ für das Hof-Cockpit (Schritt 9b): nur Zähler und
+    Summen, keine Namen, keine Beträge je Vertrag."""
+    zahlen = rueckstaende().kennzahlen()
+    return {
+        "anzahl": zahlen["vertraege_mit_rueckstand"],
+        "in_klaerung": zahlen["vertraege_in_klaerung"],
+        "summe": zahlen["summe"],
+        "ueber_60": zahlen["summe_ueber_60"],
+    }
 
 
 def rueckstaende(stichtag: datetime.date | None = None) -> Rueckstaende:

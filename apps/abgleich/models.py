@@ -17,7 +17,8 @@ Kern der Kette: Vertrag → Sollposten → **Zuordnung** → Buchung → Bankums
   verrechnet es mit dem nächsten fälligen Posten (dann entsteht eine Zuordnung mit Verweis auf
   das Guthaben); ein Rest bleibt als neues Guthaben stehen.
 - ``Handzahlung`` trägt Zahlungen ohne Bankumsatz (H3.7): Barzahlung, Zahlung auf ein fremdes
-  Konto, Erstattung eines Guthabens. Grund und Beleg sind Pflicht.
+  Konto, Erstattung eines Guthabens. Grund und Beleg sind Pflicht; der Beleg liegt als
+  ``dokumente.Dokument`` in der Ablage und hängt über einen Dokumentbezug an der Zahlung.
 - ``Klaerfall`` ist der fachliche Inhalt eines Arbeitspostens „Zahlungen klären“: Art,
   Vorschlag und Konfidenz.
 
@@ -27,15 +28,14 @@ Trigger verhindern jede andere Änderung an Gebuchtem.
 
 from __future__ import annotations
 
-import datetime
 from decimal import Decimal
-from pathlib import PurePosixPath
 
 import pgtrigger
 from django.db import models
 from django.db.models import Q
 
 from apps.bank.models import Bankumsatz
+from apps.dokumente.models import Dokument
 from apps.kassenbuch.models import Buchung, Zuordnungsregel
 from apps.kern import personenfelder
 from apps.kern.models import Lauf
@@ -142,20 +142,6 @@ class Sammelvertrag(ProtokolliertesModell):
         return f"Sammelvertrag #{self.pk}"
 
 
-def beleg_pfad(handzahlung: Handzahlung, dateiname: str) -> str:
-    """Ablage des Belegs: nach Jahr, benannt nach Vertrag, Art und Tag, ohne Namen.
-
-    Später (Belegablage aus Schritt 3a) wird der Beleg ein Verweis auf ``dokumente``; siehe
-    ``docs/betrieb.md``.
-    """
-    endung = PurePosixPath(dateiname).suffix.lower()[:10]
-    datum: datetime.date = handzahlung.datum
-    return (
-        f"abgleich/handzahlungen/{datum:%Y}/"
-        f"{handzahlung.vertrag.nummer}-{handzahlung.art}-{datum:%Y%m%d}{endung}"
-    )
-
-
 class Handzahlung(ProtokolliertesModell):
     """Zahlung ohne Bankumsatz (H3.7). Grund und Beleg sind Pflicht."""
 
@@ -171,7 +157,13 @@ class Handzahlung(ProtokolliertesModell):
     datum = models.DateField("Datum")
     betrag = models.DecimalField("Betrag", max_digits=12, decimal_places=2)
     grund = models.TextField("Grund")
-    beleg = models.FileField("Beleg", upload_to=beleg_pfad, max_length=200)
+    beleg = models.ForeignKey(
+        Dokument,
+        verbose_name="Beleg",
+        on_delete=models.PROTECT,
+        related_name="handzahlungen",
+        help_text="Quittung oder Kontoauszug in der Ablage (Dokumentart „Beleg“).",
+    )
     storniert_am = models.DateField("storniert am", null=True, blank=True)
     storno_grund = models.CharField("Grund des Stornos", max_length=200, blank=True)
     angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)

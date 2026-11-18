@@ -122,7 +122,9 @@ class HandzahlungForm(forms.Form):
     datum = forms.DateField(label="Datum", widget=forms.DateInput(attrs={"type": "date"}))
     betrag = _geld(label="Betrag")
     grund = forms.CharField(label="Grund", widget=forms.Textarea(attrs={"rows": 3}))
-    beleg = forms.FileField(label="Beleg (Quittung, Kontoauszug)")
+    beleg = forms.FileField(
+        label="Beleg (Quittung, Kontoauszug)", help_text="PDF oder Foto; kommt in die Ablage."
+    )
 
 
 class StornoForm(forms.Form):

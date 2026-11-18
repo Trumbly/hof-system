@@ -11,6 +11,7 @@ from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
@@ -78,14 +79,16 @@ def handzahlung(request: HttpRequest, pk: int) -> HttpResponse:
     if request.method == "POST" and form.is_valid():
         werte = form.cleaned_data
         try:
-            neu = services.handzahlung_erfassen(
-                vertrag,
-                werte["art"],
-                datum=werte["datum"],
-                betrag=werte["betrag"],
-                grund=werte["grund"],
-                beleg=werte["beleg"],
-            )
+            with transaction.atomic():
+                beleg = services.beleg_ablegen(werte["beleg"].read(), datum=werte["datum"])
+                neu = services.handzahlung_erfassen(
+                    vertrag,
+                    werte["art"],
+                    datum=werte["datum"],
+                    betrag=werte["betrag"],
+                    grund=werte["grund"],
+                    beleg=beleg,
+                )
         except services.AbgleichFehler as fehler:
             form.add_error(None, str(fehler))
         else:

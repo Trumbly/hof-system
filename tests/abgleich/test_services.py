@@ -7,23 +7,25 @@ import datetime
 from decimal import Decimal
 
 import pytest
-from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 
 from apps.abgleich import services
 from apps.abgleich.models import Guthaben, Handzahlung, Klaerfall, Zuordnung
+from apps.dokumente import services as dokumente
+from apps.dokumente.models import Dokument
 from apps.kassenbuch import services as kassenbuch
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten
 from apps.stammdaten import services as stammdaten
+from testhof import pdfs
 from tests.abgleich.conftest import Abgleichhof, klaerfaelle, neue_iban, posten
 
 D = datetime.date
 E = Decimal
 
 
-def _beleg() -> ContentFile[bytes]:
-    return ContentFile(b"Quittung (erfunden)", name="quittung.txt")
+def _beleg(text: str = "Quittung (erfunden)") -> Dokument:
+    return services.beleg_ablegen(pdfs.einfaches_pdf([text]), datum=D(2026, 7, 3))
 
 
 def test_stufe_1_regel_mit_vertrag_passt_genau_auf_aeltesten_posten(hof: Abgleichhof) -> None:
@@ -445,8 +447,10 @@ def test_barzahlung_mit_grund_und_beleg(hof: Abgleichhof) -> None:
     handzahlung = services.handzahlung_erfassen(
         vertrag, "bar", datum=D(2026, 7, 3), betrag=E("90.00"), grund="Quittung", beleg=_beleg()
     )
-    assert handzahlung.beleg.name.startswith("abgleich/handzahlungen/2026/")
-    assert vertrag.nummer in handzahlung.beleg.name
+    assert handzahlung.beleg.art == "beleg"
+    assert list(dokumente.dokumente_zu(handzahlung)) == [handzahlung.beleg]
+    with pytest.raises(services.AbgleichFehler, match="ablegen"):
+        services.beleg_ablegen(b"kein PDF", datum=D(2026, 7, 3))
     juli, august = posten(vertrag)[:2]
     assert juli.status == "bezahlt"
     assert (august.status, august.bezahlt) == ("teilweise", E("5.00"))
@@ -587,3 +591,15 @@ def test_eingang_eines_lieferanten_nie_im_mieterabgleich(hof: Abgleichhof) -> No
         assert fall.art == Klaerfall.Art.LIEFERANT and not fall.vorschlag
         assert services.klaerfall_posten(fall).aktionen == list(services.AKTIONEN_LIEFERANT)  # type: ignore[union-attr]
     assert posten(vertrag)[0].status == "offen"
+
+
+def test_kachel_rueckstaende_nur_zaehler_und_summen(hof: Abgleichhof) -> None:
+    """Service für das Hof-Cockpit (Schritt 9b): Zähler und Summen, keine Namen."""
+    from django.template.loader import render_to_string
+
+    hof.vertrag()
+    hof.zahlung(D(2026, 11, 18), "0.01", iban=neue_iban(), zweck="Stand")
+    kontext = services.kachel_rueckstaende()
+    assert kontext["anzahl"] == 1 and kontext["summe"] == E("425.00")
+    html = render_to_string("abgleich/_kachel_rueckstaende.html", kontext)
+    assert html.count('<li id="kachel-rueckstaende">') == 1 and "Erika" not in html

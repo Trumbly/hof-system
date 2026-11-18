@@ -12,6 +12,7 @@ from django.urls import reverse
 
 from apps.abgleich import services
 from apps.abgleich.models import Handzahlung, Klaerfall, Zahlerregel, Zuordnung
+from testhof import pdfs
 from tests.abgleich.conftest import Abgleichhof, klaerfaelle, neue_iban, posten
 
 D = datetime.date
@@ -117,7 +118,9 @@ def test_handzahlung_mit_beleg_und_storno(hof: Abgleichhof, angemeldet: Client) 
     url = reverse("abgleich:handzahlung", args=[vertrag.pk])
     ohne = angemeldet.post(url, {"art": "bar", "datum": "2026-07-03", "betrag": "85.00"})
     assert ohne.status_code == 200 and not Handzahlung.objects.exists()
-    beleg = SimpleUploadedFile("quittung.pdf", b"%PDF-1.4 erfunden", content_type="application/pdf")
+    beleg = SimpleUploadedFile(
+        "quittung.pdf", pdfs.einfaches_pdf(["Quittung (erfunden)"]), content_type="application/pdf"
+    )
     antwort = angemeldet.post(
         url,
         {
@@ -130,6 +133,7 @@ def test_handzahlung_mit_beleg_und_storno(hof: Abgleichhof, angemeldet: Client) 
     )
     assert antwort.status_code == 302
     handzahlung = Handzahlung.objects.get()
+    assert handzahlung.beleg.art == "beleg"
     assert posten(vertrag)[0].status == "bezahlt"
 
     konto = reverse("abgleich:mietkonto", args=[vertrag.pk])

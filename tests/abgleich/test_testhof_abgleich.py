@@ -80,7 +80,7 @@ def test_sonderfaelle_angemeldet() -> None:
     module = sonderfaelle.erzeugende_module()
     for schluessel in testhof_abgleich.SONDERFAELLE:
         assert "abgleich" in module[schluessel], schluessel
-    assert register.laden()["abgleich"].abhaengig_von == ("bank", "kassenbuch", "soll")
+    assert register.laden()["abgleich"].abhaengig_von == ("bank", "belege", "kassenbuch", "soll")
     for schluessel in testhof_abgleich.AUCH_GENUTZT:
         assert module[schluessel], schluessel
     # Alle Sonderfälle des Schritts 6 haben ein Modul.
