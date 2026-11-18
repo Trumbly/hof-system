@@ -97,6 +97,10 @@ jobs:
             -e EMAIL_URL=consolemail:// \
             -e DJANGO_ALLOWED_HOSTS=hof-system.beispiel.ts.net \
             hof-system:pipeline python manage.py check --deploy --fail-level ERROR
+          # Status-MCP (Schritt 11): startet ohne Django und ohne Einrichtung mit „nicht
+          # eingerichtet“ statt mit einem Importfehler.
+          docker run --rm hof-system:pipeline python -c \
+            "from apps.statusmcp.__main__ import app_aus_umgebung; app_aus_umgebung()"
 
   datenschutz:
     name: Keine Daten, keine Geheimnisse

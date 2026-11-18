@@ -9,6 +9,8 @@
 #   docker-compose.prod.yml beide Ports nur auf der Tailscale-IP.
 # - Medien (/medien/) liefert Caddy nicht aus. Dokumente gibt nur Django nach der Anmeldung
 #   heraus; statische Dateien kommen über WhiteNoise aus dem Image.
+# - /mcp geht an den Status-MCP (eigener Dienst ohne veröffentlichten Port), alles andere
+#   an die App.
 
 {
 	# Nur HTTP/1.1 und HTTP/2; HTTP/3 bräuchte UDP 443, das wir nicht öffnen.
@@ -26,7 +28,16 @@
 		Referrer-Policy same-origin
 	}
 
-	reverse_proxy app:8000
+	# Status-MCP (Schritt 11): nur der Pfad /mcp. Die Anmeldung (Bearer-Token) prüft der
+	# Dienst selbst; ohne Token antwortet er mit 401.
+	@statusmcp path /mcp /mcp/*
+	handle @statusmcp {
+		reverse_proxy statusmcp:8020
+	}
+
+	handle {
+		reverse_proxy app:8000
+	}
 
 	log {
 		output stdout

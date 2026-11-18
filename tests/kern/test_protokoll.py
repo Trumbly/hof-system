@@ -17,6 +17,7 @@ from apps.kern import services
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Mandant, Objekt
 from apps.kern.personenfelder import eigene_modelle
 from apps.kern.protokoll import ist_protokolliert, protokollierte_modelle
+from apps.statusmcp.models import Kennzahl
 from tests.factories import MandantFabrik, ObjektFabrik
 
 pytestmark = pytest.mark.django_db
@@ -26,6 +27,7 @@ OHNE_PROTOKOLL = {
     Benutzer: "Passwort-Hash und letzte Anmeldung gehören nicht in die Historie.",
     Lauf: "Der Lauf ist selbst ein Protokoll; seine Änderungen tragen ihn als Kontext.",
     Benachrichtigung: "Gesendete Meldungen sind selbst ein Protokoll, wie der Lauf.",
+    Kennzahl: "Momentaufnahme für den Status-MCP, die jeder Lauf ganz neu schreibt.",
 }
 
 

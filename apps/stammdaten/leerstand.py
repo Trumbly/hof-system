@@ -67,7 +67,7 @@ def berechnen(
         tage_frei = 0
         ohne = 0
         summe = Decimal("0")
-        for stand in einheit.frei_staende:  # type: ignore[attr-defined]
+        for stand in einheit.frei_staende:  # type: ignore[attr-defined,unused-ignore]
             beginn = max(stand.gueltig_ab, von)
             ende = min(stand.gueltig_bis or bis, bis)
             for tag in _tage(beginn, ende):

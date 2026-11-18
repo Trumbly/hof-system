@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.zaehler",
     "apps.abgleich",
     "apps.cockpit",
+    "apps.statusmcp",
 ]
 
 MIDDLEWARE = [
