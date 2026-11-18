@@ -1903,6 +1903,18 @@ def mietkonto(vertrag: Vertrag) -> Mietkonto:
     )
 
 
+def klaerfall_kennungen(klaerfall: Klaerfall) -> list[str]:
+    """NW-IDs der Verträge, die ein Klärfall betrifft (für Aufgaben im Hof-Backlog, Schritt
+    9b); ohne Vertrag das Objekt-Kürzel der Buchung. Nur IDs, nie Namen."""
+    ids = _klaerfall_vertraege(klaerfall)
+    nw_ids = sorted(
+        set(Einheit.objects.filter(vertraege__pk__in=ids).values_list("nw_id", flat=True))
+    )
+    if nw_ids:
+        return nw_ids
+    return [klaerfall.buchung.objekt.kuerzel]
+
+
 def _klaerfall_vertraege(klaerfall: Klaerfall) -> set[int]:
     vorschlag = klaerfall.vorschlag or {}
     ids = {int(i) for i in vorschlag.get("alternativen", [])}

@@ -75,6 +75,7 @@ def test_standardablauf_10_tageslauf(
         "bank_abruf",
         "kassenbuch_einordnen",
         "soll_monat",
+        "abgleich",
         "fristen",
         "zaehler_stichtag",
         "verwaltio_kennzahlen",

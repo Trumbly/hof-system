@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+import io
+import re
 from collections.abc import Iterator
 from decimal import Decimal
 from typing import Any
 
 import pytest
+from django.core.management import call_command
 from django.db import transaction
 from django.test import override_settings
 
@@ -19,11 +22,15 @@ from apps.kern.models import Lauf
 from apps.soll.models import Sollposten
 from apps.stammdaten.models import Vertrag
 from testhof import abgleich as testhof_abgleich
-from testhof import register, sonderfaelle
+from testhof import pruefsumme, register, sonderfaelle
 from testhof.aufbau import STICHTAG, Testhof
 from tests.abgleich.conftest import laeufe
 
 E = Decimal
+
+
+#: Stand vor den Läufen (vom Modul-Fixture festgehalten).
+VORHER: dict[str, int] = {}
 
 
 @pytest.fixture(scope="module")
@@ -39,6 +46,7 @@ def _abgeglichen_modul(_testhof_sitzung: Testhof, django_db_blocker: Any) -> Ite
         patch.setattr(services, "heute", lambda: STICHTAG)
         punkt = transaction.savepoint()
         try:
+            VORHER["mit_rueckstand"] = len(services.rueckstaende().mit_rueckstand)
             _, lauf = laeufe()
             yield lauf.pk
         finally:
@@ -226,3 +234,53 @@ def test_pacht_ohne_vertrag_nicht_vertragsbezogen(testhof: Testhof, abgeglichen:
     pacht = Zahlerregel.objects.get(regel__bezeichnung=testhof_abgleich.PACHTREGEL)
     assert pacht.nicht_vertragsbezogen
     assert not Klaerfall.objects.filter(buchung__regel=pacht.regel).exists()
+
+
+def test_rueckstaende_nach_dem_lauf_aktuell(testhof: Testhof, abgeglichen: Lauf) -> None:
+    """Abnahme Schritt 6: Die Rückstände sind nach dem Lauf aktuell (Standardablauf 2)."""
+    assert VORHER["mit_rueckstand"] > 30  # vor dem Abgleich ist fast alles offen
+
+    nachher = services.rueckstaende()
+    erwartet = {
+        testhof.abgleich.sonderfaelle[name][0].nummer
+        for name in (
+            "dauerauftrag_alte_miete",
+            "falsche_einheit_im_verwendungszweck",
+            "rueckbuchung",
+        )
+    }
+    assert {r.vertrag.nummer for r in nachher.mit_rueckstand} == erwartet
+    zweck = testhof.abgleich.sonderfaelle["falsche_einheit_im_verwendungszweck"][0]
+    assert next(r for r in nachher.vertraege if r.vertrag == zweck).in_klaerung
+    assert nachher.datenstand == testhof.bank.ende
+    zahlen = nachher.kennzahlen()
+    assert zahlen["vertraege_mit_rueckstand"] == 3
+    assert zahlen["summe"] == nachher.summe > 0
+
+
+def test_rueckrechnung_in_einer_kopie(testhof: Testhof, abgeglichen: Lauf) -> None:
+    """Abnahme Schritt 6: Die Rückrechnung Juli bis Dezember 2026 läuft im Probelauf: Sie
+    nennt je Vertrag den Stand (bezahlt, offen, in Klärung) mit Zählern und NW-IDs, ohne
+    Namen und Beträge; danach ist die Datenbank unverändert (gleiche Prüfsumme)."""
+    vorher = pruefsumme.pruefsumme()
+    laeufe = Lauf.objects.count()
+
+    ausgabe = io.StringIO()
+    call_command("abgleich_rueckrechnung", "--von", "2026-07", "--bis", "2026-12", stdout=ausgabe)
+    text = ausgabe.getvalue()
+
+    assert pruefsumme.pruefsumme() == vorher
+    assert Lauf.objects.count() == laeufe
+    assert "in einer Kopie; nichts gespeichert" in text
+    assert re.search(r"in Klärung [1-9]", text)
+    # Frisch gerechnet kommt dasselbe heraus wie der Lauf.
+    assert "Abweichung zum aktuellen Stand: 0" in text
+    zeilen = [z for z in text.splitlines() if z.startswith("  V-")]
+    assert len(zeilen) >= 40
+    assert all(z.rsplit(": ", 1)[1] in ("bezahlt", "offen", "in Klärung") for z in zeilen)
+    assert "NW-IDs offen:" in text and "Abweichung zum aktuellen Stand:" in text
+    for vertrag in Vertrag.objects.prefetch_related("vertragsparteien__partei")[:10]:
+        for vp in vertrag.vertragsparteien.all():
+            if vp.partei.nachname:
+                assert vp.partei.nachname not in text
+    assert "€" not in text

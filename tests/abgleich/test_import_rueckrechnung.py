@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import re
 from pathlib import Path
 
 import pytest
@@ -18,7 +17,6 @@ from apps.kern.models import Lauf
 from apps.stammdaten.models import Vertrag
 from testhof import pruefsumme
 from testhof.aufbau import Testhof
-from tests.abgleich.conftest import laeufe as laeufe_ausfuehren
 
 BEISPIEL = Path(__file__).parents[1] / "fixtures" / "abgleich" / "regeln_beispiel.yaml"
 
@@ -110,33 +108,6 @@ def test_regelimport_kaputte_datei(tmp_path: Path, db: None) -> None:
     datei.write_text("nur: text\n", encoding="utf-8")
     with pytest.raises(CommandError, match="Abschnitte"):
         _befehl("abgleich_regeln_import", str(datei))
-
-
-def test_rueckrechnung_in_einer_kopie(testhof: Testhof, stichtag: object) -> None:
-    """Abnahme Schritt 6: Die Rückrechnung Juli bis Dezember 2026 läuft im Probelauf: Sie
-    nennt je Vertrag den Stand (bezahlt, offen, in Klärung) mit Zählern und NW-IDs, ohne
-    Namen und Beträge; danach ist die Datenbank unverändert (gleiche Prüfsumme)."""
-    laeufe_ausfuehren()
-    vorher = pruefsumme.pruefsumme()
-    laeufe = Lauf.objects.count()
-
-    text = _befehl("abgleich_rueckrechnung", "--von", "2026-07", "--bis", "2026-12")
-
-    assert pruefsumme.pruefsumme() == vorher
-    assert Lauf.objects.count() == laeufe
-    assert "in einer Kopie; nichts gespeichert" in text
-    assert re.search(r"in Klärung [1-9]", text)
-    # Frisch gerechnet kommt dasselbe heraus wie der Lauf.
-    assert "Abweichung zum aktuellen Stand: 0" in text
-    zeilen = [z for z in text.splitlines() if z.startswith("  V-")]
-    assert len(zeilen) >= 40
-    assert all(z.rsplit(": ", 1)[1] in ("bezahlt", "offen", "in Klärung") for z in zeilen)
-    assert "NW-IDs offen:" in text and "Abweichung zum aktuellen Stand:" in text
-    for vertrag in Vertrag.objects.prefetch_related("vertragsparteien__partei")[:10]:
-        for vp in vertrag.vertragsparteien.all():
-            if vp.partei.nachname:
-                assert vp.partei.nachname not in text
-    assert "€" not in text
 
 
 def test_rueckrechnung_falscher_zeitraum(db: None) -> None:
