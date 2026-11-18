@@ -25,7 +25,9 @@ TAG = datetime.date(2026, 11, 20)
 @pytest.fixture
 def gesendete_kuendigung(kuendigung: Vorlage, objekt: Objekt, benutzer: Benutzer) -> Schreiben:
     schreiben = services.schreiben_erzeugen(kuendigung, objekt, kontext(objekt), Versandweg.SELBST)
-    return services.schreiben_senden(schreiben, benutzer, pruefsumme=schreiben.pdf_sha256)
+    return services.schreiben_senden(
+        schreiben, benutzer, pruefsumme=schreiben.pdf_sha256, anwalt_gesehen=True
+    )
 
 
 def test_einseitige_erklaerung_ohne_zustellnachweis_nicht_abschliessbar(
@@ -64,7 +66,7 @@ def test_mit_vermerk_oder_datei_ist_sie_erledigt(
         for _ in range(2)
     )
     for s in (erste, zweite):
-        services.schreiben_senden(s, benutzer, pruefsumme=s.pdf_sha256)
+        services.schreiben_senden(s, benutzer, pruefsumme=s.pdf_sha256, anwalt_gesehen=True)
 
     services.schreiben_abschliessen(
         erste, zugestellt_am=TAG, vermerk="Einwurf durch Boten am 20.11.2026, 9:15 Uhr"

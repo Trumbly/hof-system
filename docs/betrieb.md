@@ -330,6 +330,18 @@ Erlaubte Host-Header stehen in `HOF_STATUSMCP_HOSTS` (Compose setzt `statusmcp:*
 
 **Alte MCPs abschalten.** Sobald der Gateway auf den Status-MCP zeigt und der jeweilige Dienst ins Hof-System umgezogen ist, schaltet Max die alten MCPs ab: den HelloHousing-MCP (nach dem Umzug von Stammdaten, Soll und Abgleich) und den hof-fints-MCP (nach dem Umzug von Bank und Kassenbuch), dazu die Zeitpläne mit Mieterdaten, die an ihnen hängen. Im Gateway die beiden Einträge entfernen; danach erreicht Claude Mieterdaten nicht mehr.
 
+## Mahnwesen (Schritt 7)
+
+**Ablauf.** Montags im Tageslauf, nach dem Abgleich, schreibt `mahnlauf` die Mahnfälle fort (nur Verträge im Hof-System; Wohnraum mahnt Verwaltio). Der Rückstand kommt aus dem laufenden Konto; Posten nach dem Stand der Bankdaten zählen nicht. Je fälliger Stufe entsteht ein Schreiben „bereit“ und ein Arbeitsposten „Mahnungen senden“ (Hof-Backlog und Benachrichtigung). Die Stufen stehen je Vertragsart auf der Seite „Mahnwesen → Stufen“ (Startdaten nach der SOP: Erinnerung 5 Tage nach Fälligkeit, Mahnung nach 14 Tagen mit 10 Tagen Frist, Abmahnung bei der zweiten offenen Monatsmiete, fristlose Kündigung hilfsweise ordentlich ab zwei Monatsmieten Rückstand). Eine Stufe folgt erst, wenn die vorige belegt ist: gesendet, bei Mahnung, Abmahnung und Kündigung zugestellt mit Zustellnachweis. Dieselbe Stufe kommt frühestens nach 14 Tagen wieder. Zahlt der Mieter, schließt sich der Fall.
+
+**Sperren.** Ein offener Klärfall sperrt automatisch; Rechtsfall, Ratenplan und Sperren von Hand setzt du auf der Seite „Mahnwesen → Sperren“. Gesperrte Fälle schreiten nicht fort, bereite Schreiben werden verworfen, im Fall steht der Grund.
+
+**Probebetrieb.** Eine Stufe ist erst scharf, wenn ihre Vorlage freigegeben ist (Arten „Zahlungserinnerung“, „Mahnung mit Fristsetzung“, „Abmahnung mit Kündigungsandrohung“, „Kündigung durch den Hof“ mit dem Namen „Fristlose Kündigung“). Ohne sie entsteht nur der Arbeitsposten „Probebetrieb: Vorlage fehlt“; die Mahnung geht auf dem alten Weg hinaus, und du belegst die Stufe auf der Seite des Falls von Hand.
+
+**Kündigung.** Jede Kündigung trägt den Hinweis „vor Versand zum Anwalt“; ihr Senden-Knopf geht nur mit dem Haken „Der Anwalt hat diese Kündigung gesehen“. Die ordentliche Kündigung durch den Vermieter (H4.6) erzeugst du auf der Seite des Falls („Ordentlich kündigen“, Adresse `/mahnwesen/vertrag/<id>/kuendigen/`): Das System rechnet das Fristende nach der Kündigungsfrist der Vertragsart und nimmt die Vorlage „Kündigung <Vertragsart>“, sonst „Kündigung durch den Hof“. Die Kündigung am Vertrag (Vertragsende, Rückgabe) erfasst du nach der Zustellung wie im Standardablauf 4.
+
+**Vergleich mit dem alten Mahnlauf** (vier Wochen): `compose.sh exec app python manage.py mahnwesen_vergleich --von 2026-11-02 --bis 2026-11-29` nennt je Woche die Vorschläge je Stufe mit NW-IDs, die offenen und die gesperrten Fälle. Mit `--alt /pfad/alt.csv` (Semikolon, Spalten „Woche;NW-ID;Stufe“, Beispiel `tests/fixtures/mahnwesen/alter_mahnlauf.csv`) dazu die Abweichungen je NW-ID. Der Bericht enthält keine Namen und Beträge und darf mit Claude geteilt werden. Weichen die Spalten ab, wird nur `SPALTEN` bzw. `STUFEN_ALT` in `apps/mahnwesen/vergleich.py` angepasst.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |

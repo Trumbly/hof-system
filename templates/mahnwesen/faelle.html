@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block titel %}Mahnfälle{% endblock %}
+
+{% block inhalt %}
+{% include "mahnwesen/_reiter.html" %}
+<h1>Mahnfälle</h1>
+<p class="leise">Der Mahnlauf schreibt die Fälle montags nach dem Abgleich fort. Nur Verträge im Hof-System; den Wohnraum mahnt Verwaltio.</p>
+<ul class="kennzahlen">
+  {% for s in kachel.je_stufe %}<li>{{ s.titel }}: <strong>{{ s.anzahl }}</strong></li>{% endfor %}
+  <li>gesperrt: <strong>{{ kachel.gesperrt }}</strong></li>
+  <li>Mahnungen senden: <a href="{% url 'kern:arbeitslisten' %}">{{ kachel.senden }}</a></li>
+</ul>
+
+<h2>Offen</h2>
+{% include "mahnwesen/_faelle_tabelle.html" with liste=offen leer="Keine offenen Mahnfälle." %}
+<h2>Gesperrt</h2>
+{% include "mahnwesen/_faelle_tabelle.html" with liste=gesperrt leer="Keine gesperrten Mahnfälle." %}
+<details class="gruppe">
+  <summary>Zuletzt erledigt</summary>
+  {% include "mahnwesen/_faelle_tabelle.html" with liste=erledigt leer="Noch keiner." %}
+</details>
+{% endblock %}

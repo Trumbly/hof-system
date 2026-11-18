@@ -21,6 +21,7 @@
         <li><a href="{% url 'kern:arbeitslisten' %}"{% if seite == 'kern:arbeitslisten' %} aria-current="page"{% endif %}>Arbeitslisten</a></li>
         <li><a href="{% url 'stammdaten:uebersicht' %}"{% if seite|slice:':11' == 'stammdaten:' %} aria-current="page"{% endif %}>Stammdaten</a></li>
         <li><a href="{% url 'soll:liste' %}"{% if request.resolver_match.app_name == 'soll' %} aria-current="page"{% endif %}>Offene Posten</a></li>
+        <li><a href="{% url 'mahnwesen:faelle' %}"{% if request.resolver_match.app_name == 'mahnwesen' %} aria-current="page"{% endif %}>Mahnwesen</a></li>
         <li><a href="{% url 'zaehler:uebersicht' %}"{% if request.resolver_match.app_name == 'zaehler' %} aria-current="page"{% endif %}>Zähler</a></li>
         <li><a href="{% url 'bank:konten' %}"{% if request.resolver_match.app_name == 'bank' %} aria-current="page"{% endif %}>Bank</a></li>
         <li><a href="{% url 'kassenbuch:buchungen' %}"{% if request.resolver_match.app_name == 'kassenbuch' %} aria-current="page"{% endif %}>Kassenbuch</a></li>

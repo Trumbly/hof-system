@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block titel %}Kündigung {{ vertrag.nummer }}{% endblock %}
+
+{% block inhalt %}
+{% include "mahnwesen/_reiter.html" %}
+<h1>Ordentliche Kündigung <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
+<p class="leise">{% for e in vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · {{ vertrag.get_vertragsart_display }} · H4.6</p>
+<dl class="angaben">
+  <div><dt>Kündigungsfrist</dt><dd>{{ frist.titel }}</dd></div>
+  <div><dt>Zugang</dt><dd>{{ frist.zugang_am|date:"d.m.Y" }}</dd></div>
+  <div><dt>Fristende</dt><dd><strong>{{ frist.fristende|date:"d.m.Y" }}</strong></dd></div>
+</dl>
+<p class="faellig">Jede Kündigung: {{ anwalt_hinweis }}. Senden erst nach der Vorschau und mit der Bestätigung, dass der Anwalt sie gesehen hat; danach den Zustellnachweis erfassen.</p>
+<form method="get" class="formular">
+  {{ form.as_p }}
+  <button type="submit" class="zweitrangig">Frist rechnen</button>
+</form>
+<form method="post" class="formular">
+  {% csrf_token %}
+  <input type="hidden" name="zugang_am" value="{{ frist.zugang_am|date:'Y-m-d' }}">
+  <button type="submit">Kündigung aus der Vorlage erzeugen</button>
+</form>
+{% endblock %}

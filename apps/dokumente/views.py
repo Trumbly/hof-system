@@ -224,6 +224,8 @@ def schreiben(request: HttpRequest, pk: int) -> HttpResponse:
             "schreiben": eintrag,
             "versandweg": vorlagenarten.Versandweg.TITEL.get(eintrag.versandweg),
             "abschluss": AbschlussForm(),
+            "anwalt": services.braucht_anwalt(eintrag),
+            "anwalt_hinweis": vorlagenarten.ANWALT_HINWEIS,
         },
     )
 
@@ -252,11 +254,15 @@ def schreiben_nachweis(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @require_POST
 def schreiben_senden(request: HttpRequest, pk: int) -> HttpResponse:
-    """Aktion „Senden“: nur mit der Prüfsumme des PDFs aus der Vorschau."""
+    """Aktion „Senden“: nur mit der Prüfsumme des PDFs aus der Vorschau; bei Kündigungen
+    zusätzlich mit dem Haken „Der Anwalt hat das Schreiben gesehen“."""
     eintrag = get_object_or_404(Schreiben, pk=pk)
     try:
         services.schreiben_senden(
-            eintrag, _benutzer(request), pruefsumme=request.POST.get("pruefsumme", "")
+            eintrag,
+            _benutzer(request),
+            pruefsumme=request.POST.get("pruefsumme", ""),
+            anwalt_gesehen=request.POST.get("anwalt_gesehen") == "1",
         )
     except FEHLER as fehler:
         messages.error(request, f"Nicht gesendet: {fehler}")

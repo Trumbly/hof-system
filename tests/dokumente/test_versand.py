@@ -214,7 +214,9 @@ def test_brief_als_einwurf_einschreiben_ueber_letterxpress_fake(
     schreiben = services.schreiben_erzeugen(kuendigung, objekt, kontext(objekt))
     assert schreiben.versandweg == Versandweg.EINWURF_EINSCHREIBEN  # Standard der Art
 
-    services.schreiben_senden(schreiben, benutzer, pruefsumme=schreiben.pdf_sha256)
+    services.schreiben_senden(
+        schreiben, benutzer, pruefsumme=schreiben.pdf_sha256, anwalt_gesehen=True
+    )
 
     schreiben.refresh_from_db()
     (auftrag,) = FakeLetterXpressClient.auftraege.values()

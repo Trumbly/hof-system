@@ -6,7 +6,10 @@ Eine Vorlagenart legt fest,
 - welcher Versandweg vorgeschlagen wird (``versandweg``),
 - ob es eine einseitige Erklärung ist (``einseitige_erklaerung``): Dann gilt ein Schreiben
   erst mit Zustellnachweis als erledigt (H8.3),
-- ob die Vorlage der Briefkopf ist (``briefkopf``): Er umrahmt jedes Schreiben.
+- ob die Vorlage der Briefkopf ist (``briefkopf``): Er umrahmt jedes Schreiben,
+- ob vor dem Senden bestätigt werden muss, dass der Anwalt das Schreiben gesehen hat
+  (``anwalt_bestaetigung``, Kündigungen im Mahnwesen und H4.6): Ohne den Haken geht nichts
+  hinaus (``services.schreiben_senden(..., anwalt_gesehen=True)``).
 
 Neue Arten kommen in ``VORLAGENARTEN`` dazu (eine Stelle für alles) oder werden von
 einer App beim Laden mit ``registrieren()`` angemeldet. Platzhalter sind Pfade mit
@@ -96,6 +99,14 @@ _STAMMDATEN = (
 )
 
 
+#: Hinweis an jedem Schreiben einer Art mit ``anwalt_bestaetigung`` (Mahnwesen, H4.3, H4.6).
+ANWALT_HINWEIS = "vor Versand zum Anwalt"
+
+#: Werte des Mahnwesens (``apps.mahnwesen.services.kontext_mahnung``): offener Betrag und
+#: Monatsmiete, Aufstellung je Posten, Frist, Stufe; bei Kündigungen auch die Fristen.
+_MAHNUNG = ("betrag", "forderung", "frist", "mahnung")
+
+
 @dataclass(frozen=True)
 class Vorlagenart:
     schluessel: str
@@ -104,6 +115,7 @@ class Vorlagenart:
     einseitige_erklaerung: bool = False
     platzhalter: tuple[str, ...] = ()
     briefkopf: bool = False
+    anwalt_bestaetigung: bool = False
 
     def erlaubte_platzhalter(self) -> frozenset[str]:
         if self.briefkopf:
@@ -155,19 +167,28 @@ VORLAGENARTEN: tuple[Vorlagenart, ...] = (
         "Kündigung durch den Hof",
         versandweg=Versandweg.EINWURF_EINSCHREIBEN,
         einseitige_erklaerung=True,
-        platzhalter=_VERTRAG,
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, *_MAHNUNG, "kuendigung"),
+        anwalt_bestaetigung=True,
     ),
     Vorlagenart(
         "zahlungserinnerung",
         "Zahlungserinnerung",
-        platzhalter=(*_VERTRAG, "betrag", "forderung"),
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, *_MAHNUNG),
     ),
     Vorlagenart(
         "mahnung",
         "Mahnung mit Fristsetzung",
         versandweg=Versandweg.EINWURF_EINSCHREIBEN,
         einseitige_erklaerung=True,
-        platzhalter=(*_VERTRAG, "betrag", "forderung", "frist"),
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, *_MAHNUNG),
+    ),
+    # Mahnwesen (Schritt 7, H4.2): Abmahnung mit Kündigungsandrohung, als Brief.
+    Vorlagenart(
+        "abmahnung",
+        "Abmahnung mit Kündigungsandrohung",
+        versandweg=Versandweg.EINWURF_EINSCHREIBEN,
+        einseitige_erklaerung=True,
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, *_MAHNUNG),
     ),
 )
 
