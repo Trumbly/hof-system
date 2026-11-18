@@ -42,9 +42,10 @@ def test_kein_port_auf_der_oeffentlichen_adresse(compose: dict[str, Any]) -> Non
     """Abnahme Schritt 0d, Aufgabe 2: Kein Port auf der öffentlichen Adresse. Nur Caddy
     veröffentlicht Ports, und nur auf der Tailscale-IP (Docker umgeht ufw)."""
     dienste = compose["services"]
-    assert set(dienste) == {"app", "db", "caddy"}
+    assert set(dienste) == {"app", "db", "caddy", "statusmcp"}
     assert "ports" not in dienste["app"]
     assert "ports" not in dienste["db"]
+    assert "ports" not in dienste["statusmcp"]  # Schritt 11: nur über Caddy (/mcp)
     for port in dienste["caddy"]["ports"]:
         assert isinstance(port, str)
         assert re.fullmatch(r"\$\{HOF_TAILSCALE_IP(:\?[^}]*)?\}:(80|443):(80|443)", port), port

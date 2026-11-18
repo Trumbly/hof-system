@@ -8,7 +8,7 @@ Stand: Schritt 0d. Der Server `hof-system` (Hetzner Cloud, Ubuntu 24.04) ist nur
 | --- | --- |
 | Adresse | `https://hof-system.<tailnet>.ts.net` (nur im Tailscale-Netz) |
 | Gesundheit | `https://hof-system.<tailnet>.ts.net/gesund` → `ok <version>` |
-| Dienste | Docker Compose, Projekt `hof-system`: `app` (gunicorn), `db` (Postgres 16), `caddy` |
+| Dienste | Docker Compose, Projekt `hof-system`: `app` (gunicorn), `db` (Postgres 16), `statusmcp` (Status-MCP, Schritt 11), `caddy` |
 | Code und Versionen | `/opt/hof/repo` (Klon), `/opt/hof/versionen/<tag>`, `/opt/hof/aktuell` → laufende Version |
 | Umgebungswerte | `/opt/hof/.env` (Besitzer `hof`, `chmod 600`) |
 | Dokumente | `/srv/hof/medien` (gehört UID 10001, dem Benutzer im Container) |
@@ -72,6 +72,7 @@ Der Lauf `tageslauf` (täglich 6:00, `deploy/systemd/laeufe/tageslauf.conf`) ruf
 | 65 | Ablesung zum Stichtag | `zaehler_stichtag` (tut außerhalb des Ablesefensters nichts) |
 | 70, 75 | Kennzahlen aus Verwaltio, ID-Abgleich | `verwaltio_kennzahlen`, `id_abgleich` |
 | 80 | Hof-Cockpit: Aufgaben im Hof-Backlog | `aufgaben_abgleich` |
+| 85 | Kennzahlen für den Status-MCP | `statusmcp_aktualisieren` (Schritt 11) |
 | 90 | Sicherung prüfen | `sicherung_pruefen` |
 | 100 | Benachrichtigung | `benachrichtigen` |
 
@@ -281,6 +282,54 @@ Der Beleg einer Handzahlung (PDF oder Foto) kommt in die Ablage (Dokumentart „
 3. Mietregeln aus hof-fints (Datei in den Container kopieren): `compose.sh exec app python manage.py abgleich_regeln_import /pfad/regeln.yaml`, Bericht prüfen, dann mit `--ausfuehren`. Der Bericht nennt nur Zähler, Eintrag-IDs und NW-IDs. Weicht das Format ab, wird nur `apps/abgleich/importformat.py` angepasst. Danach die Datei löschen.
 4. Rückrechnung: `compose.sh exec app python manage.py abgleich_rueckrechnung --von 2026-07 --bis 2026-12`. Sie rechnet in einer Kopie (nichts wird gespeichert) und nennt je Vertrag bezahlt, offen oder in Klärung; den Vergleich mit dem alten Mietabgleich machst du. Der Bericht darf mit Claude geteilt werden.
 
+## Status-MCP (Schritt 11)
+
+Der Status-MCP ist im Betrieb die einzige Verbindung zwischen Claude und dem Hof-System. Er liefert nur Zähler, Summen, Fristen, Daten, Objekt-Kürzel und NW-IDs; keine Namen, Anschriften, IBANs, Verwendungszwecke, Beträge je Vertrag oder Dokumente. Alle Werkzeuge lesen nur: `ueberblick`, `rueckstaende`, `datenstand`, `leerstand`, `kassenbuch_monat(monat)` und `fristen(von, bis)`.
+
+**Aufbau.**
+
+- Eigener Dienst `statusmcp` in `docker-compose.prod.yml`: dasselbe Image, Start mit `python -m apps.statusmcp` (uvicorn, Port 8020, ohne Django). Kein veröffentlichter Port; Caddy leitet `https://hof-system.<tailnet>.ts.net/mcp` an ihn weiter, also nur im Tailscale-Netz und über HTTPS. Healthcheck: `/gesund` im Container (`ok` oder `nicht bereit`).
+- Er liest ausschließlich die Sichten `sm_*` (Migration `apps/statusmcp/migrations/0002_sichten.py`), und zwar als eigener Datenbank-Benutzer mit der Rolle `hof_statusmcp`. Diese Rolle hat `SELECT` nur auf die Sichten; jede Tabelle ist gesperrt, auch künftige (Tests in `tests/statusmcp/test_rechte.py`). Die Sichten lesen keine Personenfelder (Test gegen `kern.personenfelder`).
+- Rückstände, Datenstand, Leerstand und die NW-IDs zu Fristen rechnet der Lauf `statusmcp_aktualisieren` im Tageslauf (Rang 85) mit demselben Code wie das Hof-Cockpit und legt sie als Momentaufnahme ab; die Antworten nennen den Stand (`stand`). Arbeitsposten, Fristen, Läufe und Kassenbuch sind live. Von Hand: `compose.sh exec app python manage.py statusmcp_aktualisieren`.
+- Kassenbuch: Kategorien erscheinen nur als ID und Art (Einnahme, Ausgabe, Entnahme, Umbuchung), denn ihre Bezeichnungen sind als Personenfeld markiert.
+
+**Einrichten (einmalig, auf dem Server).**
+
+1. Ausrollen (die Migration legt die Rolle `hof_statusmcp` ohne Login an).
+2. Passwort für den Lese-Benutzer erzeugen und den Benutzer anlegen. Das Passwort steht nur in einer Datei, nie auf der Kommandozeile; `-` liest es von der Standardeingabe (`-T` reicht sie in den Container durch):
+
+   ```sh
+   umask 077; openssl rand -base64 36 | tr -d '/+=' > ~/statusmcp-passwort
+   /opt/hof/aktuell/scripts/compose.sh exec -T app python manage.py statusmcp_benutzer --passwort-datei - < ~/statusmcp-passwort
+   ```
+
+   Der Befehl legt `hof_statusmcp_leser` an (anderer Name mit `--name`), gibt ihm nur die Rolle `hof_statusmcp`, nur lesende Transaktionen und 10 Sekunden je Anfrage. Ein zweiter Aufruf setzt das Passwort neu. Er gibt die Vorlage für die Datenbank-URL aus, ohne Passwort.
+3. Token erzeugen: `openssl rand -hex 32` (mindestens 32 Zeichen).
+4. `/opt/hof/statusmcp.env` anlegen (`chmod 600`, Besitzer `hof`). Nur diese beiden Werte, nicht die `.env` der App:
+
+   ```sh
+   HOF_STATUSMCP_DATABASE_URL=postgres://hof_statusmcp_leser:<passwort aus Schritt 2>@db:5432/hof
+   HOF_STATUSMCP_TOKEN=<token aus Schritt 3>
+   ```
+
+   Danach die Passwortdatei aus Schritt 2 löschen.
+5. Starten: `compose.sh up -d statusmcp` (danach startet `deploy.sh` ihn bei jedem Ausrollen mit). Prüfen: `compose.sh ps statusmcp` (healthy) und `curl -s -o /dev/null -w '%{http_code}\n' -X POST https://hof-system.<tailnet>.ts.net/mcp` → `401` ohne Token.
+
+Fehlt `statusmcp.env` oder ein Wert darin, startet der Dienst trotzdem, antwortet aber überall mit 503 „nicht eingerichtet“ und steht auf unhealthy; das Ausrollen der App hängt nicht daran. Token wechseln: neuen Wert in `statusmcp.env` und im Gateway eintragen, `compose.sh up -d --force-recreate statusmcp`.
+
+**Gateway anbinden.** Im hof-mcp-gateway (eigenes Projekt, trägt Max dort selbst ein) einen Server mit diesen Angaben anlegen:
+
+| Angabe | Wert |
+| --- | --- |
+| URL | `https://hof-system.<tailnet>.ts.net/mcp` (der Gateway muss im Tailnet sein) |
+| Transport | Streamable HTTP (zustandslos, Antworten als JSON; kein SSE, keine Sitzung nötig) |
+| Anmeldung | Kopfzeile `Authorization: Bearer <HOF_STATUSMCP_TOKEN>` |
+| Werkzeuge | `ueberblick`, `rueckstaende`, `datenstand`, `leerstand`, `kassenbuch_monat`, `fristen`; alle nur lesend |
+
+Erlaubte Host-Header stehen in `HOF_STATUSMCP_HOSTS` (Compose setzt `statusmcp:*` und den Tailscale-Namen); ein anderer Host wird abgewiesen.
+
+**Alte MCPs abschalten.** Sobald der Gateway auf den Status-MCP zeigt und der jeweilige Dienst ins Hof-System umgezogen ist, schaltet Max die alten MCPs ab: den HelloHousing-MCP (nach dem Umzug von Stammdaten, Soll und Abgleich) und den hof-fints-MCP (nach dem Umzug von Bank und Kassenbuch), dazu die Zeitpläne mit Mieterdaten, die an ihnen hängen. Im Gateway die beiden Einträge entfernen; danach erreicht Claude Mieterdaten nicht mehr.
+
 ## Was tun bei Ausfall
 
 | Zeichen | Prüfen | Abhilfe |
@@ -289,6 +338,7 @@ Der Beleg einer Handzahlung (PDF oder Foto) kommt in die Ablage (Dokumentart „
 | Zertifikatsfehler | `compose.sh logs caddy` | HTTPS im Tailscale-Admin an? `systemctl status tailscaled`; `compose.sh restart caddy` |
 | `/gesund` meldet `fehler` | `compose.sh ps`, `compose.sh logs db` | Datenbank-Container prüfen, `compose.sh up -d db`; Platte voll? `df -h` |
 | 502 von Caddy | `compose.sh logs --tail 100 app` | Letzte Version war kaputt: `deploy.sh <vorheriger tag>` |
+| Status-MCP unhealthy | `compose.sh logs --tail 50 statusmcp` | „nicht eingerichtet“: `/opt/hof/statusmcp.env` prüfen (siehe Status-MCP); „nicht bereit“: Lese-Benutzer und Passwort prüfen, `statusmcp_benutzer` erneut ausführen |
 | Tageslauf „mit Fehlern“ | Seite „Läufe“: Die Meldung des Tageslaufs nennt den Schritt | Lauf des Schritts ansehen, Ursache beheben, Schritt von Hand starten (`compose.sh exec app python manage.py <schritt>`) |
 | Sicherung `fehler` | `fehler_bei` in der Statusdatei, `journalctl -u hof-backup` | Storage Box erreichbar? `sftp -P 23 hof-storagebox`; bei „locked“: `restic unlock` (nur wenn keine Sicherung läuft) |
 | Nach Neustart nichts erreichbar | `systemctl status docker tailscaled`, `compose.sh ps` | `compose.sh up -d` (startet mit der laufenden Version) |

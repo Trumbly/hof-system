@@ -164,6 +164,12 @@ compose "$TAG" "$ZIEL" up -d --wait --wait-timeout 180 --remove-orphans app cadd
 schritt "/gesund über https://$HOSTNAME_TS prüfen"
 gesund_pruefen "$TAG" || zurueckrollen
 
+# Der Status-MCP (Schritt 11) hängt nicht am Ausrollen der App: Ohne /opt/hof/statusmcp.env
+# meldet er „nicht eingerichtet“, und das Ausrollen geht trotzdem durch.
+schritt "Status-MCP mit $TAG starten"
+compose "$TAG" "$ZIEL" up -d --no-deps statusmcp ||
+    echo "Warnung: Status-MCP nicht gestartet; siehe docs/betrieb.md, Status-MCP." >&2
+
 # --- 8. Umschalten und aufräumen --------------------------------------------------------
 
 schritt "aktuell -> versionen/$TAG"

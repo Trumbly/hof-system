@@ -1,4 +1,5 @@
-# Produktion: App (gunicorn), Postgres 16 und Caddy. Nur auf dem Server, nur über Tailscale.
+# Produktion: App (gunicorn), Postgres 16, Status-MCP und Caddy. Nur auf dem Server, nur über
+# Tailscale.
 #
 # Gestartet wird ausschließlich über scripts/deploy.sh (oder scripts/compose.sh für
 # Wartung). Die Skripte setzen diese Variablen:
@@ -9,11 +10,12 @@
 #   HOF_ENV_DATEI      Umgebungswerte der App und der Datenbank (/opt/hof/.env)
 #   HOF_MEDIEN_DIR     Ordner der Dokumente auf dem Server (/srv/hof/medien)
 #   HOF_TAILSCALE_SOCKET_DIR  Ordner mit dem tailscaled-Socket (/var/run/tailscale)
+#   HOF_STATUSMCP_ENV_DATEI   Umgebungswerte des Status-MCP (/opt/hof/statusmcp.env)
 #
 # Warum Ports nur an die Tailscale-IP: Docker schreibt veröffentlichte Ports direkt in
 # iptables und umgeht dabei ufw. Ein "443:443" wäre trotz Firewall im Internet offen.
-# "${HOF_TAILSCALE_IP}:443:443" lauscht nur auf der Tailscale-Adresse. App und Datenbank
-# haben gar keinen veröffentlichten Port; sie sind nur im Docker-Netz erreichbar.
+# "${HOF_TAILSCALE_IP}:443:443" lauscht nur auf der Tailscale-Adresse. App, Datenbank und
+# Status-MCP haben gar keinen veröffentlichten Port; sie sind nur im Docker-Netz erreichbar.
 
 name: hof-system
 
@@ -68,6 +70,41 @@ services:
       timeout: 5s
       retries: 4
       start_period: 20s
+
+  # Status-MCP (Schritt 11): einzige Verbindung von Claude zum Hof-System, nur lesend.
+  # Kein veröffentlichter Port: Erreichbar nur im Docker-Netz; Caddy leitet /mcp hierher
+  # (also nur über Tailscale und HTTPS). Eigene Umgebungsdatei mit nur zwei Werten
+  # (HOF_STATUSMCP_DATABASE_URL des Lese-Benutzers und HOF_STATUSMCP_TOKEN), nicht die .env
+  # der App: Der Dienst kennt weder deren Datenbank-Passwort noch den Secret Key. Fehlt die
+  # Datei, startet er trotzdem und meldet „nicht eingerichtet“ (Healthcheck rot).
+  statusmcp:
+    image: hof-system:${HOF_VERSION:?HOF_VERSION fehlt – bitte über scripts/deploy.sh starten}
+    command: ["python", "-m", "apps.statusmcp"]
+    env_file:
+      - path: ${HOF_STATUSMCP_ENV_DATEI:-/opt/hof/statusmcp.env}
+        required: false
+    environment:
+      HOF_STATUSMCP_BIND: 0.0.0.0
+      HOF_STATUSMCP_PORT: "8020"
+      # Host-Header, die der MCP-Endpunkt annimmt (über Caddy kommt der Tailscale-Name).
+      HOF_STATUSMCP_HOSTS: statusmcp:*,${HOF_HOSTNAME:?HOF_HOSTNAME fehlt}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import sys, urllib.request;
+          antwort = urllib.request.urlopen("http://127.0.0.1:8020/gesund", timeout=4);
+          sys.exit(0 if antwort.read() == b"ok" else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   caddy:
     image: caddy:2.11.9

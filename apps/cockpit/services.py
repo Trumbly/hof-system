@@ -95,6 +95,12 @@ def _suchen(objekt: Any, tiefe: int) -> list[str]:
     return []
 
 
+def kennungen_zu_bezug(bezug: models.Model | None) -> list[str]:
+    """NW-IDs bzw. Objekt-Kürzel zu einem beliebigen Objekt (z. B. dem Bezug einer Frist),
+    auf demselben Weg wie ``kennungen``; leer, wenn keine zu finden sind (Status-MCP)."""
+    return _suchen(bezug, 0)
+
+
 def kennungen(posten: Arbeitsposten) -> list[str]:
     """NW-IDs bzw. Objekt-Kürzel zum Bezug eines Postens; sonst Modell und ID."""
     bezug = posten.bezug if posten.bezug_id is not None else None

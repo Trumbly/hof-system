@@ -30,6 +30,7 @@ ERWARTET = [
     "verwaltio_kennzahlen",
     "id_abgleich",
     "aufgaben_abgleich",
+    "statusmcp_aktualisieren",
     "sicherung_pruefen",
     "benachrichtigen",
 ]
