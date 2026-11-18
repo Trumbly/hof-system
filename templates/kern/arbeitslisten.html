@@ -4,6 +4,7 @@
 
 {% block inhalt %}
 <h1>Arbeitslisten</h1>
+{% if art_filter %}<p class="leise">Nur „{{ art_filter }}“ · <a href="{% url 'kern:arbeitslisten' %}">alle Arten zeigen</a></p>{% endif %}
 {% for art, posten_liste in gruppen %}
 <section class="gruppe" aria-labelledby="art-{{ forloop.counter }}">
   <h2 id="art-{{ forloop.counter }}">{{ art }} <span class="zahl">{{ posten_liste|length }}</span></h2>

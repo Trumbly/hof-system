@@ -52,6 +52,9 @@ services:
       # Geheimnisse als Dateien, nur lesbar (privater Schlüssel für Enable Banking).
       # Ein Ordner statt einzelner Dateien: Fehlt er, startet die App trotzdem.
       - ${HOF_GEHEIM_DIR:-/opt/hof/geheim}:/run/hof-geheim:ro
+      # Statusdateien von Sicherung und Rückspielprobe, nur lesbar (Lauf sicherung_pruefen,
+      # Kachel „Letzte Sicherung“). Ein Ordner statt der Datei, wie oben.
+      - ${HOF_STATUS_DIR:-/var/lib/hof}:/var/lib/hof:ro
     healthcheck:
       test:
         - CMD

@@ -1,11 +1,14 @@
 from django.urls import path
 
+from apps.cockpit import views as cockpit
+
 from . import views
 
 app_name = "kern"
 
 urlpatterns = [
-    path("", views.startseite, name="startseite"),
+    # Die Startseite ist das Hof-Cockpit (Schritt 9); der Name bleibt kern:startseite.
+    path("", cockpit.startseite, name="startseite"),
     path("arbeitslisten/", views.arbeitslisten, name="arbeitslisten"),
     path(
         "arbeitslisten/<int:pk>/<slug:aktion>/",

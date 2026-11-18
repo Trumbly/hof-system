@@ -1,0 +1,5 @@
+{# Offene Posten der Sollstellung: nur Zahl und Gesamtsumme, keine Verträge oder Namen. #}
+<li id="kachel-offene_posten"><a class="kachel" href="{% url 'soll:liste' %}">
+  <strong>Offene Posten: {{ anzahl }}</strong>{% if ueberfaellig %} <span class="status status-mit_fehlern">{{ ueberfaellig }} überfällig</span>{% endif %}
+  <br>Summe offen: <strong>{{ summe }} €</strong>
+</a></li>

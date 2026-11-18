@@ -330,6 +330,22 @@ button.zweitrangig,
   }
 }
 
+/* Hof-Cockpit: Zeilen in einer Kachel, kaputte Kachel */
+
+.kachel-zeilen {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.kachel-zeile {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.kachel-fehler {
+  border-style: dashed;
+}
+
 /* Arbeitslisten */
 
 .gruppe {

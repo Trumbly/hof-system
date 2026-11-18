@@ -25,6 +25,7 @@ from django.db import IntegrityError, models, transaction
 from django.db.models.deletion import ProtectedError, RestrictedError
 from django.utils import timezone
 
+from apps.kern import aufgaben
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Mandant, Objekt
 from apps.kern.protokoll import ist_protokolliert
 
@@ -191,6 +192,7 @@ def arbeitsposten_anlegen(
         posten.bezug_typ = ContentType.objects.get_for_model(bezug)
         posten.bezug_id = bezug.pk
     posten.save()
+    aufgaben.melden(posten)
     return posten
 
 
@@ -198,12 +200,14 @@ def arbeitsposten_erledigen(posten: Arbeitsposten) -> Arbeitsposten:
     posten.status = Arbeitsposten.Status.ERLEDIGT
     posten.erledigt_am = timezone.now()
     posten.save(update_fields=["status", "erledigt_am"])
+    aufgaben.melden(posten)
     return posten
 
 
 def arbeitsposten_zurueckstellen(posten: Arbeitsposten) -> Arbeitsposten:
     posten.status = Arbeitsposten.Status.ZURUECKGESTELLT
     posten.save(update_fields=["status"])
+    aufgaben.melden(posten)
     return posten
 
 
@@ -211,6 +215,7 @@ def arbeitsposten_hinweis_setzen(posten: Arbeitsposten, hinweis: str) -> Arbeits
     """Ändert den Hinweis eines Postens, etwa „überfällig“ (nur IDs und Daten, keine Namen)."""
     posten.hinweis = hinweis
     posten.save(update_fields=["hinweis"])
+    aufgaben.melden(posten)
     return posten
 
 
@@ -218,6 +223,7 @@ def arbeitsposten_wieder_oeffnen(posten: Arbeitsposten) -> Arbeitsposten:
     posten.status = Arbeitsposten.Status.OFFEN
     posten.erledigt_am = None
     posten.save(update_fields=["status", "erledigt_am"])
+    aufgaben.melden(posten)
     return posten
 
 

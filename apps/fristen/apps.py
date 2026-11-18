@@ -7,4 +7,11 @@ class FristenConfig(AppConfig):
     verbose_name = "Fristen"
 
     def ready(self) -> None:
-        from apps.fristen import aktionen  # noqa: F401  (registriert „Frist erledigt“)
+        from apps.cockpit import tageslauf
+        from apps.fristen import (
+            aktionen,  # noqa: F401  (registriert „Frist erledigt“)
+            kacheln,
+        )
+
+        kacheln.anmelden()
+        tageslauf.schritt_anmelden("fristen", reihenfolge=tageslauf.FRISTEN)

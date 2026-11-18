@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 
-import pytest
 from django.core.management import call_command
 from django.test import Client
 
@@ -85,14 +84,16 @@ def test_befehl_website_token(freie_garage: Einheit, client: Client) -> None:
     assert client.get(url, HTTP_AUTHORIZATION=f"Bearer {token}").status_code == 401
 
 
-@pytest.mark.parametrize(
-    ("lauf", "zeit"), [("verwaltio_kennzahlen", "03:15"), ("id_abgleich", "05:30")]
-)
-def test_zeitplaene_der_laeufe(lauf: str, zeit: str) -> None:
-    """Timer: verwaltio_kennzahlen nachts, id_abgleich täglich nach den Kennzahlen."""
-    assert _systemd(SYSTEMD / "laeufe" / f"{lauf}.conf")["Timer"]["OnCalendar"] == (
-        f"*-*-* {zeit}:00"
-    )
+def test_zeitplaene_der_laeufe() -> None:
+    """Zeitplan (seit Schritt 9): verwaltio_kennzahlen und danach id_abgleich laufen täglich
+    im Tageslauf, nach den Fristen; eigene Timer entfallen."""
+    from apps.cockpit import tageslauf
+
+    assert _systemd(SYSTEMD / "laeufe" / "tageslauf.conf")["Timer"]["OnCalendar"]
+    rang = {s.name: s.reihenfolge for s in tageslauf.schritte()}
+    assert rang["fristen"] < rang["verwaltio_kennzahlen"] < rang["id_abgleich"]
+    for lauf in ("verwaltio_kennzahlen", "id_abgleich"):
+        assert not (SYSTEMD / "laeufe" / f"{lauf}.conf").exists()
 
 
 def test_buchungsanfrage_str_ohne_namen(testhof: Testhof) -> None:

@@ -1,0 +1,7 @@
+{# Zustand der Läufe: letzter Lauf je Name, gescheiterte zuerst. #}
+<li id="kachel-laeufe"><a class="kachel" href="{% url 'kern:laeufe' %}">
+  <strong>Läufe</strong>{% if gescheitert %} <span class="status status-abgebrochen">{{ gescheitert }} gescheitert</span>{% endif %}
+  {% if laeufe %}
+  <span class="kachel-zeilen">{% for lauf in laeufe %}<span class="kachel-zeile">{{ lauf.name }}: <span class="status status-{{ lauf.status }}">{{ lauf.get_status_display }}</span> <span class="leise">{{ lauf.gestartet_am|date:"d.m. H:i" }}</span></span>{% endfor %}</span>
+  {% else %}<br><span class="leise">Noch keine Läufe.</span>{% endif %}
+</a></li>

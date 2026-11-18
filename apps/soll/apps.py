@@ -13,3 +13,10 @@ class SollConfig(AppConfig):
 
         konfiguration.laden()
         services.stornowege_registrieren()
+
+        # Kachel „Offene Posten“; soll_monat ist idempotent und läuft darum täglich mit.
+        from apps.cockpit import tageslauf
+        from apps.soll import kacheln
+
+        kacheln.anmelden()
+        tageslauf.schritt_anmelden("soll_monat", reihenfolge=tageslauf.SOLL)

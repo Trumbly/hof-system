@@ -1,4 +1,4 @@
-"""Seiten des Kerns: Start, Arbeitslisten, Protokoll, Läufe, Gesundheits-Endpunkt."""
+"""Seiten des Kerns: Arbeitslisten, Protokoll, Läufe, Gesundheits-Endpunkt."""
 
 from __future__ import annotations
 
@@ -20,27 +20,11 @@ from django.views.decorators.http import require_GET, require_POST
 from pghistory.models import Events
 
 from apps.kern import aktionen, services
-from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
+from apps.kern.models import Arbeitsposten, Benutzer, Lauf
 from apps.kern.protokoll import ART_TITEL, protokollierte_modelle
 
 PROTOKOLL_ANZAHL = 100
 LAEUFE_ANZAHL = 50
-
-
-@login_required
-def startseite(request: HttpRequest) -> HttpResponse:
-    """Startseite. Wird in Schritt 9 zum Hof-Cockpit."""
-    return render(
-        request,
-        "kern/startseite.html",
-        {
-            "offene_posten": Arbeitsposten.objects.filter(
-                status=Arbeitsposten.Status.OFFEN
-            ).count(),
-            "letzter_lauf": Lauf.objects.first(),
-            "objekte": Objekt.objects.filter(aktiv=True).select_related("mandant"),
-        },
-    )
 
 
 # --- Arbeitslisten -------------------------------------------------------------------
@@ -52,22 +36,29 @@ def _ist_htmx(request: HttpRequest) -> bool:
 
 @login_required
 def arbeitslisten(request: HttpRequest) -> HttpResponse:
-    """Alle offenen Arbeitsposten, gruppiert nach Art; zurückgestellte darunter."""
+    """Alle offenen Arbeitsposten, gruppiert nach Art; zurückgestellte darunter.
+
+    ``?art=…`` zeigt nur eine Art (Links aus dem Cockpit und dem Hof-Backlog).
+    """
+    art_filter = request.GET.get("art", "")
     offen = (
         Arbeitsposten.objects.filter(status=Arbeitsposten.Status.OFFEN)
         .select_related("bezug_typ", "lauf")
         .order_by("art", "faellig_am", "angelegt_am", "pk")
     )
-    gruppen = [(art, list(posten)) for art, posten in groupby(offen, key=lambda p: p.art)]
     zurueckgestellt = (
         Arbeitsposten.objects.filter(status=Arbeitsposten.Status.ZURUECKGESTELLT)
         .select_related("bezug_typ", "lauf")
         .order_by("art", "pk")
     )
+    if art_filter:
+        offen = offen.filter(art=art_filter)
+        zurueckgestellt = zurueckgestellt.filter(art=art_filter)
+    gruppen = [(art, list(posten)) for art, posten in groupby(offen, key=lambda p: p.art)]
     return render(
         request,
         "kern/arbeitslisten.html",
-        {"gruppen": gruppen, "zurueckgestellt": zurueckgestellt},
+        {"gruppen": gruppen, "zurueckgestellt": zurueckgestellt, "art_filter": art_filter},
     )
 
 

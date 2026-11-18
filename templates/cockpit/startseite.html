@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block titel %}Cockpit{% endblock %}
+
+{% block inhalt %}
+<h1>Hof-Cockpit</h1>
+<ul class="kacheln cockpit">
+  {% for html in kacheln %}{{ html|safe }}{% endfor %}
+  <li id="kachel-protokoll"><a class="kachel" href="{% url 'kern:protokoll' %}"><strong>Protokoll</strong><br><span class="leise">alle Änderungen, mit Rücknahme</span></a></li>
+</ul>
+<h2>Objekte</h2>
+{% if objekte %}
+<ul class="objekte">
+  {% for objekt in objekte %}<li id="objekt-{{ objekt.pk }}"><strong>{{ objekt.kuerzel }}</strong> · {{ objekt.bezeichnung }} <span class="leise">({{ objekt.mandant.get_art_display }})</span></li>{% endfor %}
+</ul>
+{% else %}
+<p class="leise">Noch keine Objekte. Zum Ausprobieren: <code>manage.py testhof --seed 42</code></p>
+{% endif %}
+{% endblock %}

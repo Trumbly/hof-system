@@ -124,6 +124,13 @@ def test_ablesung_fehlt_meldet_sich_als_freigabe() -> None:
 
 
 def test_timer_taeglich_mit_eigener_pruefung() -> None:
-    """Schritt 8, Aufgabe 4: Der Lauf steht im Zeitplan (täglich; er prüft selbst das Fenster)."""
-    conf = settings.BASE_DIR / "deploy" / "systemd" / "laeufe" / "zaehler_stichtag.conf"
-    assert "OnCalendar=*-*-* 06:20:00" in conf.read_text()
+    """Schritt 8, Aufgabe 4: Der Lauf läuft täglich (er prüft selbst das Fenster), seit
+    Schritt 9 im Tageslauf nach den Fristen statt mit eigenem Zeitplan."""
+    from apps.cockpit import tageslauf
+
+    laeufe = settings.BASE_DIR / "deploy" / "systemd" / "laeufe"
+    assert "OnCalendar=*-*-* 06:00:00" in (laeufe / "tageslauf.conf").read_text()
+    assert not (laeufe / "zaehler_stichtag.conf").exists()
+    schritt = next(s for s in tageslauf.schritte() if s.name == "zaehler_stichtag")
+    assert schritt.nur_wochentag is None
+    assert tageslauf.FRISTEN < schritt.reihenfolge < tageslauf.VERWALTIO

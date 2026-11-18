@@ -11,3 +11,8 @@ class ZaehlerConfig(AppConfig):
         from apps.zaehler import konfiguration, verweise  # noqa: F401
 
         konfiguration.laden()
+
+        # Täglich im Tageslauf nach den Fristen; der Lauf prüft das Ablesefenster selbst.
+        from apps.cockpit import tageslauf
+
+        tageslauf.schritt_anmelden("zaehler_stichtag", reihenfolge=tageslauf.FRISTEN + 5)

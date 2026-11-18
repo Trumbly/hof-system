@@ -1,0 +1,7 @@
+{# Offene Freigaben je Art (offene Arbeitsposten). Nur Arten und Zähler. #}
+<li id="kachel-freigaben"><a class="kachel" href="{% url 'kern:arbeitslisten' %}">
+  <strong>Offene Freigaben: {{ summe }}</strong>
+  {% if arten %}
+  <span class="kachel-zeilen">{% for a in arten %}<span class="kachel-zeile">{{ a.art }}: <strong>{{ a.anzahl }}</strong></span>{% endfor %}</span>
+  {% else %}<br><span class="leise">Nichts wartet auf dich.</span>{% endif %}
+</a></li>

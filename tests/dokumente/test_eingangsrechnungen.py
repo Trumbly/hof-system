@@ -91,7 +91,8 @@ def test_beleg_mit_faelligkeit_wird_rechnung_mit_posten_und_frist(
     assert posten.bezug == eintrag and posten.faellig_am == FAELLIG
     assert "16.11.2026" in posten.hinweis
     assert "238" not in posten.hinweis and belegwelt.lieferant.name not in posten.hinweis
-    assert gemeldet == [(posten.pk, "offen")]
+    # Genau einmal gemeldet (zentral in kern.services, kein doppelter Aufruf).
+    assert [g for g in gemeldet if g[0] == posten.pk] == [(posten.pk, "offen")]
     frist = Frist.objects.get(quelle=Frist.Quelle.EINGANGSRECHNUNG)
     assert (frist.art, frist.datum, frist.vorlauf_tage, frist.bezug) == (
         Frist.Art.ZAHLUNGSZIEL,
@@ -398,8 +399,33 @@ def test_bezahlter_beleg_bekommt_keine_rechnung(belegwelt: Belegwelt) -> None:
         )
 
 
-def test_aufgaben_melden_tut_vorerst_nichts() -> None:
-    """Schritt 3b, Aufgabe 5: Die Schnittstelle zum Hof-Backlog gibt es, sie tut noch nichts."""
-    from apps.kern import aufgaben as echt
+def test_aufgaben_melden_merkt_nur_vor(
+    belegwelt: Belegwelt, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Schritt 3b, Aufgabe 5 (umgesetzt in Schritt 9): ``melden`` läuft zentral in
+    kern.services und merkt die Aufgabe „Rechnung zahlen“ nur vor; Notion ruft erst der Lauf
+    aufgaben_abgleich. Anlegen, Überfällig-Markieren und Schließen melden je einmal."""
+    from apps.cockpit.models import NotionAufgabe
+    from apps.cockpit.notion import FakeNotion
 
-    assert echt.melden(Arbeitsposten(art="Rechnung zahlen")) is None
+    aufrufe: list[tuple[int, str]] = []
+    original = aufgaben.melden
+
+    def zaehlen(posten: Arbeitsposten) -> None:
+        aufrufe.append((posten.pk, posten.status))
+        original(posten)
+
+    FakeNotion.zuruecksetzen()
+    monkeypatch.setattr(aufgaben, "melden", zaehlen)
+    eintrag = rechnung(belegwelt)
+    posten = Arbeitsposten.objects.get(art=services.ART_RECHNUNG_ZAHLEN)
+    services.rechnungen_ueberfaellig_markieren(FAELLIG + datetime.timedelta(days=1))
+    services._posten_schliessen(eintrag)
+    assert [a for a in aufrufe if a[0] == posten.pk] == [
+        (posten.pk, "offen"),
+        (posten.pk, "offen"),
+        (posten.pk, "erledigt"),
+    ]
+    aufgabe = NotionAufgabe.objects.get(art=services.ART_RECHNUNG_ZAHLEN)
+    assert aufgabe.vorgemerkt_am is not None and not aufgabe.page_id
+    assert FakeNotion.aufrufe == []
