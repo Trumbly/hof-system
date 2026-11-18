@@ -95,7 +95,7 @@ def test_nach_dem_senden_versandstand_und_abschluss(
     schreiben = services.schreiben_erzeugen(kuendigung, objekt, kontext(objekt))
     angemeldet.post(
         reverse("dokumente:schreiben_senden", args=[schreiben.pk]),
-        {"pruefsumme": schreiben.pdf_sha256},
+        {"pruefsumme": schreiben.pdf_sha256, "anwalt_gesehen": "1"},
     )
     seite = angemeldet.get(reverse("dokumente:schreiben", args=[schreiben.pk])).content.decode()
     assert "Versandstand bei LetterXpress abrufen" in seite

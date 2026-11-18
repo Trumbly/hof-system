@@ -11,6 +11,7 @@
   <div><dt>Vorlage</dt><dd><a href="{% url 'dokumente:vorlage' schreiben.vorlage_id %}">{{ schreiben.vorlage.name }}</a>, Version {{ schreiben.vorlage_version }}</dd></div>
   <div><dt>Bezug</dt><dd>{{ schreiben.bezug_typ.name }} #{{ schreiben.bezug_id }}{% if schreiben.serie %} · <a href="{% url 'dokumente:serie' schreiben.serie %}">Serie</a>{% endif %}</dd></div>
   {% if schreiben.einseitige_erklaerung %}<div><dt>Art</dt><dd>einseitige Erklärung: erst mit Zustellnachweis erledigt</dd></div>{% endif %}
+  {% if anwalt %}<div><dt>Anwalt</dt><dd class="faellig">Kündigung: {{ anwalt_hinweis }}</dd></div>{% endif %}
   {% if schreiben.gesendet_am %}<div><dt>gesendet</dt><dd>{{ schreiben.gesendet_am|date:"d.m.Y H:i" }} von Benutzer #{{ schreiben.gesendet_von_id }}</dd></div>{% endif %}
   {% if schreiben.dienst_auftrag %}<div><dt>Auftrag</dt><dd>{{ schreiben.dienst_auftrag }}</dd></div>{% endif %}
   {% if schreiben.sendungsnummer %}<div><dt>Sendungsnummer</dt><dd>{{ schreiben.sendungsnummer }}</dd></div>{% endif %}
@@ -33,6 +34,7 @@
   <form method="post" action="{% url 'dokumente:schreiben_senden' schreiben.pk %}">
     {% csrf_token %}
     <input type="hidden" name="pruefsumme" value="{{ schreiben.pdf_sha256 }}">
+    {% if anwalt %}<p><label><input type="checkbox" name="anwalt_gesehen" value="1" required> Der Anwalt hat diese Kündigung gesehen und freigegeben.</label></p>{% endif %}
     <button type="submit">Senden ({{ versandweg }})</button>
   </form>
   <form method="post" action="{% url 'dokumente:schreiben_verwerfen' schreiben.pk %}">

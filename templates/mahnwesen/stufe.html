@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block titel %}Stufe {{ stufe.titel }}{% endblock %}
+
+{% block inhalt %}
+{% include "mahnwesen/_reiter.html" %}
+<h1>{{ stufe.titel }} <span class="leise">{{ stufe.get_vertragsart_display }}, Stufe {{ stufe.reihenfolge }}</span></h1>
+{% include "stammdaten/_formular.html" with form=form aktion="speichern" knopf="Speichern" %}
+<p><a href="{% url 'mahnwesen:stufen' %}">Zurück zu den Stufen</a></p>
+{% endblock %}

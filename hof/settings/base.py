@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.anbindungen",
     "apps.zaehler",
     "apps.abgleich",
+    "apps.mahnwesen",
     "apps.cockpit",
     "apps.statusmcp",
 ]
@@ -212,8 +213,9 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "Ablesung fehlt",
         # Cockpit (apps.cockpit.services, ART_*)
         "Sicherung prüfen",
-        # spätere Schritte
+        # Mahnwesen (apps.mahnwesen.services, ART)
         "Mahnungen senden",
+        # spätere Schritte
         "Zahlungen klären",
         "Schreiben senden",
     ],

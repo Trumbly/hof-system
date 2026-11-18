@@ -37,6 +37,8 @@ Ein Schreiben entsteht mit::
 - Serien: ``serie_erzeugen(vorlage, [(bezug, kontext), …])`` und ``serie_senden``.
 - Einseitige Erklärungen (Art mit ``einseitige_erklaerung``) gelten erst mit
   Zustellnachweis als erledigt (``schreiben_abschliessen``).
+- Arten mit ``anwalt_bestaetigung`` (Kündigungen) gehen nur hinaus, wenn der Benutzer beim
+  Senden bestätigt, dass der Anwalt sie gesehen hat (``anwalt_gesehen=True``).
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+import pghistory
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.base import ContentFile
@@ -95,6 +98,7 @@ from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "AnwaltBestaetigungFehlt",
     "PlatzhalterFehler",
     "SchreibenFehler",
     "VersandFehler",
@@ -139,6 +143,10 @@ class ZustellnachweisFehlt(SchreibenFehler):
 
 class VorschauFehlt(SchreibenFehler):
     """Gesendet wird nur, was der Benutzer in der Vorschau gesehen hat."""
+
+
+class AnwaltBestaetigungFehlt(SchreibenFehler):
+    """Eine Kündigung geht erst hinaus, wenn der Anwalt sie gesehen hat (Mahnwesen, H4.3)."""
 
 
 # --- Vorlagen ------------------------------------------------------------------------
@@ -501,16 +509,31 @@ def _senden(schreiben: Schreiben, benutzer: Benutzer) -> Schreiben:
     return schreiben
 
 
-def _sendebereit(schreiben: Schreiben, benutzer: Benutzer) -> None:
+def braucht_anwalt(schreiben: Schreiben) -> bool:
+    """Ob das Schreiben vor dem Senden die Bestätigung „Anwalt hat es gesehen“ braucht."""
+    try:
+        return vorlagenarten.holen(schreiben.art).anwalt_bestaetigung
+    except vorlagenarten.UnbekannteVorlagenart:
+        return False
+
+
+def _sendebereit(schreiben: Schreiben, benutzer: Benutzer, *, anwalt_gesehen: bool = False) -> None:
     if not isinstance(benutzer, Benutzer) or not benutzer.is_active or benutzer.pk is None:
         raise SchreibenFehler("Senden nur durch einen angemeldeten Benutzer.")
     if schreiben.status != Schreiben.Status.BEREIT:
         raise SchreibenFehler(
             f"Schreiben #{schreiben.pk} ist {schreiben.get_status_display()}, nicht bereit."
         )
+    if braucht_anwalt(schreiben) and not anwalt_gesehen:
+        raise AnwaltBestaetigungFehlt(
+            f"Schreiben #{schreiben.pk}: {vorlagenarten.ANWALT_HINWEIS}. Erst bestätigen, "
+            "dass der Anwalt es gesehen hat, dann senden."
+        )
 
 
-def schreiben_senden(schreiben: Schreiben, benutzer: Benutzer, *, pruefsumme: str) -> Schreiben:
+def schreiben_senden(
+    schreiben: Schreiben, benutzer: Benutzer, *, pruefsumme: str, anwalt_gesehen: bool = False
+) -> Schreiben:
     """Sendet ein Schreiben im Status „bereit“ (Aktion „Senden“, CLAUDE.md Regel 8).
 
     ``pruefsumme`` ist die SHA-256 des PDFs aus der Vorschau, die der Benutzer gesehen
@@ -518,14 +541,21 @@ def schreiben_senden(schreiben: Schreiben, benutzer: Benutzer, *, pruefsumme: st
     Mail: SMTP und Kopie in „Gesendet“. Brief und Einwurf-Einschreiben: Auftrag bei
     LetterXpress, Sendungsnummer und Einlieferung holt ``versandstand_abrufen``.
     Selbst: nur der Vermerk „gesendet“. Scheitert der Versand, bleibt es „bereit“.
+
+    Braucht die Art die Bestätigung des Anwalts (Kündigung), geht ohne
+    ``anwalt_gesehen=True`` nichts hinaus (``AnwaltBestaetigungFehlt``); die Bestätigung steht
+    mit dem Senden im Protokoll (Kontext ``anwalt_gesehen``).
     """
     with transaction.atomic():
         schreiben = Schreiben.objects.select_for_update().get(pk=schreiben.pk)
-        _sendebereit(schreiben, benutzer)
+        _sendebereit(schreiben, benutzer, anwalt_gesehen=anwalt_gesehen)
         if not pruefsumme or pruefsumme != schreiben.pdf_sha256:
             raise VorschauFehlt(
                 f"Schreiben #{schreiben.pk}: Erst die Vorschau des PDFs ansehen, dann senden."
             )
+        if braucht_anwalt(schreiben):
+            with pghistory.context(anwalt_gesehen=True):
+                return _senden(schreiben, benutzer)
         return _senden(schreiben, benutzer)
 
 
