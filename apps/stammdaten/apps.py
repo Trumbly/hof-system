@@ -12,3 +12,7 @@ class StammdatenConfig(AppConfig):
         from apps.stammdaten import konfiguration
 
         konfiguration.laden()
+
+        from apps.stammdaten import kacheln  # Kacheln „Leerstand“ und „Datenstand“
+
+        kacheln.anmelden()

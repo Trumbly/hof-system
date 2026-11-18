@@ -89,7 +89,6 @@ from apps.fristen import services as fristen_services
 from apps.fristen.models import Frist
 from apps.kassenbuch import services as kassenbuch_services
 from apps.kassenbuch.models import Buchung, Kategorie
-from apps.kern import aufgaben
 from apps.kern import services as kern_services
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 
@@ -1568,7 +1567,7 @@ def eingangsrechnung_anlegen(
         datum_angleichen=True,
     )
     if neu or not _rechnung_posten(rechnung, ART_RECHNUNG_ZAHLEN):
-        posten = kern_services.arbeitsposten_anlegen(
+        kern_services.arbeitsposten_anlegen(
             ART_RECHNUNG_ZAHLEN,
             bezug=rechnung,
             aktionen=AKTIONEN_RECHNUNG,
@@ -1576,7 +1575,7 @@ def eingangsrechnung_anlegen(
             hinweis=_rechnung_hinweis(rechnung),
             lauf=lauf,
         )
-        aufgaben.melden(posten)
+        # Gemeldet ans Hof-Backlog wird zentral in kern.services (aufgaben.melden).
     logger.info("Eingangsrechnung #%s angelegt (Beleg #%s)", rechnung.pk, beleg.pk)
     return rechnung
 
@@ -1585,7 +1584,6 @@ def _posten_schliessen(rechnung: Eingangsrechnung) -> None:
     for art in (ART_RECHNUNG_ZAHLEN, ART_RECHNUNG_ZUORDNEN):
         for posten in _rechnung_posten(rechnung, art):
             kern_services.arbeitsposten_erledigen(posten)
-            aufgaben.melden(posten)
 
 
 def _buchung_fuer(beleg: Beleg, buchungen: Sequence[Buchung]) -> Buchung:
@@ -1814,6 +1812,5 @@ def rechnungen_ueberfaellig_markieren(stichtag: datetime.date, lauf: Lauf | None
         rechnung.save(update_fields=["ueberfaellig_seit"])
         for posten in _rechnung_posten(rechnung, ART_RECHNUNG_ZAHLEN):
             kern_services.arbeitsposten_hinweis_setzen(posten, _rechnung_hinweis(rechnung))
-            aufgaben.melden(posten)
         anzahl += 1
     return anzahl

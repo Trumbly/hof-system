@@ -55,6 +55,45 @@ Läufe sind Management-Befehle (`LaufBefehl`) und werden von `hof-lauf@<name>.ti
 
 Prüfen: `systemctl list-timers 'hof-*'`, `journalctl -u hof-lauf@<name> -n 50`, in der App die Seite „Läufe“. Von Hand starten: `sudo systemctl start hof-lauf@<name>.service`.
 
+Ein Lauf, der täglich in der festen Reihenfolge laufen soll, bekommt **keinen** eigenen Zeitplan, sondern meldet sich beim Tageslauf an (nächster Abschnitt).
+
+## Tageslauf (Schritt 9)
+
+Der Lauf `tageslauf` (täglich 6:00, `deploy/systemd/laeufe/tageslauf.conf`) ruft die angemeldeten Läufe in der Reihenfolge des Bauplans. Jeder Teil ist ein eigener Lauf auf der Seite „Läufe“; der Tageslauf selbst nennt in seiner Meldung jeden Schritt mit Status und Lauf-Nummer.
+
+| Rang | Schritt | Lauf |
+| --- | --- | --- |
+| 10 | Bank abrufen | `bank_abruf` |
+| 20 | Umsätze einordnen | `kassenbuch_einordnen` (hängt an `bank_abruf`) |
+| 30 | Sollstellung prüfen | `soll_monat` (idempotent, darum täglich) |
+| 40 | Zahlungen abgleichen | kommt mit Schritt 6 (`abgleich`) |
+| 50 | Mahnfälle fortschreiben, montags | kommt mit Schritt 7 |
+| 60 | Fristen prüfen | `fristen` (markiert dabei auch überfällige Eingangsrechnungen) |
+| 65 | Ablesung zum Stichtag | `zaehler_stichtag` (tut außerhalb des Ablesefensters nichts) |
+| 70, 75 | Kennzahlen aus Verwaltio, ID-Abgleich | `verwaltio_kennzahlen`, `id_abgleich` |
+| 80 | Hof-Cockpit: Aufgaben im Hof-Backlog | `aufgaben_abgleich` |
+| 90 | Sicherung prüfen | `sicherung_pruefen` |
+| 100 | Benachrichtigung | `benachrichtigen` |
+
+- **Bricht ein Teil ab**, laufen die übrigen weiter. Der Tageslauf steht dann auf „mit Fehlern“, seine Meldung nennt den Schritt (nur mit der Art des Fehlers), und die Benachrichtigung meldet beide Läufe. Hängt ein späterer Schritt am gescheiterten (z. B. Einordnen am Bankabruf), läuft er trotzdem und bekommt den Vermerk „lief trotz Fehler bei …“.
+- **Von Hand:** `sudo systemctl start hof-lauf@tageslauf.service`, oder `compose.sh exec app python manage.py tageslauf --ohne bank_abruf` bzw. `--stichtag 2026-11-16` (wie an einem Montag).
+- **Eigene Zeitpläne entfallen.** Seit dem Tageslauf gibt es `bank_abruf.conf`, `kassenbuch_einordnen.conf`, `soll_monat.conf`, `fristen.conf`, `zaehler_stichtag.conf`, `verwaltio_kennzahlen.conf` und `id_abgleich.conf` nicht mehr. `systemd-einrichten.sh` trägt die alten Timer beim nächsten Aufruf selbst aus (Schritt 3 des Skripts); also nach dem Ausrollen einmal `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh`. Eigene Zeitpläne behalten nur Läufe mit eigenem Rhythmus: `benachrichtigen` (dreimal täglich), `aufgaben_abgleich` (alle 30 Minuten), `versandstand_abrufen` (werktags), `kassenbuch_monatsabschluss` (am 3.), `kern_selbsttest` und `belege_postfach` (stündlich). Die Belegpflicht prüft der Monatsabschluss, nicht der Tageslauf.
+- **Sicherung prüfen:** liest `HOF_BACKUP_STATUS` (Standard `/var/lib/hof/backup-status.json`; der Ordner `/var/lib/hof` ist im App-Container nur lesend eingehängt, `HOF_STATUS_DIR`). Fehlt die Datei, steht `ergebnis` nicht auf `ok` oder ist sie älter als `HOF_BACKUP_HOECHSTALTER_STUNDEN` (26), endet der Lauf mit Fehler und legt einen Arbeitsposten „Sicherung prüfen“ an; mit der nächsten guten Sicherung schließt er sich.
+- **Neue Schritte** melden sich in `AppConfig.ready()` an: `tageslauf.schritt_anmelden(name, reihenfolge=…, nur_wochentag=…, abhaengig_von=(…))`, siehe `apps/cockpit/tageslauf.py`.
+
+## Hof-Cockpit und Hof-Backlog (Schritt 9)
+
+Die Startseite ist das Hof-Cockpit. Jede Kachel liest beim Aufruf direkt aus der Datenbank (keine Kopien) und führt auf ihre Liste: offene Freigaben je Art, Belege zuordnen, Fristen der nächsten 14 Tage, Rückstände (ab Schritt 6), offene Posten, offene Eingangsrechnungen (fällig in 14 Tagen, überfällig), Leerstand, Datenstand-Lücken, Wohnraum (Verwaltio), Zustand der Läufe und letzte Sicherung. Am Handy stehen die Kacheln untereinander.
+
+**Aufgaben im Hof-Backlog (Notion).** Für die Arten „Mahnungen senden“, „Zahlungen klären“, „Rechnung zahlen“, „Frist fällig“ und „Ablesung fehlt“ (`HOF_NOTION_ARTEN` in `hof/settings/base.py`) steht im Hof-Backlog je Art eine Aufgabe, z. B. „3 Mahnungen senden“, mit NW-IDs bzw. Objekt-Kürzeln, der frühesten Fälligkeit und dem Link auf die Arbeitsliste; keine Namen, keine Beträge. Kommen Posten dazu oder werden welche erledigt, aktualisiert sich die Aufgabe; ist alles erledigt, steht sie auf Erledigt. Das Anlegen eines Postens merkt nur vor; Notion ruft erst der Lauf `aufgaben_abgleich` (alle 30 Minuten und im Tageslauf). Fällt Notion aus, geht im Hof-System nichts verloren: Der Lauf steht auf „mit Fehlern“ und holt es beim nächsten Mal nach.
+
+Einrichten in `/opt/hof/.env` (Token nur auf dem Server):
+
+- `HOF_NOTION_TOKEN=<Token der Integration>`; die Integration in Notion mit der Datenbank „Hof-Backlog“ verbinden.
+- `HOF_NOTION_DATENBANK_ID=<ID der Datenbank>`; hat die Datenbank mehrere Datenquellen, stattdessen die ID der Datenquelle und `HOF_NOTION_PARENT=data_source_id`.
+- Namen der Eigenschaften, falls sie abweichen: `HOF_NOTION_FELD_TITEL` (Standard `Name`), `HOF_NOTION_FELD_STATUS` (`Status`), `HOF_NOTION_STATUS_TYP` (`status` oder `select`), `HOF_NOTION_FELD_FAELLIG` (`Fällig`), `HOF_NOTION_FELD_LINK` (`Link`), `HOF_NOTION_FELD_TEXT` (`Details`, leer: kein Textfeld), `HOF_NOTION_WERT_OFFEN` (`Offen`), `HOF_NOTION_WERT_ERLEDIGT` (`Erledigt`).
+- Ohne Token endet `aufgaben_abgleich` mit „nicht eingerichtet“, ohne Fehler. Testen: `compose.sh exec app python manage.py aufgaben_abgleich`.
+
 ## Benachrichtigung (H11.1)
 
 Der Lauf `benachrichtigen` (7:30, 12:30, 18:30) meldet sich nur, wenn ein Lauf in den letzten 24 Stunden abgebrochen ist oder Fehler hatte, oder wenn Arbeitsposten bestimmter Arten offen warten (Standard: Frist fällig, die Bank-Posten Bankfreigabe läuft ab, Bankfreigabe fehlt, Bankabruf gescheitert, Bankumsätze fehlen und Saldo weicht ab, dazu Mahnungen senden, Zahlungen klären, Rechnung zahlen, Schreiben senden). Inhalt nur Zähler und Links, keine Namen oder Beträge. Dieselbe Lage kommt höchstens einmal am Tag; neu meldet sich nur, was dazukommt. Ohne Anlass bleibt es still.
@@ -118,7 +157,7 @@ Immer zuerst den Fehler eingrenzen und den jetzigen Stand sichern (`sudo systemc
 
 Vivid läuft über Enable Banking (PSD2, nur lesend) auf dem Server. Das VR-Konto ruft der hof-mac über FinTS ab und liefert die Umsätze an `/api/bank/zulieferung`; die PIN bleibt auf dem hof-mac.
 
-**Täglicher Ablauf.** Der hof-mac liefert um 5:30 die VR-Umsätze der letzten 14 Tage samt Saldo (`zulieferung/vr_hochladen.py`, launchd). Um 6:00 startet `hof-lauf@bank_abruf.timer` den Lauf `bank_abruf`: Er holt die Vivid-Umsätze seit dem letzten Umsatz (7 Tage Überlappung; Doppelte weist der Fingerabdruck ab) und den Saldo, prüft dann für beide Konten Saldo gegen Umsätze je Tag, die Bankfreigaben (14 Tage Vorlauf) und ob jedes Konto in den letzten zwei Tagen einen Abruf hatte. Was nicht passt, steht in der Arbeitsliste: „Saldo weicht ab“ (Konto-ID und Datum), „Bankabruf gescheitert“, „Bankfreigabe läuft ab“, „Bankumsätze fehlen“. Prüfen: Seite „Läufe“ und „Bank“, `journalctl -u hof-lauf@bank_abruf -n 50`.
+**Täglicher Ablauf.** Der hof-mac liefert um 5:30 die VR-Umsätze der letzten 14 Tage samt Saldo (`zulieferung/vr_hochladen.py`, launchd). Um 6:00 startet der Tageslauf als ersten Schritt `bank_abruf`: Er holt die Vivid-Umsätze seit dem letzten Umsatz (7 Tage Überlappung; Doppelte weist der Fingerabdruck ab) und den Saldo, prüft dann für beide Konten Saldo gegen Umsätze je Tag, die Bankfreigaben (14 Tage Vorlauf) und ob jedes Konto in den letzten zwei Tagen einen Abruf hatte. Was nicht passt, steht in der Arbeitsliste: „Saldo weicht ab“ (Konto-ID und Datum), „Bankabruf gescheitert“, „Bankfreigabe läuft ab“, „Bankumsätze fehlen“. Prüfen: Seite „Läufe“ und „Bank“, `journalctl -u hof-lauf@tageslauf -n 50`.
 
 **Einrichten (einmalig).**
 
@@ -127,7 +166,7 @@ Vivid läuft über Enable Banking (PSD2, nur lesend) auf dem Server. Das VR-Kont
 3. Ausrollen, dann die Konten anlegen (IDs merken):
    `compose.sh exec app python manage.py bank_konto_anlegen --mandant GBR --bank Vivid --bezeichnung "Vivid Geschäftskonto" --iban <IBAN> --zugang enable_banking --eb-bank-name "<Name der Bank bei Enable Banking>"` und dasselbe für VR mit `--zugang zulieferung`.
 4. Vivid freigeben (siehe unten). VR: Token erzeugen mit `compose.sh exec app python manage.py bank_zulieferung_token --konto <VR-ID>` (erscheint nur einmal) und den hof-mac einrichten, wie im Kopf von `zulieferung/vr_hochladen.py` beschrieben.
-5. `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Timer `bank_abruf` ein.
+5. `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Tageslauf ein, der `bank_abruf` aufruft.
 
 **Import alter Umsätze (H3.3).** Den Export nach `/srv/hof/medien/import/` auf dem Server kopieren (im Container `/app/medien/import/`; nie ins Repository), dann erst prüfen, dann übernehmen:
 
@@ -140,14 +179,14 @@ Der Bericht nennt nur Zähler und Fehlerarten. Übernommen werden nur Tage vor d
 
 ## Kassenbuch
 
-**Täglicher Ablauf.** Um 6:30, nach dem Bankabruf, ordnet `kassenbuch_einordnen` die neuen Umsätze nach den Zuordnungsregeln ein (Seite „Kassenbuch → Regeln“). Eindeutig ist ein Umsatz, wenn genau eine Regel mit der höchsten Priorität passt; dann wird er gebucht. Sonst steht er in der Arbeitsliste „Umsätze einordnen“ mit Zuordnen, Aufteilen, Regel anlegen und Zurückstellen. Eine neue Regel zeigt erst eine Vorschau mit Zählern und bucht offene Umsätze rückwirkend erst nach dem Klick. Gebuchtes wird nie geändert: „Stornieren“ am Umsatz oder „Zurücknehmen“ im Protokoll legen eine Stornobuchung an.
+**Täglicher Ablauf.** Im Tageslauf, direkt nach dem Bankabruf, ordnet `kassenbuch_einordnen` die neuen Umsätze nach den Zuordnungsregeln ein (Seite „Kassenbuch → Regeln“). Eindeutig ist ein Umsatz, wenn genau eine Regel mit der höchsten Priorität passt; dann wird er gebucht. Sonst steht er in der Arbeitsliste „Umsätze einordnen“ mit Zuordnen, Aufteilen, Regel anlegen und Zurückstellen. Eine neue Regel zeigt erst eine Vorschau mit Zählern und bucht offene Umsätze rückwirkend erst nach dem Klick. Gebuchtes wird nie geändert: „Stornieren“ am Umsatz oder „Zurücknehmen“ im Protokoll legen eine Stornobuchung an.
 
 **Monatsabschluss (H6.6).** Am 3. jedes Monats um 7 Uhr schließt `kassenbuch_monatsabschluss` den Vormonat je Mandant mit Bankkonto ab: alle Umsätze eingeordnet, Saldo im Buch gleich Saldo der Bank (Kontostand am Monatsende; fehlt er, vom nächsten späteren Kontostand zurückgerechnet). Lücken stehen als „Monatsabschluss offen“ in der Arbeitsliste; nach dem Klären dort „Erneut prüfen“. Danach ist der Monat gesperrt (auch in der Datenbank). Ist ein Monat für alle Mandanten abgeschlossen, liegen die Monatsberichte je Objekt als PDF unter `/srv/hof/medien/kassenbuch/monatsberichte/<Jahr>/` und auf der Seite „Kassenbuch → Monatsbericht“.
 
 **Einrichten (einmalig).**
 
 1. In `/opt/hof/.env`: `HOF_KASSENBUCH_BEGINN=2026-01-01` (Läufe beginnen mit 2026; ältere Umsätze bleiben außen vor).
-2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt die Timer `kassenbuch_einordnen` und `kassenbuch_monatsabschluss` ein.
+2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Tageslauf (mit `kassenbuch_einordnen`) und den Timer `kassenbuch_monatsabschluss` ein.
 3. Kategorien importieren (Datei nach `/srv/hof/medien/import/`, Spalten `Kategorie;Art;Mandant`, Zuordnung in `apps/kassenbuch/importformat.py`), erst prüfen, dann anlegen; danach die Datei löschen:
 
 ```sh
@@ -155,7 +194,7 @@ compose.sh exec app python manage.py kassenbuch_kategorien_import /app/medien/im
 compose.sh exec app python manage.py kassenbuch_kategorien_import /app/medien/import/kategorien.csv --ausfuehren
 ```
 
-4. Regeln auf der Seite „Kassenbuch → Regeln“ anlegen, dann `sudo systemctl start hof-lauf@kassenbuch_einordnen.service` und die Arbeitsliste abarbeiten.
+4. Regeln auf der Seite „Kassenbuch → Regeln“ anlegen, dann `compose.sh exec app python manage.py kassenbuch_einordnen` und die Arbeitsliste abarbeiten.
 5. 2026 nachholen: `compose.sh exec app python manage.py kassenbuch_monatsabschluss --ab 2026-01 --bis 2026-12` (bzw. bis zum Vormonat). Er schließt der Reihe nach ab und hält beim ersten Monat mit Lücken an; nach dem Klären erneut starten.
 
 ## Bankfreigabe erneuern
@@ -164,7 +203,7 @@ Vivid gibt den Zugriff für höchstens 180 Tage frei, VR (FinTS) etwa alle 90 Ta
 
 - **Vivid:** Im Arbeitsposten auf „Freigabe erneuern“ (oder „Bank → Konten → erneuern“), dann „Bei der Bank freigeben“. Es geht zu Vivid, dort in der App bestätigen; danach landet man wieder im Hof-System, die neue Freigabe steht mit Ablaufdatum unter „Konten“. Klappt die Rückkehr nicht, stimmt meist die Rückkehr-Adresse bei Enable Banking nicht.
 - **VR:** Die Freigabe erneuert der FinTS-Abruf auf dem hof-mac (TAN in der VR-App). Danach auf der Seite „Freigabe erneuern“ des VR-Kontos eintragen, bis wann sie gilt; nur so kennt das System die Frist.
-- Ist eine Freigabe schon abgelaufen, scheitert der Abruf („Bankabruf gescheitert“). Nach der Erneuerung holt der nächste Lauf die Lücke nach; von Hand: `sudo systemctl start hof-lauf@bank_abruf.service`.
+- Ist eine Freigabe schon abgelaufen, scheitert der Abruf („Bankabruf gescheitert“). Nach der Erneuerung holt der nächste Lauf die Lücke nach; von Hand: `compose.sh exec app python manage.py bank_abruf`.
 
 ## Versand einrichten (Schritt 3c)
 
@@ -205,12 +244,12 @@ Weichen die Spaltenköpfe ab, wird nur `apps/stammdaten/import_spalten.toml` ang
 
 ## Sollstellung (Schritt 5)
 
-**Ablauf.** Am 1. jedes Monats um 5:30 stellt `soll_monat` die Sollposten aller Verträge bis zum Monatsende und gleicht sie mit den Konditionen ab. Jede Änderung am Vertrag (Kondition, Laufzeit, Kündigung, Übergabe, Rückgabe) stellt das Soll des Vertrags sofort neu: Offene Posten, die nicht mehr passen, werden storniert und neu erzeugt. Bezahlte oder teilweise bezahlte Posten bleiben; sie stehen als „Sollposten prüfen“ in der Arbeitsliste. Die Seite „Offene Posten“ zeigt alle offenen Posten mit Filter, je Vertrag mit Fälligkeit und Posten von Hand (Kaution, Sonstiges). Fälligkeit und Feiertage stehen in `apps/soll/konfiguration.toml` (Standard: dritter Werktag, Feiertage NRW).
+**Ablauf.** Jeden Tag im Tageslauf (idempotent; neu ist meist nur am Monatsersten etwas) stellt `soll_monat` die Sollposten aller Verträge bis zum Monatsende und gleicht sie mit den Konditionen ab. Jede Änderung am Vertrag (Kondition, Laufzeit, Kündigung, Übergabe, Rückgabe) stellt das Soll des Vertrags sofort neu: Offene Posten, die nicht mehr passen, werden storniert und neu erzeugt. Bezahlte oder teilweise bezahlte Posten bleiben; sie stehen als „Sollposten prüfen“ in der Arbeitsliste. Die Seite „Offene Posten“ zeigt alle offenen Posten mit Filter, je Vertrag mit Fälligkeit und Posten von Hand (Kaution, Sonstiges). Fälligkeit und Feiertage stehen in `apps/soll/konfiguration.toml` (Standard: dritter Werktag, Feiertage NRW).
 
 **Einrichten (einmalig).**
 
 1. In `/opt/hof/.env`: `HOF_SOLL_BEGINN=2026-07-01` (Perioden, die früher beginnen, führt HelloHousing; Vorschlag, Max entscheidet).
-2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Timer `soll_monat` ein.
+2. Ausrollen; `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh` trägt den Tageslauf ein, der `soll_monat` aufruft.
 3. Soll bis Dezember stellen: `compose.sh exec app python manage.py soll_monat --stichtag 2026-12-01`.
 4. Vergleich mit dem Soll-Export aus HelloHousing (CSV in den Container kopieren): `compose.sh exec app python manage.py soll_vergleich --export /pfad/soll.csv --von 2026-07-01 --bis 2026-12-31`. Der Bericht nennt je Vertrag nur Zähler, Vertragsnummer und NW-ID und darf mit Claude geteilt werden; danach die Datei löschen. Weichen die Spaltenköpfe ab, wird nur der Abschnitt `[vergleich_hellohousing]` in `apps/soll/konfiguration.toml` angepasst.
 
@@ -220,14 +259,14 @@ Schnittstelle und Checkliste für die Website: `docs/website-anbindung.md`.
 
 - **Token der Website:** `compose.sh exec app python manage.py website_token --bezeichnung "Website-Server"`. Der Token erscheint einmal; auf dem Website-Server als `HOF_API_TOKEN` eintragen. Wechsel ohne Ausfall mit `--behalten`, alle sperren mit `--sperren`.
 - **Einstellungen** in `/opt/hof/.env`: `HOF_WEBSITE_URL` und `HOF_WEBSITE_TOKEN` (für den ID-Abgleich, Endpunkt `/api/hof/einheiten` der Website), optional `HOF_WEBSITE_IP_FREIGABE` (Tailscale-IP des Website-Servers), `VERWALTIO_URL` und `VERWALTIO_TOKEN`.
-- **Läufe:** `verwaltio_kennzahlen` (3:15) und `id_abgleich` (5:30). Ohne Einstellungen melden sie „nicht eingerichtet“ und enden ohne Fehler. Der echte Verwaltio-Client ist offen, bis die API-Dokumentation vorliegt; mit gesetzter `VERWALTIO_URL` bricht `verwaltio_kennzahlen` bis dahin mit `NotImplementedError` ab.
+- **Läufe:** `verwaltio_kennzahlen` und `id_abgleich`, beide im Tageslauf (Rang 70 und 75). Ohne Einstellungen melden sie „nicht eingerichtet“ und enden ohne Fehler. Der echte Verwaltio-Client ist offen, bis die API-Dokumentation vorliegt; mit gesetzter `VERWALTIO_URL` bricht `verwaltio_kennzahlen` bis dahin mit `NotImplementedError` ab.
 - **Arbeitsposten:** „Buchungsanfrage prüfen“ (Seite „Anbindungen → Buchungsanfragen“) und „ID-Abweichung“ (schließt sich beim nächsten Lauf, sobald behoben). Beide melden sich über die Benachrichtigung.
 
 ## Zähler (Schritt 8)
 
 Import nach den Einheiten: `compose.sh exec app python manage.py import_zaehler /pfad/zaehler.csv --staende /pfad/staende.csv` (Probelauf; Bericht nennt Anzahlen, Zählernummern und Zeilennummern), dann mit `--ausfuehren`. Spalten in `apps/zaehler/import_spalten.toml`, Beispiel unter `tests/fixtures/zaehler/`.
 
-Der Lauf `zaehler_stichtag` (täglich 6:20, prüft selbst) legt im Ablesefenster (15.12. bis 15.01.) je Zähler ohne Stand zum 31.12. einen Arbeitsposten „Ablesung fehlt“ an; er meldet sich über die Benachrichtigung. Stichtag, Fenster und Vorlauf der Eichfrist stehen in `apps/zaehler/konfiguration.toml`. Vor dem Besuch: Zähler → „Liste für deinen nächsten Besuch“ drucken, vor Ort Zähler → „Ablesen <Objekt>“ am Handy.
+Der Lauf `zaehler_stichtag` (täglich im Tageslauf, prüft selbst) legt im Ablesefenster (15.12. bis 15.01.) je Zähler ohne Stand zum 31.12. einen Arbeitsposten „Ablesung fehlt“ an; er meldet sich über die Benachrichtigung. Stichtag, Fenster und Vorlauf der Eichfrist stehen in `apps/zaehler/konfiguration.toml`. Vor dem Besuch: Zähler → „Liste für deinen nächsten Besuch“ drucken, vor Ort Zähler → „Ablesen <Objekt>“ am Handy.
 
 ## Was tun bei Ausfall
 
@@ -237,6 +276,7 @@ Der Lauf `zaehler_stichtag` (täglich 6:20, prüft selbst) legt im Ablesefenster
 | Zertifikatsfehler | `compose.sh logs caddy` | HTTPS im Tailscale-Admin an? `systemctl status tailscaled`; `compose.sh restart caddy` |
 | `/gesund` meldet `fehler` | `compose.sh ps`, `compose.sh logs db` | Datenbank-Container prüfen, `compose.sh up -d db`; Platte voll? `df -h` |
 | 502 von Caddy | `compose.sh logs --tail 100 app` | Letzte Version war kaputt: `deploy.sh <vorheriger tag>` |
+| Tageslauf „mit Fehlern“ | Seite „Läufe“: Die Meldung des Tageslaufs nennt den Schritt | Lauf des Schritts ansehen, Ursache beheben, Schritt von Hand starten (`compose.sh exec app python manage.py <schritt>`) |
 | Sicherung `fehler` | `fehler_bei` in der Statusdatei, `journalctl -u hof-backup` | Storage Box erreichbar? `sftp -P 23 hof-storagebox`; bei „locked“: `restic unlock` (nur wenn keine Sicherung läuft) |
 | Nach Neustart nichts erreichbar | `systemctl status docker tailscaled`, `compose.sh ps` | `compose.sh up -d` (startet mit der laufenden Version) |
 | Server verloren | — | Wiederherstellen auf neuem Server, siehe oben; Notfallmappe |

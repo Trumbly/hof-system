@@ -12,6 +12,10 @@ class DokumenteConfig(AppConfig):
         from apps.kassenbuch import services as kassenbuch
 
         bezuege.objekt_anmelden()
+        # Kacheln „Belege zuordnen“ und „Eingangsrechnungen“ im Hof-Cockpit.
+        from apps.dokumente import kacheln
+
+        kacheln.anmelden()
         # Monatsabschluss (H6.6): Buchungen ohne Pflichtbeleg erscheinen als Hinweis.
         kassenbuch.belegpruefung_anmelden(services.buchungen_ohne_beleg)
         # Lauf kassenbuch_einordnen: Abbuchungen offener Eingangsrechnungen erkennen (3b).

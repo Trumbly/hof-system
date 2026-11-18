@@ -166,7 +166,12 @@ def test_konto_ohne_zulieferung_wird_gemeldet(
 
 
 def test_timer_taeglich_um_sechs() -> None:
-    """Schritt 1, Aufgabe 10: systemd-Timer für bank_abruf täglich um 06:00."""
+    """Schritt 1, Aufgabe 10: bank_abruf läuft täglich um 06:00, seit Schritt 9 als erster
+    Schritt des Tageslaufs (eigener Timer entfällt)."""
+    from apps.cockpit import tageslauf
+
     parser = configparser.ConfigParser(interpolation=None)
-    parser.read_string((WURZEL / "deploy/systemd/laeufe/bank_abruf.conf").read_text())
+    parser.read_string((WURZEL / "deploy/systemd/laeufe/tageslauf.conf").read_text())
     assert parser["Timer"]["OnCalendar"] == "*-*-* 06:00:00"
+    assert tageslauf.schritte()[0].name == "bank_abruf"
+    assert not (WURZEL / "deploy/systemd/laeufe/bank_abruf.conf").exists()

@@ -1,0 +1,5 @@
+{# Belege zuordnen: Zahl der offenen Belege in der Ablage. #}
+<li id="kachel-belege"><a class="kachel" href="{% url 'dokumente:ablage' %}">
+  <strong>Belege zuordnen: {{ offen }}</strong>
+  {% if not offen %}<br><span class="leise">Alle Belege zugeordnet.</span>{% endif %}
+</a></li>

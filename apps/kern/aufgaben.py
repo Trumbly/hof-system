@@ -1,26 +1,60 @@
-"""Schnittstelle zum Hof-Backlog in Notion (H6.1, Standardablauf 6 Schritt 4).
+"""Aufgaben im Hof-Backlog (Notion): Schnittstelle ``melden(arbeitsposten)``.
 
-Arbeitsposten, die als Aufgabe im Hof-Backlog erscheinen sollen (etwa „Rechnung zahlen“),
-meldet die App, die sie anlegt oder schließt, mit::
+``kern.services`` ruft ``melden`` bei jedem Anlegen, Erledigen, Zurückstellen und Wieder-
+öffnen eines Arbeitspostens auf (zentral, kein Dienst muss selbst daran denken). Andere
+Stellen, die einen Posten auf anderem Weg ändern, rufen ``melden`` ebenfalls auf.
+
+``melden`` schreibt nichts nach Notion. Es gibt den Posten an die angemeldeten Empfänger
+weiter; das Cockpit (``apps.cockpit.services.aufgabe_vormerken``) merkt die Aufgabe seiner
+Art zum Abgleich vor, wenn die Art im Hof-Backlog geführt wird. Den Abgleich mit Notion
+macht der Lauf ``aufgaben_abgleich`` (im Tageslauf und alle 30 Minuten). So scheitert
+keine Buchung und kein Lauf daran, dass Notion nicht antwortet.
+
+Ein Empfänger läuft in der Transaktion des Aufrufers: Wird die Änderung am Posten
+zurückgerollt, verschwindet auch die Vormerkung. Ein Fehler im Empfänger wird nur
+geloggt (mit der ID des Postens) und hält den Aufrufer nicht auf.
+
+Einen Empfänger meldet eine App in ``AppConfig.ready()`` an::
 
     from apps.kern import aufgaben
 
-    aufgaben.melden(posten)
-
-``melden`` bekommt den Arbeitsposten in seinem aktuellen Stand: offen (neue Aufgabe anlegen
-oder aktualisieren) oder erledigt (Aufgabe schließen). Die Funktion darf nichts am Posten
-ändern und wirft keine Fehler nach außen; scheitert die Übertragung, bleibt der Posten im
-Hof-System trotzdem gültig.
-
-Vorerst tut ``melden`` nichts. Schritt 9 setzt die Übertragung nach Notion um (Client als
-austauschbare Klasse mit Fake, ohne Personendaten: nur Art, Fälligkeit, Link zum Posten).
+    aufgaben.empfaenger_anmelden(meine_funktion)   # meine_funktion(posten) -> None
 """
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
+
+from django.db import transaction
+
 from apps.kern.models import Arbeitsposten
+
+logger = logging.getLogger(__name__)
+
+Empfaenger = Callable[[Arbeitsposten], None]
+
+_EMPFAENGER: list[Empfaenger] = []
+
+
+def empfaenger_anmelden(funktion: Empfaenger) -> None:
+    """Meldet eine Funktion an, die jeden gemeldeten Arbeitsposten bekommt (einmal je
+    Funktion, ein zweites Anmelden ändert nichts)."""
+    if funktion not in _EMPFAENGER:
+        _EMPFAENGER.append(funktion)
 
 
 def melden(arbeitsposten: Arbeitsposten) -> None:
-    """Meldet einen Arbeitsposten an das Hof-Backlog. Bis Schritt 9: ohne Wirkung."""
-    return None
+    """Ein Arbeitsposten ist neu, erledigt, zurückgestellt oder wieder offen."""
+    for funktion in list(_EMPFAENGER):
+        try:
+            # Eigener Sicherungspunkt: Ein Fehler des Empfängers rollt nur dessen
+            # Änderungen zurück, nicht die des Aufrufers.
+            with transaction.atomic():
+                funktion(arbeitsposten)
+        except Exception:
+            logger.exception(
+                "Aufgabe zu Arbeitsposten #%s nicht vorgemerkt (%s)",
+                arbeitsposten.pk,
+                getattr(funktion, "__qualname__", funktion),
+            )

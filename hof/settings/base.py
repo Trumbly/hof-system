@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.soll",
     "apps.anbindungen",
     "apps.zaehler",
+    "apps.cockpit",
 ]
 
 MIDDLEWARE = [
@@ -201,6 +202,8 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "ID-Abweichung",
         # Zähler (apps.zaehler.services, ART_*): nur im Ablesefenster um den Stichtag
         "Ablesung fehlt",
+        # Cockpit (apps.cockpit.services, ART_*)
+        "Sicherung prüfen",
         # spätere Schritte
         "Mahnungen senden",
         "Zahlungen klären",
@@ -211,6 +214,43 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
 HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN = env.int("HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN", default=24)
 HOF_BENACHRICHTIGUNG_MAIL_KANAL = "apps.benachrichtigung.kanaele.MailKanal"
 HOF_BENACHRICHTIGUNG_NTFY_KANAL = "apps.benachrichtigung.kanaele.NtfyKanal"
+
+# Aufgaben im Hof-Backlog (Notion, Schritt 9): Offene Arbeitsposten der Arten aus
+# HOF_NOTION_ARTEN erscheinen je Art als eine Aufgabe („3 Mahnungen senden“) mit NW-IDs,
+# Fälligkeit und Link, ohne Namen und Beträge (apps.cockpit.services). Der Client ist
+# austauschbar; ohne Token und Datenbank-ID meldet er „nicht eingerichtet“. Token nur auf
+# dem Server.
+HOF_NOTION_CLIENT = env.str("HOF_NOTION_CLIENT", default="apps.cockpit.notion.NotionHttpClient")
+HOF_NOTION_TOKEN = env.str("HOF_NOTION_TOKEN", default="")
+HOF_NOTION_DATENBANK_ID = env.str("HOF_NOTION_DATENBANK_ID", default="")
+# „database_id“ (Datenbank mit einer Datenquelle) oder „data_source_id“ (dann ist
+# HOF_NOTION_DATENBANK_ID die ID der Datenquelle).
+HOF_NOTION_PARENT = env.str("HOF_NOTION_PARENT", default="database_id")
+# Namen der Eigenschaften in der Datenbank „Hof-Backlog“ und die Werte des Status.
+# Annahme bis Max die echten Namen gibt; „text“ leer: kein Textfeld.
+HOF_NOTION_FELDER = {
+    "titel": env.str("HOF_NOTION_FELD_TITEL", default="Name"),
+    "status": env.str("HOF_NOTION_FELD_STATUS", default="Status"),
+    "status_typ": env.str("HOF_NOTION_STATUS_TYP", default="status"),  # oder „select“
+    "faellig": env.str("HOF_NOTION_FELD_FAELLIG", default="Fällig"),
+    "link": env.str("HOF_NOTION_FELD_LINK", default="Link"),
+    "text": env.str("HOF_NOTION_FELD_TEXT", default="Details"),
+    "offen_wert": env.str("HOF_NOTION_WERT_OFFEN", default="Offen"),
+    "erledigt_wert": env.str("HOF_NOTION_WERT_ERLEDIGT", default="Erledigt"),
+}
+# Arten, die ins Hof-Backlog gehen: Art des Arbeitspostens → (Titel bei 1, Titel ab 2).
+HOF_NOTION_ARTEN: dict[str, tuple[str, str]] = {
+    "Mahnungen senden": ("Mahnung senden", "Mahnungen senden"),
+    "Zahlungen klären": ("Zahlung klären", "Zahlungen klären"),
+    "Rechnung zahlen": ("Rechnung zahlen", "Rechnungen zahlen"),
+    "Frist fällig": ("Frist fällig", "Fristen fällig"),
+    "Ablesung fehlt": ("Ablesung fehlt", "Ablesungen fehlen"),
+}
+
+# Sicherung prüfen (Tageslauf, Schritt 9): Statusdatei von scripts/backup.sh. Im Container
+# ist /var/lib/hof nur lesend eingehängt (docker-compose.prod.yml).
+HOF_BACKUP_STATUS = env.str("HOF_BACKUP_STATUS", default="/var/lib/hof/backup-status.json")
+HOF_BACKUP_HOECHSTALTER_STUNDEN = env.int("HOF_BACKUP_HOECHSTALTER_STUNDEN", default=26)
 
 # Anbindungen (Schritt 10): Website und Verwaltio. Die Clients sind austauschbar; in
 # Entwicklung und Tests stehen hier die Fakes (hof/settings/dev.py, test.py). Ohne Adresse

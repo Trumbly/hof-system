@@ -10,6 +10,8 @@ os.environ.setdefault("HOF_BANK_CLIENT", "apps.bank.enablebanking.FakeEnableBank
 # Website und Verwaltio als Fakes (spiegeln die Einheiten des Hof-Systems).
 os.environ.setdefault("HOF_WEBSITE_CLIENT", "apps.anbindungen.website.FakeWebsite")
 os.environ.setdefault("HOF_VERWALTIO_CLIENT", "apps.anbindungen.verwaltio.FakeVerwaltio")
+# Notion (Hof-Backlog) als Fake.
+os.environ.setdefault("HOF_NOTION_CLIENT", "apps.cockpit.notion.FakeNotion")
 
 from .base import *  # noqa: F403
 
@@ -31,3 +33,6 @@ HOF_NTFY_URL = "https://ntfy.testhof.invalid"
 HOF_NTFY_THEMA = "hof-testhof"
 HOF_NTFY_TOKEN = ""
 HOF_BENACHRICHTIGUNG_NTFY_KANAL = "apps.benachrichtigung.kanaele.FakeNtfyKanal"
+
+# Sicherung prüfen: In Tests nie die Datei des Rechners; Tests setzen eine Fake-Statusdatei.
+HOF_BACKUP_STATUS = "/nicht-vorhanden/hof-test/backup-status.json"

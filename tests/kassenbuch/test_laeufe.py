@@ -27,9 +27,13 @@ def _zeitplan(name: str) -> str:
 
 
 def test_zeitplaene() -> None:
-    """Einordnen täglich nach dem Bankabruf (6:00), Abschluss am 3. jedes Monats."""
-    assert _zeitplan("bank_abruf") == "*-*-* 06:00:00"
-    assert _zeitplan("kassenbuch_einordnen") == "*-*-* 06:30:00"
+    """Einordnen täglich nach dem Bankabruf (Tageslauf um 6:00, Schritt 9), Abschluss am 3.
+    jedes Monats."""
+    from apps.cockpit import tageslauf
+
+    assert _zeitplan("tageslauf") == "*-*-* 06:00:00"
+    namen = [s.name for s in tageslauf.schritte()]
+    assert namen.index("bank_abruf") + 1 == namen.index("kassenbuch_einordnen")
     assert _zeitplan("kassenbuch_monatsabschluss") == "*-*-03 07:00:00"
 
 

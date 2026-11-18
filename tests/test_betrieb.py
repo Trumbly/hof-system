@@ -232,6 +232,31 @@ def test_eingetragene_laeufe_gibt_es_als_befehl() -> None:
         assert _systemd(eintrag)["Timer"]["OnCalendar"], eintrag.name
 
 
+def test_tageslauf_ersetzt_die_einzelnen_zeitplaene() -> None:
+    """Schritt 9, Aufgabe 3: Der Tageslauf hat einen Zeitplan; die Läufe, die er aufruft,
+    haben keinen eigenen mehr (systemd-einrichten.sh trägt die alten aus). Eigene Zeitpläne
+    behalten nur Läufe mit eigenem Rhythmus. Die App liest die Statusdatei der Sicherung."""
+    from apps.cockpit import tageslauf
+
+    eingetragen = {e.stem for e in (SYSTEMD / "laeufe").glob("*.conf")}
+    assert "tageslauf" in eingetragen
+    eigener_rhythmus = {"benachrichtigen", "aufgaben_abgleich"}
+    for schritt in tageslauf.schritte():
+        if schritt.name not in eigener_rhythmus:
+            assert schritt.befehl not in eingetragen, f"{schritt.befehl}.conf entfällt"
+    assert {"kassenbuch_monatsabschluss", "versandstand_abrufen"} <= eingetragen
+    handbuch = (WURZEL / "docs" / "betrieb.md").read_text()
+    assert "## Tageslauf (Schritt 9)" in handbuch
+    assert "bank_abruf.conf" in handbuch
+
+
+def test_app_liest_statusdatei_der_sicherung(compose: dict[str, Any]) -> None:
+    """Schritt 9, Sicherung prüfen: /var/lib/hof ist im App-Container nur lesend eingehängt."""
+    assert (
+        "${HOF_STATUS_DIR:-/var/lib/hof}:/var/lib/hof:ro" in compose["services"]["app"]["volumes"]
+    )
+
+
 # --- Dokumentation ----------------------------------------------------------------------
 
 

@@ -11,3 +11,9 @@ class KassenbuchConfig(AppConfig):
         from apps.kassenbuch import aktionen, services, verweise  # noqa: F401
 
         services.stornowege_registrieren()
+
+        from apps.cockpit import tageslauf
+
+        tageslauf.schritt_anmelden(
+            "kassenbuch_einordnen", reihenfolge=tageslauf.EINORDNEN, abhaengig_von=("bank_abruf",)
+        )

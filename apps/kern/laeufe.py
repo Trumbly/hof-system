@@ -24,6 +24,7 @@ Beispiel::
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import logging
 from collections.abc import Iterable
@@ -52,6 +53,10 @@ class LaufBefehl(BaseCommand):
 
     #: Name des Laufs im Laufprotokoll. Standard: Name des Befehls (Dateiname).
     lauf_name: ClassVar[str] = ""
+    #: Die Arbeit läuft in einer Transaktion (Abbruch rollt alles zurück). Ein Lauf, der
+    #: andere Läufe aufruft (``tageslauf``), schaltet das ab: Jeder Teil schreibt dann
+    #: selbst fest, und ein Abbruch am Ende rollt die fertigen Teile nicht zurück.
+    in_transaktion: ClassVar[bool] = True
 
     lauf: Lauf
     koerbe: Koerbe
@@ -99,7 +104,8 @@ class LaufBefehl(BaseCommand):
         self.koerbe = Koerbe()
         self.lauf = services.lauf_starten(name)
         try:
-            with transaction.atomic(), pghistory.context(lauf=self.lauf.pk, lauf_name=name):
+            klammer = transaction.atomic() if self.in_transaktion else contextlib.nullcontext()
+            with klammer, pghistory.context(lauf=self.lauf.pk, lauf_name=name):
                 meldung = self.ausfuehren(**optionen) or ""
         except Exception as fehler:
             logger.exception("Lauf #%s (%s) abgebrochen", self.lauf.pk, name)
@@ -111,7 +117,11 @@ class LaufBefehl(BaseCommand):
                 fehler=self.koerbe.fehler + 1,
                 meldung=(
                     f"Abgebrochen mit {type(fehler).__name__}. "
-                    "Alle Änderungen dieses Laufs sind zurückgerollt."
+                    + (
+                        "Alle Änderungen dieses Laufs sind zurückgerollt."
+                        if self.in_transaktion
+                        else "Fertige Teile bleiben bestehen."
+                    )
                 ),
                 abgebrochen=True,
             )
