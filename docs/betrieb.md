@@ -179,6 +179,17 @@ Vorlagen aus Notion übernehmen: Markdown-Export in den Container kopieren, dann
 
 Den Lauf `versandstand_abrufen` (werktags 10 und 16 Uhr) trägt `systemd-einrichten.sh` ein.
 
+## Rechnungspostfach und Belege (Schritt 3a)
+
+Der Lauf `belege_postfach` (stündlich 7 bis 21 Uhr) legt jede PDF-Anlage des Rechnungspostfachs als Beleg in die Ablage; Dubletten erkennt er an der Prüfsumme. Jeder neue Beleg wird ein Arbeitsposten „Belege zuordnen“. In `/opt/hof/.env`:
+
+- `HOF_BELEGE_IMAP_URL=imaps://rechnungen%40<domain>:<passwort>@<imap-host>:993` (eigenes Postfach, nicht kontakt@), `HOF_BELEGE_IMAP_ORDNER` (Standard `INBOX`).
+- `HOF_BELEGE_NACH_DEM_LESEN=markieren` (als gelesen markieren) oder `verschieben` mit `HOF_BELEGE_ZIELORDNER` (Standard `Abgelegt`; der Ordner muss im Postfach existieren).
+- Belegpflicht im Monatsabschluss: `HOF_BELEGPFLICHT_ARTEN` (Standard `ausgabe`), `HOF_BELEGPFLICHT_AB_BETRAG` (Standard `0.00`), `HOF_BELEGPFLICHT_OHNE_KATEGORIEN` (Bezeichnungen mit Komma, z. B. `Kontoführung`). Fehlt ein Beleg, kommt ein Arbeitsposten „Belege fehlen“; der Abschluss geht trotzdem.
+- Aufbewahrung je Dokumentart: `DOKUMENTE["LOESCHFRIST_JAHRE"]` in `hof/settings/base.py`. Gelöscht wird noch nichts (Löschlauf in v2).
+
+Damit der Lieferant einer Mail erkannt wird, auf „Dokumente → Lieferanten“ seine Absenderadresse eintragen. Belege vom Handy: „Dokumente → Beleg hochladen“ (Foto oder PDF). Die Belegmappe je Objekt und Jahr entsteht auf „Dokumente → Belegmappe“.
+
 ## Stammdaten importieren (Schritt 4)
 
 Reihenfolge: erst Einheiten, dann Parteien und Verträge. Beide Befehle laufen ohne Option als Probelauf; der Bericht nennt nur Zähler, NW-IDs, Vertragsnummern und Zeilennummern und darf mit Claude geteilt werden.

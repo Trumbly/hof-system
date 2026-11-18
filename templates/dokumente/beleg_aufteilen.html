@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block titel %}Beleg #{{ beleg.pk }} aufteilen{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Sammelrechnung aufteilen</h1>
+<p class="leise">Beleg #{{ beleg.pk }}{% if beleg.betrag %} über {{ beleg.betrag|floatformat:"2g" }} €{% endif %}: ein Teil je Objekt oder Kostenart. Die Teile ergeben zusammen den Gesamtbetrag.</p>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ teile.management_form }}
+  {% if teile.non_form_errors %}<p class="formfehler">{{ teile.non_form_errors|join:" " }}</p>{% endif %}
+  {% for teil in teile %}
+  <fieldset>
+    <legend>Teil {{ forloop.counter }}</legend>
+    {{ teil.as_p }}
+  </fieldset>
+  {% endfor %}
+  <div class="aktionen">
+    <button type="submit">Aufteilen</button>
+    <a class="knopf zweitrangig" href="{% url 'dokumente:beleg' beleg.pk %}">Zurück</a>
+  </div>
+</form>
+{% endblock %}

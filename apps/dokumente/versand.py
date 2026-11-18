@@ -14,10 +14,12 @@ als versendet gilt, was nirgends angekommen ist.
 
 from __future__ import annotations
 
+import contextlib
 import imaplib
 import os
 import time
 import urllib.parse
+from collections.abc import Iterator
 from dataclasses import dataclass
 from email.utils import formatdate, make_msgid
 from typing import Any, ClassVar, Protocol
@@ -73,6 +75,35 @@ class ImapClient(Protocol):
     def in_gesendet_ablegen(self, roh: bytes) -> None: ...
 
 
+@contextlib.contextmanager
+def imap_verbinden(url: str, einstellung_name: str) -> Iterator[imaplib.IMAP4]:
+    """Öffnet eine angemeldete IMAP-Verbindung aus einer URL und meldet sich am Ende ab.
+
+    ``imaps://benutzer:passwort@host:993`` (TLS) oder ``imap://…:143`` (mit STARTTLS);
+    Sonderzeichen in Benutzer und Passwort URL-kodiert. Auch das Rechnungspostfach
+    (``apps.dokumente.postfach``) verbindet sich so. Fehler kommen als ``OSError`` oder
+    ``imaplib.IMAP4.error``; der Aufrufer übersetzt sie.
+    """
+    teile = urllib.parse.urlsplit(url)
+    if teile.scheme not in ("imap", "imaps") or not teile.hostname:
+        raise VersandNichtEingerichtet(
+            f"{einstellung_name} muss mit imap:// oder imaps:// beginnen."
+        )
+    benutzer = urllib.parse.unquote(teile.username or "")
+    passwort = urllib.parse.unquote(teile.password or "")
+    verbindung: imaplib.IMAP4 = (
+        imaplib.IMAP4_SSL(teile.hostname, teile.port or 993, timeout=30)
+        if teile.scheme == "imaps"
+        else imaplib.IMAP4(teile.hostname, teile.port or 143, timeout=30)
+    )
+    with verbindung:
+        if teile.scheme == "imap":
+            verbindung.starttls()
+        verbindung.login(benutzer, passwort)
+        yield verbindung
+        verbindung.logout()
+
+
 @dataclass
 class ImaplibClient:
     """Legt eine Kopie per IMAP-Append im Ordner „Gesendet“ ab (Flag \\Seen)."""
@@ -90,27 +121,13 @@ class ImaplibClient:
             )
 
     def in_gesendet_ablegen(self, roh: bytes) -> None:
-        teile = urllib.parse.urlsplit(self.url)
-        if teile.scheme not in ("imap", "imaps") or not teile.hostname:
-            raise VersandNichtEingerichtet("HOF_IMAP_URL muss mit imap:// oder imaps:// beginnen.")
-        benutzer = urllib.parse.unquote(teile.username or "")
-        passwort = urllib.parse.unquote(teile.password or "")
         try:
-            verbindung: imaplib.IMAP4 = (
-                imaplib.IMAP4_SSL(teile.hostname, teile.port or 993, timeout=30)
-                if teile.scheme == "imaps"
-                else imaplib.IMAP4(teile.hostname, teile.port or 143, timeout=30)
-            )
-            with verbindung:
-                if teile.scheme == "imap":
-                    verbindung.starttls()
-                verbindung.login(benutzer, passwort)
+            with imap_verbinden(self.url, "HOF_IMAP_URL") as verbindung:
                 ergebnis, _ = verbindung.append(
                     self.ordner, r"(\Seen)", imaplib.Time2Internaldate(time.time()), roh
                 )
                 if ergebnis != "OK":
                     raise VersandFehler(f"IMAP-Append in {self.ordner}: {ergebnis}")
-                verbindung.logout()
         except (OSError, imaplib.IMAP4.error) as fehler:
             raise VersandFehler(f"IMAP: {type(fehler).__name__}") from fehler
 

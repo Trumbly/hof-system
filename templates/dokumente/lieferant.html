@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block titel %}Lieferant #{{ lieferant.pk }}{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>{{ lieferant.name }}</h1>
+<form method="post" class="formular">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Speichern</button>
+</form>
+
+<section class="gruppe">
+  <h2>Dokumente am Lieferanten</h2>
+  <p class="leise">Belege, Mahnungen, Rücklastschriften und Vollstreckungen.</p>
+  <ul class="posten-liste">
+    {% for d in dokumente %}
+    <li class="posten"><a href="{% url 'dokumente:dokument' d.pk %}">Dokument #{{ d.pk }}</a> · {{ d.dokumentart.titel }} · {{ d.datum|date:"d.m.Y" }}</li>
+    {% empty %}<li class="leise">Keine.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

@@ -3,6 +3,7 @@
 „Umsätze einordnen“: Zuordnen, Aufteilen und Regel anlegen führen auf ihre Seite (dort
 wählt man Kategorie, Objekt und Mandant); Zurückstellen ist die allgemeine Aktion des Kerns.
 „Monatsabschluss offen“: Erneut prüfen versucht den Abschluss sofort noch einmal.
+„Belege fehlen“: Belege prüfen sieht nach, ob die Belege inzwischen da sind (dann erledigt).
 """
 
 from __future__ import annotations
@@ -35,7 +36,13 @@ def _abschluss_pruefen(posten: Arbeitsposten, benutzer: Benutzer) -> object:
     return ergebnis
 
 
+def _belege_pruefen(posten: Arbeitsposten, benutzer: Benutzer) -> object:
+    abschluss = Monatsabschluss.objects.get(pk=posten.bezug_id)
+    return services.belege_erneut_pruefen(abschluss)
+
+
 aktionen.registrieren("umsatz_zuordnen", "Zuordnen", seite=_zuordnen)
 aktionen.registrieren("umsatz_aufteilen", "Aufteilen", seite=_aufteilen)
 aktionen.registrieren("regel_anlegen", "Regel anlegen", seite=_regel_anlegen)
 aktionen.registrieren("abschluss_pruefen", "Erneut prüfen", _abschluss_pruefen)
+aktionen.registrieren("belege_pruefen", "Belege prüfen", _belege_pruefen)

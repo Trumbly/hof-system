@@ -1,7 +1,8 @@
-"""Schreibweg der Dokumente: Vorlagen, Schreiben, Versand (Schritt 3c).
+"""Schreibweg der Dokumente: Ablage und Belege (Schritt 3a), Vorlagen, Schreiben, Versand
+(Schritt 3c).
 
-Jede Änderung an Vorlagen und Schreiben läuft über eine Funktion in diesem Modul
-(CLAUDE.md, Regel 4.1).
+Jede Änderung an Dokumenten, Belegen, Vorlagen und Schreiben läuft über eine Funktion in
+diesem Modul (CLAUDE.md, Regel 4.1). Ablage und Belege stehen im zweiten Teil der Datei.
 
 Schnittstelle für andere Schritte (Stammdaten: Vertrag, Kündigungsbestätigung;
 Mahnwesen: Mahnungen)
@@ -48,6 +49,7 @@ import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
@@ -55,18 +57,37 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.core.mail import EmailMessage
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Max
 from django.utils import timezone
 from django.utils.html import strip_tags
 
-from apps.dokumente import letterxpress, pdf, platzhalter, vorlagenarten
-from apps.dokumente.models import Schreiben, Vorlage
+from apps.bank import fingerabdruck
+from apps.bank.models import Bankumsatz
+from apps.dokumente import (
+    dokumentarten,
+    letterxpress,
+    pdf,
+    platzhalter,
+    postfach,
+    umwandeln,
+    vorlagenarten,
+)
+from apps.dokumente.models import (
+    Beleg,
+    Dokument,
+    Dokumentbezug,
+    Lieferant,
+    Schreiben,
+    Vorlage,
+)
 from apps.dokumente.platzhalter import PlatzhalterFehler
 from apps.dokumente.versand import VersandFehler, mail_senden
 from apps.dokumente.vorlagenarten import Versandweg
+from apps.kassenbuch import services as kassenbuch_services
+from apps.kassenbuch.models import Buchung, Kategorie
 from apps.kern import services as kern_services
-from apps.kern.models import Benutzer
+from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 
 logger = logging.getLogger(__name__)
 
@@ -646,3 +667,783 @@ def versandstand_abrufen(schreiben: Schreiben) -> bool:
         )
         geaendert = True
     return geaendert
+
+
+# =====================================================================================
+# Ablage und Belege (Schritt 3a, H6.1, H6.2, H6.4, H6.8)
+# =====================================================================================
+#
+# Schnittstelle für andere Schritte
+# ---------------------------------
+# Ein Dokument ablegen und an etwas hängen (Stammdaten: Vertrag, Einheit, Partei)::
+#
+#     ablage = dokumente.dokument_ablegen(
+#         inhalt, art="sonstiges", datum=datum, herkunft=Dokument.Herkunft.UPLOAD
+#     )
+#     dokumente.dokument_bezug_setzen(ablage.dokument, vertrag)
+#     dokumente.dokumente_zu(vertrag)   # alle Dokumente am Vertrag
+#
+# ``dokument_ablegen`` erkennt Dubletten an der SHA-256 der eingegangenen Datei und liefert
+# dann das vorhandene Dokument (``ablage.neu`` ist False). Fotos werden zu PDF.
+
+#: Art des Arbeitspostens je offenem Beleg. Meldet sich über die Benachrichtigung.
+ART_BELEGE_ZUORDNEN = "Belege zuordnen"
+#: Aktionen am Posten: Seite des Belegs öffnen (dort ausfüllen und bestätigen) oder zurückstellen.
+AKTIONEN_BELEG = ("beleg_zuordnen", "zurueckstellen")
+
+#: So viele Tage vor und nach dem Belegdatum sucht die Seite des Belegs nach Buchungen.
+KANDIDATEN_TAGE = 60
+
+
+class AblageFehler(ValueError):
+    """Ein Dokument oder Beleg lässt sich so nicht ablegen oder ändern (nur IDs in der
+    Meldung)."""
+
+
+class BelegFehler(AblageFehler):
+    pass
+
+
+# --- Lieferanten ---------------------------------------------------------------------
+
+
+def _lieferant_pruefen(lieferant: Lieferant) -> None:
+    lieferant.name = lieferant.name.strip()
+    lieferant.iban = fingerabdruck.iban_normal(lieferant.iban)
+    lieferant.email = lieferant.email.strip().lower()
+    if not lieferant.name:
+        raise AblageFehler("Der Lieferant braucht einen Namen.")
+    doppelt = Lieferant.objects.filter(name__iexact=lieferant.name).exclude(pk=lieferant.pk)
+    if doppelt.exists():
+        raise AblageFehler("Einen Lieferanten mit diesem Namen gibt es schon.")
+    lieferant.full_clean()
+
+
+def lieferant_anlegen(name: str, *, iban: str = "", email: str = "") -> Lieferant:
+    """Legt einen Lieferanten an. Die E-Mail erkennt ihn im Rechnungspostfach wieder."""
+    lieferant = Lieferant(name=name, iban=iban, email=email)
+    _lieferant_pruefen(lieferant)
+    lieferant.save()
+    return lieferant
+
+
+def lieferant_aendern(
+    lieferant: Lieferant,
+    *,
+    name: str | None = None,
+    iban: str | None = None,
+    email: str | None = None,
+    aktiv: bool | None = None,
+) -> Lieferant:
+    if name is not None:
+        lieferant.name = name
+    if iban is not None:
+        lieferant.iban = iban
+    if email is not None:
+        lieferant.email = email
+    if aktiv is not None:
+        lieferant.aktiv = aktiv
+    _lieferant_pruefen(lieferant)
+    lieferant.save()
+    return lieferant
+
+
+def lieferant_zur_mail(absender: str) -> Lieferant | None:
+    """Der aktive Lieferant mit dieser Absenderadresse, wenn es genau einen gibt."""
+    absender = absender.strip().lower()
+    if not absender:
+        return None
+    treffer = list(Lieferant.objects.filter(email__iexact=absender, aktiv=True)[:2])
+    return treffer[0] if len(treffer) == 1 else None
+
+
+# --- Ablage --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Ablage:
+    dokument: Dokument
+    #: False: Die Datei lag schon in der Ablage (Dublette nach SHA-256).
+    neu: bool
+
+
+def _ablage_dateiname(art: str, datum: datetime.date, pk: int, endung: str = "pdf") -> str:
+    """Art, Datum und ID, nie ein Personenname."""
+    return f"{art}_{datum:%Y-%m-%d}_{pk}.{endung}"
+
+
+def _endung(name: str) -> str:
+    return name.rsplit(".", 1)[-1].lower() if "." in name else "bin"
+
+
+def _datei_umbenennen(datei: Any, neuer_name: str, pfad: str) -> None:
+    """Legt den Inhalt eines FileField unter neuem Namen ab und löscht die alte Datei."""
+    if not datei or datei.name == pfad:
+        return
+    with datei.open("rb") as quelle:
+        inhalt = quelle.read()
+    alt = datei.name
+    if datei.storage.exists(pfad):
+        datei.storage.delete(pfad)
+    datei.save(neuer_name, ContentFile(inhalt), save=False)
+    datei.storage.delete(alt)
+
+
+def _dateien_angleichen(dokument: Dokument) -> None:
+    """Dateinamen und Ordner nach Art und Datum des Dokuments (nach einer Änderung)."""
+    for feld, endung in (("datei", "pdf"), ("original", None)):
+        datei = getattr(dokument, feld)
+        if not datei:
+            continue
+        name = _ablage_dateiname(
+            dokument.art, dokument.datum, dokument.pk, endung or _endung(datei.name)
+        )
+        _datei_umbenennen(datei, name, datei.field.generate_filename(dokument, name))
+
+
+def dokument_ablegen(
+    inhalt: bytes,
+    *,
+    art: str,
+    datum: datetime.date,
+    herkunft: str,
+    eingangskennung: str = "",
+    bemerkung: str = "",
+) -> Ablage:
+    """Legt eine Datei (PDF oder Foto) in die Ablage (H6.1, H6.2).
+
+    Fotos werden zu PDF (``apps.dokumente.umwandeln``), das Foto bleibt als Original. Die
+    Löschfrist kommt aus der Dokumentart. Gibt es eine Datei mit derselben SHA-256 schon,
+    entsteht nichts Neues: Das Ergebnis nennt das vorhandene Dokument mit ``neu=False``.
+
+    Raises:
+        umwandeln.DateiUngueltig: weder PDF noch lesbares Foto (oder zu groß).
+        AblageFehler: unbekannte Art oder Herkunft.
+    """
+    try:
+        dokumentart = dokumentarten.holen(art)
+    except dokumentarten.UnbekannteDokumentart as fehler:
+        raise AblageFehler(f"Unbekannte Dokumentart: {art}") from fehler
+    if herkunft not in Dokument.Herkunft.values:
+        raise AblageFehler(f"Unbekannte Herkunft: {herkunft}")
+    eingang = umwandeln.pruefen(inhalt)
+    pruefsumme = _sha256(inhalt)
+    vorhanden = Dokument.objects.filter(sha256=pruefsumme).first()
+    if vorhanden is not None:
+        logger.info("Dokument #%s: Dublette erkannt", vorhanden.pk)
+        return Ablage(dokument=vorhanden, neu=False)
+
+    dokument = Dokument(
+        art=art,
+        datum=datum,
+        sha256=pruefsumme,
+        dateityp=eingang.dateityp,
+        herkunft=herkunft,
+        eingangskennung=eingangskennung[:255],
+        bemerkung=bemerkung,
+        loeschfrist=dokumentart.loeschfrist(datum),
+    )
+    dokument.full_clean(exclude=["datei", "original", "sha256"])
+    try:
+        with transaction.atomic():
+            dokument.save()
+            dokument.datei.save(
+                _ablage_dateiname(art, datum, dokument.pk), ContentFile(eingang.pdf), save=False
+            )
+            if eingang.original is not None:
+                dokument.original.save(
+                    _ablage_dateiname(art, datum, dokument.pk, eingang.endung),
+                    ContentFile(eingang.original),
+                    save=False,
+                )
+            dokument.save(update_fields=["datei", "original"])
+    except IntegrityError:
+        # Gleichzeitig abgelegt: Das andere Dokument gilt.
+        return Ablage(dokument=Dokument.objects.get(sha256=pruefsumme), neu=False)
+    logger.info("Dokument #%s abgelegt (%s, %s)", dokument.pk, art, herkunft)
+    return Ablage(dokument=dokument, neu=True)
+
+
+def dokument_aendern(
+    dokument: Dokument,
+    *,
+    art: str | None = None,
+    datum: datetime.date | None = None,
+    bemerkung: str | None = None,
+) -> Dokument:
+    """Ändert Art, Datum oder Bemerkung. Löschfrist und Dateiname folgen Art und Datum."""
+    if art is not None:
+        try:
+            neue_art = dokumentarten.holen(art)
+        except dokumentarten.UnbekannteDokumentart as fehler:
+            raise AblageFehler(f"Unbekannte Dokumentart: {art}") from fehler
+        aktive_belege = dokument.belege.exclude(status=Beleg.Status.VERWORFEN)
+        if art != dokument.art and not neue_art.beleg and aktive_belege.exists():
+            raise AblageFehler(
+                f"Dokument #{dokument.pk} hat Belege; erst verwerfen, dann umwidmen."
+            )
+        dokument.art = art
+    if datum is not None:
+        dokument.datum = datum
+    if bemerkung is not None:
+        dokument.bemerkung = bemerkung
+    dokument.loeschfrist = dokument.dokumentart.loeschfrist(dokument.datum)
+    with transaction.atomic():
+        _dateien_angleichen(dokument)
+        dokument.full_clean(exclude=["datei", "original"])
+        dokument.save()
+    return dokument
+
+
+def dokument_bezug_setzen(dokument: Dokument, bezug: models.Model) -> Dokumentbezug:
+    """Hängt ein Dokument an ein gespeichertes Objekt (idempotent)."""
+    if bezug.pk is None:
+        raise AblageFehler("Der Bezug muss gespeichert sein.")
+    typ = ContentType.objects.get_for_model(bezug)
+    vorhanden = Dokumentbezug.objects.filter(
+        dokument=dokument, bezug_typ=typ, bezug_id=bezug.pk
+    ).first()
+    if vorhanden is not None:
+        return vorhanden
+    eintrag = Dokumentbezug(dokument=dokument, bezug_typ=typ, bezug_id=bezug.pk)
+    eintrag.save()
+    return eintrag
+
+
+def dokument_bezug_loesen(dokument: Dokument, bezug: models.Model) -> bool:
+    """Löst einen Bezug (steht im Protokoll und lässt sich zurücknehmen)."""
+    typ = ContentType.objects.get_for_model(bezug)
+    eintraege = Dokumentbezug.objects.filter(dokument=dokument, bezug_typ=typ, bezug_id=bezug.pk)
+    geloest = False
+    for eintrag in eintraege:
+        eintrag.delete()
+        geloest = True
+    return geloest
+
+
+def dokumente_zu(bezug: models.Model) -> models.QuerySet[Dokument]:
+    """Alle Dokumente, die an einem Objekt hängen (neueste zuerst)."""
+    typ = ContentType.objects.get_for_model(bezug)
+    return Dokument.objects.filter(bezuege__bezug_typ=typ, bezuege__bezug_id=bezug.pk).distinct()
+
+
+# --- Belege --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Vorschlag:
+    """Vorschlag für einen neuen Beleg aus dem letzten bestätigten Beleg des Lieferanten."""
+
+    objekt: Objekt
+    kategorie: Kategorie
+    leistungsjahr: int
+    umlagefaehiger_anteil: Decimal
+    aus_beleg: Beleg
+
+
+def vorschlag(lieferant: Lieferant | None, datum: datetime.date) -> Vorschlag | None:
+    """Objekt, Kostenart, Leistungsjahr und umlagefähiger Anteil wie beim letzten Beleg.
+
+    Das Leistungsjahr hält den Abstand zum Belegdatum: Kam die letzte Jahresrechnung im
+    Folgejahr (Leistungsjahr = Belegjahr - 1), ist es diesmal wieder das Vorjahr.
+    """
+    if lieferant is None or lieferant.pk is None:
+        return None
+    letzter = (
+        Beleg.objects.filter(lieferant=lieferant, status=Beleg.Status.BESTAETIGT)
+        .select_related("objekt", "kategorie", "dokument")
+        .order_by("-dokument__datum", "-pk")
+        .first()
+    )
+    if letzter is None or letzter.objekt is None or letzter.kategorie is None:
+        return None
+    belegjahr = letzter.dokument.datum.year
+    abstand = (letzter.leistungsjahr or belegjahr) - belegjahr
+    return Vorschlag(
+        objekt=letzter.objekt,
+        kategorie=letzter.kategorie,
+        leistungsjahr=datum.year + abstand,
+        umlagefaehiger_anteil=(
+            letzter.umlagefaehiger_anteil
+            if letzter.umlagefaehiger_anteil is not None
+            else letzter.kategorie.umlagefaehiger_anteil
+        ),
+        aus_beleg=letzter,
+    )
+
+
+def _beleg_posten(beleg: Beleg) -> list[Arbeitsposten]:
+    return list(
+        Arbeitsposten.objects.filter(
+            art=ART_BELEGE_ZUORDNEN,
+            bezug_typ=ContentType.objects.get_for_model(Beleg),
+            bezug_id=beleg.pk,
+            status__in=[Arbeitsposten.Status.OFFEN, Arbeitsposten.Status.ZURUECKGESTELLT],
+        )
+    )
+
+
+def _beleg_posten_schliessen(beleg: Beleg) -> None:
+    for posten in _beleg_posten(beleg):
+        kern_services.arbeitsposten_erledigen(posten)
+
+
+def _beleg_hinweis(beleg: Beleg) -> str:
+    """Hinweis am Posten ohne Personendaten, Beträge und IDs (der Bezug nennt den Beleg)."""
+    dokument = beleg.dokument
+    teile = [
+        f"Eingang vom {dokument.datum:%d.%m.%Y} ({dokument.get_herkunft_display()})",
+        "Lieferant erkannt" if beleg.lieferant_id else "Lieferant fehlt",
+    ]
+    if beleg.objekt_id and beleg.kategorie_id:
+        teile.append("Vorschlag aus früheren Belegen eingetragen")
+    return "; ".join(teile) + ". Bitte Felder prüfen und bestätigen."
+
+
+def _beleg_posten_anlegen(beleg: Beleg, *, lauf: Lauf | None = None) -> Arbeitsposten:
+    return kern_services.arbeitsposten_anlegen(
+        ART_BELEGE_ZUORDNEN,
+        bezug=beleg,
+        aktionen=AKTIONEN_BELEG,
+        faellig_am=beleg.dokument.datum,
+        hinweis=_beleg_hinweis(beleg),
+        lauf=lauf,
+    )
+
+
+def beleg_anlegen(
+    dokument: Dokument,
+    *,
+    lieferant: Lieferant | None = None,
+    lauf: Lauf | None = None,
+    posten: bool = True,
+) -> Beleg:
+    """Legt einen offenen Beleg zu einem Dokument an, mit Vorschlag aus früheren Belegen
+    des Lieferanten. Mit ``posten`` entsteht ein Arbeitsposten „Belege zuordnen“."""
+    if not dokument.dokumentart.beleg:
+        raise BelegFehler(f"Dokument #{dokument.pk} ist kein Beleg ({dokument.art}).")
+    beleg = Beleg(dokument=dokument, lieferant=lieferant, status=Beleg.Status.OFFEN)
+    treffer = vorschlag(lieferant, dokument.datum)
+    if treffer is not None:
+        beleg.objekt = treffer.objekt
+        beleg.kategorie = treffer.kategorie
+        beleg.leistungsjahr = treffer.leistungsjahr
+        beleg.umlagefaehiger_anteil = treffer.umlagefaehiger_anteil
+    beleg.save()
+    if posten:
+        _beleg_posten_anlegen(beleg, lauf=lauf)
+    return beleg
+
+
+def _betrag_pruefen(betrag: Decimal | None, feld: str = "Betrag") -> Decimal:
+    if betrag is None:
+        raise BelegFehler(f"{feld} fehlt.")
+    wert = Decimal(betrag)
+    if wert <= 0:
+        raise BelegFehler(f"{feld} muss positiv sein.")
+    if wert != wert.quantize(Decimal("0.01")):
+        raise BelegFehler(f"{feld} hat mehr als zwei Nachkommastellen.")
+    return wert
+
+
+def _zuordnung_pruefen(
+    beleg: Beleg,
+    objekt: Objekt | None,
+    kategorie: Kategorie | None,
+    leistungsjahr: int | None,
+    umlagefaehiger_anteil: Decimal | None,
+) -> Decimal:
+    if objekt is None or kategorie is None or leistungsjahr is None:
+        raise BelegFehler(f"Beleg #{beleg.pk}: Objekt, Kostenart und Leistungsjahr gehören dazu.")
+    if not objekt.aktiv:
+        raise BelegFehler(f"Objekt #{objekt.pk} ist nicht aktiv.")
+    if not kategorie.aktiv:
+        raise BelegFehler(f"Kategorie #{kategorie.pk} ist nicht aktiv.")
+    if kategorie.art != Kategorie.Art.AUSGABE:
+        raise BelegFehler(f"Kategorie #{kategorie.pk} ist keine Ausgabe; Belege sind Kosten.")
+    if not 1990 <= leistungsjahr <= 2100:
+        raise BelegFehler(f"Beleg #{beleg.pk}: Leistungsjahr unplausibel.")
+    anteil = (
+        kategorie.umlagefaehiger_anteil
+        if umlagefaehiger_anteil is None
+        else Decimal(umlagefaehiger_anteil).quantize(Decimal("0.01"))
+    )
+    if not Decimal("0") <= anteil <= Decimal("100"):
+        raise BelegFehler("Der umlagefähige Anteil muss zwischen 0 und 100 liegen.")
+    return anteil
+
+
+@transaction.atomic
+def beleg_bestaetigen(
+    beleg: Beleg,
+    *,
+    lieferant: Lieferant | None,
+    betrag: Decimal | None,
+    objekt: Objekt | None,
+    kategorie: Kategorie | None,
+    leistungsjahr: int | None,
+    umlagefaehiger_anteil: Decimal | None = None,
+    datum: datetime.date | None = None,
+    am: datetime.datetime | None = None,
+) -> Beleg:
+    """Bestätigt einen Beleg mit allen Feldern (Standardablauf 6, Schritt 3).
+
+    Ohne umlagefähigen Anteil gilt die Vorgabe der Kostenart. Ein anderes Datum ändert das
+    Datum des Dokuments (mit Löschfrist und Dateiname). Der Posten „Belege zuordnen“ ist
+    danach erledigt; das Dokument hängt am Lieferanten.
+    """
+    beleg = Beleg.objects.select_for_update().select_related("dokument").get(pk=beleg.pk)
+    if beleg.status == Beleg.Status.VERWORFEN:
+        raise BelegFehler(f"Beleg #{beleg.pk} ist verworfen.")
+    if lieferant is None:
+        raise BelegFehler(f"Beleg #{beleg.pk}: Der Lieferant fehlt.")
+    wert = _betrag_pruefen(betrag)
+    anteil = _zuordnung_pruefen(beleg, objekt, kategorie, leistungsjahr, umlagefaehiger_anteil)
+    if datum is not None and datum != beleg.dokument.datum:
+        dokument_aendern(beleg.dokument, datum=datum)
+    beleg.lieferant = lieferant
+    beleg.betrag = wert
+    beleg.objekt = objekt
+    beleg.kategorie = kategorie
+    beleg.leistungsjahr = leistungsjahr
+    beleg.umlagefaehiger_anteil = anteil
+    beleg.status = Beleg.Status.BESTAETIGT
+    beleg.bestaetigt_am = beleg.bestaetigt_am or am or timezone.now()
+    beleg.full_clean()
+    beleg.save()
+    _beleg_posten_schliessen(beleg)
+    dokument_bezug_setzen(beleg.dokument, lieferant)
+    logger.info("Beleg #%s bestätigt", beleg.pk)
+    return beleg
+
+
+@dataclass(frozen=True)
+class Belegteil:
+    """Ein Teil einer Sammelrechnung (H6.4). Ohne Anteil gilt die Vorgabe der Kostenart."""
+
+    betrag: Decimal
+    objekt: Objekt
+    kategorie: Kategorie
+    leistungsjahr: int
+    umlagefaehiger_anteil: Decimal | None = None
+
+
+@transaction.atomic
+def beleg_aufteilen(
+    beleg: Beleg, teile: Sequence[Belegteil], *, am: datetime.datetime | None = None
+) -> list[Beleg]:
+    """Teilt eine Sammelrechnung auf (H6.4): ein Beleg je Teil, alle auf demselben Dokument.
+
+    Der Beleg braucht Lieferant und Gesamtbetrag; die Teile ergeben genau diesen Betrag. Der
+    erste Teil bleibt der Beleg selbst, die übrigen entstehen neu; alle sind danach bestätigt.
+    Eine schon zugeordnete Buchung bleibt am ersten Teil.
+    """
+    beleg = Beleg.objects.select_for_update().select_related("dokument").get(pk=beleg.pk)
+    if beleg.status == Beleg.Status.VERWORFEN:
+        raise BelegFehler(f"Beleg #{beleg.pk} ist verworfen.")
+    if beleg.lieferant is None:
+        raise BelegFehler(f"Beleg #{beleg.pk}: Der Lieferant fehlt.")
+    gesamt = _betrag_pruefen(beleg.betrag, "Der Gesamtbetrag")
+    if len(teile) < 2:
+        raise BelegFehler("Eine Aufteilung braucht mindestens zwei Teile.")
+    summe = sum((_betrag_pruefen(t.betrag) for t in teile), Decimal("0"))
+    if summe != gesamt:
+        raise BelegFehler(f"Beleg #{beleg.pk}: Die Teile ergeben nicht den Gesamtbetrag.")
+    ergebnis = []
+    for nummer, teil in enumerate(teile):
+        ziel = beleg
+        if nummer > 0:
+            ziel = Beleg(dokument=beleg.dokument, lieferant=beleg.lieferant)
+            ziel.save()
+        ergebnis.append(
+            beleg_bestaetigen(
+                ziel,
+                lieferant=beleg.lieferant,
+                betrag=teil.betrag,
+                objekt=teil.objekt,
+                kategorie=teil.kategorie,
+                leistungsjahr=teil.leistungsjahr,
+                umlagefaehiger_anteil=teil.umlagefaehiger_anteil,
+                am=am,
+            )
+        )
+    return ergebnis
+
+
+@transaction.atomic
+def beleg_verwerfen(beleg: Beleg) -> Beleg:
+    """Verwirft einen Beleg, der keiner ist (Stornieren statt Löschen). Das Dokument bleibt."""
+    beleg = Beleg.objects.select_for_update().get(pk=beleg.pk)
+    if beleg.buchung_id is not None:
+        raise BelegFehler(f"Beleg #{beleg.pk} hängt an Buchung #{beleg.buchung_id}.")
+    beleg.status = Beleg.Status.VERWORFEN
+    beleg.save(update_fields=["status"])
+    _beleg_posten_schliessen(beleg)
+    return beleg
+
+
+@transaction.atomic
+def lieferantendokument_ablegen(
+    inhalt: bytes,
+    *,
+    art: str,
+    lieferant: Lieferant,
+    datum: datetime.date,
+    herkunft: str = Dokument.Herkunft.UPLOAD,
+    bemerkung: str = "",
+) -> Ablage:
+    """Mahnung, Rücklastschrift oder Vollstreckung am Lieferanten ablegen, ohne Buchung (H6.8)."""
+    if art not in dokumentarten.AM_LIEFERANTEN:
+        raise AblageFehler(f"{art} ist keine Dokumentart am Lieferanten.")
+    ablage = dokument_ablegen(inhalt, art=art, datum=datum, herkunft=herkunft, bemerkung=bemerkung)
+    dokument_bezug_setzen(ablage.dokument, lieferant)
+    return ablage
+
+
+@transaction.atomic
+def beleg_umwidmen(beleg: Beleg, *, art: str, lieferant: Lieferant) -> Dokument:
+    """Ein Eingang aus dem Postfach ist kein Beleg, sondern etwa eine Mahnung (H6.8): Der
+    Beleg wird verworfen, das Dokument bekommt die neue Art und hängt am Lieferanten."""
+    if art not in dokumentarten.AM_LIEFERANTEN:
+        raise AblageFehler(f"{art} ist keine Dokumentart am Lieferanten.")
+    beleg = Beleg.objects.select_for_update().select_related("dokument").get(pk=beleg.pk)
+    if not beleg.ist_offen:
+        raise BelegFehler(f"Beleg #{beleg.pk} ist {beleg.get_status_display()}, nicht offen.")
+    andere = beleg.dokument.belege.exclude(pk=beleg.pk).exclude(status=Beleg.Status.VERWORFEN)
+    if andere.exists():
+        raise BelegFehler(f"Dokument #{beleg.dokument_id} hat weitere Belege.")
+    beleg_verwerfen(beleg)
+    dokument = dokument_aendern(beleg.dokument, art=art)
+    dokument_bezug_setzen(dokument, lieferant)
+    return dokument
+
+
+@dataclass(frozen=True)
+class Hochgeladen:
+    dokument: Dokument
+    beleg: Beleg | None
+    neu: bool
+
+
+@transaction.atomic
+def beleg_hochladen(
+    inhalt: bytes,
+    *,
+    datum: datetime.date,
+    lieferant: Lieferant | None = None,
+    betrag: Decimal | None = None,
+    objekt: Objekt | None = None,
+    kategorie: Kategorie | None = None,
+    leistungsjahr: int | None = None,
+    umlagefaehiger_anteil: Decimal | None = None,
+    bemerkung: str = "",
+) -> Hochgeladen:
+    """Beleg vom Handy (H6.2): Foto oder PDF, die Felder von Hand (keine Texterkennung).
+
+    Leere Felder füllt der Vorschlag aus früheren Belegen des Lieferanten. Sind danach alle
+    Felder da, ist der Beleg bestätigt; sonst bleibt er offen mit Arbeitsposten „Belege
+    zuordnen“. Eine Dublette legt nichts Neues an.
+    """
+    ablage = dokument_ablegen(
+        inhalt,
+        art=dokumentarten.BELEG,
+        datum=datum,
+        herkunft=Dokument.Herkunft.UPLOAD,
+        bemerkung=bemerkung,
+    )
+    if not ablage.neu:
+        vorhandener = ablage.dokument.belege.order_by("pk").first()
+        return Hochgeladen(dokument=ablage.dokument, beleg=vorhandener, neu=False)
+    beleg = beleg_anlegen(ablage.dokument, lieferant=lieferant, posten=False)
+    if umlagefaehiger_anteil is None and kategorie in (None, beleg.kategorie):
+        umlagefaehiger_anteil = beleg.umlagefaehiger_anteil
+    objekt = objekt or beleg.objekt
+    kategorie = kategorie or beleg.kategorie
+    leistungsjahr = leistungsjahr or beleg.leistungsjahr
+    if lieferant is not None and betrag is not None and objekt and kategorie and leistungsjahr:
+        beleg = beleg_bestaetigen(
+            beleg,
+            lieferant=lieferant,
+            betrag=betrag,
+            objekt=objekt,
+            kategorie=kategorie,
+            leistungsjahr=leistungsjahr,
+            umlagefaehiger_anteil=umlagefaehiger_anteil,
+        )
+    else:
+        beleg.betrag = betrag
+        beleg.objekt = objekt
+        beleg.kategorie = kategorie
+        beleg.leistungsjahr = leistungsjahr
+        beleg.umlagefaehiger_anteil = umlagefaehiger_anteil
+        beleg.full_clean()
+        beleg.save()
+        _beleg_posten_anlegen(beleg)
+    return Hochgeladen(dokument=ablage.dokument, beleg=beleg, neu=True)
+
+
+# --- Beleg und Buchung (H6.4) --------------------------------------------------------
+
+
+def _belegte_umsaetze() -> models.QuerySet[Beleg, Any]:
+    return Beleg.objects.filter(status=Beleg.Status.BESTAETIGT, buchung__isnull=False).values(
+        "buchung__umsatz_id"
+    )
+
+
+def buchung_kandidaten(beleg: Beleg) -> list[Buchung]:
+    """Gültige Ausgaben mit dem Betrag des Belegs um das Belegdatum, ohne eigenen Beleg."""
+    if beleg.betrag is None:
+        return []
+    datum = beleg.dokument.datum
+    spanne = datetime.timedelta(days=KANDIDATEN_TAGE)
+    buchungen = (
+        kassenbuch_services.gueltige_buchungen()
+        .filter(
+            richtung=Bankumsatz.Richtung.AUSGANG,
+            betrag=beleg.betrag,
+            datum__gte=datum - spanne,
+            datum__lte=datum + spanne,
+        )
+        .exclude(umsatz_id__in=_belegte_umsaetze())
+        .select_related("kategorie", "objekt", "umsatz")
+    )
+    return sorted(buchungen, key=lambda b: (abs((b.datum - datum).days), b.pk))
+
+
+@transaction.atomic
+def beleg_an_buchung(beleg: Beleg, buchung: Buchung) -> Beleg:
+    """Hängt einen bestätigten Beleg an seine Buchung (H6.4).
+
+    Die Buchung selbst bleibt unverändert (Gebuchtes ändert sich nie); der Beleg zeigt auf
+    sie, und das Dokument hängt zusätzlich über einen Dokumentbezug an der Buchung.
+    """
+    beleg = Beleg.objects.select_for_update().select_related("dokument").get(pk=beleg.pk)
+    if beleg.status != Beleg.Status.BESTAETIGT:
+        raise BelegFehler(f"Beleg #{beleg.pk} ist nicht bestätigt.")
+    if buchung.ist_storno or Buchung.objects.filter(storno_von=buchung).exists():
+        raise BelegFehler(f"Buchung #{buchung.pk} ist storniert oder ein Storno.")
+    if buchung.richtung != Bankumsatz.Richtung.AUSGANG:
+        raise BelegFehler(f"Buchung #{buchung.pk} ist keine Ausgabe.")
+    beleg.buchung = buchung
+    beleg.save(update_fields=["buchung"])
+    dokument_bezug_setzen(beleg.dokument, buchung)
+    logger.info("Beleg #%s an Buchung #%s", beleg.pk, buchung.pk)
+    return beleg
+
+
+# --- Belegpflicht im Monatsabschluss (H6.6) ------------------------------------------
+
+
+def belegpflicht() -> Mapping[str, Any]:
+    """Die Regel aus ``DOKUMENTE["BELEGPFLICHT"]``: Arten, Mindestbetrag, Ausnahmen."""
+    werte: Mapping[str, Any] = settings.DOKUMENTE["BELEGPFLICHT"]
+    return werte
+
+
+def belegpflichtige(buchungen: models.QuerySet[Buchung]) -> models.QuerySet[Buchung]:
+    """Die Ausgaben unter ``buchungen``, die nach der Belegpflicht einen Beleg brauchen."""
+    regel = belegpflicht()
+    ohne = {str(k).strip().casefold() for k in regel.get("OHNE_KATEGORIEN", []) if str(k).strip()}
+    auswahl = buchungen.filter(
+        richtung=Bankumsatz.Richtung.AUSGANG,
+        kategorie__art__in=list(regel.get("ARTEN", [Kategorie.Art.AUSGABE])),
+        betrag__gte=Decimal(str(regel.get("AB_BETRAG", "0"))),
+    )
+    if ohne:
+        ausgenommen = [
+            k.pk for k in Kategorie.objects.all() if k.bezeichnung.strip().casefold() in ohne
+        ]
+        auswahl = auswahl.exclude(kategorie_id__in=ausgenommen)
+    return auswahl
+
+
+def buchungen_ohne_beleg(buchungen: models.QuerySet[Buchung]) -> list[int]:
+    """IDs der belegpflichtigen Buchungen ohne Beleg.
+
+    Belegt ist eine Buchung, wenn ein bestätigter Beleg an einer Buchung desselben Umsatzes
+    hängt (auch nach Storno und Neubuchung oder bei einer aufgeteilten Buchung) oder ein
+    Dokument über einen Dokumentbezug an ihr hängt.
+    """
+    mit_dokument = Dokumentbezug.objects.filter(
+        bezug_typ=ContentType.objects.get_for_model(Buchung)
+    ).values("bezug_id")
+    return list(
+        belegpflichtige(buchungen)
+        .exclude(umsatz_id__in=_belegte_umsaetze())
+        .exclude(pk__in=mit_dokument)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+
+
+# --- Rechnungspostfach (Lauf belege_postfach, H6.1) ----------------------------------
+
+#: Arbeitsposten für eine Mail im Rechnungspostfach ohne lesbares PDF.
+ART_MAIL_OHNE_PDF = "Rechnungsmail ohne PDF"
+
+
+@dataclass
+class PostfachErgebnis:
+    """Was ``belege_aus_postfach`` getan hat: nur Zähler und IDs."""
+
+    mails: int = 0
+    belege: list[Beleg] = field(default_factory=list)
+    dubletten: int = 0
+    ohne_pdf: int = 0
+    arbeitsposten: int = 0
+    #: UIDs der Mails, die danach als gelesen markiert oder verschoben werden
+    erledigt: list[str] = field(default_factory=list)
+
+
+def belege_aus_postfach(
+    mails: Iterable[postfach.Postfachmail], *, lauf: Lauf | None = None
+) -> PostfachErgebnis:
+    """Legt jede PDF-Anlage als Dokument der Art „Beleg“ ab (H6.1, Standardablauf 6).
+
+    - Dubletten (gleiche SHA-256) legen nichts Neues an.
+    - Jeder neue Beleg bekommt einen Arbeitsposten „Belege zuordnen“; ist der Absender als
+      Lieferant bekannt, stehen Lieferant und der Vorschlag aus früheren Belegen schon drin.
+    - Eine Mail ohne lesbares PDF wird ein Arbeitsposten „Rechnungsmail ohne PDF“.
+
+    Jede verarbeitete Mail steht in ``erledigt``; markiert oder verschoben wird sie erst,
+    wenn die Ablage gespeichert ist (der Lauf macht das nach seiner Transaktion).
+    """
+    ergebnis = PostfachErgebnis()
+    for mail in mails:
+        ergebnis.mails += 1
+        rechnung = postfach.lesen(mail)
+        lieferant = lieferant_zur_mail(rechnung.absender)
+        abgelegt = 0
+        for anlage in rechnung.anlagen:
+            try:
+                ablage = dokument_ablegen(
+                    anlage.inhalt,
+                    art=dokumentarten.BELEG,
+                    datum=rechnung.datum,
+                    herkunft=Dokument.Herkunft.POSTFACH,
+                    eingangskennung=rechnung.message_id,
+                )
+            except umwandeln.DateiUngueltig:
+                logger.warning("Postfach: Anlage der Mail %s nicht lesbar", mail.uid)
+                continue
+            abgelegt += 1
+            if not ablage.neu:
+                ergebnis.dubletten += 1
+                continue
+            ergebnis.belege.append(beleg_anlegen(ablage.dokument, lieferant=lieferant, lauf=lauf))
+            ergebnis.arbeitsposten += 1
+        if not abgelegt:
+            ergebnis.ohne_pdf += 1
+            kern_services.arbeitsposten_anlegen(
+                ART_MAIL_OHNE_PDF,
+                faellig_am=rechnung.datum,
+                hinweis=(
+                    f"Mail vom {rechnung.datum:%d.%m.%Y} im Rechnungspostfach ohne lesbares PDF. "
+                    "Bitte im Postfach nachsehen und den Beleg hochladen."
+                ),
+                lauf=lauf,
+            )
+            ergebnis.arbeitsposten += 1
+        ergebnis.erledigt.append(mail.uid)
+    return ergebnis

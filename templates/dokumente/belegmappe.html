@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block titel %}Belegmappe{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Belegmappe</h1>
+<p class="leise">Je Objekt und Leistungsjahr: Inhaltsverzeichnis, Summen je Kostenart im Vergleich zum Kassenbuch, dahinter die Belege.</p>
+<form method="get" class="formular">
+  {{ form.as_p }}
+  <button type="submit">Prüfen</button>
+</form>
+
+{% if mappe %}
+<section class="gruppe">
+  <h2>{{ mappe.objekt.kuerzel }} · {{ mappe.jahr }} <span class="zahl">{{ mappe.zeilen|length }}</span></h2>
+  {% if hinweise %}
+  <div class="meldung meldung-warning" role="status">
+    <p>Abweichungen zum Kassenbuch (stehen auch vorn in der Mappe):</p>
+    <ul>{% for h in hinweise %}<li>{{ h }}</li>{% endfor %}</ul>
+  </div>
+  {% else %}
+  <p class="meldung" role="status">Die Summen stimmen mit dem Kassenbuch.</p>
+  {% endif %}
+  <div class="tabelle-rahmen">
+  <table>
+    <thead><tr><th>Kostenart</th><th>Belege</th><th>Kassenbuch</th><th>umlagefähig</th></tr></thead>
+    <tbody>
+      {% for k in mappe.kostenarten %}
+      <tr>
+        <td data-titel="Kostenart">{{ k.name }}</td>
+        <td data-titel="Belege">{{ k.belege|floatformat:"2g" }} €</td>
+        <td data-titel="Kassenbuch">{{ k.kassenbuch|floatformat:"2g" }} €</td>
+        <td data-titel="umlagefähig">{{ k.umlagefaehig|floatformat:"2g" }} €</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td data-titel="Kostenart"><strong>Summe</strong></td>
+        <td data-titel="Belege"><strong>{{ mappe.summe_belege|floatformat:"2g" }} €</strong></td>
+        <td data-titel="Kassenbuch"><strong>{{ mappe.summe_kassenbuch|floatformat:"2g" }} €</strong></td>
+        <td data-titel="umlagefähig"><strong>{{ mappe.summe_umlagefaehig|floatformat:"2g" }} €</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="aktionen">
+    <a class="knopf" href="{% url 'dokumente:belegmappe_pdf' %}?objekt={{ mappe.objekt.pk }}&amp;jahr={{ mappe.jahr }}" target="_blank" rel="noopener">Belegmappe als PDF</a>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -48,6 +48,10 @@ DOKUMENTE = {
     "BRIEF_CLIENT": env.str(
         "HOF_BRIEF_CLIENT", default="apps.dokumente.letterxpress.LetterXpressClient"
     ),
+    # Ohne HOF_BELEGE_IMAP_URL meldet der Lauf belege_postfach „nicht eingerichtet“.
+    "BELEGE_POSTFACH_CLIENT": env.str(
+        "HOF_BELEGE_POSTFACH_CLIENT", default="apps.dokumente.postfach.ImaplibPostfach"
+    ),
 }
 
 # LOGGING kommt aus base.py, mit dem Filter für Personenfelder.

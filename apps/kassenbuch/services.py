@@ -20,7 +20,7 @@ from __future__ import annotations
 import datetime
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
@@ -55,6 +55,9 @@ ART_ABSCHLUSS = "Monatsabschluss offen"
 #: Aktionen am Posten „Umsätze einordnen“ (registriert in ``apps.kassenbuch.aktionen``).
 AKTIONEN_EINORDNEN = ("umsatz_zuordnen", "umsatz_aufteilen", "regel_anlegen", "zurueckstellen")
 AKTIONEN_ABSCHLUSS = ("abschluss_pruefen", "zurueckstellen")
+#: Hinweis aus dem Abschluss (Schritt 3): Buchungen ohne Pflichtbeleg. Blockiert nicht.
+ART_BELEGE_FEHLEN = "Belege fehlen"
+AKTIONEN_BELEGE_FEHLEN = ("belege_pruefen", "zurueckstellen")
 
 #: So viele Tage nach einem Eingang gilt ein Ausgang gleicher Höhe als mögliche Rückbuchung.
 RUECKBUCHUNG_TAGE = 14
@@ -898,6 +901,8 @@ class AbschlussPruefung:
     konten_ohne_saldo: list[int] = field(default_factory=list)
     saldo_bank: Decimal | None = None
     saldo_buch: Decimal | None = None
+    #: Buchungen im Monat, denen ein Pflichtbeleg fehlt. Nur ein Hinweis: zählt nicht für ``ok``.
+    ohne_beleg: list[int] = field(default_factory=list)
 
     @property
     def saldo_stimmt(self) -> bool:
@@ -929,9 +934,40 @@ class AbschlussPruefung:
             teile.append(f"Für Konto {ids} gibt es keinen Kontostand der Bank.")
         elif not self.saldo_stimmt:
             teile.append("Der Saldo im Buch passt nicht zum Saldo der Bank.")
+        if self.ohne_beleg:
+            teile.append(self.beleg_hinweis())
         return f"Monatsabschluss {self.monat:%m/%Y} für Mandant #{self.mandant.pk}: " + " ".join(
             teile
         )
+
+    def beleg_hinweis(self) -> str:
+        ids = ", ".join(f"#{i}" for i in self.ohne_beleg[:10])
+        mehr = " …" if len(self.ohne_beleg) > 10 else ""
+        return (
+            f"Hinweis: {len(self.ohne_beleg)} Buchungen ohne Beleg ({ids}{mehr}); "
+            "der Abschluss geht trotzdem."
+        )
+
+
+# --- Belege im Abschluss (Erweiterungsstelle für Schritt 3) ---------------------------
+
+#: Liefert zu Buchungen die IDs derer, denen ein Pflichtbeleg fehlt. Die Dokumente melden
+#: die Funktion beim Start an (``apps.dokumente.apps``); welche Buchungen einen Beleg
+#: brauchen, steht in ``DOKUMENTE["BELEGPFLICHT"]``. Ohne Anmeldung fehlt nie ein Beleg.
+BelegPruefung = Callable[["models.QuerySet[Buchung]"], list[int]]
+_BELEGPRUEFUNG: list[BelegPruefung] = []
+
+
+def belegpruefung_anmelden(funktion: BelegPruefung) -> None:
+    _BELEGPRUEFUNG[:] = [funktion]
+
+
+def buchungen_ohne_beleg(buchungen: models.QuerySet[Buchung]) -> list[int]:
+    """IDs der gültigen Buchungen, denen ein Pflichtbeleg fehlt (sortiert)."""
+    if not _BELEGPRUEFUNG:
+        return []
+    gueltig = buchungen.filter(storno_von__isnull=True, storniert_durch__isnull=True)
+    return sorted(_BELEGPRUEFUNG[0](gueltig))
 
 
 def mandanten_mit_konten() -> list[Mandant]:
@@ -948,8 +984,8 @@ def abschluss_pruefen(mandant: Mandant, monat: datetime.date) -> AbschlussPruefu
     """Prüft einen Monat (H6.6): Vormonat abgeschlossen, alle Umsätze seit Beginn des
     Kassenbuchs vollständig gebucht, Saldo im Buch gleich Saldo der Bank.
 
-    Saldo Buch = Saldo der Bank zum Ende des Vormonats + Buchungen mit Datum im Monat. Belege
-    (Schritt 3) prüft der Abschluss, sobald es sie gibt.
+    Saldo Buch = Saldo der Bank zum Ende des Vormonats + Buchungen mit Datum im Monat.
+    Buchungen ohne Pflichtbeleg (Schritt 3) stehen in ``ohne_beleg``; sie blockieren nicht.
     """
     monat = monatsanfang(monat)
     ende = monatsende(monat)
@@ -986,6 +1022,9 @@ def abschluss_pruefen(mandant: Mandant, monat: datetime.date) -> AbschlussPruefu
     if not pruefung.konten_ohne_saldo:
         pruefung.saldo_bank = saldo_bank
         pruefung.saldo_buch = saldo_vormonat + bewegung
+    pruefung.ohne_beleg = buchungen_ohne_beleg(
+        Buchung.objects.filter(umsatz__konto__in=konten, datum__gte=monat, datum__lte=ende)
+    )
     return pruefung
 
 
@@ -995,6 +1034,46 @@ class AbschlussErgebnis:
     pruefung: AbschlussPruefung | None
     neu_abgeschlossen: bool = False
     posten: Arbeitsposten | None = None
+    #: neuer Arbeitsposten „Belege fehlen“ (nur ein Hinweis, der Abschluss geht trotzdem)
+    belege_posten: Arbeitsposten | None = None
+
+
+def _belege_hinweis(abschluss: Monatsabschluss, pruefung: AbschlussPruefung) -> str:
+    return (
+        f"Monatsabschluss {abschluss.monat:%m/%Y} für Mandant #{abschluss.mandant_id}: "
+        + pruefung.beleg_hinweis()
+    )
+
+
+def belege_posten_abgleichen(
+    abschluss: Monatsabschluss, pruefung: AbschlussPruefung, *, lauf: Lauf | None = None
+) -> Arbeitsposten | None:
+    """Ein offener Posten „Belege fehlen“ je Abschluss, solange Belege fehlen; sonst erledigt.
+
+    Rückgabe: der neu angelegte Posten (oder None).
+    """
+    offen = _posten_zu(ART_BELEGE_FEHLEN, abschluss, offen=True)
+    if not pruefung.ohne_beleg:
+        for posten in offen:
+            kern_services.arbeitsposten_erledigen(posten)
+        return None
+    if offen:
+        return None
+    return kern_services.arbeitsposten_anlegen(
+        ART_BELEGE_FEHLEN,
+        bezug=abschluss,
+        aktionen=AKTIONEN_BELEGE_FEHLEN,
+        faellig_am=timezone.localdate(),
+        hinweis=_belege_hinweis(abschluss, pruefung),
+        lauf=lauf,
+    )
+
+
+def belege_erneut_pruefen(abschluss: Monatsabschluss) -> AbschlussPruefung:
+    """Aktion „Belege prüfen“: prüft die Belege eines (auch abgeschlossenen) Monats erneut."""
+    pruefung = abschluss_pruefen(abschluss.mandant, abschluss.monat)
+    belege_posten_abgleichen(abschluss, pruefung)
+    return pruefung
 
 
 @transaction.atomic
@@ -1027,9 +1106,15 @@ def monat_abschliessen(
         for erledigt in _posten_zu(ART_ABSCHLUSS, abschluss, offen=True):
             kern_services.arbeitsposten_erledigen(erledigt)
         logger.info("Monatsabschluss #%s: abgeschlossen", abschluss.pk)
-        return AbschlussErgebnis(abschluss=abschluss, pruefung=pruefung, neu_abgeschlossen=True)
+        return AbschlussErgebnis(
+            abschluss=abschluss,
+            pruefung=pruefung,
+            neu_abgeschlossen=True,
+            belege_posten=belege_posten_abgleichen(abschluss, pruefung, lauf=lauf),
+        )
 
     abschluss.save()
+    belege_posten = belege_posten_abgleichen(abschluss, pruefung, lauf=lauf)
     posten = None
     if not _posten_zu(ART_ABSCHLUSS, abschluss, offen=True):
         posten = kern_services.arbeitsposten_anlegen(
@@ -1040,7 +1125,9 @@ def monat_abschliessen(
             hinweis=pruefung.hinweis(),
             lauf=lauf,
         )
-    return AbschlussErgebnis(abschluss=abschluss, pruefung=pruefung, posten=posten)
+    return AbschlussErgebnis(
+        abschluss=abschluss, pruefung=pruefung, posten=posten, belege_posten=belege_posten
+    )
 
 
 def naechster_abschlussmonat(mandant: Mandant, ab: datetime.date | None) -> datetime.date | None:
@@ -1087,6 +1174,7 @@ def monatsabschluesse_ausfuehren(
         monat = naechster_abschlussmonat(mandant, ab)
         while monat is not None and monat <= bis:
             schritt = monat_abschliessen(mandant, monat, lauf=lauf)
+            ergebnis.arbeitsposten += 1 if schritt.belege_posten is not None else 0
             if schritt.neu_abgeschlossen:
                 ergebnis.abgeschlossen.append(schritt.abschluss)
             elif not schritt.abschluss.abgeschlossen:

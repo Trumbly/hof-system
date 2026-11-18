@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block titel %}Lieferanten{% endblock %}
+
+{% block inhalt %}
+{% include "dokumente/_ablage_reiter.html" %}
+<h1>Lieferanten</h1>
+<div class="tabelle-rahmen">
+<table>
+  <thead><tr><th>Lieferant</th><th>E-Mail</th><th>Belege</th><th>Status</th></tr></thead>
+  <tbody>
+    {% for l in lieferanten %}
+    <tr>
+      <td data-titel="Lieferant"><a href="{% url 'dokumente:lieferant' l.pk %}">{{ l.name }}</a></td>
+      <td data-titel="E-Mail">{{ l.email|default:"–" }}</td>
+      <td data-titel="Belege">{{ l.belege.count }}</td>
+      <td data-titel="Status">{% if l.aktiv %}aktiv{% else %}inaktiv{% endif %}</td>
+    </tr>
+    {% empty %}<tr><td colspan="4" class="leise">Noch keine Lieferanten.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+
+<section class="gruppe">
+  <h2>Neuer Lieferant</h2>
+  <form method="post" class="formular">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Anlegen</button>
+  </form>
+</section>
+{% endblock %}
