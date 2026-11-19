@@ -546,7 +546,12 @@ class Serie:
     schreiben: list[Schreiben] = field(default_factory=list)
     ausgelassen: list[Serienempfaenger] = field(default_factory=list)
 
+    @property
+    def anzahl(self) -> int:
+        return len(self.schreiben)
 
+
+@als_vorgang("Serie: {ergebnis.anzahl} Schreiben aus Vorlage #{vorlage.pk} erzeugt")
 def serie_aus_plan(vorlage: Vorlage, plan: Iterable[Serienempfaenger]) -> Serie:
     """Erzeugt die Schreiben einer geplanten Serie (H8.4; Review 2, A8).
 

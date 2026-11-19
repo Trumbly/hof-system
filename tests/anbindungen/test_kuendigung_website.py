@@ -14,6 +14,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from pghistory.models import Events
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Buchungsanfrage
@@ -22,6 +23,8 @@ from apps.dokumente import services as dokumente
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
+from apps.kern import services as kern
+from apps.kern import vorgaenge
 from apps.kern.models import Arbeitsposten, Benutzer, Objekt
 from apps.soll import services as soll
 from apps.soll.models import Sollposten
@@ -328,3 +331,59 @@ def test_vertrag_neu_verknuepft_angenommene_anfrage(objekt: Objekt, angemeldet: 
         antwort.content.decode()
     )
     assert Decimal("85.00") == vertrag.konditionen.get().miete
+
+
+def test_ruecknahme_oeffnet_die_anfrage_wieder(
+    vertrag: Vertrag, api: Client, vorlagen: None
+) -> None:
+    """Review 2, A3 mit A4: Der Vorgang „Kündigung V-… aus Anfrage #… erfasst“ lässt sich als
+    Ganzes zurücknehmen. Danach ist die Anfrage wieder offen und ohne Verknüpfung zur
+    Kündigung, ihr Arbeitsposten offen, der Vertrag aktiv, die Bestätigung verworfen."""
+    anfrage = _kuendigung_melden(api, vertrag, None)
+    (posten,) = Arbeitsposten.objects.filter(art=services.ART_BUCHUNGSANFRAGE)
+    kuendigung = services.kuendigung_aus_anfrage(anfrage, vertrag, ZUGANG)
+    bestaetigung = _bestaetigung(kuendigung)
+    vid = Events.objects.tracks(kuendigung).order_by("-pgh_created_at")[0].pgh_context_id
+    assert vorgaenge.titel_von(vid) == (
+        f"Kündigung {vertrag.nummer} aus Anfrage #{anfrage.pk} erfasst"
+    )
+
+    bericht = kern.vorgang_zuruecknehmen(vid)
+
+    anfrage.refresh_from_db()
+    posten.refresh_from_db()
+    vertrag.refresh_from_db()
+    bestaetigung.refresh_from_db()
+    assert bericht.titel == f"Kündigung {vertrag.nummer} aus Anfrage #{anfrage.pk} erfasst"
+    assert (anfrage.status, anfrage.kuendigung, anfrage.entschieden_am) == ("offen", None, None)
+    assert anfrage.vertrag == vertrag  # aus der gemeldeten Vertragsnummer, wie vorher
+    assert posten.status == Arbeitsposten.Status.OFFEN
+    assert (vertrag.status, vertrag.ende) == (Vertrag.Status.AKTIV, None)
+    assert not Kuendigung.objects.exists()
+    assert bestaetigung.status == Schreiben.Status.VERWORFEN
+
+
+def test_vorgangstitel_aufhebung_serie_und_verknuepfung(vertrag: Vertrag, vorlagen: None) -> None:
+    """Review 2, A4 für die neuen Services: Aufhebung, Serie und Verknüpfung von Vertrag und
+    Anfrage tragen eigene Titel (nur Nummern und IDs)."""
+    aufhebung = stammdaten.kuendigung_erfassen(
+        vertrag, ZUGANG, zum_wunsch=D(2026, 12, 31), aufhebung=True
+    )
+    vid = Events.objects.tracks(aufhebung).order_by("-pgh_created_at")[0].pgh_context_id
+    assert vorgaenge.titel_von(vid) == f"Aufhebung {vertrag.nummer} zum 31.12.2026 erfasst"
+
+    einheit = vermarktete_einheit(vertrag.einheiten.get().objekt)
+    anfrage, _ = services.ereignis_annehmen(
+        services.WebsiteEreignis(
+            ereignis_id="w-buchung-titel",
+            art="buchung",
+            nw_id=einheit.nw_id,
+            gemeldet_am=timezone.now(),
+        )
+    )
+    services.buchungsanfrage_entscheiden(anfrage, "angenommen")
+    neu = aktiver_vertrag(einheit, beginn=D(2026, 12, 1))
+    services.vertrag_zur_anfrage(neu)
+    anfrage.refresh_from_db()
+    vid = Events.objects.tracks(anfrage).order_by("-pgh_created_at")[0].pgh_context_id
+    assert vorgaenge.titel_von(vid) == f"Vertrag {neu.nummer} mit Anfrage #{anfrage.pk} verknüpft"

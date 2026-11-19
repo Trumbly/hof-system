@@ -47,6 +47,7 @@ from apps.anbindungen.verwaltio import VerwaltioClient, VerwaltioFehler
 from apps.anbindungen.website import WebsiteClient, WebsiteEinheit
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten, Lauf
+from apps.kern.vorgaenge import als_vorgang
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import (
     Einheit,
@@ -511,6 +512,7 @@ def buchungsanfrage_entscheiden(
     return anfrage
 
 
+@als_vorgang("{ergebnis.vorgang_text} aus Anfrage #{anfrage.pk} erfasst")
 def kuendigung_aus_anfrage(
     anfrage: Buchungsanfrage,
     vertrag: Vertrag,
@@ -619,6 +621,7 @@ def angenommene_anfrage(einheit: Einheit) -> Buchungsanfrage | None:
     )
 
 
+@als_vorgang("Vertrag {vertrag.nummer} mit Anfrage #{ergebnis.pk} verknüpft")
 def vertrag_zur_anfrage(vertrag: Vertrag) -> Buchungsanfrage | None:
     """Verknüpft einen neu angelegten Vertrag mit der angenommenen Buchungsanfrage seiner
     Einheit (Status „Vertrag angelegt“, Arbeitsposten erledigt). Ohne solche Anfrage: nichts.

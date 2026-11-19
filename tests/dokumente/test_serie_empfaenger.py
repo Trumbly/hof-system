@@ -11,10 +11,12 @@ import pytest
 from django.core import mail
 from django.test import Client
 from django.urls import reverse
+from pghistory.models import Events
 
 from apps.dokumente import services
 from apps.dokumente.models import Schreiben, Vorlage
 from apps.dokumente.vorlagenarten import Versandweg
+from apps.kern import vorgaenge
 from apps.kern.models import Benutzer, Objekt
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import Partei, Vertrag
@@ -101,6 +103,8 @@ def test_serie_bricht_nicht_ab(mitteilung: Vorlage, objekt: Objekt) -> None:
     (ausgelassen,) = serie.ausgelassen
     assert "„betrag.offen“ (der offene Betrag)" in ausgelassen.hinweis
     assert Schreiben.objects.filter(serie=serie.kennung).count() == 1
+    vid = Events.objects.tracks(serie.schreiben[0]).order_by("pgh_created_at")[0].pgh_context_id
+    assert vorgaenge.titel_von(vid) == f"Serie: 1 Schreiben aus Vorlage #{mitteilung.pk} erzeugt"
 
 
 def _formular(vorlage: Vorlage, vertraege: list[Vertrag], **mehr: Any) -> dict[str, Any]:

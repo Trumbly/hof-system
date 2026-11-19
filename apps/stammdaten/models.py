@@ -741,6 +741,14 @@ class Kuendigung(ProtokolliertesModell):
     def in_textform(self) -> bool:
         return self.zugangsweg in self.TEXTFORM
 
+    @property
+    def vorgang_text(self) -> str:
+        """Für Titel im Protokoll, nur Nummern und Daten: „Kündigung V-0001“ oder
+        „Aufhebung V-0001 zum 31.12.2026“."""
+        if self.aufhebung:
+            return f"Aufhebung {self.vertrag.nummer} zum {self.fristende:%d.%m.%Y}"
+        return f"Kündigung {self.vertrag.nummer}"
+
 
 # --- Personenfelder (CLAUDE.md, Regel 4.6) ------------------------------------------
 

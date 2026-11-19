@@ -692,7 +692,7 @@ def wunsch_vor_fristende(
     return ende if zum_wunsch < ende else None
 
 
-@als_vorgang("Kündigung {vertrag.nummer} erfasst")
+@als_vorgang("{ergebnis.vorgang_text} erfasst")
 def kuendigung_erfassen(
     vertrag: Vertrag,
     zugang_am: datetime.date,
