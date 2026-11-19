@@ -37,10 +37,7 @@
       {% feld form.ohne_mail breit=True %}
     </div>
     {% aufklapper bezugsart.titel zahl=form.auswahl.field.choices|length offen=True %}
-      {% if form.auswahl.errors %}<p class="feld-fehler">{{ form.auswahl.errors|join:" " }}</p>{% endif %}
-      <div class="feld-optionen" id="serie-auswahl">
-        {% for feld in form.auswahl %}<div>{{ feld }}</div>{% empty %}<p class="text-2">Nichts zur Auswahl.</p>{% endfor %}
-      </div>
+      {% if form.auswahl.field.choices %}{% feld form.auswahl %}{% else %}<p class="text-2">Nichts zur Auswahl.</p>{% endif %}
     {% endaufklapper %}
     <div class="formular-fuss">
       <button type="submit" name="schritt" value="vorschau" class="knopf {% if plan %}knopf-zweit{% else %}knopf-primaer{% endif %}">Empfänger prüfen</button>

@@ -81,7 +81,7 @@ class SerieForm(forms.Form):
         "Namen, Anschrift und Beträge setzt das System selbst ein.",
     )
     auswahl = forms.MultipleChoiceField(
-        label="Auswahl",
+        label="Empfänger",
         widget=forms.CheckboxSelectMultiple,
         choices=(),
         error_messages={"required": "Bitte mindestens einen Empfänger auswählen."},
