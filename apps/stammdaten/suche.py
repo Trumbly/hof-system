@@ -45,6 +45,12 @@ PARTEI_FELDER = (
 )
 
 
+def parteien_bedingung(text: str) -> Q:
+    """Bedingung der Parteisuche; auch die Auswahl „Mieter“ in „Neuer Vertrag“ (R2-7) und
+    die Liste der Parteien suchen damit."""
+    return _alle(text.split(), PARTEI_FELDER)
+
+
 def einheiten(a: Anfrage, grenze: int) -> Iterable[Treffer]:
     if a.ist_betrag and not a.text.replace(" ", "").isdigit():
         return []

@@ -24,7 +24,7 @@ from typing import Any
 
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -36,7 +36,7 @@ from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
 from apps.kern import htmx
 from apps.stammdaten import forms as f
-from apps.stammdaten import konfiguration, schreiben, services
+from apps.stammdaten import konfiguration, schreiben, services, suche
 from apps.stammdaten.models import Einheit, Kontaktweg, Partei, Vertrag
 
 #: Höchstens so viele Treffer zeigt die Parteisuche.
@@ -104,21 +104,14 @@ def vorbelegung(
 
 
 def parteien_suchen(text: str) -> QuerySet[Partei]:
-    """Parteien zu einem Suchtext: Name, Firma, Ort, E-Mail oder Telefon, oder „#12“.
-    Jedes Wort muss irgendwo vorkommen."""
-    qs = Partei.objects.all()
+    """Parteien zu einem Suchtext wie in der Suche der Kopfzeile (``stammdaten.suche``):
+    Name, Firma, Ort, PLZ, Straße, E-Mail oder Telefon; jedes Wort muss vorkommen. „#12“
+    findet Partei 12."""
     text = text.strip()
-    if text.lstrip("#").isdigit() and text.startswith("#"):
-        return qs.filter(pk=int(text[1:]))
-    for wort in text.split():
-        qs = qs.filter(
-            Q(vorname__icontains=wort)
-            | Q(nachname__icontains=wort)
-            | Q(firma__icontains=wort)
-            | Q(ort__icontains=wort)
-            | Q(kontaktwege__wert__icontains=wort)
-        )
-    return qs.distinct().order_by("nachname", "vorname", "firma", "pk")
+    if text.startswith("#") and text[1:].isdigit():
+        return Partei.objects.filter(pk=int(text[1:]))
+    ids = Partei.objects.filter(suche.parteien_bedingung(text)).values("pk").distinct()
+    return Partei.objects.filter(pk__in=ids).order_by("nachname", "vorname", "firma", "pk")
 
 
 def treffer_kontext(text: str, gewaehlt: Partei | None = None) -> dict[str, Any]:
