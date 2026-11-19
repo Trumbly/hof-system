@@ -120,11 +120,19 @@ def test_kuendigungsanfrage(seite: Page, adressen: dict[str, Any], breite: str) 
     assert not befunde, "Kündigungsanfrage:\n- " + "\n- ".join(befunde)
     if not formular.locator("input[name=kuendigung-wunsch_wahl]").count():
         pytest.skip("Die Anfrage des Testhofs hat keinen Wunschtermin vor dem Fristende.")
+    knopf = formular.locator("button[type=submit]")
+    if formular.locator("input[name=kuendigung-absender]").count():
+        # Review 3, Punkt 9: Absender weicht ab, der Knopf ist bis zur Wahl gesperrt. Für den
+        # Fehlerzustand gibt der Test ihn frei; der Server nennt dann den Grund am Feld.
+        assert knopf.is_disabled()
+        formular.evaluate(
+            "f => f.querySelectorAll('[data-gesperrt-ohne]').forEach(k => { k.disabled = false; })"
+        )
     formular.evaluate(
         "f => f.querySelectorAll('input[type=radio]').forEach(r => { r.checked = false; })"
     )
     _ohne_browserpruefung(formular)
-    formular.locator("button[type=submit]").click()
+    knopf.click()
     seite.wait_for_load_state("networkidle")
     _pruefen(seite, "kuendigungsanfrage-ohne-wahl", breite, "body")
 

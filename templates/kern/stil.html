@@ -380,13 +380,13 @@
   <h2>Pflichtwahl vor dem Absenden</h2>
   <p class="stil-zweck">Der Knopf bleibt gesperrt, bis eine Option gewählt ist (<code>data-gesperrt-ohne="feld"</code>), z. B. bei einer Kündigung mit abweichendem Absender (Review 3, Punkt 9). Der Grund steht im <code>title</code> des Knopfs; ohne JavaScript prüft der Server und nennt den Fehler am Feld.</p>
   <form class="karte" onsubmit="return false"><div class="karte-rumpf">
-    <div class="feld">
-      <span class="feld-label">Der Absender ist nicht als Mieter eingetragen. Warum gilt die Kündigung?</span>
+    <fieldset class="feld feld-gruppe-optionen">
+      <legend class="feld-label">Der Absender ist nicht als Mieter eingetragen. Warum gilt die Kündigung?</legend>
       <div class="feld-optionen">
-        <label><input type="radio" class="feld-haken" name="stil_absender" value="vollmacht"> Vollmacht liegt vor</label>
-        <label><input type="radio" class="feld-haken" name="stil_absender" value="vertragspartei"> Absender ist Vertragspartei (anderer Name/E-Mail)</label>
+        <label class="feld-option" for="stil-absender-1"><input type="radio" class="feld-haken" name="stil_absender" value="vollmacht" id="stil-absender-1"><span>Vollmacht liegt vor</span></label>
+        <label class="feld-option" for="stil-absender-2"><input type="radio" class="feld-haken" name="stil_absender" value="vertragspartei" id="stil-absender-2"><span>Absender ist Vertragspartei (anderer Name/E-Mail)</span></label>
       </div>
-    </div>
+    </fieldset>
     <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer" data-gesperrt-ohne="stil_absender" title="Erst wählen, warum die Kündigung trotz abweichendem Absender gilt." disabled>Kündigung anlegen</button></div>
   </div></form>
 </section>
