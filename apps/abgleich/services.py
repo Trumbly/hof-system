@@ -57,7 +57,7 @@ import datetime
 import logging
 import re
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
@@ -86,6 +86,7 @@ from apps.kassenbuch import services as kassenbuch
 from apps.kassenbuch.models import Buchung, Kategorie, Zuordnungsregel
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten, Lauf, Objekt
+from apps.kern.vorgaenge import als_vorgang
 from apps.soll import services as soll
 from apps.soll.models import Sollposten
 from apps.stammdaten import fristrechnung
@@ -188,6 +189,7 @@ def _prozent(konfidenz: Decimal) -> str:
 # --- Zahlerregeln (H1.4) -------------------------------------------------------------
 
 
+@als_vorgang("Zahlerregel zu Regel #{regel.pk} gesetzt")
 @transaction.atomic
 def zahlerregel_setzen(
     regel: Zuordnungsregel,
@@ -1246,6 +1248,16 @@ def klaerfall_posten(klaerfall: Klaerfall) -> Arbeitsposten | None:
     )
 
 
+#: Wird gerufen, sobald ein Klärfall geklärt ist (Review 2, A11): Das Mahnwesen hebt seine
+#: automatische Sperre dann sofort auf, nicht erst beim Montagslauf.
+NachKlaerung = Callable[[Klaerfall], None]
+_NACH_KLAERUNG: dict[str, NachKlaerung] = {}
+
+
+def nach_klaerung_anmelden(name: str, funktion: NachKlaerung) -> None:
+    _NACH_KLAERUNG[name] = funktion
+
+
 def _klaerfall_schliessen(klaerfall: Klaerfall, ergebnis: str) -> Klaerfall:
     klaerfall = Klaerfall.objects.select_for_update().get(pk=klaerfall.pk)
     if not klaerfall.offen:
@@ -1256,6 +1268,8 @@ def _klaerfall_schliessen(klaerfall: Klaerfall, ergebnis: str) -> Klaerfall:
     posten = klaerfall_posten(klaerfall)
     if posten is not None and posten.status != Arbeitsposten.Status.ERLEDIGT:
         kern.arbeitsposten_erledigen(posten)
+    for _, haken in sorted(_NACH_KLAERUNG.items()):
+        haken(klaerfall)
     return klaerfall
 
 
@@ -1264,13 +1278,38 @@ def _offen_pruefen(klaerfall: Klaerfall) -> None:
         raise AbgleichFehler(f"Klärfall #{klaerfall.pk} ist schon geklärt.")
 
 
+def zahlerregel_weicht_ab(klaerfall: Klaerfall, vertrag: Vertrag | None) -> Zahlerregel | None:
+    """Die Zahlerregel der Buchung, wenn sie auf genau einen anderen Vertrag zeigt als
+    ``vertrag`` (Review 2, A11); sonst None. Sammelzahler und „nicht vertragsbezogen“
+    ändert der Klärfall nicht."""
+    zahlerregel = zahlerregel_zu(klaerfall.buchung)
+    if zahlerregel is None or zahlerregel.vertrag_id is None:
+        return None
+    if vertrag is not None and zahlerregel.vertrag_id == vertrag.pk:
+        return None
+    return zahlerregel
+
+
+@als_vorgang("Klärfall #{klaerfall.pk} Vertrag {vertrag.nummer} zugeordnet")
 @transaction.atomic
 def klaerfall_zuordnen(
-    klaerfall: Klaerfall, vertrag: Vertrag, *, rest_als_guthaben: bool = True
+    klaerfall: Klaerfall,
+    vertrag: Vertrag,
+    *,
+    rest_als_guthaben: bool = True,
+    zahlerregel_aendern: bool = False,
 ) -> list[Zuordnung]:
     """Aktion „Zuordnen“: der offene Betrag auf die offenen Posten des Vertrags, älteste
-    zuerst; ein Rest wird Guthaben (oder die Aktion bricht ab)."""
+    zuerst; ein Rest wird Guthaben (oder die Aktion bricht ab).
+
+    Mit ``zahlerregel_aendern`` zeigt eine Zahlerregel, die auf einen anderen Vertrag zeigt,
+    danach auf diesen (Review 2, A11). Der erwartete Betrag gehört zum alten Vertrag und
+    entfällt.
+    """
     _offen_pruefen(klaerfall)
+    abweichend = zahlerregel_weicht_ab(klaerfall, vertrag) if zahlerregel_aendern else None
+    if abweichend is not None:
+        zahlerregel_setzen(abweichend.regel, vertrag=vertrag)
     buchung = klaerfall.buchung
     betrag = offener_betrag(buchung)
     anteile, rest = verteilen(betrag, offene_posten(vertrag))

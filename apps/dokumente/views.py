@@ -8,7 +8,9 @@ angemeldeten Benutzers geht nichts hinaus (CLAUDE.md, Regel 8).
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
+from collections.abc import Iterable
 from itertools import groupby
 from typing import Any
 
@@ -480,17 +482,43 @@ BELEG_FELDER = (
 ABLAGE_ANZAHL = 100
 
 
-def _vorschlag_per_htmx(form: forms.Form) -> None:
-    """Die Wahl des Lieferanten holt den Vorschlag aus früheren Belegen (HTMX)."""
-    form.fields["lieferant"].widget.attrs.update(
-        {
-            "hx-get": reverse("dokumente:beleg_vorschlag"),
-            "hx-trigger": "change",
-            "hx-target": "#beleg-felder",
-            "hx-include": "closest form",
-            "hx-swap": "outerHTML",
-        }
-    )
+def _vorschlag_per_htmx(form: forms.Form, beleg: Beleg | None = None) -> None:
+    """Die Wahl des Lieferanten holt den Vorschlag aus früheren Belegen (HTMX).
+
+    Auf der Seite eines Belegs fragt sie mit dessen ID: Ein Beleg schlägt sich nie selbst vor.
+    """
+    attrs = {
+        "hx-get": reverse("dokumente:beleg_vorschlag"),
+        "hx-trigger": "change",
+        "hx-target": "#beleg-felder",
+        "hx-include": "closest form",
+        "hx-swap": "outerHTML",
+    }
+    if beleg is not None:
+        attrs["hx-vals"] = json.dumps({"beleg": beleg.pk})
+    form.fields["lieferant"].widget.attrs.update(attrs)
+
+
+#: Felder, die ein Vorschlag füllen kann, mit ihrem Titel im Hinweis.
+VORSCHLAG_FELDER = ("objekt", "kategorie", "leistungsjahr", "umlagefaehiger_anteil")
+
+
+def vorschlag_text(aus_beleg: Beleg | None, werte: dict[str, Any], gefuellt: Iterable[str]) -> str:
+    """Hinweis über dem Formular: welche Felder der Vorschlag gefüllt hat, mit genau den
+    Werten, die im Formular stehen (Review 2, A6). Leer, wenn er nichts gefüllt hat."""
+    gefuellt = [f for f in VORSCHLAG_FELDER if f in set(gefuellt)]
+    if aus_beleg is None or not gefuellt:
+        return ""
+    teile = []
+    if "objekt" in gefuellt and werte.get("objekt") is not None:
+        teile.append(str(werte["objekt"].kuerzel))
+    if "kategorie" in gefuellt and werte.get("kategorie") is not None:
+        teile.append(str(werte["kategorie"].bezeichnung))
+    if "leistungsjahr" in gefuellt and werte.get("leistungsjahr"):
+        teile.append(f"Leistungsjahr {werte['leistungsjahr']}")
+    if not teile:
+        return ""
+    return f"Vorschlag aus Beleg #{aus_beleg.pk} desselben Lieferanten: {', '.join(teile)}."
 
 
 def _lieferant_aus(daten: dict[str, Any]) -> Lieferant | None:
@@ -640,18 +668,27 @@ def beleg_vorschlag(request: HttpRequest) -> HttpResponse:
     eingabe.is_valid()
     werte = {k: v for k, v in eingabe.cleaned_data.items() if v not in (None, "")}
     lieferant = werte.get("lieferant")
-    treffer = services.vorschlag(lieferant, werte.get("datum") or timezone.localdate())
+    beleg_id = request.GET.get("beleg", "")
+    dieser = Beleg.objects.filter(pk=int(beleg_id)).first() if beleg_id.isdigit() else None
+    treffer = services.vorschlag(lieferant, werte.get("datum") or timezone.localdate(), ohne=dieser)
+    gefuellt = []
     if treffer is not None:
-        werte.setdefault("objekt", treffer.objekt)
-        werte.setdefault("kategorie", treffer.kategorie)
-        werte.setdefault("leistungsjahr", treffer.leistungsjahr)
-        werte.setdefault("umlagefaehiger_anteil", treffer.umlagefaehiger_anteil)
+        for feld in VORSCHLAG_FELDER:
+            if feld not in werte:
+                werte[feld] = getattr(treffer, feld)
+                gefuellt.append(feld)
     form = BelegFelder(initial=werte)
-    _vorschlag_per_htmx(form)
+    _vorschlag_per_htmx(form, dieser)
     return render(
         request,
         "dokumente/_beleg_felder.html",
-        {"form": form, "felder": BELEG_FELDER, "vorschlag": treffer},
+        {
+            "form": form,
+            "felder": BELEG_FELDER,
+            "vorschlag_text": vorschlag_text(
+                treffer.aus_beleg if treffer else None, werte, gefuellt
+            ),
+        },
     )
 
 
@@ -670,8 +707,21 @@ def _beleg_initial(eintrag: Beleg) -> dict[str, Any]:
         "leistungsjahr": eintrag.leistungsjahr,
         "umlagefaehiger_anteil": eintrag.umlagefaehiger_anteil,
         "faellig_am": rechnung.faellig_am if rechnung else None,
-        "rechnungsnummer": rechnung.rechnungsnummer if rechnung else "",
+        "rechnungsnummer": eintrag.rechnungsnummer
+        or (rechnung.rechnungsnummer if rechnung else ""),
     }
+
+
+def _beleg_vorschlag_text(eintrag: Beleg) -> str:
+    """Nur ein offener Beleg zeigt seinen Vorschlag, mit den Werten der Vorbelegung."""
+    if eintrag.status != Beleg.Status.OFFEN or eintrag.vorschlag_aus_id is None:
+        return ""
+    quelle = eintrag.vorschlag_aus
+    if quelle is None or quelle.pk == eintrag.pk:
+        return ""
+    werte = {f: getattr(eintrag, f) for f in VORSCHLAG_FELDER}
+    gleich = [f for f in VORSCHLAG_FELDER if getattr(quelle, f, None) is not None]
+    return vorschlag_text(quelle, werte, gleich)
 
 
 @login_required
@@ -682,7 +732,7 @@ def beleg(request: HttpRequest, pk: int) -> HttpResponse:
         pk=pk,
     )
     form = BelegBestaetigenForm(request.POST or None, initial=_beleg_initial(eintrag))
-    _vorschlag_per_htmx(form)
+    _vorschlag_per_htmx(form, eintrag)
     if request.method == "POST" and form.is_valid():
         daten = form.cleaned_data
         try:
@@ -703,6 +753,12 @@ def beleg(request: HttpRequest, pk: int) -> HttpResponse:
             form.add_error(None, str(fehler))
         else:
             messages.success(request, f"Beleg #{eintrag.pk} bestätigt.")
+            if services.offene_abweichungen(eintrag):
+                messages.warning(
+                    request,
+                    "Eine passende Abbuchung hat einen anderen Betrag. Bitte unten prüfen; "
+                    "in der Arbeitsliste steht „Beleg und Abbuchung weichen ab“.",
+                )
             return redirect("dokumente:beleg", pk=eintrag.pk)
     kandidaten = (
         services.buchung_kandidaten(eintrag)
@@ -719,7 +775,8 @@ def beleg(request: HttpRequest, pk: int) -> HttpResponse:
             "kandidaten": kandidaten,
             "geschwister": eintrag.dokument.belege.exclude(pk=eintrag.pk).order_by("pk"),
             "umwidmen": BelegUmwidmenForm(initial={"lieferant": eintrag.lieferant}),
-            "vorschlag": services.vorschlag(eintrag.lieferant, eintrag.dokument.datum),
+            "vorschlag_text": _beleg_vorschlag_text(eintrag),
+            "abweichungen": services.offene_abweichungen(eintrag),
             "rechnung": _rechnung_zu(eintrag),
         },
     )

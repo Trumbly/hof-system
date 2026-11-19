@@ -148,20 +148,40 @@ def klaerfall(request: HttpRequest, pk: int) -> HttpResponse:
 def zuordnen(request: HttpRequest, pk: int) -> HttpResponse:
     """Aktion „Zuordnen“: offener Betrag auf einen Vertrag, älteste Posten zuerst."""
     fall = _klaerfall(pk)
-    initial = {"vertrag": (fall.vorschlag or {}).get("vertrag")}
+    vorschlag = Vertrag.objects.filter(pk=(fall.vorschlag or {}).get("vertrag")).first()
+    # Zeigt die Zahlerregel auf einen anderen Vertrag, ist „ändern“ vorangehakt (A11).
+    zahlerregel = services.zahlerregel_zu(fall.buchung)
+    abweichend = services.zahlerregel_weicht_ab(fall, vorschlag)
+    initial = {
+        "vertrag": vorschlag.pk if vorschlag else None,
+        "zahlerregel_aendern": abweichend is not None,
+    }
     form = ZuordnenForm(request.POST or None, initial=initial)
+    if zahlerregel is None or zahlerregel.vertrag_id is None:
+        del form.fields["zahlerregel_aendern"]
     if request.method == "POST" and form.is_valid():
+        vertrag = form.cleaned_data["vertrag"]
+        aendern = bool(form.cleaned_data.get("zahlerregel_aendern"))
+        geaendert = aendern and services.zahlerregel_weicht_ab(fall, vertrag) is not None
         try:
             services.klaerfall_zuordnen(
                 fall,
-                form.cleaned_data["vertrag"],
+                vertrag,
                 rest_als_guthaben=form.cleaned_data["rest_als_guthaben"],
+                zahlerregel_aendern=aendern,
             )
         except services.AbgleichFehler as fehler:
             form.add_error(None, str(fehler))
         else:
-            return _fertig(request, f"Klärfall #{fall.pk}: zugeordnet.")
-    return render(request, "abgleich/zuordnen.html", {**_klaerfall_kontext(fall), "form": form})
+            text = f"Klärfall #{fall.pk}: Zahlung Vertrag {vertrag.nummer} zugeordnet."
+            if geaendert and zahlerregel is not None:
+                text += f" Zahlerregel #{zahlerregel.pk} zeigt jetzt auf {vertrag.nummer}."
+            return _fertig(request, text)
+    return render(
+        request,
+        "abgleich/zuordnen.html",
+        {**_klaerfall_kontext(fall), "form": form, "zahlerregel": zahlerregel},
+    )
 
 
 @login_required

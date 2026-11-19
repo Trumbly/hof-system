@@ -13,15 +13,50 @@
 </ol>
 <h2>Schritt {{ schritt }} von {{ anzahl_schritte }}: {{ schritt_titel }}</h2>
 
+{% if schritt_name == "zaehler" and not zaehler_zeilen %}
+<section class="gruppe" aria-labelledby="zaehler-anlegen">
+  <h3 id="zaehler-anlegen">Zähler anlegen</h3>
+  <p class="leise">An {% if einheiten|length == 1 %}dieser Einheit hängt{% else %}diesen Einheiten hängt{% endif %} kein Zähler. Leg ihn hier an oder begründe unten, warum es keinen gibt.</p>
+  <form method="post" class="formular">
+    {% csrf_token %}<input type="hidden" name="aktion" value="zaehler_anlegen">
+    {{ zaehler_form.as_p }}
+    <p><button type="submit" class="zweitrangig">Zähler anlegen</button></p>
+  </form>
+</section>
+{% elif schritt_name == "schluessel" and not schluessel_zeilen %}
+<section class="gruppe" aria-labelledby="schluessel-anlegen">
+  <h3 id="schluessel-anlegen">Schlüssel {% if uebergabe.art == "uebergabe" %}ausgeben{% else %}erfassen{% endif %}</h3>
+  <p class="leise">Keine Schlüssel {% if uebergabe.art == "uebergabe" %}im Bestand{% else %}beim Mieter{% endif %} erfasst. Erfasse sie hier (Bestand beim Hof) oder begründe unten, warum es keine gibt.</p>
+  <form method="post" class="formular">
+    {% csrf_token %}<input type="hidden" name="aktion" value="schluessel_anlegen">
+    {{ schluessel_form.as_p }}
+    <p><button type="submit" class="zweitrangig">Schlüssel erfassen</button></p>
+  </form>
+</section>
+{% endif %}
+
 <form method="post" class="formular" enctype="multipart/form-data">
   {% csrf_token %}
 
   {% if schritt_name == "vorab" %}
   {% for feld in vorab_form %}{% if uebergabe.art == "uebergabe" or feld.name == "datum" %}<p>{{ feld.label_tag }} {{ feld }}</p>{% endif %}{% endfor %}
-  {% if hindernisse %}<ul class="hindernisse">{% for h in hindernisse %}<li>{{ h }}</li>{% endfor %}</ul>{% endif %}
+  {% if hindernisse %}<ul class="hindernisse" id="hindernisse">{% for h in hindernisse %}<li{% if "unterschrieben" in h %} data-unterschrift{% endif %}>{{ h }}</li>{% endfor %}</ul>{% endif %}
+  {% if uebergabe.art == "uebergabe" %}
+  <script>
+    // Review 2, A10: Die Warnung verschwindet sofort beim Anhaken.
+    (function () {
+      var feld = document.getElementById("id_vertrag_unterschrieben");
+      var punkt = document.querySelector("#hindernisse [data-unterschrift]");
+      if (!feld || !punkt) return;
+      function zeigen() { punkt.hidden = feld.checked; }
+      feld.addEventListener("change", zeigen);
+      zeigen();
+    })();
+  </script>
+  {% endif %}
 
   {% elif schritt_name == "zaehler" %}
-  <p class="leise">Zähler der Einheit{{ einheiten|length|pluralize:"en" }}, Stand am {{ uebergabe.datum|date:"d.m.Y" }}. Leere Felder bleiben unberücksichtigt.</p>
+  {% if zaehler_zeilen %}<p class="leise">Zähler der Einheit{{ einheiten|length|pluralize:"en" }}, Stand am {{ uebergabe.datum|date:"d.m.Y" }}. Leere Felder bleiben unberücksichtigt.</p>{% endif %}
   {% for z, erfasst, davor in zaehler_zeilen %}
   <fieldset class="zaehler-eingabe" id="zaehler-{{ z.pk }}">
     <legend>{{ z.get_art_display }} {{ z.nummer }} <span class="leise">{{ z.ort }}{% if z.bezeichnung %} · {{ z.bezeichnung }}{% endif %}</span></legend>
@@ -31,13 +66,14 @@
     <p><label><input type="checkbox" name="geschaetzt_{{ z.pk }}"{% if erfasst.ist_geschaetzt %} checked{% endif %}> geschätzt</label></p>
   </fieldset>
   {% empty %}
-  <p class="leise">An {% if einheiten|length == 1 %}dieser Einheit hängt{% else %}diesen Einheiten hängt{% endif %} kein Zähler. Zähler legst du unter <a href="{% url 'zaehler:uebersicht' %}">Zähler</a> an.</p>
+  <p><label for="begruendung">Ohne Zähler weiter, weil</label>
+    <input id="begruendung" name="begruendung" maxlength="300" value="{{ uebersprungen.zaehler|default:'' }}" placeholder="z. B. Stellplatz ohne Strom"></p>
   {% endfor %}
 
   {% elif schritt_name == "fotos" %}
   <p><label for="fotos">Fotos aufnehmen</label>
     <input type="file" id="fotos" name="fotos" accept="image/*" capture="environment" multiple></p>
-  <p class="leise">{{ fotos|length }} Foto{{ fotos|length|pluralize:"s" }} gespeichert.</p>
+  <p class="leise">{{ fotos|length }} Foto{{ fotos|length|pluralize:"s" }} gespeichert. Ohne neues Foto geht es einfach weiter.</p>
   <ul class="fotos">{% for foto in fotos %}<li><img src="{% url 'stammdaten:uebergabe_foto' foto.pk %}" alt="Foto {{ forloop.counter }}" loading="lazy"></li>{% endfor %}</ul>
 
   {% elif schritt_name == "schluessel" %}
@@ -45,8 +81,28 @@
   <p><label for="schluessel_{{ s.pk }}">{{ s.einheit.nw_id }}: {{ s.get_art_display }}{% if s.bezeichnung %} „{{ s.bezeichnung }}“{% endif %} <span class="leise">(von {{ s.anzahl }})</span></label>
     <input type="number" id="schluessel_{{ s.pk }}" name="schluessel_{{ s.pk }}" value="{{ anzahl }}" min="0" max="{{ s.anzahl }}" inputmode="numeric"></p>
   {% empty %}
-  <p class="leise">Keine Schlüssel {% if uebergabe.art == "uebergabe" %}im Bestand{% else %}beim Mieter{% endif %} erfasst.</p>
+  <p><label for="begruendung">Ohne Schlüssel weiter, weil</label>
+    <input id="begruendung" name="begruendung" maxlength="300" value="{{ uebersprungen.schluessel|default:'' }}" placeholder="z. B. Stellplatz ohne Schloss"></p>
   {% endfor %}
+
+  {% elif schritt_name == "kaution" %}
+  {% if kondition %}<p class="leise">Miete laut Vertrag: {{ kondition.miete|floatformat:"2g" }} € je Monat.</p>{% endif %}
+  <p><label>{{ kaution_form.keine }} keine Kaution vereinbart</label></p>
+  <div id="kaution-felder">
+  {% for feld in kaution_form %}{% if feld.name != "keine" %}
+  <p>{{ feld.label_tag }} {{ feld }}{% if feld.help_text %} <span class="leise">{{ feld.help_text }}</span>{% endif %}</p>
+  {% endif %}{% endfor %}
+  </div>
+  <script>
+    (function () {
+      var keine = document.getElementById("id_keine");
+      var felder = document.getElementById("kaution-felder");
+      if (!keine || !felder) return;
+      function zeigen() { felder.hidden = keine.checked; }
+      keine.addEventListener("change", zeigen);
+      zeigen();
+    })();
+  </script>
 
   {% elif schritt_name == "unterschrift" %}
   <p><label for="zustand">Zustand</label><textarea id="zustand" name="zustand" rows="4">{{ uebergabe.zustand }}</textarea></p>
@@ -60,15 +116,20 @@
   {% elif schritt_name == "abschluss" %}
   <ul class="kennzahlen">
     <li>Datum: {{ uebergabe.datum|date:"d.m.Y" }}</li>
-    <li>Zählerstände: {{ zaehlerstaende|length }} von {{ zaehler_zeilen|length }}</li>
+    <li>Zählerstände: {% if uebersprungen.zaehler %}übersprungen ({{ uebersprungen.zaehler }}){% else %}{{ zaehlerstaende|length }} von {{ zaehler_zeilen|length }}{% endif %}</li>
     <li>Fotos: {{ fotos|length }}</li>
-    <li>Schlüssel: {% for e in uebergabe.schluessel %}{{ e.anzahl }}{% if not forloop.last %} + {% endif %}{% empty %}keine{% endfor %}</li>
+    <li>Schlüssel: {% if uebersprungen.schluessel %}übersprungen ({{ uebersprungen.schluessel }}){% else %}{% for e in uebergabe.schluessel %}{{ e.anzahl }}{% if not forloop.last %} + {% endif %}{% empty %}keine{% endfor %}{% endif %}</li>
+    {% if uebergabe.art == "uebergabe" %}<li>Kaution: {% if kaution.betrag == 0 %}keine vereinbart{% elif kaution.betrag %}{{ kaution.betrag|floatformat:"2g" }} €{% if kaution.art %}, {{ kaution.get_art_display }}{% endif %}{% if kaution.eingang_am %}, eingegangen am {{ kaution.eingang_am|date:"d.m.Y" }}{% endif %}{% else %}nicht erfasst{% endif %}</li>{% endif %}
   </ul>
-  {% if hindernisse %}
-  <ul class="hindernisse">{% for h in hindernisse %}<li>{{ h }}</li>{% endfor %}</ul>
+  {% if fehlt %}
+  <h3>Was noch fehlt</h3>
+  <ul class="hindernisse">{% for text, url in fehlt %}<li><a href="{{ url }}">{{ text }}</a></li>{% endfor %}</ul>
+  {% if hindernisse %}<p class="leise">Ohne Unterschrift und Kaution gibt es keinen Schlüssel (SOP, Grundregel 5); der Abschluss geht erst danach.</p>{% endif %}
+  {% else %}
+  <p>Alles erfasst.</p>
   {% endif %}
   {% endif %}
 
-  <p><button type="submit">{% if schritt_name == "abschluss" %}{{ uebergabe.get_art_display }} abschließen{% else %}Speichern und weiter{% endif %}</button></p>
+  <p><button type="submit">{% if schritt_name == "abschluss" %}{{ uebergabe.get_art_display }} abschließen{% elif schritt_name == "zaehler" and not zaehler_zeilen or schritt_name == "schluessel" and not schluessel_zeilen %}Überspringen und weiter{% else %}Speichern und weiter{% endif %}</button></p>
 </form>
 {% endblock %}

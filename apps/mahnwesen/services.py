@@ -61,7 +61,7 @@ from apps.soll.models import Sollposten
 from apps.stammdaten import fristrechnung, konfiguration
 from apps.stammdaten import schreiben as stammdaten_schreiben
 from apps.stammdaten import services as stammdaten
-from apps.stammdaten.models import Einheit, Vertrag
+from apps.stammdaten.models import LAUFEND, Einheit, Vertrag
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,30 @@ def _klaerfaelle(stichtag: datetime.date) -> dict[int, str]:
 sperrquelle_anmelden(Mahnsperre.Grund.KLAERFALL, _klaerfaelle)
 
 
+def automatische_sperren_aufheben(grund: str, tag: datetime.date) -> int:
+    """Hebt automatische Sperren auf, die ihre Quelle nicht mehr nennt (ohne neue zu setzen).
+    Rückgabe: Anzahl."""
+    quelle = _SPERRQUELLEN.get(grund)
+    if quelle is None:
+        return 0
+    genannt = set(quelle(tag))
+    aufgehoben = 0
+    for sperre in gueltige_sperren(tag).filter(grund=grund, automatisch=True).order_by("pk"):
+        if sperre.vertrag_id not in genannt:
+            sperre_aufheben(sperre, tag)
+            logger.info("Mahnsperre #%s aufgehoben: Klärfall geklärt", sperre.pk)
+            aufgehoben += 1
+    return aufgehoben
+
+
+def _nach_klaerung(_klaerfall: Any) -> None:
+    """Review 2, A11: Ist der Klärfall geklärt, endet seine Sperre sofort."""
+    automatische_sperren_aufheben(Mahnsperre.Grund.KLAERFALL, heute())
+
+
+abgleich.nach_klaerung_anmelden("mahnwesen", _nach_klaerung)
+
+
 def gueltige_sperren(tag: datetime.date) -> QuerySet[Mahnsperre]:
     """Sperren, die am ``tag`` gelten."""
     return Mahnsperre.objects.filter(von__lte=tag).filter(
@@ -244,7 +268,8 @@ def sperren_abgleichen(stichtag: datetime.date) -> tuple[int, int]:
             for s in gueltige_sperren(stichtag).filter(grund=grund, automatisch=True)
         }
         for vertrag_id, sperre in aktiv.items():
-            if vertrag_id not in genannt:
+            # Schon aufgehoben (etwa sofort beim Klären, Review 2, A11): nichts mehr zu tun.
+            if vertrag_id not in genannt and sperre.aufgehoben_am is None:
                 sperre_aufheben(sperre, stichtag)
                 aufgehoben += 1
         for vertrag_id, hinweis in sorted(genannt.items()):
@@ -883,7 +908,7 @@ def ordentliche_kuendigung_erzeugen(vertrag: Vertrag, zugang_am: datetime.date) 
     Fristende. Versand nach dem Standard für einseitige Erklärungen (Brief, Zustellnachweis)
     und erst, wenn der Anwalt das Schreiben gesehen hat.
     """
-    if vertrag.status not in (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT):
+    if vertrag.status not in LAUFEND:
         raise MahnwesenFehler(f"Vertrag {vertrag.nummer} ist nicht aktiv ({vertrag.status}).")
     if vertrag.einheiten.filter(typ=Einheit.Typ.WOHNUNG).exists():
         raise MahnwesenFehler(f"Vertrag {vertrag.nummer}: Wohnraum kündigt Verwaltio.")

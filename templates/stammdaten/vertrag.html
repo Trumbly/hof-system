@@ -13,6 +13,9 @@
   {% for a in buchungsanfragen %}<li>Aus {{ a.get_art_display }}sanfrage <a href="{% url 'anbindungen:anfrage' a.pk %}">#{{ a.pk }}</a> ({{ a.get_status_display }})</li>{% endfor %}
   <li>Kündigungsfrist: {{ kuendigungsregel.titel }}{% if not vertrag.kuendigungsregel %} <span class="leise">(Standard der Vertragsart, am Vertrag noch nicht geprüft)</span>{% endif %}</li>
 </ul>
+{% if bonitaet and vertrag.status == "entwurf" %}
+<p class="meldung meldung-warning" id="bonitaet">Monatsmiete ab {{ bonitaet_ab|floatformat:"0" }} €: Vor der Unterschrift Selbstauskunft und Bonitätsnachweis prüfen (P8). Der Punkt steht in der Checkliste „Vertrag schließen“.</p>
+{% endif %}
 
 <div class="aktionen">
   {% if vertrag.status == "entwurf" %}

@@ -5,7 +5,7 @@
 {% block inhalt %}
 <h1>Katalog der Website</h1>
 {% include "anbindungen/_unternavigation.html" %}
-<p class="leise">{{ im_katalog }} von {{ einheiten|length }} vermarkteten Einheiten sind buchbar und stehen im Katalog. Buchbar ist eine Einheit, wenn sie (ab einem Tag) frei ist, kein Vertrag sie bindet und keine angenommene Anfrage auf ihr liegt. Eine Rückgabe macht sie von selbst wieder buchbar.</p>
+<p class="leise">{{ im_katalog }} von {{ einheiten|length }} vermarkteten Einheiten sind buchbar und stehen im Katalog. Buchbar ist eine Einheit, wenn sie eine Fläche hat, (ab einem Tag) frei ist, kein Vertrag sie bindet und keine angenommene Anfrage auf ihr liegt. Was dem Katalog fehlt, steht im <a href="{% url 'stammdaten:datenstand' %}#bereich-katalog">Datenstand</a>. Eine Rückgabe macht sie von selbst wieder buchbar.</p>
 <div class="tabelle-rahmen">
 <table class="karten">
   <thead><tr><th>NW-ID</th><th>Typ</th><th>Fläche</th><th>Preis je Monat</th><th>frei ab</th><th>Bilder</th></tr></thead>

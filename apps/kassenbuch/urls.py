@@ -21,6 +21,11 @@ urlpatterns = [
     path("kassenbuch/regeln/<int:pk>/", views.regel_bearbeiten, name="regel"),
     path("kassenbuch/regeln/<int:pk>/anwenden/", views.regel_anwenden, name="regel_anwenden"),
     path("kassenbuch/abschluesse/", views.abschluesse, name="abschluesse"),
+    path(
+        "kassenbuch/abschluesse/<int:mandant>/<int:jahr>/<int:monat>/abschliessen/",
+        views.abschluss_jetzt,
+        name="abschluss_jetzt",
+    ),
     path("kassenbuch/bericht/", views.bericht, name="bericht"),
     path(
         "kassenbuch/bericht/<int:objekt>/<int:jahr>/<int:monat>/pdf/",

@@ -40,6 +40,7 @@ OHNE_OBJEKT = "-"
 DATENSTAND_MODELLE: dict[str, type[models.Model]] = {
     "einheit": Einheit,
     "schluessel": Einheit,
+    "katalog": Einheit,
     "partei": Partei,
     "vertrag": Vertrag,
     "kaution": Kaution,

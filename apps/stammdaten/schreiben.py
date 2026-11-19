@@ -121,11 +121,24 @@ def _empfaenger(partei: Partei | None) -> Kontext:
     }
 
 
+def einheit_titel(einheit: Einheit) -> str:
+    """Typ und Bezeichnung ohne Doppelung: „Garten 3“ statt „Garten Garten 3“ (Review 2,
+    A11); ohne Bezeichnung „Garage NW-G-0004“."""
+    typ = str(einheit.get_typ_display())
+    bezeichnung = (einheit.bezeichnung or "").strip()
+    if not bezeichnung:
+        return f"{typ} {einheit.nw_id}"
+    if bezeichnung.casefold().startswith(typ.casefold()):
+        return bezeichnung
+    return f"{typ} {bezeichnung}"
+
+
 def _einheit(einheit: Einheit) -> Kontext:
     return {
         "nw_id": einheit.nw_id,
         "kuerzel": einheit.nw_id,
         "typ": einheit.get_typ_display(),
+        "titel": einheit_titel(einheit),
         "bezeichnung": einheit.bezeichnung or einheit.nw_id,
         "flaeche_qm": einheit.flaeche_qm,
         "objekt": einheit.objekt.bezeichnung,
@@ -371,7 +384,7 @@ def _vertrag_bezeichnung(vertrag: Vertrag) -> str:
 def _vertraege_fuer_serie() -> models.QuerySet[Vertrag]:
     """Laufende Verträge (aktiv oder gekündigt), ohne Wohnraum (den führt Verwaltio)."""
     return (
-        Vertrag.objects.filter(status__in=(Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT))
+        Vertrag.objects.laufend()
         .exclude(einheiten__typ=Einheit.Typ.WOHNUNG)
         .prefetch_related("einheiten", "vertragsparteien__partei")
         .distinct()

@@ -181,9 +181,13 @@ def test_testhof_rechtsfall_mit_mahnsperre(hof: Testhof) -> None:
     assert services.lage_von(vertrag, M4).rueckstand > 0
 
 
-def test_testhof_klaerfall_sperrt_und_geklaert_ist_bezahlt(hof: Testhof) -> None:
+def test_testhof_klaerfall_sperrt_und_geklaert_ist_bezahlt(
+    hof: Testhof, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Abnahme Schritt 7: Ein offener Klärfall sperrt automatisch. Ordnet der Benutzer die
-    Zahlung zu, ist der Posten bezahlt: Der Fall schließt sich, die Sperre fällt."""
+    Zahlung zu, ist der Posten bezahlt: Der Fall schließt sich, die Sperre fällt (seit
+    Review 2, A11 sofort beim Zuordnen; hier am Tag des zweiten Laufs)."""
+    monkeypatch.setattr(services, "heute", lambda: M2)
     vertrag = _vertrag(hof, "klaerfall")
     lauf(M1)
     assert fall_zu(vertrag).sperrgrund.startswith("Klärfall")
@@ -201,6 +205,28 @@ def test_testhof_klaerfall_sperrt_und_geklaert_ist_bezahlt(hof: Testhof) -> None
     assert fall.status == Mahnfall.Status.ERLEDIGT
     assert not services.gueltige_sperren(M2).filter(vertrag=vertrag).exists()
     assert not Mahnschritt.objects.filter(fall=fall).exists()
+
+
+def test_klaerfall_erledigt_hebt_sperre_sofort_auf(hof: Testhof) -> None:
+    """Review 2, A11: Wird der Klärfall erledigt, hebt das System die automatische Sperre
+    sofort auf (Haken im Abgleich), nicht erst beim nächsten Montagslauf."""
+    vertrag = _vertrag(hof, "klaerfall")
+    lauf(M1)
+    (sperre,) = Mahnsperre.objects.filter(vertrag=vertrag, grund="klaerfall", automatisch=True)
+    assert sperre.aufgehoben_am is None
+
+    (klaerfall,) = [
+        k
+        for k in Klaerfall.objects.filter(ergebnis="")
+        if vertrag.pk
+        in {int(i) for i in (k.vorschlag or {}).get("alternativen", [])}
+        | ({int(k.vorschlag["vertrag"])} if (k.vorschlag or {}).get("vertrag") else set())
+    ]
+    abgleich.klaerfall_zuordnen(klaerfall, vertrag)
+
+    sperre.refresh_from_db()
+    assert sperre.aufgehoben_am == services.heute()
+    assert not services.gueltige_sperren(services.heute()).filter(vertrag=vertrag).exists()
 
 
 def test_testhof_teilzahlung_mit_nachzahlung_ohne_fall(hof: Testhof) -> None:

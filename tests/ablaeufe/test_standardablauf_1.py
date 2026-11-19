@@ -135,8 +135,15 @@ def test_standardablauf_1_neuvermietung(testhof: Testhof, angemeldet: Client) ->
     schritt(angemeldet, uebergabe.pk, 2, {f"stand_{zaehler[0].pk}": str(neuer_stand)})
     schritt(angemeldet, uebergabe.pk, 3, {"fotos": [foto("innen.png"), foto("tor.png")]})
     schritt(angemeldet, uebergabe.pk, 4, {f"schluessel_{s.pk}": str(s.anzahl) for s in schluessel})
-    schritt(angemeldet, uebergabe.pk, 5, {"zustand": "neuwertig", "unterschrift": foto("q.png")})
-    schritt(angemeldet, uebergabe.pk, 6, {})
+    # Kaution im Assistenten (Review 2, A10): vorbelegt aus dem Vertrag, bestätigt.
+    schritt(
+        angemeldet,
+        uebergabe.pk,
+        5,
+        {"betrag": "178,00", "art": "ueberweisung", "eingang_am": "2026-11-29"},
+    )
+    schritt(angemeldet, uebergabe.pk, 6, {"zustand": "neuwertig", "unterschrift": foto("q.png")})
+    schritt(angemeldet, uebergabe.pk, 7, {})
 
     # 8. System: Vertrag aktiv, Einheit vermietet, Schlüssel beim Mieter, Protokoll angefordert.
     vertrag.refresh_from_db()

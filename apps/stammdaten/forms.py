@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, ClassVar
 
 from django import forms
@@ -152,7 +153,7 @@ class KonditionForm(forms.Form):
 class KautionForm(forms.ModelForm):  # type: ignore[type-arg]
     class Meta:
         model = Kaution
-        fields = ("betrag", "eingang_am", "konto")
+        fields = ("betrag", "art", "eingang_am", "konto")
         widgets: ClassVar[dict[str, forms.Widget]] = {"eingang_am": Datum()}
 
 
@@ -286,6 +287,78 @@ class UebergabeVorabForm(forms.Form):
     vertrag_unterschrieben = forms.BooleanField(
         label="Vertrag ist heute vor Ort unterschrieben", required=False
     )
+
+
+class KautionSchrittForm(forms.Form):
+    """Schritt „Kaution“ der Übergabe (Review 2, A10)."""
+
+    keine = forms.BooleanField(label="keine Kaution vereinbart", required=False)
+    betrag = forms.DecimalField(
+        label="Betrag (Euro)",
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+        localize=True,
+        widget=forms.TextInput(attrs={"inputmode": "decimal", "autocomplete": "off"}),
+    )
+    art = forms.ChoiceField(
+        label="Art",
+        choices=[c for c in Kaution.Art.choices if c[0]],
+        initial=Kaution.Art.UEBERWEISUNG,
+        required=False,
+    )
+    eingang_am = forms.DateField(
+        label="eingegangen am",
+        required=False,
+        widget=Datum(),
+        help_text="Bar: heute. Bürgschaft oder Sparbuch: Tag, an dem die Urkunde vorliegt.",
+    )
+    konto = forms.CharField(
+        label="Konto",
+        max_length=100,
+        required=False,
+        help_text="Bezeichnung des Kontos, z. B. „Vivid Kautionen“. Keine IBAN.",
+    )
+
+    def clean(self) -> dict[str, Any]:
+        daten = super().clean() or {}
+        if not daten.get("keine") and daten.get("betrag") is None and "betrag" not in self.errors:
+            self.add_error(
+                "betrag",
+                "Bitte den Betrag der Kaution angeben oder „keine Kaution vereinbart“ anhaken.",
+            )
+        return daten
+
+
+class ZaehlerSchnellForm(forms.Form):
+    """Zähler direkt in der Übergabe anlegen, wenn an der Einheit keiner hängt."""
+
+    einheit = forms.ModelChoiceField(Einheit.objects.none(), label="Einheit", empty_label=None)
+    art = forms.ChoiceField(label="Art", choices=())
+    nummer = forms.CharField(label="Zählernummer", max_length=50)
+
+    def __init__(self, *args: Any, einheiten: Any, **kwargs: Any) -> None:
+        from apps.zaehler.models import Zaehler
+
+        super().__init__(*args, **kwargs)
+        self.fields["einheit"].queryset = einheiten  # type: ignore[attr-defined]
+        self.fields["art"].choices = Zaehler.Art.choices  # type: ignore[attr-defined]
+
+
+class SchluesselSchnellForm(forms.Form):
+    """Schlüssel direkt in der Übergabe erfassen (Bestand beim Hof)."""
+
+    einheit = forms.ModelChoiceField(Einheit.objects.none(), label="Einheit", empty_label=None)
+    art = forms.ChoiceField(label="Art", choices=Schluessel.Art.choices)
+    anzahl = forms.IntegerField(label="Anzahl", min_value=1, max_value=50, initial=2)
+    bezeichnung = forms.CharField(
+        label="Bezeichnung", max_length=100, required=False, help_text="z. B. „Tor“. Keine Namen."
+    )
+
+    def __init__(self, *args: Any, einheiten: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["einheit"].queryset = einheiten  # type: ignore[attr-defined]
 
 
 def foto_pruefen(datei: Any) -> str | None:

@@ -127,3 +127,38 @@ def test_liste_nur_angemeldet(client: Client) -> None:
     antwort = client.get(LISTE)
     assert antwort.status_code == 302
     assert reverse("account_login") in antwort["Location"]
+
+
+def _reihenfolge(html: str) -> list[int]:
+    return [int(n) for n in re.findall(r'id="frist-(\d+)"', html)]
+
+
+@pytest.mark.parametrize("zeitraum", ["offen", "alle", "90"])
+def test_liste_ueberfaellig_zuerst_dann_nach_datum(angemeldet: Client, zeitraum: str) -> None:
+    """Review 2, A5: Fristen stehen nach Datum, überfällige zuerst. Vorher kam der
+    31.12.2029 vor dem 11.11.2026, weil ``annotate(Count)`` die Sortierung des Modells
+    aufhebt. Angelegt in verkehrter Reihenfolge."""
+    a, b, c, d = (ObjektFabrik() for _ in range(4))
+    weit = services.frist_anlegen(Frist.Art.EICHFRIST, tage(80), Frist.Quelle.ZAEHLER, a)
+    bald = services.frist_anlegen(Frist.Art.SONSTIGE, tage(5), Frist.Quelle.HAND, b)
+    morgen = services.frist_anlegen(Frist.Art.SONSTIGE, tage(1), Frist.Quelle.HAND, c)
+    ueber = services.frist_anlegen(Frist.Art.KUENDIGUNG, tage(-3), Frist.Quelle.VERTRAG, d)
+
+    reihe = _reihenfolge(_seite(angemeldet, zeitraum=zeitraum))
+
+    assert reihe == [ueber.pk, morgen.pk, bald.pk, weit.pk]
+
+
+def test_alle_erledigte_ueberfaellige_nicht_vorne(angemeldet: Client) -> None:
+    """Review 2, A5: Unter „alle“ zählt eine erledigte alte Frist nicht als überfällig; sie
+    steht nach den offenen überfälligen."""
+    a, b, c = (ObjektFabrik() for _ in range(3))
+    erledigt = services.frist_erledigen(
+        services.frist_anlegen(Frist.Art.SONSTIGE, tage(-30), Frist.Quelle.HAND, a)
+    )
+    ueber = services.frist_anlegen(Frist.Art.SONSTIGE, tage(-2), Frist.Quelle.HAND, b)
+    spaeter = services.frist_anlegen(Frist.Art.SONSTIGE, tage(10), Frist.Quelle.HAND, c)
+
+    reihe = _reihenfolge(_seite(angemeldet, zeitraum="alle"))
+
+    assert reihe == [ueber.pk, erledigt.pk, spaeter.pk]

@@ -1123,17 +1123,22 @@ class Vorschlag:
     aus_beleg: Beleg
 
 
-def vorschlag(lieferant: Lieferant | None, datum: datetime.date) -> Vorschlag | None:
+def vorschlag(
+    lieferant: Lieferant | None, datum: datetime.date, *, ohne: Beleg | None = None
+) -> Vorschlag | None:
     """Objekt, Kostenart, Leistungsjahr und umlagefähiger Anteil wie beim letzten Beleg.
 
     Das Leistungsjahr hält den Abstand zum Belegdatum: Kam die letzte Jahresrechnung im
-    Folgejahr (Leistungsjahr = Belegjahr - 1), ist es diesmal wieder das Vorjahr.
+    Folgejahr (Leistungsjahr = Belegjahr - 1), ist es diesmal wieder das Vorjahr. ``ohne``
+    ist der Beleg, für den der Vorschlag gilt: Er schlägt sich nie selbst vor (Review 2, A6).
     """
     if lieferant is None or lieferant.pk is None:
         return None
+    frueher = Beleg.objects.filter(lieferant=lieferant, status=Beleg.Status.BESTAETIGT)
+    if ohne is not None and ohne.pk is not None:
+        frueher = frueher.exclude(pk=ohne.pk)
     letzter = (
-        Beleg.objects.filter(lieferant=lieferant, status=Beleg.Status.BESTAETIGT)
-        .select_related("objekt", "kategorie", "dokument")
+        frueher.select_related("objekt", "kategorie", "dokument")
         .order_by("-dokument__datum", "-pk")
         .first()
     )
@@ -1211,6 +1216,7 @@ def beleg_anlegen(
         beleg.kategorie = treffer.kategorie
         beleg.leistungsjahr = treffer.leistungsjahr
         beleg.umlagefaehiger_anteil = treffer.umlagefaehiger_anteil
+        beleg.vorschlag_aus = treffer.aus_beleg
     beleg.save()
     if posten:
         _beleg_posten_anlegen(beleg, lauf=lauf)
@@ -1297,11 +1303,13 @@ def beleg_bestaetigen(
     beleg.umlagefaehiger_anteil = anteil
     beleg.status = Beleg.Status.BESTAETIGT
     beleg.bestaetigt_am = beleg.bestaetigt_am or am or timezone.now()
+    beleg.rechnungsnummer = (rechnungsnummer or "").strip()[:100]
     beleg.full_clean()
     beleg.save()
     _beleg_posten_schliessen(beleg)
     dokument_bezug_setzen(beleg.dokument, lieferant)
     logger.info("Beleg #%s bestätigt", beleg.pk)
+    abweichung_pruefen(beleg)
     if faellig_am is not None:
         vorhanden = Eingangsrechnung.objects.filter(beleg__dokument=beleg.dokument_id).first()
         if vorhanden is not None and vorhanden.status == Eingangsrechnung.Status.BEZAHLT:
@@ -1457,6 +1465,8 @@ def beleg_hochladen(
         vorhandener = ablage.dokument.belege.order_by("pk").first()
         return Hochgeladen(dokument=ablage.dokument, beleg=vorhandener, neu=False)
     beleg = beleg_anlegen(ablage.dokument, lieferant=lieferant, posten=False)
+    if (objekt or beleg.objekt, kategorie or beleg.kategorie) != (beleg.objekt, beleg.kategorie):
+        beleg.vorschlag_aus = None  # von Hand anders gewählt: kein Vorschlag mehr
     if umlagefaehiger_anteil is None and kategorie in (None, beleg.kategorie):
         umlagefaehiger_anteil = beleg.umlagefaehiger_anteil
     objekt = objekt or beleg.objekt
@@ -1482,6 +1492,7 @@ def beleg_hochladen(
         beleg.kategorie = kategorie
         beleg.leistungsjahr = leistungsjahr
         beleg.umlagefaehiger_anteil = umlagefaehiger_anteil
+        beleg.rechnungsnummer = rechnungsnummer.strip()[:100]
         beleg.full_clean()
         beleg.save()
         _beleg_posten_anlegen(beleg)
@@ -1534,8 +1545,245 @@ def beleg_an_buchung(beleg: Beleg, buchung: Buchung) -> Beleg:
     beleg.buchung = buchung
     beleg.save(update_fields=["buchung"])
     dokument_bezug_setzen(beleg.dokument, buchung)
+    abweichung_pruefen(beleg)
     logger.info("Beleg #%s an Buchung #%s", beleg.pk, buchung.pk)
     return beleg
+
+
+# --- Beleg und Abbuchung weichen ab (Review 2, A7) -----------------------------------
+
+ART_BELEG_ABWEICHUNG = "Beleg und Abbuchung weichen ab"
+AKTIONEN_BELEG_ABWEICHUNG = ("beleg_zuordnen", "erledigen", "zurueckstellen")
+#: Passt nur der Lieferant (Gegen-IBAN), zählt eine Abbuchung, deren Betrag höchstens um
+#: diesen Anteil abweicht (Tippfehler, Skonto). Bei passender Rechnungsnummer gilt keine Grenze.
+ABWEICHUNG_ANTEIL = Decimal("0.20")
+#: Wie weit zurück der Lauf bestätigte Belege ohne Buchung erneut prüft.
+ABWEICHUNG_TAGE = 120
+
+
+@dataclass(frozen=True)
+class Abweichung:
+    """Eine Abbuchung, die nach Rechnungsnummer oder Lieferant zum Beleg passt, deren
+    Betrag aber abweicht. Die Beträge zeigt nur die Seite des Belegs."""
+
+    umsatz: Bankumsatz
+    beleg_betrag: Decimal
+    nummer: bool
+    #: Beleg und Buchung sind schon verknüpft (der Betrag wurde etwa danach geändert).
+    verknuepft: bool = False
+
+    @property
+    def differenz(self) -> Decimal:
+        return self.umsatz.betrag - self.beleg_betrag
+
+    @property
+    def grund(self) -> str:
+        if self.verknuepft:
+            return "verknüpfte Buchung"
+        return "Rechnungsnummer im Zweck" if self.nummer else "Lieferant (IBAN)"
+
+
+def _rechnungsnummer(beleg: Beleg) -> str:
+    if beleg.rechnungsnummer:
+        return beleg.rechnungsnummer
+    rechnung = Eingangsrechnung.objects.filter(beleg__dokument=beleg.dokument_id).first()
+    return rechnung.rechnungsnummer if rechnung is not None else ""
+
+
+def nummer_im_zweck(nummer: str, zweck: str) -> bool:
+    """Steht die Rechnungsnummer als eigenes Wort im Zweck („Rechnung 4779“, nicht „14779“)?"""
+    nummer = normale_nummer(nummer)
+    if not nummer:
+        return False
+    woerter = re.findall(r"[0-9a-zäöüß/._-]+", (zweck or "").casefold())
+    if nummer in woerter:
+        return True
+    return len(nummer) >= 6 and nummer in normale_nummer(zweck)
+
+
+def _abbuchungen_um(beleg: Beleg) -> list[Bankumsatz]:
+    """Abbuchungen um das Belegdatum, die noch keinen Beleg und keine Rechnung tragen."""
+    datum = beleg.dokument.datum
+    schon_bezahlt = Eingangsrechnung.objects.filter(bezahlt_durch__isnull=False).values(
+        "bezahlt_durch__umsatz_id"
+    )
+    return list(
+        Bankumsatz.objects.filter(
+            richtung=Bankumsatz.Richtung.AUSGANG,
+            buchungsdatum__gte=datum - datetime.timedelta(days=ABBUCHUNG_VORLAUF_TAGE),
+            buchungsdatum__lte=datum + datetime.timedelta(days=KANDIDATEN_TAGE),
+        )
+        .exclude(pk__in=_belegte_umsaetze())
+        .exclude(pk__in=schon_bezahlt)
+        .order_by("buchungsdatum", "pk")
+    )
+
+
+def abweichungen(beleg: Beleg) -> list[Abweichung]:
+    """Abbuchungen, die zum Beleg passen, aber einen anderen Betrag haben (Review 2, A7).
+
+    Passt die Rechnungsnummer (im Verwendungszweck), zählt die Abbuchung immer. Passt nur
+    der Lieferant (Gegen-IBAN), zählt sie, wenn ihr Betrag höchstens um
+    ``ABWEICHUNG_ANTEIL`` abweicht. Gibt es zur Rechnungsnummer bzw. zum Lieferanten schon
+    eine Abbuchung mit genau dem Betrag, ist nichts abweichend.
+    """
+    if beleg.status != Beleg.Status.BESTAETIGT or beleg.betrag is None:
+        return []
+    if beleg.buchung_id is not None:
+        return _abweichung_verknuepft(beleg)
+    nummer = _rechnungsnummer(beleg)
+    lieferant = beleg.lieferant
+    iban = lieferant.iban if lieferant is not None else ""
+    passend: list[Abweichung] = []
+    for umsatz in _abbuchungen_um(beleg):
+        mit_nummer = nummer_im_zweck(nummer, umsatz.verwendungszweck)
+        mit_iban = bool(iban) and fingerabdruck.iban_normal(umsatz.gegen_iban) == iban
+        if not (mit_nummer or mit_iban):
+            continue
+        if umsatz.betrag == beleg.betrag:
+            return []  # die richtige Abbuchung ist da
+        passend.append(Abweichung(umsatz=umsatz, beleg_betrag=beleg.betrag, nummer=mit_nummer))
+    nach_nummer = [a for a in passend if a.nummer]
+    if nach_nummer:
+        return nach_nummer
+    grenze = beleg.betrag * ABWEICHUNG_ANTEIL
+    return [a for a in passend if abs(a.differenz) <= grenze]
+
+
+def _abweichung_verknuepft(beleg: Beleg) -> list[Abweichung]:
+    """Beleg und Buchung sind verknüpft: Die Belege des Dokuments an diesem Umsatz müssen
+    zusammen den Betrag des Umsatzes ergeben (eine Sammelrechnung hat mehrere Teile)."""
+    if beleg.buchung_id is None:
+        return []
+    buchung = Buchung.objects.select_related("umsatz").filter(pk=beleg.buchung_id).first()
+    umsatz = buchung.umsatz if buchung is not None else None
+    if umsatz is None:
+        return []
+    geschwister = Beleg.objects.filter(dokument=beleg.dokument_id, status=Beleg.Status.BESTAETIGT)
+    if geschwister.filter(buchung__isnull=True).exists():
+        return []  # Sammelrechnung, noch nicht alle Teile an ihren Buchungen
+    teile = Beleg.objects.filter(
+        dokument=beleg.dokument_id,
+        status=Beleg.Status.BESTAETIGT,
+        buchung__umsatz=umsatz,
+    ).values_list("betrag", flat=True)
+    summe = sum((b for b in teile if b is not None), Decimal("0.00"))
+    if summe == umsatz.betrag:
+        return []
+    return [
+        Abweichung(
+            umsatz=umsatz,
+            beleg_betrag=summe,
+            nummer=nummer_im_zweck(_rechnungsnummer(beleg), umsatz.verwendungszweck),
+            verknuepft=True,
+        )
+    ]
+
+
+def _abweichung_posten(beleg: Beleg) -> list[Arbeitsposten]:
+    return list(
+        Arbeitsposten.objects.filter(
+            art=ART_BELEG_ABWEICHUNG,
+            bezug_typ=ContentType.objects.get_for_model(Beleg),
+            bezug_id=beleg.pk,
+            status__in=[Arbeitsposten.Status.OFFEN, Arbeitsposten.Status.ZURUECKGESTELLT],
+        )
+    )
+
+
+def _abweichung_hinweis(liste: Sequence[Abweichung]) -> str:
+    """Hinweis am Posten (geht ins Hof-Backlog): nur IDs, keine Beträge, keine Namen."""
+    umsaetze = ", ".join(f"Umsatz #{a.umsatz.pk}" for a in liste)
+    if any(a.verknuepft for a in liste):
+        return (
+            f"Der Betrag des Belegs weicht von der verknüpften Abbuchung ab ({umsaetze}). "
+            "Beide Beträge stehen auf der Seite des Belegs."
+        )
+    grund = "die Rechnungsnummer" if any(a.nummer for a in liste) else "der Lieferant"
+    return (
+        f"Zum Beleg passt {grund} der Abbuchung ({umsaetze}), der Betrag weicht ab. "
+        "Beide Beträge stehen auf der Seite des Belegs."
+    )
+
+
+def offene_abweichungen(beleg: Beleg) -> list[Abweichung]:
+    """Abweichungen, die noch niemand als geprüft erledigt hat (für die Seite des Belegs).
+
+    Erledigt Max den Posten (die Abbuchung ist richtig, etwa mit Skonto), bleibt es dabei,
+    solange dieselben Abbuchungen abweichen.
+    """
+    liste = abweichungen(beleg)
+    if liste and _hingenommen(beleg, liste):
+        return []
+    return liste
+
+
+def _hingenommen(beleg: Beleg, liste: Sequence[Abweichung]) -> bool:
+    return Arbeitsposten.objects.filter(
+        art=ART_BELEG_ABWEICHUNG,
+        bezug_typ=ContentType.objects.get_for_model(Beleg),
+        bezug_id=beleg.pk,
+        status=Arbeitsposten.Status.ERLEDIGT,
+        hinweis=_abweichung_hinweis(liste),
+    ).exists()
+
+
+def abweichung_pruefen(beleg: Beleg, *, lauf: Lauf | None = None) -> Arbeitsposten | None:
+    """Legt den Posten „Beleg und Abbuchung weichen ab“ an oder schließt ihn (Review 2, A7).
+
+    Läuft beim Bestätigen oder Ändern eines Belegs, beim Verknüpfen mit der Buchung und im
+    Lauf ``kassenbuch_einordnen``. Bei verknüpften Belegen prüft er die anderen Teile
+    desselben Dokuments mit (Sammelrechnung). Rückgabe: der neu angelegte Posten, sonst
+    None. Je Beleg höchstens ein offener Posten; eine von Max erledigte Abweichung kommt
+    nicht wieder (``offene_abweichungen``).
+    """
+    if beleg.buchung_id is not None:
+        andere = Beleg.objects.filter(
+            dokument=beleg.dokument_id, status=Beleg.Status.BESTAETIGT, buchung__isnull=False
+        ).exclude(pk=beleg.pk)
+        for teil in andere.order_by("pk"):
+            _abweichung_einzeln(teil, lauf=lauf)
+    return _abweichung_einzeln(beleg, lauf=lauf)
+
+
+def _abweichung_einzeln(beleg: Beleg, *, lauf: Lauf | None = None) -> Arbeitsposten | None:
+    liste = abweichungen(beleg)
+    offen = _abweichung_posten(beleg)
+    if liste and not offen and _hingenommen(beleg, liste):
+        return None
+    if not liste:
+        for posten in offen:
+            kern_services.arbeitsposten_erledigen(posten)
+        return None
+    if offen:
+        hinweis = _abweichung_hinweis(liste)
+        for posten in offen:
+            if posten.hinweis != hinweis:
+                kern_services.arbeitsposten_hinweis_setzen(posten, hinweis)
+        return None
+    logger.info("Beleg #%s: Abbuchung weicht ab (%s Umsätze)", beleg.pk, len(liste))
+    return kern_services.arbeitsposten_anlegen(
+        ART_BELEG_ABWEICHUNG,
+        bezug=beleg,
+        aktionen=AKTIONEN_BELEG_ABWEICHUNG,
+        faellig_am=timezone.localdate(),
+        hinweis=_abweichung_hinweis(liste),
+        lauf=lauf,
+    )
+
+
+def belegabweichungen_pruefen(lauf: Lauf | None = None) -> kassenbuch_services.Abgleich:
+    """Lauf ``kassenbuch_einordnen``: prüft bestätigte Belege erneut, weil die Abbuchung
+    oft erst nach dem Beleg kommt; verknüpfte gegen ihre Buchung."""
+    seit = timezone.localdate() - datetime.timedelta(days=ABWEICHUNG_TAGE)
+    neu = 0
+    belege = Beleg.objects.filter(
+        status=Beleg.Status.BESTAETIGT, dokument__datum__gte=seit
+    ).select_related("dokument", "lieferant")
+    for beleg in belege.order_by("pk"):
+        if abweichung_pruefen(beleg, lauf=lauf) is not None:
+            neu += 1
+    return kassenbuch_services.Abgleich(name="Belege und Abbuchungen", arbeitsposten=neu)
 
 
 # --- Belegpflicht im Monatsabschluss (H6.6) ------------------------------------------

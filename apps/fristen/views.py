@@ -6,7 +6,7 @@ import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, QuerySet
+from django.db.models import BooleanField, Case, Count, Q, QuerySet, Value, When
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -38,19 +38,33 @@ def _mit_angaben(fristen: QuerySet[Frist]) -> QuerySet[Frist]:
     return fristen.select_related("bezug_typ").annotate(anzahl_verschoben=Count("verschiebungen"))
 
 
+def sortiert(fristen: QuerySet[Frist], heute: datetime.date) -> QuerySet[Frist]:
+    """Überfällige zuerst, dann aufsteigend nach Datum (Review 2, A5).
+
+    Ausdrücklich sortiert: Mit ``annotate(Count(...))`` gilt ``Meta.ordering`` nicht.
+    """
+    return fristen.annotate(
+        ist_ueberfaellig=Case(
+            When(Q(erledigt_am__isnull=True, datum__lt=heute), then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField(),
+        )
+    ).order_by("-ist_ueberfaellig", "datum", "pk")
+
+
 def _nach_zeitraum(
     fristen: QuerySet[Frist], zeitraum: str, heute: datetime.date
 ) -> QuerySet[Frist]:
     if zeitraum == "alle":
-        return fristen
+        return sortiert(fristen, heute)
     if zeitraum == "erledigt":
         return fristen.filter(erledigt_am__isnull=False).order_by("-erledigt_am", "-pk")
     fristen = fristen.filter(erledigt_am__isnull=True)
     if zeitraum == "ueberfaellig":
-        return fristen.filter(datum__lt=heute)
+        return sortiert(fristen.filter(datum__lt=heute), heute)
     if zeitraum.isdigit():
-        return fristen.filter(datum__lte=heute + datetime.timedelta(days=int(zeitraum)))
-    return fristen
+        fristen = fristen.filter(datum__lte=heute + datetime.timedelta(days=int(zeitraum)))
+    return sortiert(fristen, heute)
 
 
 @login_required

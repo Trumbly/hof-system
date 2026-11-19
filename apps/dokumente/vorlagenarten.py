@@ -87,6 +87,7 @@ _STAMMDATEN = (
     "vertrag.sonderabreden",
     "einheit.nw_id",
     "einheit.typ",
+    "einheit.titel",
     "einheit.flaeche_qm",
     "einheiten",
     "mandant.bezeichnung",

@@ -113,16 +113,17 @@ im Objekt {{ objekt.bezeichnung }} fristgerecht zum {{ vertrag.ende|datum }}.</p
 {% for m in mieter %}{{ m.name }}, {{ m.strasse }}, {{ m.plz }} {{ m.ort }}
 {% if not forloop.last %}; {% endif %}{% endfor %} (Mieter).</p>
 <h3>§ 1 Mietsache</h3>
-<ul>{% for e in einheiten %}<li>{{ e.nw_id }}: {{ e.typ }} {{ e.bezeichnung }}
-{% if e.flaeche_qm %}({{ e.flaeche_qm }} m²){% endif %}, {{ e.objekt }}</li>{% endfor %}</ul>
+<ul>{% for e in einheiten %}<li>{{ e.nw_id }}: {{ e.titel }}{% if e.flaeche_qm %}
+({{ e.flaeche_qm }} m²){% endif %}, {{ e.objekt }}</li>{% endfor %}</ul>
 <h3>§ 2 Mietzeit</h3>
 <p>Das Mietverhältnis beginnt am {{ vertrag.beginn|datum }}{% if vertrag.ende %} und endet am
 {{ vertrag.ende|datum }}{% else %} und läuft auf unbestimmte Zeit{% endif %}.
 Kündigungsfrist: {{ vertrag.kuendigungsfrist }}.</p>
 <h3>§ 3 Miete</h3>
-{% if kondition %}<p>Die Miete beträgt {{ kondition.miete|euro }} je Monat
-{% if kondition.pauschale %}zuzüglich einer Pauschale von {{ kondition.pauschale|euro }}{% endif %},
-zahlbar {{ kondition.zahlweise }}.</p>{% endif %}
+{% if kondition %}<p>Die Miete beträgt {{ kondition.miete|euro }}
+je Monat{% if kondition.pauschale %} zuzüglich einer Pauschale von
+{{ kondition.pauschale|euro }}{% endif %}, zahlbar
+{{ kondition.zahlweise }}.</p>{% endif %}
 {% if staffel|length > 1 %}<p>Staffel:</p><ul>{% for s in staffel %}<li>ab {{ s.gueltig_ab|datum }}:
 {{ s.miete|euro }}</li>{% endfor %}</ul>{% endif %}
 <h3>§ 4 Kaution</h3>

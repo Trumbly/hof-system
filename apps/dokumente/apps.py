@@ -24,6 +24,10 @@ class DokumenteConfig(AppConfig):
         kassenbuch.belegpruefung_anmelden(services.buchungen_ohne_beleg)
         # Lauf kassenbuch_einordnen: Abbuchungen offener Eingangsrechnungen erkennen (3b).
         kassenbuch.abgleich_anmelden("eingangsrechnungen", services.rechnungen_abgleichen)
+        # Review 2, A7 (danach): Beleg und Abbuchung passen, nur der Betrag nicht.
+        kassenbuch.abgleich_anmelden(
+            "eingangsrechnungen_abweichungen", services.belegabweichungen_pruefen
+        )
         # Lauf fristen: Posten „Rechnung zahlen“ nach der Fälligkeit als überfällig markieren.
         fristen.pruefung_anmelden(
             "Rechnungen überfällig", services.rechnungen_ueberfaellig_markieren

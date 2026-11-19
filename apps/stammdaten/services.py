@@ -30,6 +30,8 @@ from apps.kern.models import Arbeitsposten, Mandant, Objekt
 from apps.kern.vorgaenge import als_vorgang
 from apps.stammdaten import fristrechnung, konfiguration, schreiben
 from apps.stammdaten.models import (
+    BINDEND,
+    LAUFEND,
     Checkliste,
     Checkpunkt,
     Einheit,
@@ -77,7 +79,7 @@ TYP_VERTRAGSART: dict[str, str] = {
 }
 
 #: Verträge in diesen Status binden ihre Einheiten.
-BINDENDE_STATUS = (Vertrag.Status.ENTWURF, Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
+BINDENDE_STATUS = BINDEND  # Entwurf, aktiv, gekündigt (stammdaten.models.VertragQuerySet)
 
 ART_CHECKLISTE = "Checkliste offen"
 #: Tage, die eine Frist vor ihrem Datum zum Arbeitsposten „Frist fällig“ wird.
@@ -658,7 +660,10 @@ def vertragsdokument_erzeugen(vertrag: Vertrag) -> schreiben.Ergebnis:
     """
     if vertrag.status != Vertrag.Status.ENTWURF:
         raise StammdatenFehler(f"Vertrag {vertrag.nummer} ist kein Entwurf mehr.")
-    return schreiben.vertragsdokument_erzeugen(vertrag)
+    ergebnis = schreiben.vertragsdokument_erzeugen(vertrag)
+    if not isinstance(ergebnis, Arbeitsposten):
+        checkpunkte_automatisch(vertrag, "vertragsdokument", timezone.localdate())
+    return ergebnis
 
 
 # --- Kündigung -----------------------------------------------------------------------
@@ -791,7 +796,7 @@ def kuendigung_erfassen(
 
 # --- Kaution -------------------------------------------------------------------------
 
-KAUTION_FELDER = ("betrag", "eingang_am", "konto")
+KAUTION_FELDER = ("betrag", "art", "eingang_am", "konto")
 
 
 def kaution_aendern(kaution: Kaution, **felder: Any) -> Kaution:
@@ -943,16 +948,69 @@ def checkliste_anlegen(
     if einheit is None and vertrag is None:
         raise StammdatenFehler("Eine Checkliste gehört zu einer Einheit oder einem Vertrag.")
     vorlage = konfiguration.checkliste(phase)
+    miete = _monatsmiete(vertrag) if vertrag is not None else None
     with transaction.atomic():
         liste = Checkliste(phase=phase, titel=vorlage.titel, einheit=einheit, vertrag=vertrag)
         _speichern(liste)
-        for nummer, text in enumerate(vorlage.punkte, start=1):
-            _speichern(Checkpunkt(checkliste=liste, reihenfolge=nummer, text=text))
+        for nummer, punkt in enumerate(vorlage.punkte_fuer(miete), start=1):
+            _speichern(Checkpunkt(checkliste=liste, reihenfolge=nummer, text=punkt.text))
         bezug_text = f"Einheit {einheit.nw_id}" if einheit else f"Vertrag {vertrag}"
         kern.arbeitsposten_anlegen(
             ART_CHECKLISTE, bezug=liste, hinweis=f"{vorlage.titel} · {bezug_text}"
         )
+        if vertrag is not None and _vertragsdokument_da(vertrag):
+            checkpunkte_automatisch(vertrag, "vertragsdokument", timezone.localdate())
     return liste
+
+
+def _monatsmiete(vertrag: Vertrag) -> Decimal | None:
+    """Miete je Monat (netto) zu Beginn bzw. heute, für Schwellen wie P8."""
+    kondition = vertrag.kondition_am(max(timezone.localdate(), vertrag.beginn))
+    if kondition is None:
+        kondition = vertrag.konditionen.order_by("gueltig_ab").first()
+    return kondition.miete if kondition is not None else None
+
+
+def bonitaet_noetig(vertrag: Vertrag) -> bool:
+    """P8 (entschieden am 16.11.): Ab 100 € Monatsmiete ist ein Bonitätsnachweis Pflicht."""
+    grenze = konfiguration.laden().bonitaet_ab_miete
+    miete = _monatsmiete(vertrag)
+    return grenze is not None and miete is not None and miete >= grenze
+
+
+def _vertragsdokument_da(vertrag: Vertrag) -> bool:
+    from django.contrib.contenttypes.models import ContentType
+
+    from apps.dokumente.models import Schreiben
+
+    return (
+        Schreiben.objects.filter(
+            art="vertrag",
+            bezug_typ=ContentType.objects.get_for_model(Vertrag),
+            bezug_id=vertrag.pk,
+        )
+        .exclude(status=Schreiben.Status.VERWORFEN)
+        .exists()
+    )
+
+
+def checkpunkte_automatisch(vertrag: Vertrag, ereignis: str, datum: datetime.date) -> int:
+    """Hakt die Punkte der Checklisten des Vertrags ab, die ``ereignis`` erledigt (Review 2,
+    A11: „Vertrag und Anlagen aus der Vorlage erzeugt“, sobald das PDF da ist)."""
+    texte = {
+        p.text
+        for vorlage in konfiguration.laden().checklisten.values()
+        for p in vorlage.vorlagen
+        if p.automatisch == ereignis
+    }
+    anzahl = 0
+    offen = Checkpunkt.objects.filter(
+        checkliste__vertrag=vertrag, text__in=texte, erledigt_am__isnull=True
+    ).select_related("checkliste")
+    for punkt in offen:
+        checkpunkt_erledigen(punkt, datum, notiz="vom System abgehakt")
+        anzahl += 1
+    return anzahl
 
 
 def checkpunkt_erledigen(punkt: Checkpunkt, datum: datetime.date, notiz: str = "") -> Checkpunkt:
@@ -993,7 +1051,7 @@ def uebergabe_beginnen(vertrag: Vertrag, art: str, datum: datetime.date) -> Uebe
         if vertrag.status != Vertrag.Status.ENTWURF:
             raise UebergabeNichtMoeglich(f"Vertrag {vertrag.nummer} ist kein Entwurf.")
     elif art == Uebergabe.Art.RUECKGABE:
-        if vertrag.status not in (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT):
+        if vertrag.status not in LAUFEND:
             raise UebergabeNichtMoeglich(
                 f"Vertrag {vertrag.nummer} ist weder aktiv noch gekündigt."
             )
@@ -1057,6 +1115,10 @@ def uebergabe_speichern(
                 zaehler.uebergabe_datum_angleichen(uebergabe)
             if zaehlerstaende is not None:
                 zaehler.uebergabe_staende_erfassen(uebergabe, zaehlerstaende)
+                if uebergabe.zaehlerstaende.exists():
+                    _nicht_mehr_uebersprungen(uebergabe, "zaehler")
+            if uebergabe.schluessel:
+                _nicht_mehr_uebersprungen(uebergabe, "schluessel")
     except zaehler.ZaehlerFehler as fehler:
         raise StammdatenFehler(str(fehler)) from fehler
     return uebergabe
@@ -1086,6 +1148,102 @@ def _schluessel_der_uebergabe(uebergabe: Uebergabe) -> models.QuerySet[Schluesse
 def schluessel_der_uebergabe(uebergabe: Uebergabe) -> list[Schluessel]:
     """Die Schlüssel, die bei dieser Übergabe oder Rückgabe in Frage kommen."""
     return list(_schluessel_der_uebergabe(uebergabe).select_related("einheit"))
+
+
+#: Schritte der Erfassung, die sich mit Begründung überspringen lassen (Review 2, A10).
+UEBERSPRINGBAR = {"zaehler": "Zählerstände", "schluessel": "Schlüssel"}
+
+
+@als_vorgang("{uebergabe} {uebergabe.vertrag.nummer}: Schritt {schritt} übersprungen")
+def uebergabe_ueberspringen(uebergabe: Uebergabe, schritt: str, begruendung: str) -> Uebergabe:
+    """Hält fest, dass ein Schritt ohne Inhalt bleibt, und warum (etwa „Stellplatz ohne
+    Strom“). Die Begründung steht im Protokoll der Übergabe."""
+    _offen(uebergabe)
+    if schritt not in UEBERSPRINGBAR:
+        raise StammdatenFehler(f"Der Schritt {schritt} lässt sich nicht überspringen.")
+    text = (begruendung or "").strip()
+    if not text:
+        raise StammdatenFehler(
+            f"Bitte kurz begründen, warum der Schritt „{UEBERSPRINGBAR[schritt]}“ entfällt."
+        )
+    uebersprungen = dict(uebergabe.uebersprungen or {})
+    uebersprungen[schritt] = text[:300]
+    uebergabe.uebersprungen = uebersprungen
+    _speichern(uebergabe)
+    return uebergabe
+
+
+def _nicht_mehr_uebersprungen(uebergabe: Uebergabe, schritt: str) -> None:
+    if schritt in (uebergabe.uebersprungen or {}):
+        uebersprungen = dict(uebergabe.uebersprungen)
+        del uebersprungen[schritt]
+        uebergabe.uebersprungen = uebersprungen
+        _speichern(uebergabe)
+
+
+@als_vorgang("Kaution {uebergabe.vertrag.nummer} in der Übergabe erfasst")
+def uebergabe_kaution_erfassen(
+    uebergabe: Uebergabe,
+    *,
+    keine: bool,
+    betrag: Decimal | None = None,
+    art: str = "",
+    eingang_am: datetime.date | None = None,
+    konto: str | None = None,
+) -> Kaution:
+    """Schritt „Kaution“ der Übergabe (Review 2, A10): Betrag, Art und Eingang, oder „keine
+    Kaution vereinbart“ (Betrag 0)."""
+    _offen(uebergabe)
+    vertrag = uebergabe.vertrag
+    kaution: Kaution | None = Kaution.objects.filter(vertrag=vertrag).first()
+    if kaution is None:
+        kaution = Kaution(vertrag=vertrag)
+    if art not in Kaution.Art.values:
+        raise StammdatenFehler(f"Unbekannte Art der Kaution: {art}")
+    if keine:
+        felder: dict[str, Any] = {"betrag": Decimal("0.00"), "art": "", "eingang_am": None}
+    else:
+        if betrag is None or betrag <= 0:
+            raise StammdatenFehler(
+                "Bitte den Betrag der Kaution angeben oder „keine Kaution vereinbart“ wählen."
+            )
+        felder = {"betrag": betrag, "art": art, "eingang_am": eingang_am}
+    if konto is not None:
+        felder["konto"] = konto.strip()
+    return kaution_aendern(kaution, **felder)
+
+
+def uebergabe_fehlt(uebergabe: Uebergabe) -> list[tuple[str, str]]:
+    """Zusammenfassung am Ende (Review 2, A10): was fehlt, je mit dem Schritt, in dem man es
+    nachholt. Die Hindernisse (``uebergabe_hindernisse``) sperren den Abschluss, der Rest ist
+    ein Hinweis. Rückgabe: (Text, Schlüssel des Schritts)."""
+    fehlt: list[tuple[str, str]] = []
+    for text in uebergabe_hindernisse(uebergabe):
+        if "unterschrieben" in text:
+            fehlt.append((text, "vorab"))
+        elif "Kaution" in text:
+            fehlt.append((text, "kaution"))
+        else:
+            fehlt.append((text, "unterschrift"))
+    uebersprungen = uebergabe.uebersprungen or {}
+    zaehler_alle = zaehler.zaehler_der_uebergabe(uebergabe)
+    erfasst = uebergabe.zaehlerstaende.count()
+    if "zaehler" not in uebersprungen:
+        if not zaehler_alle:
+            fehlt.append(("Kein Zähler erfasst und nicht begründet übersprungen.", "zaehler"))
+        elif erfasst < len(zaehler_alle):
+            fehlt.append((f"Zählerstände: {erfasst} von {len(zaehler_alle)} erfasst.", "zaehler"))
+    if not uebergabe.fotos.exists():
+        fehlt.append(("Noch kein Foto vom Zustand.", "fotos"))
+    if "schluessel" not in uebersprungen:
+        if not _schluessel_der_uebergabe(uebergabe).exists():
+            fehlt.append(
+                ("Keine Schlüssel erfasst und nicht begründet übersprungen.", "schluessel")
+            )
+        elif not uebergabe.schluessel:
+            wort = "ausgegeben" if uebergabe.art == Uebergabe.Art.UEBERGABE else "zurück"
+            fehlt.append((f"Keine Schlüssel {wort}.", "schluessel"))
+    return fehlt
 
 
 def uebergabe_hindernisse(uebergabe: Uebergabe) -> list[str]:

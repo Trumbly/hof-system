@@ -19,12 +19,20 @@ from typing import Any
 from django.urls import reverse
 
 from apps.stammdaten import konfiguration
-from apps.stammdaten.models import Einheit, Kaution, Kondition, Partei, Schluessel, Vertrag
+from apps.stammdaten.models import (
+    BINDEND,
+    LAUFEND,
+    Einheit,
+    Kaution,
+    Kondition,
+    Partei,
+    Schluessel,
+    Vertrag,
+)
 from apps.zaehler import services as zaehler_services
 from apps.zaehler.models import Zaehler
 
-GEBUNDEN = (Vertrag.Status.ENTWURF, Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
-LAUFEND = (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
+GEBUNDEN = BINDEND  # stammdaten.models.VertragQuerySet
 
 
 @dataclass(frozen=True)
@@ -34,6 +42,8 @@ class Pruefung:
     vorhanden: Callable[[Any, datetime.date], bool]
     #: Abschnitt der Eingabeseite, zu dem der Link springt.
     anker: str
+    #: Andere Eingabeseite als die des Objekts (Objekt -> URL), z. B. die Bilder.
+    seite: Callable[[Any], str] | None = None
 
 
 def _kondition(vertrag: Vertrag, stichtag: datetime.date) -> Kondition | None:
@@ -112,6 +122,20 @@ PRUEFUNGEN: dict[str, dict[str, Pruefung]] = {
             "schluessel",
         ),
     },
+    # Review 2, A11: Was die Website für eine Einheit braucht. Ohne Fläche ist sie nicht
+    # buchbar (apps.anbindungen.services.buchbar_ab).
+    "katalog": {
+        "flaeche": Pruefung("Fläche", lambda e, _: bool(e.flaeche_qm), "stammfelder"),
+        "bilder": Pruefung(
+            "Bilder",
+            lambda e, _: e.bilder.filter(aktiv=True).exists(),
+            "",
+            seite=lambda e: reverse("anbindungen:bilder", args=[e.pk]),
+        ),
+        "slug": Pruefung(
+            "Adresse auf der Website (Slug)", lambda e, _: bool(e.website_slug), "stammfelder"
+        ),
+    },
     "zaehler": {
         "nummer": Pruefung("Nummer", lambda z, _: bool(z.nummer), "stammfelder"),
         "art": Pruefung("Art", lambda z, _: bool(z.art), "stammfelder"),
@@ -175,12 +199,18 @@ def _objekte(bereich: str, typen: tuple[str, ...]) -> Iterable[tuple[Any, str | 
         for p in Partei.objects.all():
             yield p, None
     elif bereich == "vertrag":
-        for v in Vertrag.objects.filter(status__in=GEBUNDEN):
+        for v in Vertrag.objects.bindend():
             yield v, v.vertragsart
     elif bereich == "kaution":
         # Kautionen laufender Verträge, wenn eine vereinbart ist (Betrag 0 heißt: keine).
         for k in Kaution.objects.filter(vertrag__status__in=LAUFEND).exclude(betrag=0):
             yield k, None
+    elif bereich == "katalog":
+        einheiten = Einheit.objects.filter(
+            aufgeloest_am__isnull=True, vermarktung=Einheit.Vermarktung.WEBSITE
+        ).exclude(typ=Einheit.Typ.WOHNUNG)
+        for e in einheiten.order_by("nw_id"):
+            yield e, None
     elif bereich == "schluessel":
         einheiten = Einheit.objects.filter(aufgeloest_am__isnull=True)
         if typen:
@@ -196,7 +226,7 @@ def _objekte(bereich: str, typen: tuple[str, ...]) -> Iterable[tuple[Any, str | 
 
 def _kennung(bereich: str, objekt: Any) -> tuple[str, str, str]:
     """(Kennung, Seite, Name) eines Objekts."""
-    if bereich in ("einheit", "schluessel"):
+    if bereich in ("einheit", "schluessel", "katalog"):
         return objekt.nw_id, reverse("stammdaten:einheit", args=[objekt.pk]), ""
     if bereich == "partei":
         return (
@@ -229,13 +259,15 @@ def ermitteln(stichtag: datetime.date | None = None) -> list[Bereichsstand]:
             if not fehlend:
                 continue
             kennung, seite, name = _kennung(schluessel, objekt)
+            erste = fehlend[0][1]
+            url = erste.seite(objekt) if erste.seite else f"{seite}#{erste.anker}"
             stand.luecken.append(
                 Luecke(
                     bereich=schluessel,
                     objekt_id=objekt.pk,
                     kennung=kennung,
                     felder=tuple((p, pruefung.titel) for p, pruefung in fehlend),
-                    url=f"{seite}#{fehlend[0][1].anker}",
+                    url=url,
                     name=name,
                 )
             )

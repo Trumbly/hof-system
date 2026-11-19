@@ -127,6 +127,7 @@ def test_datenstand_zaehlt_luecken_je_bereich(objekt: Objekt) -> None:
         "vertrag": 3,
         "kaution": 2,
         "schluessel": 2,
+        "katalog": 0,  # Review 2, A11: keine Einheit auf der Website
         "zaehler": 0,
     }
 

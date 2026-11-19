@@ -5,6 +5,8 @@
 {% block inhalt %}
 <h1>Verträge</h1>
 <p><a class="knopf" href="{% url 'stammdaten:vertrag_neu' %}">Neuer Vertrag</a></p>
+<p class="filter" aria-label="Status">{% for wert, titel in filter %}{% if wert == gruppe %}<strong aria-current="page">{{ titel }} ({% if wert == "entwurf" %}{{ zaehlung.entwurf }}{% elif wert == "beendet" %}{{ zaehlung.beendet }}{% elif wert == "alle" %}{{ zaehlung.alle }}{% else %}{{ zaehlung.laufend }}{% endif %})</strong>{% else %}<a href="?status={{ wert }}">{{ titel }} ({% if wert == "entwurf" %}{{ zaehlung.entwurf }}{% elif wert == "beendet" %}{{ zaehlung.beendet }}{% elif wert == "alle" %}{{ zaehlung.alle }}{% else %}{{ zaehlung.laufend }}{% endif %})</a>{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+<p class="leise">Laufend heißt aktiv oder gekündigt; diese Zahl steht auf allen Seiten.</p>
 <div class="tabelle-rahmen">
 <table class="karten">
   <thead><tr><th>Nummer</th><th>Art</th><th>Einheiten</th><th>Mieter</th><th>Beginn</th><th>Ende</th><th>Status</th></tr></thead>

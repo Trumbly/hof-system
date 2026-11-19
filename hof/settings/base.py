@@ -122,6 +122,9 @@ LANGUAGE_CODE = "de-de"
 TIME_ZONE = "Europe/Berlin"
 USE_I18N = True
 USE_TZ = True
+# Datumsfelder (<input type="date">) brauchen den Wert als JJJJ-MM-TT, sonst zeigt der
+# Browser ein leeres Feld (Review 2, A6). Gelesen wird beides (hof/formate/de/formats.py).
+FORMAT_MODULE_PATH = ["hof.formate"]
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
@@ -200,6 +203,7 @@ HOF_BENACHRICHTIGUNG_ARTEN: list[str] = env.list(
         "Belege zuordnen",
         "Rechnung zahlen",
         "Rechnung zuordnen",
+        "Beleg und Abbuchung weichen ab",
         # Stammdaten (apps.stammdaten.services/schreiben, ART_*); die Kautionsabrechnung
         # meldet sich über ihre Frist („Frist fällig“).
         "Schreiben erstellen",
@@ -253,6 +257,10 @@ HOF_NOTION_ARTEN: dict[str, tuple[str, str]] = {
     "Mahnungen senden": ("Mahnung senden", "Mahnungen senden"),
     "Zahlungen klären": ("Zahlung klären", "Zahlungen klären"),
     "Rechnung zahlen": ("Rechnung zahlen", "Rechnungen zahlen"),
+    "Beleg und Abbuchung weichen ab": (
+        "Beleg und Abbuchung prüfen",
+        "Belege und Abbuchungen prüfen",
+    ),
     "Frist fällig": ("Frist fällig", "Fristen fällig"),
     "Ablesung fehlt": ("Ablesung fehlt", "Ablesungen fehlen"),
 }
