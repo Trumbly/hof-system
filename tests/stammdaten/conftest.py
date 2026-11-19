@@ -125,5 +125,5 @@ def vorlagen(db: None) -> dict[str, Vorlage]:
     ergebnis = {}
     for name, art, betreff, text in VORLAGEN:
         vorlage = dokumente.vorlage_anlegen(name, art, text, betreff=betreff, herkunft="test")
-        ergebnis[art] = dokumente.vorlage_freigeben(vorlage, benutzer)
+        ergebnis[art] = dokumente.vorlage_freigeben(vorlage, benutzer, freigegeben_von="Test")
     return ergebnis

@@ -14,6 +14,9 @@ os.environ.setdefault("HOF_WEBSITE_CLIENT", "apps.anbindungen.website.FakeWebsit
 os.environ.setdefault("HOF_VERWALTIO_CLIENT", "apps.anbindungen.verwaltio.FakeVerwaltio")
 # Notion (Hof-Backlog) als Fake.
 os.environ.setdefault("HOF_NOTION_CLIENT", "apps.cockpit.notion.FakeNotion")
+# Briefkopf (Review 1, Punkt 4): erfundener Absender, sonst ist Senden gesperrt.
+os.environ.setdefault("HOF_ABSENDER_NAME", "Testhof GbR (erfunden)")
+os.environ.setdefault("HOF_ABSENDER_ANSCHRIFT", "Musterweg 1;99999 Musterstadt")
 
 from .base import *  # noqa: F403
 

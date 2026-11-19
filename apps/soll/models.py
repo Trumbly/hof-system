@@ -4,9 +4,10 @@ Geschrieben wird nur über ``apps.soll.services`` (CLAUDE.md, Regel 4.1).
 
 Ein ``Sollposten`` ist eine Forderung an einen Vertrag für einen Zeitraum: Miete oder
 Pauschale aus den Konditionen (``quelle = vertrag``), Kaution oder Sonstiges von Hand
-(``quelle = hand``). Beträge sind positiv; ``betrag`` ist der Zahlbetrag aus ``netto`` und
-``steuer``. Ein Posten wird nie geändert oder gelöscht, sondern storniert
-(CLAUDE.md, Regel 4.4); ein Ersatzposten zeigt über ``ersetzt`` zurück auf den alten.
+(``quelle = hand``), der Vortrag aus dem alten System (``quelle = uebernahme``). Beträge
+sind positiv; ``betrag`` ist der Zahlbetrag aus ``netto`` und ``steuer``. Ein Posten wird
+nie geändert oder gelöscht, sondern storniert (CLAUDE.md, Regel 4.4); ein Ersatzposten
+zeigt über ``ersetzt`` zurück auf den alten.
 
 ``bezahlt`` und die Status „teilweise“ und „bezahlt“ setzt ab Schritt 6 der Abgleich über
 ``services.zahlungsstand_setzen``.
@@ -30,6 +31,9 @@ class Sollposten(ProtokolliertesModell):
         PAUSCHALE = "pauschale", "Pauschale"
         KAUTION = "kaution", "Kaution"
         SONSTIGES = "sonstiges", "Sonstiges"
+        #: Was beim Umzug aus dem alten System offen war, ein Posten je Vertrag (Review 1,
+        #: Punkt 1). Zeitraum und Fälligkeit: der Stichtag des Umzugs (``soll_ab``).
+        VORTRAG = "vortrag", "Vortrag"
 
     class Status(models.TextChoices):
         OFFEN = "offen", "offen"
@@ -40,6 +44,7 @@ class Sollposten(ProtokolliertesModell):
     class Quelle(models.TextChoices):
         VERTRAG = "vertrag", "aus dem Vertrag"
         HAND = "hand", "von Hand"
+        UEBERNAHME = "uebernahme", "aus dem alten System"
 
     vertrag = models.ForeignKey(
         Vertrag, verbose_name="Vertrag", on_delete=models.PROTECT, related_name="sollposten"

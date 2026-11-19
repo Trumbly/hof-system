@@ -56,10 +56,13 @@ def test_vorlage_anlegen_bearbeiten_freigeben_ueber_die_seiten(angemeldet: Clien
     assert "Freigeben" in seite
     assert "{{ empfaenger.name }}" in seite  # Liste der erlaubten Platzhalter
 
-    angemeldet.post(reverse("dokumente:vorlage_freigeben", args=[vorlage.pk]))
+    angemeldet.post(
+        reverse("dokumente:vorlage_freigeben", args=[vorlage.pk]), {"freigegeben_von": "Max"}
+    )
     vorlage.refresh_from_db()
     assert vorlage.status == Vorlage.Status.FREIGEGEBEN
     assert vorlage.freigegeben_von is not None
+    assert vorlage.freigabe_durch == "Max"
 
     angemeldet.post(reverse("dokumente:vorlage_neue_version", args=[vorlage.pk]))
     assert Vorlage.objects.filter(name="Hinweis", version=2, status="entwurf").exists()

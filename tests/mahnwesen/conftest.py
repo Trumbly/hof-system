@@ -71,7 +71,7 @@ def stufen(db: None) -> None:
 
 def freigeben(name: str, art: str, text: str, benutzer: Benutzer, betreff: str = "") -> Vorlage:
     vorlage = dokumente.vorlage_anlegen(name, art, text, betreff=betreff)
-    return dokumente.vorlage_freigeben(vorlage, benutzer)
+    return dokumente.vorlage_freigeben(vorlage, benutzer, freigegeben_von="Test")
 
 
 def _testhof_text(art: str) -> tuple[str, str, str]:

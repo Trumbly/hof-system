@@ -1,6 +1,7 @@
 """Gemeinsame Einstellungen für alle Umgebungen."""
 
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import environ
@@ -167,6 +168,10 @@ SOLL_BEGINN = date.fromisoformat(_soll_beginn) if _soll_beginn else None
 # HOF_SOLL_BEGINN. Vorschlag für den Server: 2026-07-01 (Rückrechnung ab Juli).
 _abgleich_beginn = env.str("HOF_ABGLEICH_BEGINN", default="")
 ABGLEICH_BEGINN = date.fromisoformat(_abgleich_beginn) if _abgleich_beginn else None
+
+# Mahnwesen (Review 1, Punkt 10): Ein Rückstand unter dieser Grenze (Euro) löst keine Stufe
+# aus; er wird beim nächsten überfälligen Posten mitgenannt.
+MAHNWESEN_BAGATELLGRENZE = Decimal(env.str("HOF_MAHN_BAGATELLGRENZE", default="20.00"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

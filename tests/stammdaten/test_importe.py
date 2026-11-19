@@ -185,3 +185,26 @@ def test_befehle_mit_probelauf_als_standard(einheiten: None) -> None:
     ausgabe = io.StringIO()
     call_command("import_einheiten", str(NOTION), "--probelauf", stdout=ausgabe)
     assert "vorhanden: 10" in ausgabe.getvalue()
+
+
+def test_hellohousing_offener_saldo_wird_vortrag(
+    einheiten: None, tmp_path: Path, settings: object
+) -> None:
+    """Review 1, Punkt 1: Die optionale Spalte „Offener Saldo“ wird zum Posten „Vortrag“ am
+    Stichtag des Umzugs (HOF_SOLL_BEGINN). Der Bericht nennt nur Zähler und NW-IDs."""
+    from apps.soll import services as soll
+
+    settings.SOLL_BEGINN = datetime.date(2026, 7, 1)  # type: ignore[attr-defined]
+    zeilen = MIETER.read_text(encoding="utf-8").splitlines()
+    mit_saldo = [zeilen[0] + ";Offener Saldo", zeilen[1] + ";123,45"]
+    mit_saldo += [z + ";" for z in zeilen[2:]]
+    datei = tmp_path / "mieter_mit_saldo.csv"
+    datei.write_text("\n".join(mit_saldo) + "\n", encoding="utf-8")
+
+    bericht = importe.hellohousing_importieren(datei, ausfuehren=True, stichtag=STICHTAG)
+    assert bericht.zaehler["vortraege"] == 1
+    assert "123,45" not in bericht.text() and "123.45" not in bericht.text()
+    vertrag = Vertrag.objects.get(herkunft="hellohousing:MV-1001")
+    vortrag = soll.vortrag(vertrag)
+    assert vortrag is not None
+    assert (vortrag.betrag, vortrag.von) == (Decimal("123.45"), datetime.date(2026, 7, 1))

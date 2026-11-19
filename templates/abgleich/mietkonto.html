@@ -6,8 +6,9 @@
 <h1>Mietkonto <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
 <p class="leise"><a href="{% url 'stammdaten:vertrag' vertrag.pk %}">Zum Vertrag</a> · <a href="{% url 'soll:vertrag' vertrag.pk %}">Offene Posten</a> · {% for e in vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
 <ul class="kennzahlen">
-  <li>Fälliges Soll: {{ konto.soll_faellig|floatformat:"2g" }} €</li>
-  <li>Bezahlt: {{ konto.bezahlt|floatformat:"2g" }} €</li>
+  <li>Fälliges Soll (vor dem {{ konto.stichtag|date:"d.m.Y" }} fällig): {{ konto.soll_faellig|floatformat:"2g" }} €</li>
+  <li>Bezahlt darauf: {{ konto.bezahlt|floatformat:"2g" }} €</li>
+  <li>Rückstand: {{ konto.rueckstand|floatformat:"2g" }} €</li>
   <li>Guthaben: {{ konto.guthaben_summe|floatformat:"2g" }} €</li>
   <li>Saldo: <strong>{{ konto.saldo|floatformat:"2g" }} €</strong></li>
 </ul>

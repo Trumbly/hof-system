@@ -11,6 +11,6 @@
   <button type="submit" class="zweitrangig">Filtern</button>
 </form>
 
-<p class="leise">{{ posten|length }} Posten{% if abgeschnitten %} (die ersten {{ grenze }}, bitte enger filtern){% endif %} · offen zusammen <strong>{{ summe_offen }} €</strong></p>
+<p class="leise">{{ anzahl }} Posten{% if abgeschnitten %} (angezeigt die ersten {{ grenze }}, bitte enger filtern){% endif %} · offen zusammen <strong>{{ summe_offen|floatformat:"2g" }} €</strong></p>
 {% include "soll/_tabelle.html" with mit_vertrag=True %}
 {% endblock %}

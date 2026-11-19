@@ -35,7 +35,8 @@
     {% csrf_token %}
     <input type="hidden" name="pruefsumme" value="{{ schreiben.pdf_sha256 }}">
     {% if anwalt %}<p><label><input type="checkbox" name="anwalt_gesehen" value="1" required> Der Anwalt hat diese Kündigung gesehen und freigegeben.</label></p>{% endif %}
-    <button type="submit">Senden ({{ versandweg }})</button>
+    {% if gesperrt %}<p class="meldung meldung-warning" id="senden-gesperrt">{{ gesperrt }}</p>{% endif %}
+    <button type="submit"{% if gesperrt %} disabled aria-describedby="senden-gesperrt"{% endif %}>Senden ({{ versandweg }})</button>
   </form>
   <form method="post" action="{% url 'dokumente:schreiben_verwerfen' schreiben.pk %}">
     {% csrf_token %}<button type="submit" class="zweitrangig">Verwerfen</button>

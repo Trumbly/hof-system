@@ -59,7 +59,7 @@ def vorlagen(benutzer: Benutzer) -> None:
     for name, art, betreff, text in testhof_dokumente.VORLAGEN:
         if art in ("briefkopf", "kuendigungsbestaetigung", "aufhebungsvertrag"):
             vorlage = dokumente.vorlage_anlegen(name, art, text, betreff=betreff)
-            dokumente.vorlage_freigeben(vorlage, benutzer)
+            dokumente.vorlage_freigeben(vorlage, benutzer, freigegeben_von="Test")
 
 
 @pytest.fixture

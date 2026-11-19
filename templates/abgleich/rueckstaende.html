@@ -12,6 +12,7 @@
   <li>31–60 Tage: {{ zahlen.summe_31_60|floatformat:"2g" }} €</li>
   <li>über 60 Tage: {{ zahlen.summe_ueber_60|floatformat:"2g" }} €</li>
   <li>in Klärung: {{ zahlen.vertraege_in_klaerung }} Verträge</li>
+  {% if zahlen.nicht_pruefbar %}<li>nicht prüfbar (nach den Bankdaten fällig): {{ zahlen.nicht_pruefbar|floatformat:"2g" }} €</li>{% endif %}
 </ul>
 {% endwith %}
 <p><a href="{% url 'abgleich:zahlerregeln' %}">Zahlerregeln</a> · <a href="{% url 'kern:arbeitslisten' %}">Zahlungen klären</a></p>

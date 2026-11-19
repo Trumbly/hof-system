@@ -6,8 +6,9 @@ Datenmigration legt sie schon an, ``startdaten_anlegen`` ist idempotent).
 
 **Vorlagen.** Freigegeben vom Testbenutzer zum festen Zeitpunkt, nur mit Platzhaltern:
 „Mahnung“ und „Abmahnung“ (dieses Modul) sowie „Zahlungserinnerung“ (Modul ``dokumente``).
-Für die fristlose Kündigung gibt es absichtlich keine Vorlage („Fristlose Kündigung“): Diese
-Stufe bleibt im Probebetrieb und erzeugt nur den Arbeitsposten.
+Die Vorlage der fristlosen Kündigung („Fristlose Kündigung“) liegt absichtlich nur als
+Entwurf vor (Review 1, Punkt 4): Die Stufe bleibt im Probebetrieb und erzeugt nur den
+Arbeitsposten. Gibt man den Entwurf frei, holt der nächste Mahnlauf das Schreiben nach.
 
 **Fälle je Stufe** (Index = Vertrag nach Nummer wie in ``testhof.abgleich``). Der Testhof
 gleicht nicht selbst ab; die Fälle entstehen, wenn Tests Einordnen, Abgleich und Mahnlauf
@@ -93,9 +94,31 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
 )
 
 
+#: Entwurf der Kündigung: nicht freigegeben, damit der Probebetrieb im Testhof bleibt.
+ENTWURF_KUENDIGUNG = (
+    "Fristlose Kündigung",
+    "kuendigung",
+    "Kündigung Vertrag {{ vertrag.nummer }}",
+    """\
+<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>für den Vertrag {{ vertrag.nummer }} ({{ einheit.bezeichnung }}) sind
+{{ betrag.offen|euro }} offen:</p>
+"""
+    + FORDERUNG_TABELLE
+    + """\
+<p>Wir kündigen den Vertrag fristlos, hilfsweise ordentlich zum
+{{ kuendigung.fristende_ordentlich|datum }}. Bitte räumen Sie die Einheit bis zum
+{{ kuendigung.raeumung_bis|datum }}.</p>
+<p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
+""",
+)
+
+
 @dataclass
 class MahnwesenDaten:
     vorlagen: dict[str, Vorlage]
+    #: Vorlagen im Entwurf (Probebetrieb), nach Art
+    entwuerfe: dict[str, Vorlage]
     rechtsfall: Mahnsperre
     #: Rolle → Vertrag (``stufen``, ``klaerfall``, ``rechtsfall``)
     vertraege: dict[str, Vertrag] = field(default_factory=dict)
@@ -108,7 +131,14 @@ def aufbauen(kontext: Kontext) -> MahnwesenDaten:
     vorlagen = {}
     for name, art, betreff, text in VORLAGEN:
         vorlage = dokumente.vorlage_anlegen(name, art, text, betreff=betreff, herkunft="testhof")
-        vorlagen[art] = dokumente.vorlage_freigeben(vorlage, benutzer, am=kontext.zeitpunkt)
+        vorlagen[art] = dokumente.vorlage_freigeben(
+            vorlage, benutzer, freigegeben_von="Testhof", am=kontext.zeitpunkt
+        )
+
+    name, art, betreff, text = ENTWURF_KUENDIGUNG
+    entwuerfe = {
+        art: dokumente.vorlage_anlegen(name, art, text, betreff=betreff, herkunft="testhof")
+    }
 
     vertraege = list(Vertrag.objects.order_by("nummer"))
     rechtsfall = vertraege[RECHTSFALL]
@@ -120,6 +150,7 @@ def aufbauen(kontext: Kontext) -> MahnwesenDaten:
     )
     return MahnwesenDaten(
         vorlagen=vorlagen,
+        entwuerfe=entwuerfe,
         rechtsfall=sperre,
         vertraege={
             "stufen": vertraege[STUFENFALL],
