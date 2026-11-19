@@ -19,7 +19,8 @@ from typing import Any
 from django import forms, template
 from django.forms.boundfield import BoundField
 from django.template.base import FilterExpression, Parser, Token, token_kwargs
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html_join
+from django.utils.safestring import SafeString, mark_safe
 
 from apps.kern import navigation as navi
 
@@ -126,6 +127,24 @@ def dateiknoepfe(feld: BoundField, kamera: bool = True) -> dict[str, Any]:
         "kamera": kamera,
         "pflicht": feld.field.required,
     }
+
+
+#: Attribute, die die Dateiknöpfe selbst setzen (bausteine/_datei_eingabe.html). „required“
+#: fällt weg: Ein Feld hat zwei Eingaben (Kamera und Datei), geprüft wird auf dem Server.
+DATEI_EIGENE_ATTRIBUTE = frozenset(
+    {"name", "id", "class", "type", "accept", "capture", "multiple", "required", "data-vorschau"}
+)
+
+
+@register.filter
+def datei_attrs(attrs: dict[str, Any] | None) -> SafeString:
+    """Übrige Attribute eines Dateifelds (etwa ``aria-describedby``) für die Dateiknöpfe."""
+    if not attrs:
+        return mark_safe("")
+    frei = [(k, v) for k, v in attrs.items() if k not in DATEI_EIGENE_ATTRIBUTE]
+    an = [(k,) for k, v in frei if v is True]
+    mit_wert = [(k, v) for k, v in frei if v not in (True, False, None)]
+    return format_html_join("", " {}", an) + format_html_join("", ' {}="{}"', mit_wert)
 
 
 @register.inclusion_tag("bausteine/kennzahl.html")

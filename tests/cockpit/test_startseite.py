@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import io
+import re
 from typing import Any
 
 import pytest
@@ -174,6 +175,8 @@ def test_kacheln_am_handy_einspaltig() -> None:
     from pathlib import Path
 
     css = (Path(__file__).resolve().parents[2] / "static" / "css" / "hof.css").read_text()
-    regel = css.split(".kacheln {", 1)[1].split("}", 1)[0]
+    # seit R2-5 nur in alten Seiten (ohne Seitenkopf), siehe Kopf von hof.css
+    regel = css.split(" .kacheln {", 1)[1].split("}", 1)[0]
     assert "display: grid" in regel and "grid-template-columns" not in regel
-    assert "@media (min-width: 48rem) {\n  .kacheln {\n    grid-template-columns" in css
+    medien = r"@media \(min-width: 48rem\) \{\s*\S+ \.kacheln \{\s*grid-template-columns"
+    assert re.search(medien, css)

@@ -1,57 +1,88 @@
-{% load static %}<!doctype html>
+{% load static bausteine %}<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block titel %}Hof-System{% endblock %} · Hof-System</title>
+  {% comment %}
+    Grundgerüst aller Seiten (Review 2, C1; Review 1, Punkt 13): Seitenleiste ab 1024 px,
+    am Handy Kopfzeile mit Suche und unten die Leiste Heute · Arbeitslisten · Zähler ·
+    Übergabe · Mehr. Werte und Bausteine aus werte.css und bausteine.css. hof.css trägt das
+    Markup der Seiten, die noch nicht umgestellt sind; es liegt in der Ebene „alt“ und
+    überschreibt nie einen Baustein.
+    Blöcke: titel, seitenkopf, inhalt, breite (" schmal": 720 px für Formulare), kopf_handy.
+  {% endcomment %}
+  <link rel="stylesheet" href="{% static 'css/werte.css' %}">
   <link rel="stylesheet" href="{% static 'css/hof.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bausteine.css' %}">
   <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/bausteine.js' %}" defer></script>
 </head>
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body class="neu" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <a class="sprung" href="#inhalt">Zum Inhalt</a>
   {% include "bausteine/stichtag_band.html" %}
-  <header class="kopf">
-    <a class="marke" href="{% url 'kern:startseite' %}">Hof-System</a>
+  <div class="geruest">
     {% if user.is_authenticated %}
-    <input type="checkbox" id="nav-schalter" class="nav-schalter" aria-label="Navigation öffnen">
-    <label for="nav-schalter" class="nav-knopf" aria-hidden="true">☰</label>
-    <nav class="nav" aria-label="Hauptnavigation">
-      {% with seite=request.resolver_match.view_name %}
-      <ul>
-        {% block navigation %}
-        <li><a href="{% url 'kern:startseite' %}"{% if seite == 'kern:startseite' %} aria-current="page"{% endif %}>Start</a></li>
-        <li><a href="{% url 'kern:arbeitslisten' %}"{% if seite == 'kern:arbeitslisten' %} aria-current="page"{% endif %}>Arbeitslisten</a></li>
-        <li><a href="{% url 'stammdaten:uebersicht' %}"{% if seite|slice:':11' == 'stammdaten:' %} aria-current="page"{% endif %}>Stammdaten</a></li>
-        <li><a href="{% url 'soll:liste' %}"{% if request.resolver_match.app_name == 'soll' %} aria-current="page"{% endif %}>Offene Posten</a></li>
-        <li><a href="{% url 'mahnwesen:faelle' %}"{% if request.resolver_match.app_name == 'mahnwesen' %} aria-current="page"{% endif %}>Mahnwesen</a></li>
-        <li><a href="{% url 'zaehler:uebersicht' %}"{% if request.resolver_match.app_name == 'zaehler' %} aria-current="page"{% endif %}>Zähler</a></li>
-        <li><a href="{% url 'bank:konten' %}"{% if request.resolver_match.app_name == 'bank' %} aria-current="page"{% endif %}>Bank</a></li>
-        <li><a href="{% url 'kassenbuch:buchungen' %}"{% if request.resolver_match.app_name == 'kassenbuch' %} aria-current="page"{% endif %}>Kassenbuch</a></li>
-        <li><a href="{% url 'fristen:liste' %}"{% if seite == 'fristen:liste' %} aria-current="page"{% endif %}>Fristen</a></li>
-        <li><a href="{% url 'anbindungen:uebersicht' %}"{% if request.resolver_match.app_name == 'anbindungen' %} aria-current="page"{% endif %}>Anbindungen</a></li>
-        <li><a href="{% url 'dokumente:ablage' %}"{% if request.resolver_match.app_name == 'dokumente' and 'schreiben' not in seite and 'vorlage' not in seite and 'serie' not in seite %} aria-current="page"{% endif %}>Dokumente</a></li>
-        <li><a href="{% url 'dokumente:schreiben_liste' %}"{% if 'schreiben' in seite or 'vorlage' in seite or 'serie' in seite %} aria-current="page"{% endif %}>Schreiben</a></li>
-        <li><a href="{% url 'kern:protokoll' %}"{% if seite == 'kern:protokoll' %} aria-current="page"{% endif %}>Protokoll</a></li>
-        <li><a href="{% url 'kern:laeufe' %}"{% if seite == 'kern:laeufe' %} aria-current="page"{% endif %}>Läufe</a></li>
-        {% endblock %}
-        <li><a href="{% url 'mfa_index' %}"{% if seite == 'mfa_index' %} aria-current="page"{% endif %}>Konto</a></li>
-        {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Verwaltung</a></li>{% endif %}
-      </ul>
-      {% endwith %}
-      <form method="post" action="{% url 'account_logout' %}" class="abmelden">
+    {% navigation as nav_gruppen %}
+    <aside class="leiste" aria-label="Seitenleiste">
+      <a class="marke" href="{% url 'kern:startseite' %}"><span class="marke-zeichen" aria-hidden="true">H</span>Hof-System</a>
+      {% include "bausteine/suche.html" with ort="leiste" %}
+      <nav class="nav-neu" aria-label="Hauptnavigation">
+        {% for nav_titel, nav_links in nav_gruppen %}
+        <div class="nav-gruppe">
+          <p class="nav-gruppe-titel">{{ nav_titel }}</p>
+          <ul>{% for l in nav_links %}<li><a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{{ l.titel }}{% if l.marke %} <span class="nav-marke">{{ l.marke }}</span>{% endif %}</a></li>{% endfor %}</ul>
+        </div>
+        {% endfor %}
+      </nav>
+      <form method="post" action="{% url 'account_logout' %}" class="leiste-fuss">
         {% csrf_token %}
-        <button type="submit">Abmelden</button>
+        <a class="leiste-benutzer" href="{% url 'kern:konto' %}" title="Konto: {{ user.email }}">{{ user.email }}</a>
+        <button type="submit" class="knopf knopf-text knopf-klein">Abmelden</button>
       </form>
-    </nav>
+    </aside>
+    <header class="kopf-handy">
+      <a class="marke" href="{% url 'kern:startseite' %}" aria-label="Hof-System, zur Startseite"><span class="marke-zeichen" aria-hidden="true">H</span></a>
+      {% include "bausteine/suche.html" with ort="kopf" %}
+      {% block kopf_handy %}{% endblock %}
+    </header>
     {% endif %}
-  </header>
 
-  <main class="inhalt">
-    {% if messages %}
-    <ul class="meldungen">
-      {% for meldung in messages %}<li class="meldung meldung-{{ meldung.tags }}">{{ meldung }}</li>{% endfor %}
-    </ul>
+    <main class="haupt" id="inhalt">
+      <div class="inhalt-neu{% block breite %}{% endblock %}">
+        {% block seitenkopf %}{% endblock %}
+        {% block inhalt %}{% endblock %}
+      </div>
+    </main>
+
+    {% if user.is_authenticated %}
+    <nav class="unten" aria-label="Schnellzugriff">
+      {% navigation_unten as nav_schnell %}
+      {% for l in nav_schnell %}<a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{% include "bausteine/symbol.html" with name=l.symbol %}<span>{{ l.titel }}</span></a>{% endfor %}
+      <button type="button" data-dialog-oeffnen="mehr" aria-haspopup="dialog">{% include "bausteine/symbol.html" with name="mehr" %}<span>Mehr</span></button>
+    </nav>
+    <dialog id="mehr" class="blatt" aria-label="Alle Bereiche">
+      <header class="dialog-kopf">
+        <p class="dialog-titel" aria-hidden="true">Alle Bereiche</p>
+        <button type="button" class="knopf knopf-text knopf-symbol" data-dialog-schliessen aria-label="Schließen">×</button>
+      </header>
+      <div class="dialog-rumpf">
+        {% for nav_titel, nav_links in nav_gruppen %}
+        <details class="nav-aufklapper"{% for l in nav_links %}{% if l.aktiv %} open{% endif %}{% endfor %}{% if forloop.first %} open{% endif %}>
+          <summary>{{ nav_titel }}</summary>
+          <ul>{% for l in nav_links %}<li><a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{{ l.titel }}{% if l.marke %} <span class="nav-marke">{{ l.marke }}</span>{% endif %}</a></li>{% endfor %}</ul>
+        </details>
+        {% endfor %}
+        <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="knopf knopf-zweit knopf-voll">Abmelden</button></form>
+      </div>
+    </dialog>
     {% endif %}
-    {% block inhalt %}{% endblock %}
-  </main>
+  </div>
+
+  {# Ein Dialog für alle Aktionen der Seite; HTMX lädt seinen Inhalt (apps.kern.htmx). #}
+  <dialog id="dialog" class="dialog" aria-labelledby="dialog-titel"><div id="dialog-inhalt"></div></dialog>
+  <div id="toasts" class="toasts" aria-live="polite">
+    {% for meldung in messages %}{% include "bausteine/toast.html" with text=meldung art=meldung.tags|meldungsart link="" %}{% endfor %}
+  </div>
 </body>
 </html>

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import uebergaben, views
 
 app_name = "stammdaten"
 
@@ -26,6 +26,8 @@ urlpatterns = [
         views.uebergabe_starten,
         name="uebergabe_starten",
     ),
+    # Anstehende Übergaben und Rückgaben (Knopf „Übergabe“ unten am Handy, Review 2, C1)
+    path("uebergaben/", uebergaben.uebergaben, name="uebergaben"),
     path("uebergaben/<int:pk>/schritt/<int:schritt>/", views.uebergabe, name="uebergabe"),
     path("uebergaben/fotos/<int:pk>/", views.uebergabe_foto, name="uebergabe_foto"),
     path("checkpunkte/<int:pk>/", views.checkpunkt, name="checkpunkt"),

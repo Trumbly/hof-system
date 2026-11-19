@@ -187,6 +187,16 @@
   <h2>Dateiknöpfe</h2>
   <p class="stil-zweck">Eigene Knöpfe statt der englischen Standardknöpfe des Browsers: „Foto aufnehmen“ öffnet am Handy die Kamera, „Datei wählen“ die Ablage. Gewählte Bilder erscheinen als Vorschau.</p>
   <div class="karte"><div class="karte-rumpf">{% dateiknoepfe fotos.fotos %}</div></div>
+  <p class="stil-zweck">Gilt für jedes Dateifeld: Formulare bekommen die Knöpfe über die Widget-Vorlagen (<code>templates/django/forms/widgets/file.html</code>), Felder, die eine Seite selbst schreibt, beim Laden über <code>bausteine.js</code>. Bilder mit <code>capture="environment"</code>.</p>
+</section>
+
+<section class="stil-abschnitt" id="suche">
+  <h2>Suche</h2>
+  <p class="stil-zweck">In der Seitenleiste (am Handy in der Kopfzeile), auf jeder Seite. <kbd>Strg K</kbd> bzw. <kbd>⌘K</kbd> setzt den Cursor hinein, die Pfeiltasten wählen, Enter öffnet den Treffer (ohne Wahl den ersten). Findet NW-ID, V-Nummer, Name, Ort, E-Mail, Rechnungsnummer und Betrag, höchstens fünf je Gruppe. Eine App meldet ihre Quelle mit <code>kern.suche.quelle_anmelden()</code> in <code>ready()</code> an.</p>
+  <div class="karte"><div class="karte-rumpf"><div class="suche-treffer stil-suche" role="listbox" aria-label="Beispiel">
+    <div class="suche-gruppe"><p class="suche-gruppe-titel">Einheiten</p><a class="suche-eintrag" role="option" aria-selected="false" href="#suche"><span class="suche-eintrag-titel">NW-G-0018</span><span class="suche-eintrag-unter">Garage · HOF · Garage 18</span></a></div>
+    <div class="suche-gruppe"><p class="suche-gruppe-titel">Verträge</p><a class="suche-eintrag" role="option" aria-selected="true" href="#suche"><span class="suche-eintrag-titel">V-0005 {% badge "aktiv" %}</span><span class="suche-eintrag-unter">NW-G-0018 · Erika Beispiel</span></a></div>
+  </div></div></div>
 </section>
 
 <section class="stil-abschnitt" id="dialog-beispiel">

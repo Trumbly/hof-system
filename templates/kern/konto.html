@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load bausteine %}
+
+{% block titel %}Konto{% endblock %}
+{% block breite %} schmal{% endblock %}
+
+{% block inhalt %}
+{% seitenkopf "Konto" "Anmeldung mit E-Mail, Passwort und zweitem Faktor" %}{% endseitenkopf %}
+
+<div class="stapel">
+  {% karte "Anmeldung" %}
+    <dl class="angaben-neu">
+      <dt>E-Mail</dt><dd id="konto-email">{{ user.email }}</dd>
+      <dt>Passwort</dt><dd><a href="{% url 'account_change_password' %}">ändern</a></dd>
+      {% if user.last_login %}<dt>zuletzt angemeldet</dt><dd>{{ user.last_login|date:"d.m.Y, H:i" }} Uhr</dd>{% endif %}
+    </dl>
+  {% endkarte %}
+
+  {% karte "Zweiter Faktor" %}
+    <ul class="liste">
+      <li id="konto-totp">
+        <span class="liste-haupt"><strong>Authenticator-App (TOTP)</strong>{% if faktor.totp_seit %}<span class="klein text-2"> · eingerichtet am {{ faktor.totp_seit|date:"d.m.Y" }}</span>{% endif %}</span>
+        <span class="liste-neben">{% if faktor.totp %}{% badge "ok" "an" %}{% else %}{% badge "fehler" "aus" %} <a class="knopf knopf-primaer knopf-klein" href="{% url 'mfa_activate_totp' %}">einrichten</a>{% endif %}</span>
+      </li>
+      <li id="konto-codes">
+        <span class="liste-haupt"><strong>Wiederherstellungscodes</strong><span class="klein text-2"> · {% if faktor.codes %}{{ faktor.codes_unbenutzt }} von {{ faktor.codes_gesamt }} unbenutzt{% else %}für den Fall, dass das Handy fehlt{% endif %}</span></span>
+        <span class="liste-neben">{% if faktor.codes %}{% if faktor.codes_unbenutzt %}{% badge "ok" "vorhanden" %}{% else %}{% badge "warnung" "aufgebraucht" %}{% endif %} <a class="knopf knopf-zweit knopf-klein" href="{% url 'mfa_view_recovery_codes' %}">anzeigen</a>{% else %}{% badge "warnung" "keine" %} <a class="knopf knopf-zweit knopf-klein" href="{% url 'mfa_generate_recovery_codes' %}">erzeugen</a>{% endif %}</span>
+      </li>
+    </ul>
+  {% endkarte %}
+  <p class="klein text-3">Ohne zweiten Faktor kommt niemand über die Anmeldung hinaus. Die Codes gehören an einen sicheren Ort außerhalb des Handys.</p>
+
+  {% if user.is_staff %}
+  {% karte "Verwaltung" %}
+    <p>Die Django-Verwaltung zeigt alle Tabellen roh. Für die tägliche Arbeit sind die Seiten des Hof-Systems da. <a href="{% url 'admin:index' %}">Verwaltung öffnen</a> <span class="nav-marke">Admin</span></p>
+  {% endkarte %}
+  {% endif %}
+</div>
+{% endblock %}

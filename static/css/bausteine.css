@@ -1,7 +1,7 @@
 /* Hof-System: Gerüst und Bausteine der neuen Gestaltung (Review 2, C1, C3, C4).
  *
- * Liest nur die Werte aus werte.css. Gilt nur für Seiten auf base_neu.html (body.neu);
- * die alten Seiten laden weiter hof.css und sehen nichts hiervon.
+ * Liest nur die Werte aus werte.css. Gilt für alle Seiten (templates/base.html, body.neu);
+ * die Regeln der noch nicht umgestellten Seiten stehen in hof.css (Ebene „alt“).
  * Ruhig, dicht, gut lesbar: Linien statt Schatten, Schatten nur für Dialoge und Menüs.
  */
 
@@ -269,13 +269,25 @@ body.neu {
     flex-direction: column;
     height: 100vh;
     padding: var(--a4) var(--a3);
-    overflow-y: auto;
     background: var(--flaeche);
     border-right: 1px solid var(--linie);
   }
 
   .leiste .marke {
-    padding: var(--a1) var(--a2) var(--a4);
+    padding: var(--a1) var(--a2) var(--a3);
+  }
+
+  .leiste .suche {
+    flex: none;
+    margin: 0 0 var(--a4);
+  }
+
+  /* Nur die Navigation scrollt: sonst schnitte die Leiste die Treffer der Suche ab. */
+  .leiste .nav-neu {
+    min-height: 0;
+    margin: 0 calc(-1 * var(--a3));
+    padding: 0 var(--a3);
+    overflow-y: auto;
   }
 
   .kopf-handy,
@@ -2035,4 +2047,248 @@ dialog.dialog[open] {
   gap: var(--a3);
   min-height: var(--ziel);
   cursor: pointer;
+}
+
+/* --- Suche in der Kopfzeile (Review 2, B1) ----------------------------------------------
+ * Am Desktop oben in der Seitenleiste, am Handy in der Kopfzeile. Strg+K bzw. ⌘K, Pfeile,
+ * Enter (static/js/bausteine.js). Die Treffer liegen als Menü über der Seite. */
+
+.suche {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.suche > .symbol {
+  position: absolute;
+  left: 10px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.suche-eingabe {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--a3) 0 34px;
+  font: inherit;
+  color: var(--text);
+  background: var(--flaeche-2);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-klein);
+  appearance: none;
+}
+
+.suche-eingabe::placeholder {
+  color: var(--text-3);
+}
+
+.suche-eingabe:hover {
+  border-color: var(--linie-stark);
+}
+
+.suche-eingabe:focus {
+  background: var(--flaeche);
+  border-color: var(--fokus);
+  outline: 2px solid color-mix(in srgb, var(--fokus) 35%, transparent);
+  outline-offset: 0;
+}
+
+.suche-taste {
+  position: absolute;
+  right: var(--a2);
+  padding: 0 var(--a1);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--text-3);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-klein);
+  pointer-events: none;
+}
+
+.suche-eingabe:focus ~ .suche-taste,
+.suche-eingabe:not(:placeholder-shown) ~ .suche-taste {
+  display: none;
+}
+
+.suche-treffer {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + var(--a1));
+  left: 0;
+  width: max(100%, 440px);
+  max-height: min(70vh, 560px);
+  padding: var(--a1);
+  overflow-y: auto;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten-menue);
+}
+
+.suche-treffer[hidden] {
+  display: none;
+}
+
+.suche-gruppe + .suche-gruppe {
+  margin-top: var(--a1);
+  padding-top: var(--a1);
+  border-top: 1px solid var(--linie);
+}
+
+.neu .suche-gruppe-titel {
+  margin: 0;
+  padding: var(--a1) var(--a2);
+  font-size: 11px;
+  font-weight: var(--gewicht-fett);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.neu a.suche-eintrag {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px var(--a2);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-klein);
+}
+
+.neu a.suche-eintrag:hover,
+.neu a.suche-eintrag[aria-selected="true"] {
+  background: var(--primaer-weich);
+}
+
+.suche-eintrag-titel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
+  font-weight: var(--gewicht-mittel);
+  font-variant-numeric: tabular-nums;
+}
+
+.suche-eintrag-unter {
+  overflow: hidden;
+  font-size: var(--text-13);
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neu a.suche-mehr {
+  font-size: var(--text-13);
+  color: var(--link);
+}
+
+.neu .suche-leer {
+  margin: 0;
+  padding: var(--a3);
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+/* Seite „Suche“ (ohne JavaScript oder über „alle … ansehen“) */
+.suche-seite {
+  display: flex;
+  gap: var(--a2);
+  margin: 0 0 var(--a6);
+}
+
+@media (max-width: 1023px) {
+  .kopf-handy .marke-zeichen {
+    width: 32px;
+    height: 32px;
+  }
+
+  .kopf-handy .suche {
+    position: static; /* die Treffer richten sich an der ganzen Kopfzeile aus */
+  }
+
+  .kopf-handy .suche > .symbol {
+    left: calc(var(--a4) + 32px + var(--a3) + 10px);
+  }
+
+  .kopf-handy .suche-eingabe {
+    min-height: 40px;
+    font-size: 16px; /* iOS zoomt sonst beim Antippen */
+  }
+
+  .kopf-handy .suche-treffer {
+    top: 100%;
+    right: 0;
+    width: auto;
+    max-height: calc(100dvh - var(--hoehe-kopf) - var(--hoehe-unten));
+    border-width: 0 0 1px;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  .kopf-handy .suche-taste {
+    display: none;
+  }
+
+  .neu .kopf-handy a.suche-eintrag {
+    min-height: var(--ziel);
+    justify-content: center;
+  }
+}
+
+@media (pointer: coarse) {
+  .suche-taste {
+    display: none;
+  }
+}
+
+/* --- Ziele mindestens 44 px am Handy und mit Finger, auf jeder Seite (Review 2, C4) -----
+ * Gilt auch für das Markup der alten Seiten (Knöpfe ohne Klasse, Haken mit Label). */
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .neu button,
+  .neu input[type="submit"],
+  .neu input[type="button"],
+  .neu input[type="reset"],
+  .neu .knopf {
+    min-height: var(--ziel);
+  }
+
+  /* Haken und Optionen: das Label ist das Ziel, mindestens 44 px hoch */
+  .neu label:has(> input[type="checkbox"]),
+  .neu label:has(> input[type="radio"]) {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--a2);
+    min-height: var(--ziel);
+  }
+
+  /* Label neben dem Haken (Django: <p><label for>…</label> <input type=checkbox></p>) */
+  .neu :is(p, div, li, td):has(> input[type="checkbox"], > input[type="radio"]) > label {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ziel);
+  }
+
+  /* Haken ohne Label (etwa in einer Tabellenzeile): das Feld selbst wird zum Ziel */
+  .neu input[type="checkbox"]:not(label > *, :is(p, div, li, td):has(> label) > *),
+  .neu input[type="radio"]:not(label > *, :is(p, div, li, td):has(> label) > *) {
+    width: var(--ziel);
+    height: var(--ziel);
+    margin: 0;
+  }
+}
+
+
+/* Stilseite: die Trefferliste der Suche als Beispiel, ruhend statt als Menü */
+.suche-treffer.stil-suche {
+  position: static;
+  width: auto;
+  max-width: 440px;
+  box-shadow: none;
 }
