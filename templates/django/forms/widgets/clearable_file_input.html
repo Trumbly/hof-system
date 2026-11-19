@@ -1,0 +1,6 @@
+{% comment %}
+  Dateifeld mit schon gespeicherter Datei (ClearableFileInput): die Datei als Link, bei
+  freiwilligen Feldern „entfernen“, darunter die eigenen Knöpfe (Review 2, C4).
+{% endcomment %}{% if widget.is_initial %}<p class="datei-aktuell">Gespeichert: <a href="{{ widget.value.url }}">{{ widget.value }}</a>{% if not widget.required %}
+<label class="haken-label" for="{{ widget.checkbox_id }}"><input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}"{% if widget.attrs.disabled %} disabled{% endif %}{% if widget.attrs.checked %} checked{% endif %}> entfernen</label>{% endif %}</p>
+{% endif %}{% include "django/forms/widgets/file.html" %}

@@ -26,3 +26,8 @@ class StammdatenConfig(AppConfig):
         from apps.stammdaten import schreiben
 
         schreiben.vertrag_anmelden()
+
+        # Suche in der Kopfzeile: Einheiten, Verträge, Parteien (Review 2, B1).
+        from apps.stammdaten import suche
+
+        suche.anmelden()

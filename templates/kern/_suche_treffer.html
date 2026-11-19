@@ -1,0 +1,18 @@
+{% load bausteine %}{# Treffer unter dem Suchfeld (HTMX): höchstens fünf je Gruppe. Enter öffnet den markierten, sonst den ersten. #}
+{% if gruppen %}
+{% for g in gruppen %}
+<div class="suche-gruppe" role="group" aria-label="{{ g.titel }}">
+  <p class="suche-gruppe-titel" aria-hidden="true">{{ g.titel }}</p>
+  {% for t in g.treffer %}
+  <a class="suche-eintrag" role="option" aria-selected="false" tabindex="-1" href="{{ t.url }}" data-gruppe="{{ g.schluessel }}">
+    <span class="suche-eintrag-titel">{{ t.titel }}{% if t.status %} {% badge t.status t.status_text %}{% endif %}</span>
+    {% if t.unter %}<span class="suche-eintrag-unter">{{ t.unter }}</span>{% endif %}
+  </a>
+  {% endfor %}
+  {% if g.mehr %}<a class="suche-eintrag suche-mehr" role="option" aria-selected="false" tabindex="-1" href="{% url 'kern:suche' %}?q={{ q|urlencode }}#{{ g.schluessel }}">alle {{ g.titel }} ansehen</a>{% endif %}
+</div>
+{% endfor %}
+{% elif kurz %}
+{% else %}
+<p class="suche-leer" role="status">Nichts gefunden für „{{ q }}“.</p>
+{% endif %}

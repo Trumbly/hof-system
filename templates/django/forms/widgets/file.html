@@ -1,0 +1,7 @@
+{% comment %}
+  Jedes Dateifeld eines Formulars (FileInput und Unterklassen) mit den eigenen Knöpfen statt
+  „Choose file“ (Review 2, C4). Bilder bekommen dazu „Foto aufnehmen“ (Kamera,
+  capture=environment). Gilt über FORM_RENDERER = TemplatesSetting (hof/settings/base.py).
+{% endcomment %}{% with accept=widget.attrs.accept|default:"" vorschau=widget.attrs.id|default:widget.name|add:"-vorschau" %}<div class="datei datei-widget">
+{% if "image" in accept or widget.attrs.capture %}{% include "bausteine/_datei_eingabe.html" with name=widget.name id=widget.attrs.id accept=accept mehrere=widget.attrs.multiple kamera=True vorschau_id=vorschau attrs=widget.attrs beschriftung_id="" %}{% else %}{% include "bausteine/_datei_eingabe.html" with name=widget.name id=widget.attrs.id accept=accept mehrere=widget.attrs.multiple kamera=False vorschau_id=vorschau attrs=widget.attrs beschriftung_id="" %}{% endif %}
+</div>{% endwith %}

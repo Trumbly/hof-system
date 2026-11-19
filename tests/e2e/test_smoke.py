@@ -7,6 +7,7 @@ Je Seite und Breite:
 - keine englischen Standardtexte: im Text der Seite („Page not found“, „Choose file“,
   Monatsnamen wie „October“) und in eingebauten Feldern des Browsers, die ihren Text selbst
   zeichnen (Datei- und Monatsfelder, siehe ``EINGEBAUTE_FELDER``),
+- bei 390 px: Knöpfe und Haken (samt Label) mindestens 44 px hoch (Review 2, C4),
 - ein Screenshot der ganzen Seite unter ``tests/e2e/artefakte/smoke/<breite>/``.
 
 Die Seiten stehen in ``SEITEN``; ihre Adressen kommen aus den URL-Namen des Codes
@@ -61,10 +62,14 @@ ENGLISCH = re.compile(
 )
 #: Eingebaute Felder, deren Text der Browser in seiner Sprache zeichnet (nicht im DOM):
 #: Dateifeld „Choose file / No file chosen“, Monatsfeld „October 2026“.
+#: Die eigenen Dateiknöpfe (``.datei-eingabe``, Review 2, C4) verstecken das Dateifeld in
+#: ihrem Knopf; es zeichnet keinen Text.
 EINGEBAUTE_FELDER = {
-    "input[type=file]": "Dateifeld zeigt „Choose file / No file chosen“",
+    "input[type=file]:not(.datei-eingabe)": "Dateifeld zeigt „Choose file / No file chosen“",
     "input[type=month]": "Monatsfeld zeigt englische Monatsnamen",
 }
+#: Mindesthöhe der Ziele am Handy (Review 2, C4): Knöpfe und Haken samt Label.
+ZIEL_PX = 44
 
 SMOKE = ARTEFAKTE / "smoke"
 
@@ -111,8 +116,39 @@ def _ueberstehende_elemente(seite: Page) -> list[str]:
     )
 
 
-def pruefen(seite: Page) -> list[str]:
-    """Die Befunde einer geladenen Seite (leer: in Ordnung)."""
+def _kleine_ziele(seite: Page) -> list[str]:
+    """Sichtbare Knöpfe und Haken, deren Ziel niedriger als ``ZIEL_PX`` ist. Bei einem Haken
+    zählt das größere von Feld und Label (das Label ist das Ziel)."""
+    return seite.evaluate(
+        """(ziel) => {
+        const klein = [];
+        const sichtbar = (e) => { const r = e.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+        const name = (e) => (e.tagName.toLowerCase() + (e.id ? '#' + e.id : '')
+            + ' „' + (e.innerText || e.value || e.getAttribute('aria-label') || '').trim()
+                .slice(0, 30) + '“');
+        for (const e of document.querySelectorAll(
+                'button, input[type=submit], input[type=button], a.knopf, summary.knopf')) {
+            if (!sichtbar(e)) continue;
+            const h = e.getBoundingClientRect().height;
+            if (h < ziel - 0.5) klein.push(`${name(e)} ${Math.round(h)} px`);
+        }
+        for (const e of document.querySelectorAll('input[type=checkbox], input[type=radio]')) {
+            if (!sichtbar(e)) continue;
+            let h = e.getBoundingClientRect().height;
+            const labels = [...(e.labels || [])];
+            for (const l of labels) h = Math.max(h, l.getBoundingClientRect().height);
+            if (h < ziel - 0.5) klein.push(`${name(e)} ${Math.round(h)} px`);
+        }
+        return klein;
+    }""",
+        ZIEL_PX,
+    )
+
+
+def pruefen(seite: Page, handy: bool = False) -> list[str]:
+    """Die Befunde einer geladenen Seite (leer: in Ordnung). ``handy``: auch die Größe der
+    Ziele prüfen."""
     befunde = []
     breiten = seite.evaluate(
         "() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]"
@@ -130,6 +166,8 @@ def pruefen(seite: Page) -> list[str]:
         sichtbar = [f for f in seite.locator(selektor).all() if f.is_visible()]
         if sichtbar:
             befunde.append(f"{len(sichtbar)}× {hinweis} ({selektor})")
+    if handy and (klein := _kleine_ziele(seite)):
+        befunde.append(f"Ziele unter {ZIEL_PX} px: {', '.join(klein[:6])}")
     return befunde
 
 
@@ -166,7 +204,7 @@ def test_seite(
     seite.screenshot(path=ziel, full_page=True)
 
     befunde = [f"Status {antwort.status}"] if antwort is not None and antwort.status >= 500 else []
-    befunde += serverfehler + pruefen(seite)
+    befunde += serverfehler + pruefen(seite, handy=breite == "390")
     with (SMOKE / "ergebnis.jsonl").open("a", encoding="utf-8") as datei:
         zeile = {"seite": titel, "pfad": pfad, "breite": breite, "befunde": befunde}
         datei.write(json.dumps(zeile, ensure_ascii=False) + "\n")

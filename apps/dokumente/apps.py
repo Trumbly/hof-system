@@ -32,3 +32,7 @@ class DokumenteConfig(AppConfig):
         fristen.pruefung_anmelden(
             "Rechnungen überfällig", services.rechnungen_ueberfaellig_markieren
         )
+        # Suche in der Kopfzeile: Belege und Eingangsrechnungen (Review 2, B1).
+        from apps.dokumente import suche
+
+        suche.anmelden()

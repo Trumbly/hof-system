@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load bausteine %}
+
+{% block titel %}Übergaben{% endblock %}
+
+{% block inhalt %}
+{% seitenkopf "Übergaben und Rückgaben" "Was vor Ort ansteht: begonnene Erfassungen, neue Verträge, gekündigte Verträge" %}
+  <a class="knopf knopf-zweit" href="{% url 'stammdaten:vertraege' %}">alle Verträge</a>
+{% endseitenkopf %}
+
+<div class="stapel">
+  {% if begonnen %}
+  {% karte "Begonnen" zahl=begonnen|length id="begonnen" %}
+    <ul class="liste">
+      {% for z in begonnen %}
+      <li id="uebergabe-{{ z.begonnen.pk }}">
+        <span class="liste-haupt"><strong>{{ z.art_titel }} {{ z.vertrag.nummer }}</strong><span class="klein text-2"> · {{ z.einheiten|default:"ohne Einheit" }}{% if z.mieter %} · {{ z.mieter }}{% endif %} · seit {{ z.datum|date:"d.m.Y" }}</span></span>
+        <span class="liste-neben"><a class="knopf knopf-primaer knopf-klein" href="{% url 'stammdaten:uebergabe' z.begonnen.pk 1 %}">weiter</a></span>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endkarte %}
+  {% endif %}
+
+  {% karte "Übergaben" zahl=uebergaben|length id="uebergaben" %}
+    {% if uebergaben %}
+    <ul class="liste">
+      {% for z in uebergaben %}
+      <li id="vertrag-{{ z.vertrag.pk }}-uebergabe">
+        <span class="liste-haupt"><a href="{% url 'stammdaten:vertrag' z.vertrag.pk %}"><strong>{{ z.vertrag.nummer }}</strong></a><span class="klein text-2"> · {{ z.einheiten|default:"ohne Einheit" }}{% if z.mieter %} · {{ z.mieter }}{% endif %} · Beginn {{ z.datum|date:"d.m.Y" }}</span>{% if z.datum and z.datum < heute %} {% badge "warnung" "Beginn vorbei" %}{% endif %}</span>
+        <span class="liste-neben"><form method="post" action="{% url 'stammdaten:uebergabe_starten' z.vertrag.pk 'uebergabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-zweit knopf-klein">Übergabe beginnen</button></form></span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {% include "bausteine/leer.html" with text="Keine Übergabe steht an." hilfe="Eine Übergabe beginnt bei einem Vertrag im Entwurf; danach ist er aktiv." %}
+    {% endif %}
+  {% endkarte %}
+
+  {% karte "Rückgaben" zahl=rueckgaben|length id="rueckgaben" %}
+    {% if rueckgaben %}
+    <ul class="liste">
+      {% for z in rueckgaben %}
+      <li id="vertrag-{{ z.vertrag.pk }}-rueckgabe">
+        <span class="liste-haupt"><a href="{% url 'stammdaten:vertrag' z.vertrag.pk %}"><strong>{{ z.vertrag.nummer }}</strong></a><span class="klein text-2"> · {{ z.einheiten|default:"ohne Einheit" }}{% if z.mieter %} · {{ z.mieter }}{% endif %}{% if z.datum %} · Rückgabe {{ z.datum|date:"d.m.Y" }}{% endif %}</span>{% if z.datum and z.datum < heute %} {% badge "ueberfaellig" "Termin vorbei" %}{% endif %}</span>
+        <span class="liste-neben"><form method="post" action="{% url 'stammdaten:uebergabe_starten' z.vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-zweit knopf-klein">Rückgabe beginnen</button></form></span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {% include "bausteine/leer.html" with text="Keine Rückgabe steht an." hilfe="Rückgaben erscheinen hier, sobald ein Vertrag gekündigt ist." %}
+    {% endif %}
+  {% endkarte %}
+</div>
+{% endblock %}

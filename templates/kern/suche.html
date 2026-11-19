@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load bausteine %}
+
+{% block titel %}Suche{% endblock %}
+
+{% block inhalt %}
+{% if q %}{% seitenkopf "Suche" "Treffer für „"|add:q|add:"“" %}{% endseitenkopf %}{% else %}{% seitenkopf "Suche" "NW-ID, V-Nummer, Name, Ort, E-Mail, Rechnungsnummer oder Betrag" %}{% endseitenkopf %}{% endif %}
+
+<form class="suche-seite" method="get" action="{% url 'kern:suche' %}" role="search">
+  <label class="nur-leser" for="suche-seite">Suchen</label>
+  <input class="feld-eingabe" id="suche-seite" type="search" name="q" value="{{ q }}" placeholder="z. B. NW-G-0018, V-0005, 627,34 oder einen Namen" autocomplete="off" enterkeyhint="search">
+  <button type="submit" class="knopf knopf-primaer">Suchen</button>
+</form>
+
+{% if gruppen %}
+<div class="stapel">
+  {% for g in gruppen %}
+  {% karte g.titel zahl=g.treffer|length id=g.schluessel %}
+    <ul class="liste">
+      {% for t in g.treffer %}<li><a class="liste-zeile" href="{{ t.url }}"><span class="liste-haupt"><strong>{{ t.titel }}</strong>{% if t.unter %}<span class="klein text-2"> · {{ t.unter }}</span>{% endif %}</span>{% if t.status %}<span class="liste-neben">{% badge t.status t.status_text %}</span>{% endif %}</a></li>{% endfor %}
+    </ul>
+  {% endkarte %}
+  {% if g.mehr %}<p class="klein text-3">Es gibt weitere {{ g.titel }}. Genauer suchen, z. B. mit Nachname und Ort.</p>{% endif %}
+  {% endfor %}
+</div>
+{% elif q and not kurz %}
+{% include "bausteine/leer.html" with text="Nichts gefunden." hilfe="Gesucht wird in NW-ID, V-Nummer, Namen, Ort, E-Mail, Rechnungsnummer und Betrag (mit Komma oder Punkt)." %}
+{% elif kurz and q %}
+{% include "bausteine/leer.html" with text="Bitte mindestens zwei Zeichen eingeben." %}
+{% endif %}
+{% endblock %}

@@ -32,6 +32,25 @@ def _dokumente(view: str, app: str) -> bool:
     return app == "dokumente" and not _schreiben(view, app)
 
 
+#: Seiten der Übergabe und Rückgabe (Liste und Assistent am Handy)
+UEBERGABE_SEITEN = ("stammdaten:uebergaben", "stammdaten:uebergabe", "stammdaten:uebergabe_foto")
+
+
+def _uebergabe(view: str, app: str) -> bool:
+    return view in UEBERGABE_SEITEN
+
+
+def _stammdaten(view: str, app: str) -> bool:
+    return app == "stammdaten" and not _uebergabe(view, app)
+
+
+def _konto(view: str, app: str) -> bool:
+    """Die eigene Kontoseite und die Seiten von allauth (zweiter Faktor, Passwort)."""
+    return view == "kern:konto" or (
+        not app and view.startswith(("mfa_", "account_")) and view != "account_logout"
+    )
+
+
 @dataclass(frozen=True)
 class Eintrag:
     titel: str
@@ -59,7 +78,8 @@ GRUPPEN: tuple[Gruppe, ...] = (
     Gruppe(
         "Verträge",
         (
-            Eintrag("Stammdaten", "stammdaten:uebersicht", _app("stammdaten")),
+            Eintrag("Stammdaten", "stammdaten:uebersicht", _stammdaten),
+            Eintrag("Übergaben", "stammdaten:uebergaben", _uebergabe),
             Eintrag("Offene Posten", "soll:liste", _app("soll")),
             Eintrag("Mahnwesen", "mahnwesen:faelle", _app("mahnwesen")),
         ),
@@ -87,7 +107,7 @@ GRUPPEN: tuple[Gruppe, ...] = (
             Eintrag("Protokoll", "kern:protokoll", _seite("kern:protokoll")),
             Eintrag("Läufe", "kern:laeufe", _seite("kern:laeufe")),
             Eintrag("Verwaltung", "admin:index", _app("admin"), nur_verwaltung=True, marke="Admin"),
-            Eintrag("Konto", "mfa_index", _seite("mfa_index")),
+            Eintrag("Konto", "kern:konto", _konto),
         ),
     ),
 )
@@ -97,9 +117,8 @@ UNTEN: tuple[tuple[str, str, str, Pruefung], ...] = (
     ("Heute", "kern:startseite", "heute", _seite("kern:startseite")),
     ("Arbeitslisten", "kern:arbeitslisten", "listen", _seite("kern:arbeitslisten")),
     ("Zähler", "zaehler:uebersicht", "zaehler", _app("zaehler")),
-    # Eine Übergabe beginnt am Vertrag; bis es eine eigene Liste gibt, führt der Knopf zu
-    # den Verträgen.
-    ("Übergabe", "stammdaten:vertraege", "uebergabe", _seite("stammdaten:uebergabe")),
+    # Anstehende Übergaben und Rückgaben; von dort geht es in den Assistenten.
+    ("Übergabe", "stammdaten:uebergaben", "uebergabe", _uebergabe),
 )
 
 

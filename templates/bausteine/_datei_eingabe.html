@@ -1,0 +1,16 @@
+{% load bausteine %}{# Eigene Dateiknöpfe mit Vorschau (Review 2, C4), ohne Label. Gebraucht von {% dateiknoepfe %} und als Vorlage jedes Dateifelds in Formularen (templates/django/forms/widgets/file.html). Kein „required“ an den Eingaben: Es gibt zwei für ein Feld, geprüft wird auf dem Server. #}
+<div class="datei-knoepfe" role="group"{% if beschriftung_id %} aria-labelledby="{{ beschriftung_id }}"{% endif %}>
+  {% if kamera %}
+  <label class="knopf knopf-zweit datei-knopf">
+    <input class="datei-eingabe" type="file" name="{{ name }}" accept="image/*" capture="environment"{% if mehrere %} multiple{% endif %} data-vorschau="{{ vorschau_id }}"{{ attrs|datei_attrs }}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" class="symbol"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    Foto aufnehmen
+  </label>
+  {% endif %}
+  <label class="knopf knopf-zweit datei-knopf">
+    <input class="datei-eingabe" type="file" name="{{ name }}"{% if id %} id="{{ id }}"{% endif %}{% if accept %} accept="{{ accept }}"{% endif %}{% if mehrere %} multiple{% endif %} data-vorschau="{{ vorschau_id }}"{{ attrs|datei_attrs }}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" class="symbol"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>
+    Datei wählen
+  </label>
+</div>
+<ul class="datei-vorschau" id="{{ vorschau_id }}" aria-live="polite" data-leer="Noch nichts gewählt."><li class="datei-leer">Noch nichts gewählt.</li></ul>

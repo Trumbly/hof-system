@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import subprocess
 import sys
 from decimal import Decimal
@@ -86,7 +87,8 @@ def test_tabellenkoepfe_mit_abstand_in_der_alten_gestaltung() -> None:
     """Review 1, Punkt 11: „.zahl“ in Tabellenzellen ist kein Zähler-Kreis mehr (dieser
     machte „BetragoffenStatus“ ohne Abstand), sondern eine rechtsbündige Zelle."""
     css = (WURZEL / "static" / "css" / "hof.css").read_text()
-    regel = css.split("th.zahl,\ntd.zahl {", 1)[1].split("}", 1)[0]
+    # seit R2-5 nur in alten Seiten (ohne Seitenkopf), siehe Kopf von hof.css
+    regel = re.split(r"\) th\.zahl,\s*\S+ td\.zahl \{", css, maxsplit=1)[1].split("}", 1)[0]
     assert "display: table-cell" in regel
     assert "text-align: right" in regel
     assert "padding: 0.5rem" in regel

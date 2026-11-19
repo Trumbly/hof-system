@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Vorlagen der Formular-Widgets, damit templates/django/forms/ sie überschreiben kann
+    "django.forms",
     "allauth",
     "allauth.account",
     "allauth.mfa",
@@ -80,6 +82,10 @@ TEMPLATES = [
         },
     },
 ]
+
+# Formular-Widgets aus den Vorlagen des Projekts: Jedes Dateifeld bekommt die eigenen Knöpfe
+# statt „Choose file“ (templates/django/forms/widgets/file.html, Review 2, C4).
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
 WSGI_APPLICATION = "hof.wsgi.application"
 

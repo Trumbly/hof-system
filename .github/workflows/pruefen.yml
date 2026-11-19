@@ -68,10 +68,8 @@ jobs:
   e2e:
     name: Oberfläche (Playwright, Smoke-Test)
     runs-on: ubuntu-24.04
-    # Vorerst nicht blockierend: Die heutigen Seiten scheitern noch (Review 2, C5:
-    # Scrollleiste der Kopfnavigation, englische Dateifelder). Wird blockierend
-    # (continue-on-error entfernen), sobald R2-5 (Grundgerüst) gemergt ist.
-    continue-on-error: true
+    # Blockierend seit R2-5 (Grundgerüst): Smoke-Test, alle erreichbaren Seiten und die Suche
+    # mit der Tastatur müssen grün sein.
     services:
       postgres:
         image: postgres:16
@@ -104,7 +102,7 @@ jobs:
         run: uv sync --locked
       - name: Chromium für Playwright
         run: uv run playwright install --with-deps chromium
-      - name: Smoke-Test (15 Seiten bei 1440 und 390 px)
+      - name: Smoke-Test, alle Seiten, Suche (1440 und 390 px)
         run: uv run pytest -m "e2e and not klickmessung" tests/e2e
       - name: Screenshots und Server-Log
         if: always()
@@ -113,6 +111,7 @@ jobs:
           name: e2e-screenshots
           path: |
             tests/e2e/artefakte/smoke/
+            tests/e2e/artefakte/alle_seiten.jsonl
             tests/e2e/artefakte/server.log
           if-no-files-found: warn
           retention-days: 14

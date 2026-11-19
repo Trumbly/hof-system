@@ -22,7 +22,8 @@ test:
 	$(COMPOSE) up -d --wait db
 	uv run pytest
 
-## Oberflächentests (Playwright): Smoke-Test der 15 wichtigsten Seiten bei 1440 und 390 px.
+## Oberflächentests (Playwright): Smoke-Test der 15 wichtigsten Seiten, alle erreichbaren Seiten
+## und die Suche, bei 1440 und 390 px.
 ## Eigene Datenbank (HOF_E2E_DATABASE_URL, Standard hof_e2e) mit frischem Testhof;
 ## Screenshots unter tests/e2e/artefakte/. Einmal vorher: uv run playwright install chromium
 e2e:
