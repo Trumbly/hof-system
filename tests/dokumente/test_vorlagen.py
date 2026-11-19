@@ -21,7 +21,7 @@ def test_vorlage_entsteht_als_entwurf_und_wird_freigegeben(benutzer: Benutzer) -
     assert (vorlage.version, vorlage.status) == (1, Vorlage.Status.ENTWURF)
     assert vorlage.freigegeben_von is None
 
-    services.vorlage_freigeben(vorlage, benutzer)
+    services.vorlage_freigeben(vorlage, benutzer, freigegeben_von="Test")
 
     vorlage.refresh_from_db()
     assert vorlage.status == Vorlage.Status.FREIGEGEBEN
@@ -33,7 +33,9 @@ def test_neue_version_loest_die_alte_ab_und_aendert_sie_nicht(benutzer: Benutzer
     """Schritt 3c, Aufgabe 1: Änderungen entstehen als neue Version; freigegebene Versionen
     bleiben unverändert und werden bei der nächsten Freigabe „abgelöst“."""
     v1 = services.vorlage_freigeben(
-        services.vorlage_anlegen("Mitteilung", "mitteilung", MITTEILUNG), benutzer
+        services.vorlage_anlegen("Mitteilung", "mitteilung", MITTEILUNG),
+        benutzer,
+        freigegeben_von="Test",
     )
     with pytest.raises(services.SchreibenFehler):
         services.vorlage_aendern(v1, text="<p>anders</p>")
@@ -43,7 +45,7 @@ def test_neue_version_loest_die_alte_ab_und_aendert_sie_nicht(benutzer: Benutzer
     assert (v2.version, v2.status) == (2, Vorlage.Status.ENTWURF)
     assert services.freigegebene_vorlage("mitteilung") == v1
 
-    services.vorlage_freigeben(v2, benutzer)
+    services.vorlage_freigeben(v2, benutzer, freigegeben_von="Test")
     v1.refresh_from_db()
     assert v1.status == Vorlage.Status.ABGELOEST
     assert v1.text == MITTEILUNG
@@ -58,9 +60,9 @@ def test_nur_freigegebene_vorlagen_lassen_sich_scharf_verwenden(
     with pytest.raises(services.VorlageNichtFreigegeben):
         services.schreiben_erzeugen(entwurf, objekt, kontext(objekt))
 
-    services.vorlage_freigeben(entwurf, benutzer)
+    services.vorlage_freigeben(entwurf, benutzer, freigegeben_von="Test")
     neu = services.vorlage_neue_version(entwurf)
-    services.vorlage_freigeben(neu, benutzer)
+    services.vorlage_freigeben(neu, benutzer, freigegeben_von="Test")
     entwurf.refresh_from_db()  # jetzt abgelöst
     with pytest.raises(services.VorlageNichtFreigegeben):
         services.schreiben_erzeugen(entwurf, objekt, kontext(objekt))

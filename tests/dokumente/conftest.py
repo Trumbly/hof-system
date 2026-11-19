@@ -82,7 +82,7 @@ KUENDIGUNG = (
 
 def freigegeben(name: str, art: str, text: str, benutzer: Benutzer, betreff: str = "") -> Vorlage:
     vorlage = services.vorlage_anlegen(name, art, text, betreff=betreff)
-    return services.vorlage_freigeben(vorlage, benutzer)
+    return services.vorlage_freigeben(vorlage, benutzer, freigegeben_von="Test")
 
 
 @pytest.fixture

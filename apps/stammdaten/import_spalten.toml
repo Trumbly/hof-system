@@ -68,6 +68,9 @@ beginn = "Mietbeginn"
 ende = "Mietende"
 miete = "Kaltmiete"
 pauschale = "Nebenkosten"
+# Optional (Review 1, Punkt 1): beim Umzug im alten System offen. Wird zum Posten „Vortrag“
+# am Stichtag des Umzugs (HOF_SOLL_BEGINN bzw. Sollregel des Vertrags).
+vortrag = "Offener Saldo"
 
 # --- HelloHousing: Mietverlauf (Staffeln und Änderungen) -----------------------------
 

@@ -62,6 +62,13 @@ class Vorlage(ProtokolliertesModell):
         related_name="+",
     )
     freigegeben_am = models.DateTimeField("freigegeben am", null=True, blank=True)
+    freigabe_durch = models.CharField(
+        "freigegeben von (Name)",
+        max_length=100,
+        blank=True,
+        help_text="Wer den Text inhaltlich freigegeben hat, z. B. „Max“ oder „Max nach "
+        "Prüfung durch die Kanzlei“. Pflicht bei der Freigabe (Review 1, Punkt 4).",
+    )
     herkunft = models.CharField(
         "Herkunft",
         max_length=50,
@@ -80,6 +87,10 @@ class Vorlage(ProtokolliertesModell):
                 condition=~Q(status="freigegeben")
                 | (Q(freigegeben_von__isnull=False) & Q(freigegeben_am__isnull=False)),
                 name="vorlage_freigabe_mit_wem_und_wann",
+            ),
+            models.CheckConstraint(
+                condition=~Q(status="freigegeben") | ~Q(freigabe_durch=""),
+                name="vorlage_freigabe_mit_namen",
             ),
         )
 
@@ -171,6 +182,13 @@ class Schreiben(ProtokolliertesModell):
         "Vermerk zum Zustellnachweis",
         blank=True,
         help_text="z. B. Stand der Sendungsverfolgung oder Einwurf durch Boten.",
+    )
+    absender_luecken = models.CharField(
+        "Briefkopf beim Erzeugen unvollständig",
+        max_length=300,
+        blank=True,
+        help_text="Pflichtangaben des Briefkopfs, die beim Erzeugen des PDFs fehlten. "
+        "Solange hier etwas steht, lässt sich das Schreiben nicht senden (Review 1, Punkt 4).",
     )
 
     class Meta:
@@ -514,6 +532,10 @@ class Eingangsrechnung(ProtokolliertesModell):
 personenfelder.unbedenklich(Vorlage, ["name", "art", "betreff", "text", "status", "herkunft"])
 personenfelder.register(Schreiben, ["betreff", "inhalt_html", "empfaenger_email"])
 personenfelder.register(Schreiben, ["zustellnachweis_vermerk"])
+# Name der Person, die eine Vorlage freigibt (Review 1, Punkt 4).
+personenfelder.register(Vorlage, ["freigabe_durch"])
+# Nur die Bezeichnungen fehlender Briefkopf-Angaben, nie die Angaben selbst.
+personenfelder.unbedenklich(Schreiben, ["absender_luecken"])
 personenfelder.unbedenklich(
     Schreiben,
     ["art", "pdf_sha256", "versandweg", "status", "dienst_auftrag", "sendungsnummer"],

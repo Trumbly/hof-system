@@ -6,9 +6,10 @@
 <h1>Offene Posten <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
 <p class="leise"><a href="{% url 'stammdaten:vertrag' vertrag.pk %}">Zum Vertrag</a> · {{ vertrag.get_status_display }} · {% for e in einheiten %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · {{ vertrag.beginn|date:"d.m.Y" }} bis {{ vertrag.ende|date:"d.m.Y"|default:"auf unbestimmte Zeit" }}</p>
 <ul class="kennzahlen">
-  <li>Offen: <strong>{{ summe_offen }} €</strong> in {{ offen|length }} Posten</li>
+  <li>Offen: <strong>{{ summe_offen|floatformat:"2g" }} €</strong> in {{ offen|length }} Posten</li>
   <li>Fälligkeit: {% if faelligkeit.art == "werktag" %}{{ faelligkeit.tag }}. Werktag des Monats{% else %}am {{ faelligkeit.tag }}. des Monats{% endif %}</li>
   <li>Soll im Hof-System ab: {{ soll_ab|date:"d.m.Y"|default:"Vertragsbeginn" }}</li>
+  <li>Vortrag aus dem alten System: {% if vortrag %}{{ vortrag.betrag|floatformat:"2g" }} € ({{ vortrag.get_status_display }}){% else %}keiner{% endif %}</li>
 </ul>
 
 <div class="aktionen">

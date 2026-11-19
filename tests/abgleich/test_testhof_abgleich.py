@@ -19,6 +19,7 @@ from apps.abgleich.models import Guthaben, Handzahlung, Klaerfall, Zahlerregel, 
 from apps.bank.models import Bankumsatz
 from apps.kassenbuch.models import Buchung
 from apps.kern.models import Lauf
+from apps.soll import services as soll
 from apps.soll.models import Sollposten
 from apps.stammdaten.models import Vertrag
 from testhof import abgleich as testhof_abgleich
@@ -188,15 +189,21 @@ def test_sonderfall_teilzahlung_mit_nachzahlung(testhof: Testhof, abgeglichen: L
 
 def test_sonderfall_dauerauftrag_alte_miete(testhof: Testhof, abgeglichen: Lauf) -> None:
     """Abnahme Schritt 6, Sonderfall „Dauerauftrag mit alter Miete“: als Teilzahlung gebucht,
-    die Differenz ist Rückstand."""
+    die Differenz ist Rückstand. Review 1, Punkt 1: Dazu kommt der Vortrag aus dem alten
+    System (sechs Monate Differenz seit der Staffel); die Zahlungen tilgen ihn zuerst."""
     (vertrag,) = _fall("dauerauftrag_alte_miete", testhof)
     buchungen = _buchungen(vertrag)
     assert len(buchungen) == 4 and all(services.offener_betrag(b) == 0 for b in buchungen)
     alt = buchungen[0].betrag
     neu = _posten(vertrag, 7)[0].betrag
     assert alt < neu
+    vortrag = soll.vortrag(vertrag)
+    assert vortrag is not None and vortrag.betrag == 6 * (neu - alt)
+    vortrag.refresh_from_db()
+    assert vortrag.offen == 0  # älteste Forderung zuerst getilgt
     offen = sum((p.offen for p in _posten(vertrag, 7, 8, 9, 10)), E("0"))
-    assert offen == 4 * (neu - alt)
+    assert offen == 10 * (neu - alt)
+    assert soll.offen(vertrag, STICHTAG).summe_offen == offen
     (eintrag,) = [r for r in services.rueckstaende().vertraege if r.vertrag == vertrag]
     assert eintrag.summe == offen
 

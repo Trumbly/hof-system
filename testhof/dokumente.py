@@ -230,7 +230,9 @@ def aufbauen(kontext: Kontext) -> DokumenteDaten:
     vorlagen = {}
     for name, art, betreff, text in VORLAGEN:
         vorlage = services.vorlage_anlegen(name, art, text, betreff=betreff, herkunft="testhof")
-        vorlagen[art] = services.vorlage_freigeben(vorlage, benutzer, am=kontext.zeitpunkt)
+        vorlagen[art] = services.vorlage_freigeben(
+            vorlage, benutzer, freigegeben_von="Testhof", am=kontext.zeitpunkt
+        )
     return DokumenteDaten(vorlagen=vorlagen)
 
 

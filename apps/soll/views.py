@@ -24,21 +24,18 @@ from apps.stammdaten.models import Vertrag
 #: Höchstens so viele Zeilen zeigt die Gesamtliste (danach filtern).
 GRENZE = 500
 
-OFFEN = (Sollposten.Status.OFFEN, Sollposten.Status.TEILWEISE)
-
 
 def _gefiltert(form: FilterForm) -> QuerySet[Sollposten]:
-    qs = Sollposten.objects.select_related("vertrag", "vertrag__mandant").prefetch_related(
-        "vertrag__einheiten"
-    )
+    """Die Posten zum Filter. „offen“ und „überfällig“ sind genau die Posten aus
+    ``services.offen()`` bzw. ``services.offen(stichtag=heute)`` (Review 1, Punkt 1)."""
     daten: dict[str, Any] = form.cleaned_data if form.is_valid() else {}
     status = daten.get("status") or "offen"
     if status in ("offen", "ueberfaellig"):
-        qs = qs.filter(status__in=OFFEN)
-        if status == "ueberfaellig":
-            qs = qs.filter(faellig_am__lt=services.heute())
-    elif status != "alle":
-        qs = qs.filter(status=status)
+        qs = services.offen_abfrage(stichtag=services.heute() if status == "ueberfaellig" else None)
+    else:
+        qs = Sollposten.objects.all()
+        if status != "alle":
+            qs = qs.filter(status=status)
     if daten.get("art"):
         qs = qs.filter(art=daten["art"])
     if daten.get("mandant"):
@@ -48,27 +45,30 @@ def _gefiltert(form: FilterForm) -> QuerySet[Sollposten]:
     if daten.get("suche"):
         suche = daten["suche"]
         qs = qs.filter(
-            Q(vertrag__nummer__icontains=suche) | Q(vertrag__einheiten__nw_id__icontains=suche)
-        ).distinct()
-    return qs.order_by("faellig_am", "vertrag__nummer", "art", "pk")
+            vertrag__in=Vertrag.objects.filter(
+                Q(nummer__icontains=suche) | Q(einheiten__nw_id__icontains=suche)
+            )
+        )
+    return qs.select_related("vertrag", "vertrag__mandant").prefetch_related("vertrag__einheiten")
 
 
 @login_required
 def liste(request: HttpRequest) -> HttpResponse:
     form = FilterForm(request.GET or None)
     qs = _gefiltert(form)
-    posten = list(qs[: GRENZE + 1])
-    abgeschnitten = len(posten) > GRENZE
-    posten = posten[:GRENZE]
+    # Anzahl und Summe über alle Treffer des Filters, nicht nur die angezeigten.
+    anzahl, summe = services.summen(qs)
+    posten = list(qs.order_by(*services.REIHENFOLGE)[:GRENZE])
     return render(
         request,
         "soll/liste.html",
         {
             "form": form,
             "posten": posten,
-            "abgeschnitten": abgeschnitten,
+            "anzahl": anzahl,
+            "abgeschnitten": anzahl > len(posten),
             "grenze": GRENZE,
-            "summe_offen": sum((p.offen for p in posten), Decimal("0.00")),
+            "summe_offen": summe,
             "heute": services.heute(),
         },
     )
@@ -139,7 +139,10 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
             messages.error(request, "Bitte die markierten Felder prüfen.")
 
     alle = list(Sollposten.objects.filter(vertrag=vertrag).order_by("-von", "art", "-pk"))
-    offen = [p for p in alle if p.status in OFFEN]
+    stand = services.offen(vertrag)
+    offen_ids = {p.sollposten.pk for p in stand.posten}
+    # Offene Posten vor dem Beginn des Abgleichs gehören dem alten System (Vortrag).
+    offen = [p for p in alle if p.pk in offen_ids]
     return render(
         request,
         "soll/vertrag.html",
@@ -147,8 +150,9 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
             "vertrag": vertrag,
             "einheiten": vertrag.einheiten.all(),
             "offen": sorted(offen, key=lambda p: (p.faellig_am, p.art)),
-            "erledigt": [p for p in alle if p.status not in OFFEN],
-            "summe_offen": sum((p.offen for p in offen), Decimal("0.00")),
+            "erledigt": [p for p in alle if p.pk not in offen_ids],
+            "summe_offen": stand.summe_offen,
+            "vortrag": services.vortrag(vertrag),
             "faelligkeit": services.faelligkeitsregel(vertrag),
             "soll_ab": services.soll_ab(vertrag),
             "regel_form": regel_form,

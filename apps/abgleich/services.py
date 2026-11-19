@@ -1825,6 +1825,8 @@ def kachel_rueckstaende() -> dict[str, Any]:
         "in_klaerung": zahlen["vertraege_in_klaerung"],
         "summe": zahlen["summe"],
         "ueber_60": zahlen["summe_ueber_60"],
+        # Nach dem Datenstand der Bank fällig: offen, aber noch nicht prüfbar.
+        "nicht_pruefbar": zahlen["nicht_pruefbar"],
     }
 
 
@@ -1832,39 +1834,41 @@ def rueckstaende(stichtag: datetime.date | None = None) -> Rueckstaende:
     """Rückstände je Vertrag mit Alter (0–30, 31–60, über 60 Tage nach Fälligkeit) und die
     Summe (H3.11). Für Hof-Cockpit und Status-MCP; liest nur, rechnet live aus dem Stand.
 
-    Fällige Posten nach dem Datenstand der Bank sind „nicht prüfbar“, kein Rückstand.
+    Die Posten kommen allein aus ``soll.offen(stichtag=stichtag)`` (Review 1, Punkt 1):
+    dieselben wie auf der Seite Offene Posten mit Filter „überfällig“ und im Mahnlauf.
+    Fällige Posten nach dem Datenstand der Bank sind „nicht prüfbar“, kein Rückstand; die
+    Summe aus Rückstand und „nicht prüfbar“ ist ``soll.offen(stichtag=stichtag).summe_offen``.
     """
     stichtag = stichtag or heute()
     datenstand = bank_datenstand()
     klaerung = vertraege_in_klaerung()
     je_vertrag: dict[int, Rueckstand] = {}
-    posten = (
-        posten_im_abgleich()
-        .filter(faellig_am__lt=stichtag)
-        .select_related("vertrag")
-        .prefetch_related("vertrag__einheiten")
-        .order_by("vertrag__nummer", "faellig_am", "pk")
+    stand = soll.offen(stichtag=stichtag)
+    vertraege = Vertrag.objects.prefetch_related("einheiten").in_bulk(
+        {p.sollposten.vertrag_id for p in stand.posten}
     )
-    for p in posten:
+    for offen in stand.posten:
+        p = offen.sollposten
         eintrag = je_vertrag.get(p.vertrag_id)
         if eintrag is None:
+            vertrag = vertraege[p.vertrag_id]
             eintrag = je_vertrag[p.vertrag_id] = Rueckstand(
-                vertrag=p.vertrag,
-                nw_ids=[e.nw_id for e in p.vertrag.einheiten.all()],
+                vertrag=vertrag,
+                nw_ids=[e.nw_id for e in vertrag.einheiten.all()],
                 in_klaerung=p.vertrag_id in klaerung,
-                guthaben=guthaben_summe(p.vertrag),
+                guthaben=guthaben_summe(vertrag),
             )
         eintrag.posten.append(p)
         if datenstand is None or p.faellig_am > datenstand:
-            eintrag.nicht_pruefbar += p.offen
+            eintrag.nicht_pruefbar += offen.offen
             continue
-        alter = (stichtag - p.faellig_am).days
+        alter = offen.alter(stichtag)
         if alter <= 30:
-            eintrag.bis_30 += p.offen
+            eintrag.bis_30 += offen.offen
         elif alter <= 60:
-            eintrag.bis_60 += p.offen
+            eintrag.bis_60 += offen.offen
         else:
-            eintrag.ueber_60 += p.offen
+            eintrag.ueber_60 += offen.offen
     return Rueckstaende(
         stichtag=stichtag,
         datenstand=datenstand,
@@ -1888,15 +1892,22 @@ class Mietkonto:
     guthaben: list[Guthaben]
     handzahlungen: list[Handzahlung]
     klaerfaelle: list[Klaerfall]
+    #: Stichtag des Saldos (heute): Posten, die vorher fällig waren, sind fällig.
+    stichtag: datetime.date
+    #: Offen und vor dem Stichtag fällig, aus ``soll.offen(vertrag, stichtag)``.
+    rueckstand: Decimal = NULL
+
+    def _faellige(self) -> list[Sollposten]:
+        return [z.posten for z in self.zeilen if z.posten.faellig_am < self.stichtag]
 
     @property
     def soll_faellig(self) -> Decimal:
-        tag = heute()
-        return sum((z.posten.betrag for z in self.zeilen if z.posten.faellig_am <= tag), NULL)
+        return sum((p.betrag for p in self._faellige()), NULL)
 
     @property
     def bezahlt(self) -> Decimal:
-        return sum((z.posten.bezahlt for z in self.zeilen), NULL)
+        """Was auf die fälligen Posten gezahlt ist (Vorauszahlungen stehen in der Tabelle)."""
+        return sum((p.bezahlt for p in self._faellige()), NULL)
 
     @property
     def guthaben_summe(self) -> Decimal:
@@ -1904,8 +1915,10 @@ class Mietkonto:
 
     @property
     def saldo(self) -> Decimal:
-        """Bezahlt plus Guthaben minus fälliges Soll (negativ: Rückstand)."""
-        return self.bezahlt + self.guthaben_summe - self.soll_faellig
+        """Guthaben minus Rückstand (negativ: Rückstand). Der Rückstand ist derselbe wie in
+        Cockpit, Rückständen und Mahnwesen (``soll.offen``, Review 1, Punkt 1); es gilt
+        ``saldo == bezahlt + guthaben_summe - soll_faellig``."""
+        return self.guthaben_summe - self.rueckstand
 
 
 def mietkonto(vertrag: Vertrag) -> Mietkonto:
@@ -1939,6 +1952,8 @@ def mietkonto(vertrag: Vertrag) -> Mietkonto:
         guthaben=list(_offene_guthaben().filter(vertrag=vertrag).order_by("pk")),
         handzahlungen=list(vertrag.handzahlungen.order_by("-datum", "-pk")),
         klaerfaelle=klaerfaelle,
+        stichtag=heute(),
+        rueckstand=soll.offen(vertrag, heute()).summe_offen,
     )
 
 

@@ -180,11 +180,17 @@ def vorlage_vorschau(request: HttpRequest, pk: int) -> HttpResponse:
 def vorlage_freigeben(request: HttpRequest, pk: int) -> HttpResponse:
     eintrag = get_object_or_404(Vorlage.objects.select_for_update(), pk=pk)
     try:
-        services.vorlage_freigeben(eintrag, _benutzer(request))
+        services.vorlage_freigeben(
+            eintrag, _benutzer(request), freigegeben_von=request.POST.get("freigegeben_von", "")
+        )
     except FEHLER as fehler:
         messages.error(request, f"Nicht freigegeben: {fehler}")
     else:
-        messages.success(request, f"Vorlage #{eintrag.pk} (Version {eintrag.version}) freigegeben.")
+        messages.success(
+            request,
+            f"Vorlage #{eintrag.pk} (Version {eintrag.version}) freigegeben von "
+            f"{eintrag.freigabe_durch}.",
+        )
     return redirect("dokumente:vorlage", pk=pk)
 
 
@@ -230,6 +236,12 @@ def schreiben(request: HttpRequest, pk: int) -> HttpResponse:
             "abschluss": AbschlussForm(),
             "anwalt": services.braucht_anwalt(eintrag),
             "anwalt_hinweis": vorlagenarten.ANWALT_HINWEIS,
+            # Review 1, Punkt 4: Der Knopf bleibt gesperrt, solange der Briefkopf fehlt.
+            "gesperrt": (
+                services.senden_gesperrt(eintrag)
+                if eintrag.status == Schreiben.Status.BEREIT
+                else ""
+            ),
         },
     )
 
@@ -443,6 +455,8 @@ def serie(request: HttpRequest, serie: uuid.UUID) -> HttpResponse:
             "schreiben": alle,
             "bereit": bereit,
             "pruefsumme": services.serie_pruefsumme(bereit) if bereit else "",
+            # Review 1, Punkt 4: gesperrt, solange der Briefkopf unvollständig ist.
+            "gesperrt": next((g for g in (services.senden_gesperrt(s) for s in bereit) if g), ""),
         },
     )
 

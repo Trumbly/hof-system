@@ -8,7 +8,7 @@
 <dl class="angaben">
   <div><dt>Art</dt><dd>{{ vorlagenart.titel }}{% if vorlagenart.einseitige_erklaerung %} · einseitige Erklärung (Zustellnachweis Pflicht){% endif %}</dd></div>
   <div><dt>Status</dt><dd class="status status-{{ vorlage.status }}">{{ vorlage.get_status_display }}</dd></div>
-  {% if vorlage.freigegeben_am %}<div><dt>freigegeben</dt><dd>{{ vorlage.freigegeben_am|date:"d.m.Y H:i" }} von Benutzer #{{ vorlage.freigegeben_von_id }}</dd></div>{% endif %}
+  {% if vorlage.freigegeben_am %}<div><dt>freigegeben</dt><dd>{{ vorlage.freigegeben_am|date:"d.m.Y H:i" }} von {{ vorlage.freigabe_durch|default:"–" }} <span class="leise">(angemeldet: {{ vorlage.freigegeben_von.email }})</span></dd></div>{% endif %}
   {% if vorlage.herkunft %}<div><dt>Herkunft</dt><dd>{{ vorlage.herkunft }}</dd></div>{% endif %}
   {% if vorlage.betreff %}<div><dt>Betreff</dt><dd><code>{{ vorlage.betreff }}</code></dd></div>{% endif %}
 </dl>
@@ -17,8 +17,10 @@
   <a class="knopf zweitrangig" href="{% url 'dokumente:vorlage_vorschau' vorlage.pk %}" target="_blank" rel="noopener">Vorschau als PDF</a>
   {% if vorlage.status == "entwurf" %}
   <a class="knopf zweitrangig" href="{% url 'dokumente:vorlage_bearbeiten' vorlage.pk %}">Bearbeiten</a>
-  <form method="post" action="{% url 'dokumente:vorlage_freigeben' vorlage.pk %}">
-    {% csrf_token %}<button type="submit">Freigeben</button>
+  <form method="post" action="{% url 'dokumente:vorlage_freigeben' vorlage.pk %}" class="formular">
+    {% csrf_token %}
+    <p><label for="freigegeben_von">Freigegeben von</label> <input type="text" id="freigegeben_von" name="freigegeben_von" maxlength="100" required placeholder="z. B. Max nach Prüfung durch die Kanzlei"></p>
+    <button type="submit">Freigeben</button>
   </form>
   {% else %}
   <form method="post" action="{% url 'dokumente:vorlage_neue_version' vorlage.pk %}">

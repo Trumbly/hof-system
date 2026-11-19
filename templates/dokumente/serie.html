@@ -22,7 +22,8 @@
 <form method="post" action="{% url 'dokumente:serie_senden' serie %}" class="aktionen senden">
   {% csrf_token %}
   <input type="hidden" name="pruefsumme" value="{{ pruefsumme }}">
-  <button type="submit">Alle {{ bereit|length }} senden</button>
+  {% if gesperrt %}<p class="meldung meldung-warning" id="senden-gesperrt">{{ gesperrt }}</p>{% endif %}
+  <button type="submit"{% if gesperrt %} disabled aria-describedby="senden-gesperrt"{% endif %}>Alle {{ bereit|length }} senden</button>
 </form>
 {% endif %}
 {% endblock %}

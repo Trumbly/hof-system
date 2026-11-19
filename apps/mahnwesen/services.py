@@ -3,10 +3,11 @@
 Das Mahnwesen gilt nur für Verträge im Hof-System; den Wohnraum mahnt Verwaltio. Verträge
 mit einer Einheit vom Typ Wohnung lässt der Lauf immer aus.
 
-**Rückstand** (Standardablauf 3, Schritt 1): aus dem laufenden Konto, also aus den offenen
-und teilweise bezahlten Posten im Abgleich (``abgleich.posten_im_abgleich``), die vor dem
-Stichtag fällig waren. Posten, die nach dem Datenstand der Bank fällig sind, sind nicht
-prüfbar und zählen nie (Datenlücke).
+**Rückstand** (Standardablauf 3, Schritt 1): aus ``soll.offen`` (Review 1, Punkt 1), also
+aus den offenen und teilweise bezahlten Posten im Abgleich, die vor dem Stichtag fällig
+waren. Posten, die nach dem Datenstand der Bank fällig sind, sind nicht prüfbar und zählen
+nie (Datenlücke). Ein Rückstand unter der Bagatellgrenze (``HOF_MAHN_BAGATELLGRENZE``,
+Standard 20 €) löst keine Stufe aus; er steht beim nächsten Posten mit in der Forderung.
 
 **Lauf** ``mahnlauf`` (montags nach dem Abgleich), je Vertrag:
 
@@ -43,6 +44,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
@@ -296,13 +298,25 @@ def sperrgruende(vertrag: Vertrag, tag: datetime.date) -> list[str]:
 # --- Rückstand je Vertrag ------------------------------------------------------------
 
 
+def bagatellgrenze() -> Decimal:
+    """Unter dieser Summe löst ein Rückstand keine Stufe aus (Review 1, Punkt 10; Einstellung
+    ``HOF_MAHN_BAGATELLGRENZE``, Standard 20 €)."""
+    wert = getattr(settings, "MAHNWESEN_BAGATELLGRENZE", None)
+    return Decimal(str(wert)).quantize(CENT) if wert is not None else Decimal("20.00")
+
+
 @dataclass
 class Lage:
-    """Rückstand eines Vertrags am Stichtag: offene, prüfbare, überfällige Posten."""
+    """Rückstand eines Vertrags am Stichtag: offene, prüfbare, überfällige Posten.
+
+    ``grenze`` ist die Bagatellgrenze: Liegt der Rückstand darunter, löst er keine Stufe aus
+    (``ist_bagatelle``). Der Rest bleibt in ``posten`` und wird mitgenannt, sobald mit dem
+    nächsten überfälligen Posten die Grenze erreicht ist."""
 
     vertrag: Vertrag
     posten: list[Sollposten] = field(default_factory=list)
     monatsmiete: Decimal = NULL
+    grenze: Decimal = NULL
 
     @property
     def aelteste_faelligkeit(self) -> datetime.date | None:
@@ -313,20 +327,42 @@ class Lage:
         return sum((p.offen for p in self.posten), NULL)
 
     @property
+    def ist_bagatelle(self) -> bool:
+        return self.rueckstand < self.grenze
+
+    @property
+    def massgebliche_faelligkeit(self) -> datetime.date | None:
+        """Ab wann der Rückstand die Bagatellgrenze erreicht hat: die Fälligkeit des Postens,
+        mit dem die Summe (älteste zuerst) die Grenze erreicht. Ohne Grenze die älteste
+        Fälligkeit; unter der Grenze None. Ein kleiner Rest verkürzt so nicht die Frist des
+        nächsten Postens."""
+        summe = NULL
+        for p in sorted(self.posten, key=lambda p: (p.faellig_am, p.pk)):
+            summe += p.offen
+            if summe >= self.grenze and summe > 0:
+                return p.faellig_am
+        return None
+
+    @property
     def monatsposten(self) -> list[Sollposten]:
         return [p for p in self.posten if p.art in MONATSPOSTEN]
 
     @property
     def rueckstand_miete(self) -> Decimal:
-        """Offene Miete und Pauschale (ohne Kaution und Sonstiges)."""
-        return sum((p.offen for p in self.monatsposten), NULL)
+        """Offene Miete und Pauschale (ohne Kaution und Sonstiges) und der Vortrag aus dem
+        alten System (dort offene Mieten)."""
+        return sum(
+            (p.offen for p in self.posten if p.art in (*MONATSPOSTEN, Sollposten.Art.VORTRAG)),
+            NULL,
+        )
 
     @property
     def offene_monatsmieten(self) -> int:
-        """Anzahl der Monate mit offener Miete oder Pauschale (ein Quartalsposten deckt drei)."""
+        """Anzahl der Monate mit offener Miete oder Pauschale (ein Quartalsposten deckt drei).
+        Ein Rest unter der Bagatellgrenze zählt nicht als offene Monatsmiete."""
         monate: set[tuple[int, int]] = set()
         for p in self.monatsposten:
-            if p.offen <= 0:
+            if p.offen <= 0 or p.offen < self.grenze:
                 continue
             tag = p.von.replace(day=1)
             while tag <= p.bis:
@@ -352,31 +388,35 @@ def _monatsmiete(vertrag: Vertrag, stichtag: datetime.date, posten: list[Sollpos
     return max((p.betrag for p in posten if p.art in MONATSPOSTEN), default=NULL)
 
 
-def _ohne_wohnraum(qs: QuerySet[Sollposten]) -> QuerySet[Sollposten]:
-    """Den Wohnraum mahnt Verwaltio: Verträge mit einer Wohnung bleiben immer außen vor."""
-    return qs.exclude(vertrag__einheiten__typ=Einheit.Typ.WOHNUNG)
-
-
 def lagen(stichtag: datetime.date) -> dict[int, Lage]:
-    """Rückstand je Vertrag am Stichtag (nur Verträge mit überfälligen, prüfbaren Posten)."""
-    datenstand = abgleich.bank_datenstand()
-    if datenstand is None:
+    """Rückstand je Vertrag am Stichtag (nur Verträge mit überfälligen, prüfbaren Posten).
+
+    Die Posten kommen allein aus ``soll.offen`` mit dem Prüfstichtag (Review 1, Punkt 1):
+    vor dem Stichtag und spätestens am Datenstand der Bank fällig. Es sind dieselben wie in
+    ``abgleich.rueckstaende`` ohne „nicht prüfbar“, ohne Wohnraum (den mahnt Verwaltio)."""
+    if abgleich.bank_datenstand() is None:
         return {}
-    posten = (
-        _ohne_wohnraum(abgleich.posten_im_abgleich())
-        .filter(faellig_am__lt=stichtag, faellig_am__lte=datenstand)
-        .select_related("vertrag")
-        .order_by("vertrag__nummer", "faellig_am", "von", "pk")
+    stand = soll.offen(stichtag=pruefstichtag(stichtag))
+    wohnraum = set(
+        Vertrag.objects.filter(
+            pk__in={p.sollposten.vertrag_id for p in stand.posten},
+            einheiten__typ=Einheit.Typ.WOHNUNG,
+        ).values_list("pk", flat=True)
     )
+    grenze = bagatellgrenze()
     ergebnis: dict[int, Lage] = {}
-    for p in posten:
+    for offen in stand.posten:
+        p = offen.sollposten
+        if p.vertrag_id in wohnraum:
+            continue
         lage = ergebnis.get(p.vertrag_id)
         if lage is None:
-            lage = ergebnis[p.vertrag_id] = Lage(vertrag=p.vertrag)
+            lage = ergebnis[p.vertrag_id] = Lage(vertrag=p.vertrag, grenze=grenze)
         lage.posten.append(p)
     for lage in ergebnis.values():
+        lage.posten.sort(key=lambda p: (p.faellig_am, p.von, p.pk))
         lage.monatsmiete = _monatsmiete(lage.vertrag, stichtag, lage.posten)
-    return ergebnis
+    return dict(sorted(ergebnis.items(), key=lambda e: e[1].vertrag.nummer))
 
 
 def lage_von(vertrag: Vertrag, stichtag: datetime.date) -> Lage:
@@ -386,8 +426,10 @@ def lage_von(vertrag: Vertrag, stichtag: datetime.date) -> Lage:
 def ausloeser_erfuellt(
     stufe: Mahnstufe, lage: Lage, fall: Mahnfall | None, stichtag: datetime.date
 ) -> bool:
-    """Ob der Auslöser einer Stufe am Stichtag erfüllt ist."""
-    if not lage.posten:
+    """Ob der Auslöser einer Stufe am Stichtag erfüllt ist. Ein Rückstand unter der
+    Bagatellgrenze löst nie eine Stufe aus; Tage nach Fälligkeit zählen ab der Fälligkeit,
+    mit der die Grenze erreicht ist (``Lage.massgebliche_faelligkeit``)."""
+    if not lage.posten or lage.ist_bagatelle:
         return False
     wert = stufe.ausloeser_wert
     art = stufe.ausloeser
@@ -395,8 +437,8 @@ def ausloeser_erfuellt(
     if art == Mahnstufe.Ausloeser.TAGE_NACH_VORSTUFE and vorstufe is not None:
         return (stichtag - vorstufe).days >= wert
     if art in (Mahnstufe.Ausloeser.TAGE_NACH_FAELLIGKEIT, Mahnstufe.Ausloeser.TAGE_NACH_VORSTUFE):
-        aelteste = lage.aelteste_faelligkeit
-        return aelteste is not None and (stichtag - aelteste).days >= wert
+        ab = lage.massgebliche_faelligkeit
+        return ab is not None and (stichtag - ab).days >= wert
     if art == Mahnstufe.Ausloeser.OFFENE_MONATSMIETEN:
         return lage.offene_monatsmieten >= wert
     if art == Mahnstufe.Ausloeser.RUECKSTAND_MONATSMIETEN:

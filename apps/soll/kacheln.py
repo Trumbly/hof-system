@@ -1,21 +1,25 @@
-"""Kachel „Offene Posten“ im Hof-Cockpit: Zahl, Summe und überfällige Sollposten."""
+"""Kachel „Offene Posten“ im Hof-Cockpit: Zahl, Summe und überfällige Sollposten.
+
+Alle Zahlen kommen aus ``services.offen()`` (Review 1, Punkt 1): „überfällig“ ist dieselbe
+Menge wie auf der Seite Offene Posten mit Filter „überfällig“ und wie die Rückstände
+(geprüft und nicht prüfbar zusammen).
+"""
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 from apps.soll import services
 
 
 def offene_posten_kontext() -> dict[str, Any]:
-    heute = services.heute()
-    posten = services.offene_posten()
-    liste = list(posten)
+    alle = services.offen()
+    ueberfaellig = services.offen(stichtag=services.heute())
     return {
-        "anzahl": len(liste),
-        "summe": sum((p.offen for p in liste), Decimal("0.00")),
-        "ueberfaellig": sum(1 for p in liste if p.faellig_am < heute),
+        "anzahl": alle.anzahl,
+        "summe": alle.summe_offen,
+        "ueberfaellig": ueberfaellig.anzahl,
+        "summe_ueberfaellig": ueberfaellig.summe_offen,
     }
 
 

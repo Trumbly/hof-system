@@ -13,7 +13,10 @@
   gezahlt ist; der Abgleich ruft es auf.
 - ``offen(vertrag, stichtag)`` ist die eine Wahrheit für „offen“ (Review 1, Punkt 1): offene
   Posten mit Soll, bezahlt und offen und die Summen. Wer einen offenen Betrag nennt, liest
-  ihn dort.
+  ihn dort (Seiten mit Filter über ``offen_abfrage``).
+- Die Sollstellung beginnt je Vertrag am Stichtag des Umzugs (``soll_ab``). Was davor im
+  alten System offen war, ist ein Posten „Vortrag“ je Vertrag (``vortrag_setzen``, aus dem
+  Import oder von Hand).
 
 Meldungen nennen Vertragsnummer, NW-ID und Posten-ID, keine Namen und keine Beträge.
 """
@@ -31,7 +34,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models import Max, QuerySet, Sum
+from django.db.models import Count, F, Max, QuerySet, Sum
 from django.utils import timezone
 
 from apps.kern import services as kern
@@ -441,6 +444,89 @@ def sollposten_stornieren(
     return posten
 
 
+# --- Vortrag aus dem alten System (Review 1, Punkt 1) --------------------------------
+
+GRUND_VORTRAG = "Vortrag geändert"
+
+
+def vortrag(vertrag: Vertrag) -> Sollposten | None:
+    """Der geltende Vortrag des Vertrags (offen, teilweise oder ganz bezahlt), sonst None."""
+    return (
+        Sollposten.objects.filter(vertrag=vertrag, art=Sollposten.Art.VORTRAG, status__in=GELTEND)
+        .order_by("-von", "-pk")
+        .first()
+    )
+
+
+def vortrag_setzen(
+    vertrag: Vertrag,
+    betrag: Decimal,
+    *,
+    faellig_am: datetime.date | None = None,
+    am: datetime.date | None = None,
+) -> Sollposten | None:
+    """Setzt, was beim Umzug aus dem alten System offen war: ein Posten „Vortrag“ je Vertrag.
+
+    - Die Sollstellung des Hof-Systems beginnt am Stichtag des Umzugs (``soll_ab``: Sollregel
+      des Vertrags, sonst ``HOF_SOLL_BEGINN``). Ohne diesen Stichtag oder bei einem Vertrag,
+      der erst am Stichtag oder später beginnt, gibt es keinen Vortrag (``SollFehler``).
+    - Zeitraum des Postens ist der Stichtag selbst (``von = bis = soll_ab``), fällig ist er
+      am Stichtag (oder ``faellig_am``). Damit liegt er im Abgleich und ist ab dem Tag nach
+      dem Stichtag überfällig, wie jeder Rückstand.
+    - Idempotent: Gleicher Betrag und gleiche Fälligkeit ändern nichts. Ein anderer Betrag
+      storniert den offenen Vortrag und legt einen neuen an (``ersetzt``); ``betrag = 0``
+      storniert ihn nur. Ist auf den Vortrag schon gezahlt, ändert sich nichts
+      (``SollFehler``): erst die Zahlung lösen.
+
+    Rückgabe: der geltende Vortrag, bei ``betrag = 0`` None. Meldungen nennen nur IDs.
+    """
+    stichtag = soll_ab(vertrag)
+    if stichtag is None:
+        raise SollFehler(
+            f"Vertrag {vertrag.nummer}: Ohne Stichtag des Umzugs (HOF_SOLL_BEGINN oder "
+            "Sollregel) gibt es keinen Vortrag."
+        )
+    if vertrag.beginn >= stichtag:
+        raise SollFehler(
+            f"Vertrag {vertrag.nummer} beginnt erst am Stichtag des Umzugs oder später; "
+            "er hat keinen Vortrag."
+        )
+    if betrag < 0:
+        raise SollFehler(f"Vertrag {vertrag.nummer}: Der Vortrag ist nie negativ.")
+    betrag = betrag.quantize(rechnung.CENT)
+    faellig_am = faellig_am or stichtag
+    with transaction.atomic():
+        alt = vortrag(vertrag)
+        if alt is not None:
+            if alt.betrag == betrag and alt.faellig_am == faellig_am and alt.von == stichtag:
+                return alt
+            if alt.bezahlt > 0:
+                raise SollFehler(
+                    f"Vertrag {vertrag.nummer}: Auf den Vortrag (Posten #{alt.pk}) ist schon "
+                    "gezahlt. Erst die Zahlung lösen."
+                )
+            _stornieren(alt, GRUND_VORTRAG, am or heute())
+        if betrag == 0:
+            return None
+        posten = Sollposten(
+            vertrag=vertrag,
+            art=Sollposten.Art.VORTRAG,
+            quelle=Sollposten.Quelle.UEBERNAHME,
+            von=stichtag,
+            bis=stichtag,
+            netto=betrag,
+            steuersatz=Decimal("0.00"),
+            steuer=Decimal("0.00"),
+            betrag=betrag,
+            faellig_am=faellig_am,
+            bezeichnung=f"offen im alten System zum {stichtag:%d.%m.%Y}",
+            ersetzt=alt,
+        )
+        posten.save()
+    logger.info("Vortrag für Vertrag %s gesetzt (Posten #%s)", vertrag.nummer, posten.pk)
+    return posten
+
+
 def zahlungsstand_setzen(posten: Sollposten, bezahlt: Decimal) -> Sollposten:
     """Erweiterungsstelle für den Abgleich (Schritt 6): wie viel auf den Posten gezahlt ist.
 
@@ -460,23 +546,6 @@ def zahlungsstand_setzen(posten: Sollposten, bezahlt: Decimal) -> Sollposten:
         posten.status = Sollposten.Status.TEILWEISE
     posten.save(update_fields=["bezahlt", "status"])
     return posten
-
-
-# --- Lesen ---------------------------------------------------------------------------
-
-
-def offene_posten(vertrag: Vertrag | None = None) -> QuerySet[Sollposten]:
-    """Offene und teilweise bezahlte Posten, nach Fälligkeit."""
-    qs = Sollposten.objects.filter(
-        status__in=(Sollposten.Status.OFFEN, Sollposten.Status.TEILWEISE)
-    ).select_related("vertrag")
-    if vertrag is not None:
-        qs = qs.filter(vertrag=vertrag)
-    return qs.order_by("faellig_am", "vertrag__nummer", "art", "pk")
-
-
-def summe_offen(posten: QuerySet[Sollposten]) -> Decimal:
-    return sum((p.offen for p in posten), Decimal("0.00"))
 
 
 # --- Eine Wahrheit für „offen“ (Review 1, Punkt 1) -----------------------------------
@@ -504,9 +573,20 @@ class OffenerPosten:
         return self.sollposten.vertrag
 
     @property
+    def faellig_am(self) -> datetime.date:
+        return self.sollposten.faellig_am
+
+    def alter(self, stichtag: datetime.date) -> int:
+        """Tage seit der Fälligkeit am ``stichtag`` (Altersklassen der Rückstände)."""
+        return (stichtag - self.sollposten.faellig_am).days
+
+    @property
     def monat(self) -> str:
-        """„10/2026“ bei einem Posten innerhalb eines Monats, sonst der Zeitraum."""
+        """„10/2026“ bei einem Posten innerhalb eines Monats, sonst der Zeitraum; beim Vortrag
+        „bis 30.06.2026“ (der Tag vor dem Stichtag des Umzugs)."""
         p = self.sollposten
+        if p.art == Sollposten.Art.VORTRAG:
+            return f"bis {p.von - datetime.timedelta(days=1):%d.%m.%Y}"
         if (p.von.year, p.von.month) == (p.bis.year, p.bis.month):
             return f"{p.von:%m/%Y}"
         return p.zeitraum_text
@@ -578,11 +658,46 @@ class Offen:
         }
 
 
+#: Reihenfolge der offenen Posten: Fälligkeit, Vertragsnummer, Zeitraum, Art, ID.
+REIHENFOLGE = ("faellig_am", "vertrag__nummer", "von", "art", "pk")
+OFFENE_STATUS = (Sollposten.Status.OFFEN, Sollposten.Status.TEILWEISE)
+
+
+def offen_abfrage(
+    vertrag: Vertrag | None = None, stichtag: datetime.date | None = None
+) -> QuerySet[Sollposten]:
+    """Die Posten von ``offen()`` als Abfrage, für Seiten, die weiter filtern und summieren
+    (Offene Posten: Filter, Zählen und Summe über alle Treffer). Gleiche Regeln wie
+    ``offen()``; die Summe offen ist ``Sum(betrag - bezahlt)``."""
+    # Spät importiert: ``abgleich`` importiert ``soll`` (Ring beim Laden).
+    from apps.abgleich import services as abgleich
+
+    qs = Sollposten.objects.filter(status__in=OFFENE_STATUS).select_related("vertrag")
+    anfang = abgleich.beginn()
+    if anfang is not None:
+        qs = qs.filter(bis__gte=anfang)
+    if vertrag is not None:
+        qs = qs.filter(vertrag=vertrag)
+    if stichtag is not None:
+        qs = qs.filter(faellig_am__lt=stichtag)
+    return qs
+
+
+def summen(qs: QuerySet[Sollposten]) -> tuple[int, Decimal]:
+    """Anzahl und Summe offen einer Abfrage von Sollposten (stornierte zählen nicht)."""
+    werte = qs.exclude(status=Sollposten.Status.STORNIERT).aggregate(
+        anzahl=Count("pk"), offen=Sum(F("betrag") - F("bezahlt"))
+    )
+    return int(werte["anzahl"] or 0), werte["offen"] or NULL
+
+
 def offen(vertrag: Vertrag | None = None, stichtag: datetime.date | None = None) -> Offen:
     """Die eine Wahrheit für „offen“ (Review 1, Punkt 1): offene Posten und Summen.
 
-    Gemeinsame Schnittstelle für alles, was einen offenen Betrag nennt (heute die Schreiben
-    des Mahnwesens; Cockpit, Offene Posten, Rückstände, Mahnlauf und Status-MCP folgen).
+    Gemeinsame Schnittstelle für alles, was einen offenen Betrag nennt: Cockpit (Kacheln
+    Offene Posten und Rückstand), Seite Offene Posten, ``abgleich.rueckstaende`` (und damit
+    der Status-MCP), Saldo im Mietkonto und Vertragskopf, Auslöser des Mahnlaufs
+    (``mahnwesen.lagen``) und die Schreiben des Mahnwesens (``mahnwesen.forderung``).
 
     - ``vertrag``: nur dieser Vertrag; ``None`` alle Verträge.
     - ``stichtag``: nur Posten, die **vor** dem Stichtag fällig waren (Rückstand am
@@ -590,7 +705,8 @@ def offen(vertrag: Vertrag | None = None, stichtag: datetime.date | None = None)
       offenen Posten, auch künftig fällige.
     - Gezählt werden Posten im Status „offen“ und „teilweise bezahlt“, deren Zeitraum nicht
       vor dem Beginn des Abgleichs endet (``abgleich.services.beginn()``): Davor führt das
-      alte System die Zahlungen.
+      alte System die Zahlungen. Was dort beim Umzug offen war, steht als ein Posten
+      „Vortrag“ je Vertrag am Stichtag des Umzugs (``vortrag_setzen``).
     - ``bezahlt`` je Posten kommt aus ``Sollposten.bezahlt``, das der Abgleich über
       ``zahlungsstand_setzen`` aus den gültigen Zuordnungen pflegt. ``soll`` hängt deshalb
       nicht von ``abgleich`` ab, außer beim Beginn und beim Guthaben (spät importiert, weil
@@ -600,22 +716,12 @@ def offen(vertrag: Vertrag | None = None, stichtag: datetime.date | None = None)
     Reihenfolge: Fälligkeit, Vertragsnummer, Zeitraum, Art, ID.
     """
     # Spät importiert: ``abgleich`` importiert ``soll`` (Ring beim Laden).
-    from apps.abgleich import services as abgleich
     from apps.abgleich.models import Guthaben
 
-    qs = Sollposten.objects.filter(
-        status__in=(Sollposten.Status.OFFEN, Sollposten.Status.TEILWEISE)
-    ).select_related("vertrag")
-    anfang = abgleich.beginn()
-    if anfang is not None:
-        qs = qs.filter(bis__gte=anfang)
-    if vertrag is not None:
-        qs = qs.filter(vertrag=vertrag)
-    if stichtag is not None:
-        qs = qs.filter(faellig_am__lt=stichtag)
+    qs = offen_abfrage(vertrag, stichtag)
     posten = [
         OffenerPosten(sollposten=p, soll=p.betrag, bezahlt=p.bezahlt, offen=p.offen)
-        for p in qs.order_by("faellig_am", "vertrag__nummer", "von", "art", "pk")
+        for p in qs.order_by(*REIHENFOLGE)
         if p.offen > 0
     ]
     guthaben_qs = Guthaben.objects.filter(storniert_am__isnull=True, aufgeloest_am__isnull=True)

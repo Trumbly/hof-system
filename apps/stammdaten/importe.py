@@ -332,6 +332,35 @@ def _partei_finden_oder_anlegen(
     return partei
 
 
+def _vortrag_importieren(
+    vertrag: Vertrag,
+    zeile: dict[str, str],
+    abschnitt: dict[str, Any],
+    kennung: str,
+    bericht: Bericht,
+) -> None:
+    """Spalte „Offener Saldo“ (optional): der Vortrag aus dem alten System (Review 1, Punkt 1).
+    Der Bericht nennt nur Zähler und NW-IDs, keine Beträge."""
+    text = zeile.get("vortrag", "")
+    if not text:
+        return
+    betrag = _betrag(text, abschnitt)
+    if betrag is None or betrag < 0:
+        bericht.abweichung("vortrag_unlesbar", kennung)
+        return
+    if betrag == 0:
+        return
+    # Spät importiert: ``soll`` importiert die Stammdaten.
+    from apps.soll import services as soll
+
+    try:
+        soll.vortrag_setzen(vertrag, betrag)
+    except soll.SollFehler:
+        bericht.abweichung("vortrag_ohne_stichtag", kennung)
+        return
+    bericht.zaehler["vortraege"] += 1
+
+
 def _vertrag_importieren(
     zeile: dict[str, str],
     nummer: int,
@@ -398,6 +427,7 @@ def _vertrag_importieren(
                     pauschale=pauschale,
                     grund="Import Mietverlauf",
                 )
+            _vortrag_importieren(vertrag, zeile, abschnitt, kennung, bericht)
     except services.StammdatenFehler:
         bericht.abweichung("einheit_belegt_oder_ungueltig", kennung, uebersprungen=True)
         return

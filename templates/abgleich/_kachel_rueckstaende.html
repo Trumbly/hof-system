@@ -1,1 +1,1 @@
-<li id="kachel-rueckstaende"><a class="kachel" href="{% url 'abgleich:rueckstaende' %}"><strong>{{ anzahl }}</strong> Verträge mit Rückstand · {{ summe|floatformat:"2g" }} €{% if in_klaerung %} · {{ in_klaerung }} in Klärung{% endif %}</a></li>
+<li id="kachel-rueckstaende"><a class="kachel" href="{% url 'abgleich:rueckstaende' %}"><strong>{{ anzahl }}</strong> Verträge mit Rückstand · {{ summe|floatformat:"2g" }} €{% if in_klaerung %} · {{ in_klaerung }} in Klärung{% endif %}{% if nicht_pruefbar %} · {{ nicht_pruefbar|floatformat:"2g" }} € nicht prüfbar{% endif %}</a></li>

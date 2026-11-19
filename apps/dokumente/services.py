@@ -152,6 +152,10 @@ class AnwaltBestaetigungFehlt(SchreibenFehler):
     """Eine Kündigung geht erst hinaus, wenn der Anwalt sie gesehen hat (Mahnwesen, H4.3)."""
 
 
+class BriefkopfUnvollstaendig(SchreibenFehler):
+    """Im Briefkopf fehlen Pflichtangaben des Absenders; nichts geht hinaus (Review 1, Punkt 4)."""
+
+
 # --- Vorlagen ------------------------------------------------------------------------
 
 
@@ -216,12 +220,28 @@ def vorlage_neue_version(vorlage: Vorlage) -> Vorlage:
 
 
 def vorlage_freigeben(
-    vorlage: Vorlage, benutzer: Benutzer, *, am: datetime.datetime | None = None
+    vorlage: Vorlage,
+    benutzer: Benutzer,
+    *,
+    freigegeben_von: str,
+    am: datetime.datetime | None = None,
 ) -> Vorlage:
     """Gibt einen Entwurf frei. Die bisher freigegebene Version desselben Namens wird
-    „abgelöst“; Schreiben behalten ihre Version."""
+    „abgelöst“; Schreiben behalten ihre Version.
+
+    ``freigegeben_von`` ist Pflicht (Review 1, Punkt 4): wer den Text inhaltlich freigibt,
+    als Name oder Kürzel. ``benutzer`` ist der angemeldete Benutzer, der klickt."""
     if vorlage.status != Vorlage.Status.ENTWURF:
         raise SchreibenFehler(f"Vorlage #{vorlage.pk} ist kein Entwurf.")
+    name = " ".join(freigegeben_von.split())
+    if not name:
+        raise SchreibenFehler(
+            "Bitte angeben, wer die Vorlage freigibt; ohne diese Angabe bleibt sie ein Entwurf."
+        )
+    if len(name) > 100:
+        raise SchreibenFehler("Die Angabe, wer freigibt, ist zu lang (höchstens 100 Zeichen).")
+    if not isinstance(benutzer, Benutzer) or not benutzer.is_active or benutzer.pk is None:
+        raise SchreibenFehler("Freigeben kann nur ein angemeldeter Benutzer.")
     vorlage_pruefen(vorlage.art, vorlage.text, vorlage.betreff)
     with transaction.atomic():
         for alt in Vorlage.objects.filter(
@@ -231,8 +251,11 @@ def vorlage_freigeben(
             alt.save(update_fields=["status"])
         vorlage.status = Vorlage.Status.FREIGEGEBEN
         vorlage.freigegeben_von = benutzer
+        vorlage.freigabe_durch = name
         vorlage.freigegeben_am = am or timezone.now()
-        vorlage.save(update_fields=["status", "freigegeben_von", "freigegeben_am"])
+        vorlage.save(
+            update_fields=["status", "freigegeben_von", "freigabe_durch", "freigegeben_am"]
+        )
     logger.info("Vorlage #%s freigegeben von Benutzer #%s", vorlage.pk, benutzer.pk)
     return vorlage
 
@@ -260,6 +283,80 @@ def absender() -> dict[str, str]:
     """Absenderangaben aus den Einstellungen (``DOKUMENTE["ABSENDER"]``)."""
     werte: Mapping[str, str] = settings.DOKUMENTE["ABSENDER"]
     return dict(werte)
+
+
+#: Pflichtangaben im Briefkopf jedes Schreibens (Review 1, Punkt 4) und wo sie stehen.
+ABSENDER_PFLICHT = ("name", "anschrift", "email")
+ABSENDER_ANGABEN = {
+    "name": "der Name des Absenders (HOF_ABSENDER_NAME)",
+    "anschrift": "die Anschrift des Absenders (HOF_ABSENDER_ANSCHRIFT)",
+    "email": "die E-Mail des Absenders (HOF_MAIL_ABSENDER)",
+    "telefon": "die Telefonnummer des Absenders (HOF_ABSENDER_TELEFON)",
+    "bank": "die Bankverbindung des Absenders (HOF_ABSENDER_BANK)",
+    "steuernummer": "die Steuernummer des Absenders (HOF_ABSENDER_STEUERNUMMER)",
+}
+#: So steht der Name in den Einstellungen, solange er nicht eingerichtet ist.
+NICHT_EINGERICHTET = "nicht eingerichtet"
+#: Ein Platzhalter des Briefkopfs, der immer gedruckt wird, und einer, der nur bedingt steht.
+_ABSENDER_PLATZHALTER = re.compile(r"\{\{\s*absender\.([a-z_]+)")
+_ABSENDER_BEDINGT = re.compile(r"\{%\s*if\s+absender\.([a-z_]+)")
+
+
+def briefkopf_luecken(werte: Mapping[str, str] | None = None) -> list[str]:
+    """Was im Briefkopf fehlt, als Satzteile („der Name des Absenders (…)“); leer, wenn er
+    vollständig ist.
+
+    Pflicht sind Name, Anschrift und E-Mail des Absenders und jede weitere Angabe, die der
+    freigegebene Briefkopf ohne ``{% if … %}`` druckt (etwa die Bankverbindung). Ein Name mit
+    „nicht eingerichtet“ (der Standard der Einstellungen) gilt als fehlend. Ohne
+    freigegebenen Briefkopf fehlt der Briefkopf selbst.
+    """
+    werte = absender() if werte is None else werte
+    try:
+        text = briefkopf().text
+        genutzt = set(_ABSENDER_PLATZHALTER.findall(text)) - set(_ABSENDER_BEDINGT.findall(text))
+        ohne_kopf = False
+    except VorlageNichtFreigegeben:
+        genutzt, ohne_kopf = set(), True
+    luecken = []
+    for schluessel in [*ABSENDER_PFLICHT, *sorted(genutzt - set(ABSENDER_PFLICHT))]:
+        if schluessel not in ABSENDER_ANGABEN:
+            continue
+        wert = str(werte.get(schluessel) or "").strip()
+        if not wert or (schluessel == "name" and NICHT_EINGERICHTET in wert.lower()):
+            luecken.append(ABSENDER_ANGABEN[schluessel])
+    if ohne_kopf:
+        luecken.append("ein freigegebener Briefkopf (Vorlage der Art „Briefkopf“)")
+    return luecken
+
+
+def _aufzaehlen(teile: Sequence[str]) -> str:
+    if len(teile) <= 1:
+        return "".join(teile)
+    return ", ".join(teile[:-1]) + " und " + teile[-1]
+
+
+def senden_gesperrt(schreiben: Schreiben) -> str:
+    """Warum sich ein Schreiben wegen des Briefkopfs nicht senden lässt, als ganzer Satz;
+    leer, wenn nichts dagegen spricht (Review 1, Punkt 4).
+
+    Gesperrt ist es, solange Pflichtangaben des Briefkopfs fehlen, und auch dann, wenn sie
+    beim Erzeugen fehlten: Das PDF trägt dann den unvollständigen Briefkopf."""
+    luecken = briefkopf_luecken()
+    if luecken:
+        satz = (
+            f"Senden ist gesperrt: Im Briefkopf fehlt {_aufzaehlen(luecken)}. Bitte in den "
+            "Einstellungen des Servers eintragen"
+        )
+        if schreiben.absender_luecken:
+            return satz + ", danach dieses Schreiben verwerfen und neu erzeugen."
+        return satz + "."
+    if schreiben.absender_luecken:
+        return (
+            "Senden ist gesperrt: Das PDF entstand mit unvollständigem Briefkopf (es fehlte "
+            f"{schreiben.absender_luecken}). Bitte dieses Schreiben verwerfen und neu erzeugen."
+        )
+    return ""
 
 
 def _anschriftfeld(kontext: Mapping[str, Any]) -> str:
@@ -397,6 +494,9 @@ def schreiben_erzeugen(
     heute = timezone.localdate()
     voll: dict[str, Any] = {"absender": absender(), **kontext, "datum": heute}
     kopf_html = _briefkopf_html(voll)
+    # Fehlt im Briefkopf etwas, entsteht das Schreiben trotzdem (Vorschau), lässt sich aber
+    # nicht senden (``senden_gesperrt``).
+    luecken = _aufzaehlen(briefkopf_luecken(voll["absender"]))
 
     with transaction.atomic():
         schreiben = Schreiben(
@@ -409,6 +509,7 @@ def schreiben_erzeugen(
             serie=serie,
             versandweg=versandweg,
             empfaenger_email=str(voll["empfaenger"].get("email") or "").strip(),
+            absender_luecken=luecken[:300],
         )
         schreiben.save()
         voll["zeichen"] = f"S-{schreiben.pk}"
@@ -671,6 +772,9 @@ def _sendebereit(schreiben: Schreiben, benutzer: Benutzer, *, anwalt_gesehen: bo
         raise SchreibenFehler(
             f"Schreiben #{schreiben.pk} ist {schreiben.get_status_display()}, nicht bereit."
         )
+    gesperrt = senden_gesperrt(schreiben)
+    if gesperrt:
+        raise BriefkopfUnvollstaendig(f"Schreiben #{schreiben.pk}: {gesperrt}")
     if braucht_anwalt(schreiben) and not anwalt_gesehen:
         raise AnwaltBestaetigungFehlt(
             f"Schreiben #{schreiben.pk}: {vorlagenarten.ANWALT_HINWEIS}. Erst bestätigen, "
