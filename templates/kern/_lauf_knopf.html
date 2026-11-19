@@ -1,0 +1,10 @@
+{% comment %} Knopf „jetzt ausführen“ für einen Lauf (Review 2, B16). In dev sofort, in prod erst
+   der Bestätigungsdialog. Variablen: name, titel, primaer; ausserhalb (Knopf auf einer anderen Seite als „Läufe“: nur die Meldung, keine Teile der Seite „Läufe“). {% endcomment %}
+{% load laeufe %}{% mit_bestaetigung as bestaetigen %}{% if bestaetigen %}
+<a class="knopf {% if primaer %}knopf-primaer{% else %}knopf-zweit knopf-klein{% endif %}" href="{% url 'kern:laeufe' %}?dialog=ausfuehren&amp;lauf={{ name }}" hx-get="{% url 'kern:laeufe' %}?dialog=ausfuehren&amp;lauf={{ name }}{% if ausserhalb %}&amp;ausserhalb=1{% endif %}" hx-target="#dialog-inhalt" aria-haspopup="dialog">{{ titel|default:"jetzt ausführen" }} …</a>
+{% else %}
+<form method="post" action="{% url 'kern:lauf_ausfuehren' %}" hx-post="{% url 'kern:lauf_ausfuehren' %}" hx-swap="none" hx-disabled-elt="find button">
+  {% csrf_token %}<input type="hidden" name="lauf" value="{{ name }}">{% if ausserhalb %}<input type="hidden" name="ausserhalb" value="1">{% endif %}
+  <button type="submit" class="knopf {% if primaer %}knopf-primaer{% else %}knopf-zweit knopf-klein{% endif %}" data-lauf="{{ name }}">{{ titel|default:"jetzt ausführen" }}</button>
+</form>
+{% endif %}

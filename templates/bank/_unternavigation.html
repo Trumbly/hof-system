@@ -1,5 +1,1 @@
-<nav class="filter" aria-label="Bank">
-  <a href="{% url 'bank:konten' %}"{% if request.resolver_match.url_name == 'konten' %} aria-current="page"{% endif %}>Konten</a> ·
-  <a href="{% url 'bank:umsaetze' %}"{% if request.resolver_match.url_name == 'umsaetze' %} aria-current="page"{% endif %}>Umsätze</a> ·
-  <a href="{% url 'bank:import' %}"{% if request.resolver_match.url_name == 'import' %} aria-current="page"{% endif %}>Import</a>
-</nav>
+{% load bausteine %}{% unternavigation "Bank" "bank:konten,bank:freigabe=Konten" "bank:umsaetze=Umsätze" "bank:import=Import" %}

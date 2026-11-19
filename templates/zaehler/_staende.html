@@ -1,0 +1,23 @@
+{% load bausteine %}{% comment %} Stände eines Zählers. Wird nach dem Speichern im Dialog ersetzt (oob). {% endcomment %}
+<div id="staende"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% karte "Stände" zahl=staende|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Datum</th><th class="zahl">Stand</th><th>Art</th><th>Foto</th><th>Vermerk</th></tr></thead>
+    <tbody>
+      {% for s in staende %}
+      <tr id="stand-{{ s.pk }}">
+        <td data-titel="Datum">{{ s.datum|date:"d.m.Y" }}</td>
+        <td data-titel="Stand" class="zahl">{{ s.stand_text|zahl }}</td>
+        <td data-titel="Art"><span>{% if s.ist_geschaetzt %}{% badge "geschaetzt" %}{% else %}{{ s.get_art_display }}{% endif %}{% if s.bei_uebergabe %} · bei {% if s.uebergabe %}<a href="{% url 'stammdaten:vertrag' s.uebergabe.vertrag_id %}">{{ s.uebergabe }}</a>{% else %}Übergabe{% endif %}{% endif %}</span></td>
+        <td data-titel="Foto">{% if s.foto %}<a href="{% url 'zaehler:foto' s.pk %}">Foto ansehen</a>{% else %}<span class="text-3">–</span>{% endif %}</td>
+        <td data-titel="Vermerk">{{ s.vermerk|default:"" }}</td>
+      </tr>
+      {% empty %}
+      {% include "bausteine/leer.html" with spalten=5 text="Noch keine Stände." hilfe="„Stand erfassen“ oben oder die Ablesung des Objekts am Handy." %}
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+</div>

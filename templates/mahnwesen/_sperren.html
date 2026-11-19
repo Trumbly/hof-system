@@ -1,0 +1,28 @@
+{% load bausteine %}{% comment %} Gültige und spätere Sperren. Wird nach „Sperre setzen“/„Aufheben“ ersetzt (oob). {% endcomment %}
+<div id="sperren-liste" class="stapel"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% url 'mahnwesen:sperren' as basis %}
+{% karte "Gültige Sperren" zahl=gueltig|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Vertrag</th><th>Einheit</th><th>Grund</th><th>gilt</th><th>Hinweis</th><th class="eng" aria-label="Aktion"></th></tr></thead>
+    <tbody>
+    {% for s in gueltig %}
+    <tr id="sperre-{{ s.pk }}">
+      <td data-titel="Vertrag"><a href="{% url 'stammdaten:vertrag' s.vertrag_id %}">{{ s.vertrag.nummer }}</a></td>
+      <td data-titel="Einheit">{% for e in s.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+      <td data-titel="Grund"><span>{{ s.get_grund_display }}{% if s.automatisch %} {% badge "neutral" "automatisch" %}{% endif %}</span></td>
+      <td data-titel="gilt">ab {{ s.von|date:"d.m.Y" }}{% if s.bis %} bis {{ s.bis|date:"d.m.Y" }}{% endif %}</td>
+      <td data-titel="Hinweis">{{ s.hinweis }}</td>
+      <td class="eng">{% if not s.automatisch %}<a class="knopf knopf-zweit knopf-klein" href="{{ basis }}?dialog=aufheben&amp;sperre={{ s.pk }}" hx-get="{{ basis }}?dialog=aufheben&amp;sperre={{ s.pk }}" hx-target="#dialog-inhalt" aria-haspopup="dialog">Aufheben</a>{% endif %}</td>
+    </tr>
+    {% empty %}{% include "bausteine/leer.html" with spalten=6 text="Keine Sperre gilt." %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+{% if spaeter %}
+{% karte "Später gültig" zahl=spaeter|length %}
+  <ul class="liste">{% for s in spaeter %}<li id="sperre-{{ s.pk }}"><span class="liste-haupt">{{ s.vertrag.nummer }} · {{ s.get_grund_display }}</span><span class="liste-neben">ab {{ s.von|date:"d.m.Y" }}</span></li>{% endfor %}</ul>
+{% endkarte %}
+{% endif %}
+</div>

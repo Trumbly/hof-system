@@ -14,10 +14,13 @@ from django.views.decorators.http import require_POST
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Abweichung, Buchungsanfrage, Einheitbild, Kennzahl
+from apps.kern.models import Lauf
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import Einheit, Kuendigung, Vertrag
 
 ANZAHL_BEHOBEN = 50
+#: Läufe der Anbindungen, mit letztem Ergebnis auf der Übersicht (R2-9).
+ANBINDUNG_LAEUFE = ("verwaltio_kennzahlen", "id_abgleich")
 
 
 @login_required
@@ -33,6 +36,11 @@ def uebersicht(request: HttpRequest) -> HttpResponse:
             "abweichungen_offen": Abweichung.objects.filter(behoben_am__isnull=True).count(),
             "im_katalog": len(services.katalog(heute)),
             "vermarktet": services.vermarktbare_einheiten(heute).count(),
+            "wohnraum": services.wohnraum_ueberblick(),
+            "laeufe": [
+                (name, Lauf.objects.filter(name=name).order_by("-gestartet_am", "-pk").first())
+                for name in ANBINDUNG_LAEUFE
+            ],
         },
     )
 

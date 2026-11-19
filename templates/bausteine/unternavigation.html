@@ -1,0 +1,4 @@
+{# Unternavigation eines Bereichs (Review 2, B11): {% unternavigation "Bank" "bank:konten=Konten" … %}. Eine Zeile Reiter, am Handy waagrecht scrollbar. #}
+<nav class="reiter unternavigation" aria-label="{{ beschriftung }}">
+  {% for r in reiter %}<a href="{{ r.url }}"{% if r.aktiv %} aria-current="page"{% endif %}>{{ r.titel }}</a>{% endfor %}
+</nav>

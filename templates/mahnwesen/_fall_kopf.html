@@ -1,0 +1,28 @@
+{% load bausteine %}{% comment %} Kopf eines Mahnfalls. Wird nach „Von Hand belegen“ ersetzt (oob). {% endcomment %}
+<div id="fall-kopf"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <header class="seitenkopf">
+    <div class="seitenkopf-text">
+      <p class="kopf-pfad"><a href="{% url 'mahnwesen:faelle' %}">Mahnfälle</a></p>
+      <h1>Mahnfall #{{ fall.pk }} · {{ fall.vertrag.nummer }} {% badge fall.status fall.get_status_display %}</h1>
+      <p class="seitenkopf-meta">{% for e in fall.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · eröffnet {{ fall.eroeffnet_am|date:"d.m.Y" }}{% if fall.geschlossen_am %} · erledigt {{ fall.geschlossen_am|date:"d.m.Y" }}{% endif %}</p>
+    </div>
+    <div class="seitenkopf-aktionen">
+      <a class="knopf knopf-zweit" href="{% url 'abgleich:mietkonto' fall.vertrag.pk %}">Mietkonto</a>
+      <a class="knopf knopf-zweit" href="{% url 'stammdaten:vertrag' fall.vertrag.pk %}">Vertrag</a>
+      <details class="menue">
+        <summary class="knopf knopf-zweit">mehr ▾</summary>
+        <ul class="menue-liste">
+          <li><a href="{% url 'mahnwesen:sperren' %}?dialog=sperre" hx-get="{% url 'mahnwesen:sperren' %}?dialog=sperre" hx-target="#dialog-inhalt">Sperre setzen</a></li>
+          <li><a href="{% url 'mahnwesen:kuendigen' fall.vertrag.pk %}">Ordentlich kündigen (H4.6)</a></li>
+        </ul>
+      </details>
+    </div>
+  </header>
+  {% if fall.sperrgrund %}<p class="hinweis-band hinweis-warnung" role="note">Gesperrt: {{ fall.sperrgrund }}</p>{% endif %}
+  <dl class="fakten">
+    <div class="fakt fakt-breit"><dt>Stufe</dt><dd>{{ fall.stufe.titel|default:"noch keine" }}</dd></div>
+    <div class="fakt"><dt>belegt am</dt><dd>{{ fall.stufe_belegt_am|date:"d.m.Y"|default:"noch nicht belegt" }}</dd></div>
+    <div class="fakt"><dt>nächste Stufe frühestens</dt><dd>{{ fall.naechste_stufe_fruehestens|date:"d.m.Y"|default:"–" }}</dd></div>
+    <div class="fakt"><dt>offene Posten</dt><dd>{{ posten|length }}</dd></div>
+  </dl>
+</div>

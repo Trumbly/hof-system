@@ -1,6 +1,10 @@
 """Seiten der Sollstellung: „Offene Posten“ als Gesamtliste mit Filter und je Vertrag.
 
 Gespeichert wird über ``services``; die Seiten prüfen nur die Eingaben.
+
+Neue Gestaltung (Review 2, C; R2-9): Fälligkeit, Posten von Hand und Stornieren sind Dialoge
+(``apps.kern.htmx``); nach dem Speichern wird die Seite des Vertrags ersetzt, die Meldung sagt
+mit Link, was passiert ist. Ohne JavaScript bleibt der alte Weg (POST, dann Umleitung).
 """
 
 from __future__ import annotations
@@ -14,8 +18,11 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from apps.kern import htmx, zahlen
 from apps.soll import services
 from apps.soll.forms import FilterForm, PostenForm, SollregelForm, StornoForm
 from apps.soll.models import Sollposten, Sollregel
@@ -80,8 +87,79 @@ def _formular(request: HttpRequest, aktion: str, klasse: type[forms.Form], **kw:
     return klasse(prefix=aktion, **kw)
 
 
+#: Dialoge der Seite je Vertrag: Aktion → (Titel, Knopf, Hinweis)
+DIALOGE: dict[str, tuple[str, str, str]] = {
+    "regel": (
+        "Fälligkeit und Beginn",
+        "Speichern und neu stellen",
+        "Gilt für diesen Vertrag statt des Standards. Offene Posten, die danach anders fällig "
+        "sind, werden storniert und neu gestellt.",
+    ),
+    "posten": (
+        "Posten von Hand",
+        "Posten anlegen",
+        "Kaution oder Sonstiges. Miete und Pauschale entstehen aus den Konditionen.",
+    ),
+}
+
+
+def _seite_kontext(vertrag: Vertrag, *, oob: bool = False) -> dict[str, Any]:
+    alle = list(Sollposten.objects.filter(vertrag=vertrag).order_by("-von", "art", "-pk"))
+    stand = services.offen(vertrag)
+    offen_ids = {p.sollposten.pk for p in stand.posten}
+    # Offene Posten vor dem Beginn des Abgleichs gehören dem alten System (Vortrag).
+    offen = [p for p in alle if p.pk in offen_ids]
+    return {
+        "vertrag": vertrag,
+        "einheiten": vertrag.einheiten.all(),
+        "offen": sorted(offen, key=lambda p: (p.faellig_am, p.art)),
+        "erledigt": [p for p in alle if p.pk not in offen_ids],
+        "summe_offen": stand.summe_offen,
+        "vortrag": services.vortrag(vertrag),
+        "faelligkeit": services.faelligkeitsregel(vertrag),
+        "soll_ab": services.soll_ab(vertrag),
+        "heute": services.heute(),
+        "basis": reverse("soll:vertrag", args=[vertrag.pk]),
+        "oob": oob,
+    }
+
+
+def _dialog(
+    request: HttpRequest, vertrag: Vertrag, aktion: str, form: forms.Form, url: str = ""
+) -> HttpResponse:
+    titel, knopf, hinweis = DIALOGE.get(aktion, ("Posten stornieren", "Stornieren", ""))
+    return render(
+        request,
+        "bausteine/dialog_formular.html",
+        {
+            "titel": f"{titel} · {vertrag.nummer}",
+            "form": form,
+            "url": url or reverse("soll:vertrag", args=[vertrag.pk]),
+            "aktion": aktion if aktion in DIALOGE else "",
+            "knopf": knopf,
+            "hinweis": hinweis,
+            "gefahr": aktion not in DIALOGE,
+        },
+    )
+
+
+def _erfolg(
+    request: HttpRequest, vertrag: Vertrag, text: str, anker: str = "offen"
+) -> HttpResponse:
+    url = reverse("soll:vertrag", args=[vertrag.pk])
+    if htmx.ist_htmx(request):
+        teil = render_to_string(
+            "soll/_vertrag.html", _seite_kontext(vertrag, oob=True), request=request
+        )
+        return htmx.erfolg(request, [teil], text, link=f"{url}#{anker}", link_text="ansehen")
+    messages.success(request, text)
+    return redirect(url)
+
+
 @login_required
 def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
+    """Offene Posten eines Vertrags; „Soll neu stellen“, Fälligkeit und Posten von Hand
+    (``?dialog=regel``, ``?dialog=posten``), Stornieren je Posten (``?dialog=storno&posten=``)."""
     vertrag = get_object_or_404(Vertrag.objects.select_related("mandant"), pk=pk)
     regel = Sollregel.objects.filter(vertrag=vertrag).first()
     regel_form = _formular(
@@ -94,17 +172,32 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
             "soll_ab": regel.soll_ab if regel else None,
         },
     )
-    posten_form = _formular(request, "posten", PostenForm)
+    posten_form = _formular(request, "posten", PostenForm, initial={"von": services.heute()})
+    formulare: dict[str, forms.Form] = {"regel": regel_form, "posten": posten_form}
+
+    if request.method == "GET" and (dialog := request.GET.get("dialog")):
+        if dialog == "storno":
+            posten = get_object_or_404(
+                Sollposten, pk=request.GET.get("posten") or 0, vertrag=vertrag
+            )
+            return _dialog(
+                request,
+                vertrag,
+                "storno",
+                StornoForm(),
+                reverse("soll:stornieren", args=[posten.pk]),
+            )
+        if dialog not in formulare:
+            raise Http404("Diese Aktion gibt es für diesen Vertrag nicht.")
+        return _dialog(request, vertrag, dialog, formulare[dialog])
 
     if request.method == "POST":
         aktion = request.POST.get("aktion", "")
         try:
             if aktion == "neu_stellen":
                 ergebnis = services.vertrag_geaendert(vertrag)
-                messages.success(
-                    request, f"Soll neu gestellt: {ergebnis.text() if ergebnis else ''}"
-                )
-                return redirect("soll:vertrag", vertrag.pk)
+                zusatz = f": {ergebnis.text()}" if ergebnis else ""
+                return _erfolg(request, vertrag, f"Soll für {vertrag.nummer} neu gestellt{zusatz}")
             if aktion == "regel":
                 if regel_form.is_valid():
                     d = regel_form.cleaned_data
@@ -115,12 +208,15 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
                         soll_ab=d["soll_ab"],
                         soll_ab_leeren=d["soll_ab"] is None,
                     )
-                    messages.success(request, "Gespeichert; das Soll ist neu gestellt.")
-                    return redirect("soll:vertrag", vertrag.pk)
+                    return _erfolg(
+                        request,
+                        vertrag,
+                        f"Fälligkeit für {vertrag.nummer} gespeichert; das Soll ist neu gestellt",
+                    )
             elif aktion == "posten":
                 if posten_form.is_valid():
                     d = posten_form.cleaned_data
-                    services.sollposten_anlegen(
+                    neu = services.sollposten_anlegen(
                         vertrag,
                         d["art"],
                         von=d["von"],
@@ -129,36 +225,35 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
                         faellig_am=d["faellig_am"],
                         bezeichnung=d["bezeichnung"],
                     )
-                    messages.success(request, "Posten angelegt.")
-                    return redirect("soll:vertrag", vertrag.pk)
+                    return _erfolg(
+                        request,
+                        vertrag,
+                        f"Posten #{neu.pk} ({neu.get_art_display()}, "
+                        f"{zahlen.euro(neu.betrag)}) für {vertrag.nummer} angelegt",
+                        anker=f"posten-{neu.pk}",
+                    )
             else:
                 raise Http404("Unbekannte Aktion")
         except services.SollFehler as fehler:
+            if htmx.ist_htmx(request) and aktion in formulare:
+                formulare[aktion].add_error(None, str(fehler))
+                return _dialog(request, vertrag, aktion, formulare[aktion])
             messages.error(request, str(fehler))
         else:
+            if htmx.ist_htmx(request) and aktion in formulare:
+                return _dialog(request, vertrag, aktion, formulare[aktion])
             messages.error(request, "Bitte die markierten Felder prüfen.")
 
-    alle = list(Sollposten.objects.filter(vertrag=vertrag).order_by("-von", "art", "-pk"))
-    stand = services.offen(vertrag)
-    offen_ids = {p.sollposten.pk for p in stand.posten}
-    # Offene Posten vor dem Beginn des Abgleichs gehören dem alten System (Vortrag).
-    offen = [p for p in alle if p.pk in offen_ids]
+    offen_formular = request.POST.get("aktion", "") if request.method == "POST" else ""
     return render(
         request,
         "soll/vertrag.html",
-        {
-            "vertrag": vertrag,
-            "einheiten": vertrag.einheiten.all(),
-            "offen": sorted(offen, key=lambda p: (p.faellig_am, p.art)),
-            "erledigt": [p for p in alle if p.pk not in offen_ids],
-            "summe_offen": stand.summe_offen,
-            "vortrag": services.vortrag(vertrag),
-            "faelligkeit": services.faelligkeitsregel(vertrag),
-            "soll_ab": services.soll_ab(vertrag),
-            "regel_form": regel_form,
-            "posten_form": posten_form,
-            "storno_form": StornoForm(),
-            "heute": services.heute(),
+        _seite_kontext(vertrag)
+        | {
+            "offenes_formular": formulare.get(offen_formular),
+            "offene_aktion": offen_formular,
+            "offener_titel": DIALOGE.get(offen_formular, ("", "", ""))[0],
+            "offener_knopf": DIALOGE.get(offen_formular, ("", "", ""))[1],
         },
     )
 
@@ -166,15 +261,36 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @require_POST
 def stornieren(request: HttpRequest, pk: int) -> HttpResponse:
-    posten = get_object_or_404(Sollposten, pk=pk)
+    posten = get_object_or_404(Sollposten.objects.select_related("vertrag"), pk=pk)
     form = StornoForm(request.POST)
     if not form.is_valid():
+        if htmx.ist_htmx(request):
+            return _dialog(
+                request,
+                posten.vertrag,
+                "storno",
+                form,
+                reverse("soll:stornieren", args=[posten.pk]),
+            )
         messages.error(request, "Ein Storno braucht einen Grund.")
-    else:
-        try:
-            services.sollposten_stornieren(posten, form.cleaned_data["grund"])
-        except services.SollFehler as fehler:
-            messages.error(request, str(fehler))
-        else:
-            messages.success(request, f"Posten #{posten.pk} storniert.")
-    return redirect("soll:vertrag", posten.vertrag_id)
+        return redirect("soll:vertrag", posten.vertrag_id)
+    try:
+        services.sollposten_stornieren(posten, form.cleaned_data["grund"])
+    except services.SollFehler as fehler:
+        if htmx.ist_htmx(request):
+            form.add_error(None, str(fehler))
+            return _dialog(
+                request,
+                posten.vertrag,
+                "storno",
+                form,
+                reverse("soll:stornieren", args=[posten.pk]),
+            )
+        messages.error(request, str(fehler))
+        return redirect("soll:vertrag", posten.vertrag_id)
+    return _erfolg(
+        request,
+        posten.vertrag,
+        f"Posten #{posten.pk} ({posten.get_art_display()} {posten.zeitraum_text}) storniert",
+        anker="erledigt",
+    )

@@ -1,4 +1,8 @@
-"""Seiten der Bank: Konten, Umsätze, Import und die Erneuerung der Bankfreigabe."""
+"""Seiten der Bank: Konten, Umsätze, Import und die Erneuerung der Bankfreigabe.
+
+Neue Gestaltung (Review 2, C; R2-9): Kontonamen statt IDs, Unternavigation als Reiter,
+„Erneut abrufen“ je Konto mit Enable Banking (``services.abruf_starten``), Meldungen mit Link.
+"""
 
 from __future__ import annotations
 
@@ -13,16 +17,20 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_http_methods
+from django.utils.html import format_html
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from apps.bank import enablebanking, importieren, services
 from apps.bank.importformat import FORMATE, VIVID_CSV
 from apps.bank.models import Bankabruf, Bankkonto, Bankumsatz
+from apps.kern import htmx
 from apps.kern import services as kern_services
 
 logger = logging.getLogger(__name__)
@@ -36,10 +44,7 @@ SITZUNG_IMPORT = "bank_import"
 # --- Konten --------------------------------------------------------------------------
 
 
-@login_required
-@require_GET
-def konten(request: HttpRequest) -> HttpResponse:
-    """Konten mit Saldo (Stand des letzten erfolgreichen Abrufs), letztem Abruf und Freigabe."""
+def _konten_zeilen() -> list[dict[str, Any]]:
     liste = Bankkonto.objects.select_related("mandant").order_by("-aktiv", "bezeichnung", "pk")
     zeilen = []
     heute = timezone.localdate()
@@ -55,24 +60,91 @@ def konten(request: HttpRequest) -> HttpResponse:
                 and freigabe.gueltig_bis
                 <= heute + datetime.timedelta(days=services.FREIGABE_VORLAUF_TAGE),
                 "umsaetze": konto.umsaetze.count(),
+                "abrufbar": konto.aktiv and konto.zugang == Bankkonto.Zugang.ENABLE_BANKING,
             }
         )
-    return render(request, "bank/konten.html", {"zeilen": zeilen, "heute": heute})
+    return zeilen
+
+
+@login_required
+@require_GET
+def konten(request: HttpRequest) -> HttpResponse:
+    """Konten mit Saldo (Stand des letzten erfolgreichen Abrufs), letztem Abruf und Freigabe."""
+    return render(
+        request,
+        "bank/konten.html",
+        {"zeilen": _konten_zeilen()},
+    )
+
+
+@login_required
+@require_POST
+@transaction.non_atomic_requests
+def abrufen(request: HttpRequest, pk: int) -> HttpResponse:
+    """„Erneut abrufen“: ruft ein Konto mit Enable Banking sofort ab (eigener Lauf)."""
+    konto = get_object_or_404(Bankkonto, pk=pk)
+    try:
+        ergebnis = services.abruf_starten(konto)
+    except services.BankFehler as fehler:
+        if htmx.ist_htmx(request):
+            return HttpResponse(htmx.toast(request, str(fehler), art="fehler"))
+        messages.error(request, str(fehler))
+        return redirect("bank:konten")
+    abruf = ergebnis.abruf
+    gelungen = abruf is not None and abruf.status == Bankabruf.Status.ERFOLGREICH
+    if gelungen and abruf is not None:
+        text = f"{konto.bezeichnung} abgerufen: {abruf.neu} neue Umsätze"
+        link, link_text = f"{reverse('bank:umsaetze')}?konto={konto.pk}", "Umsätze ansehen"
+    else:
+        grund = abruf.meldung if abruf is not None else ergebnis.lauf.get_status_display()
+        text = f"Abruf für {konto.bezeichnung} gescheitert: {grund}"
+        link, link_text = f"{reverse('kern:laeufe')}#lauf-{ergebnis.lauf.pk}", "Lauf ansehen"
+    if htmx.ist_htmx(request):
+        teil = render_to_string(
+            "bank/_konten.html", {"zeilen": _konten_zeilen(), "oob": True}, request=request
+        )
+        return htmx.erfolg(request, [teil], text, link=link, link_text=link_text)
+    stufe = messages.success if gelungen else messages.warning
+    stufe(request, format_html('{} · <a href="{}">{}</a>', text, link, link_text))
+    return redirect(f"{reverse('bank:konten')}#konto-{konto.pk}")
 
 
 # --- Umsätze -------------------------------------------------------------------------
 
 
+class KontoWahl(forms.ModelChoiceField):  # type: ignore[type-arg]
+    """Konten mit Namen statt „Bankkonto #3“."""
+
+    def label_from_instance(self, obj: Any) -> str:
+        return f"{obj.bezeichnung} ({obj.bank})"
+
+
 class UmsatzFilter(forms.Form):
-    konto = forms.ModelChoiceField(
-        Bankkonto.objects.order_by("bezeichnung"), required=False, empty_label="alle Konten"
+    suche = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Suche",
+        widget=forms.TextInput(
+            attrs={"type": "search", "placeholder": "Gegenpartei, Zweck oder IBAN"}
+        ),
     )
-    von = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
-    bis = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    konto = KontoWahl(
+        Bankkonto.objects.order_by("bezeichnung"),
+        required=False,
+        empty_label="alle Konten",
+        label="Konto",
+    )
+    von = forms.DateField(
+        required=False, label="von", widget=forms.DateInput(attrs={"type": "date"})
+    )
+    bis = forms.DateField(
+        required=False, label="bis", widget=forms.DateInput(attrs={"type": "date"})
+    )
     richtung = forms.ChoiceField(
-        choices=[("", "beide Richtungen"), *Bankumsatz.Richtung.choices], required=False
+        choices=[("", "beide Richtungen"), *Bankumsatz.Richtung.choices],
+        required=False,
+        label="Richtung",
     )
-    suche = forms.CharField(required=False, max_length=100, label="Suche")
 
 
 @login_required
@@ -103,7 +175,12 @@ def umsaetze(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "bank/umsaetze.html",
-        {"filter": filter_form, "seite": seite, "parameter": parameter.urlencode()},
+        {
+            "filter": filter_form,
+            "seite": seite,
+            "parameter": parameter.urlencode(),
+            "gefiltert": any(v for k, v in request.GET.items() if k != "seite"),
+        },
     )
 
 
@@ -111,9 +188,17 @@ def umsaetze(request: HttpRequest) -> HttpResponse:
 
 
 class ImportForm(forms.Form):
-    konto = forms.ModelChoiceField(Bankkonto.objects.order_by("bezeichnung"))
-    format = forms.ChoiceField(choices=[(n, n) for n in sorted(FORMATE)], initial=VIVID_CSV.name)
-    datei = forms.FileField(label="CSV-Datei")
+    konto = KontoWahl(Bankkonto.objects.order_by("bezeichnung"), label="Konto")
+    format = forms.ChoiceField(
+        label="Format der Datei",
+        choices=[(n, n) for n in sorted(FORMATE)],
+        initial=VIVID_CSV.name,
+    )
+    datei = forms.FileField(
+        label="CSV-Datei",
+        widget=forms.ClearableFileInput(attrs={"accept": ".csv,text/csv"}),
+        help_text="Höchstens 5 MB. Der Probelauf zählt nur und ändert nichts.",
+    )
 
 
 @login_required
@@ -144,7 +229,17 @@ def import_seite(request: HttpRequest) -> HttpResponse:
             meldung="; ".join(bericht.zeilen_text()),
         )
         del request.session[SITZUNG_IMPORT]
-        messages.success(request, f"Import ausgeführt: {bericht.neu} neue Umsätze.")
+        messages.success(
+            request,
+            format_html(
+                'Import ausgeführt: {} neue Umsätze in {} · Lauf #{} · <a href="{}">Umsätze '
+                "ansehen</a>",
+                bericht.neu,
+                konto.bezeichnung,
+                lauf.pk,
+                f"{reverse('bank:umsaetze')}?konto={konto.pk}",
+            ),
+        )
         vorgemerkt = None
     elif request.method == "POST":
         form = ImportForm(request.POST, request.FILES)
@@ -174,10 +269,18 @@ def import_seite(request: HttpRequest) -> HttpResponse:
                         "pruefsumme": hashlib.sha256(inhalt.encode()).hexdigest(),
                     }
                     request.session[SITZUNG_IMPORT] = vorgemerkt
+    vorgemerkt_konto = (
+        Bankkonto.objects.filter(pk=vorgemerkt["konto"]).first() if vorgemerkt else None
+    )
     return render(
         request,
         "bank/import.html",
-        {"form": form, "bericht": bericht, "vorgemerkt": vorgemerkt},
+        {
+            "form": form,
+            "bericht": bericht,
+            "vorgemerkt": vorgemerkt,
+            "vorgemerkt_konto": vorgemerkt_konto,
+        },
     )
 
 
@@ -186,7 +289,10 @@ def import_seite(request: HttpRequest) -> HttpResponse:
 
 class FreigabeVonHandForm(forms.Form):
     gueltig_bis = forms.DateField(
-        label="gültig bis", widget=forms.DateInput(attrs={"type": "date"})
+        label="gültig bis",
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Bis wann die Freigabe am hof-mac gilt (steht nach der TAN in der Banking-App).",
+        error_messages={"required": "Bitte angeben, bis wann die Freigabe gilt."},
     )
 
 
@@ -226,8 +332,16 @@ def freigabe(request: HttpRequest, pk: int) -> HttpResponse:
             neu = services.bankfreigabe_anlegen(
                 konto, gueltig_bis=von_hand.cleaned_data["gueltig_bis"]
             )
-            messages.success(request, f"Freigabe #{neu.pk} eingetragen.")
-            return redirect("bank:konten")
+            messages.success(
+                request,
+                format_html(
+                    'Freigabe für {} eingetragen, gilt bis {} · <a href="{}">Konten ansehen</a>',
+                    konto.bezeichnung,
+                    f"{neu.gueltig_bis:%d.%m.%Y}",
+                    f"{reverse('bank:konten')}#konto-{konto.pk}",
+                ),
+            )
+            return redirect(f"{reverse('bank:konten')}#konto-{konto.pk}")
     return render(
         request,
         "bank/freigabe.html",
@@ -262,7 +376,8 @@ def freigabe_rueckkehr(request: HttpRequest) -> HttpResponse:
     passend = [k for k in sitzung.konten if k.iban.replace(" ", "").upper() == konto.iban]
     if sitzung.konten and not passend:
         messages.error(
-            request, f"Die Freigabe enthält Konto #{konto.pk} nicht. Bitte erneut freigeben."
+            request,
+            f"Die Freigabe enthält das Konto {konto.bezeichnung} nicht. Bitte erneut freigeben.",
         )
         return redirect("bank:freigabe", pk=konto.pk)
     neu = services.bankfreigabe_anlegen(
@@ -271,5 +386,7 @@ def freigabe_rueckkehr(request: HttpRequest) -> HttpResponse:
         sitzung_id=sitzung.sitzung_id,
         eb_konto_uid=passend[0].uid if passend else None,
     )
-    messages.success(request, f"Freigabe #{neu.pk} gilt bis {neu.gueltig_bis:%d.%m.%Y}.")
-    return redirect("bank:konten")
+    messages.success(
+        request, f"Freigabe für {konto.bezeichnung} gilt bis {neu.gueltig_bis:%d.%m.%Y}."
+    )
+    return redirect(f"{reverse('bank:konten')}#konto-{konto.pk}")

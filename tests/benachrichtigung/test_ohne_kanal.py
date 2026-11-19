@@ -106,7 +106,8 @@ def test_uebersprungen_zaehlt_nirgends_als_gescheitert(angemeldet: Client) -> No
     assert eigene_kacheln.laeufe()["gescheitert"] == 0
 
     html = angemeldet.get(reverse("kern:laeufe")).content.decode()
-    assert 'class="status status-uebersprungen">übersprungen<' in html
+    # R2-9: Status als Badge (neutral) in der neuen Gestaltung
+    assert '<span class="badge badge-neutral">übersprungen</span>' in html
     start = angemeldet.get(reverse("kern:startseite")).content.decode()
     assert "status-uebersprungen" in start
 

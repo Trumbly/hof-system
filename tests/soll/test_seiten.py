@@ -27,8 +27,8 @@ def test_offene_posten_je_vertrag(neuer_vertrag: VertragBauer, angemeldet: Clien
     url = reverse("soll:vertrag", args=[vertrag.pk])
     html = angemeldet.get(url).content.decode()
     assert 'name="viewport"' in html
-    assert 'class="karten sollposten"' in html and 'data-titel="fällig"' in html
-    assert "85,00 €</strong> in 1 Posten" in html
+    assert 'class="tab tab-karten sollposten"' in html and 'data-titel="fällig"' in html
+    assert "85,00\u00a0€</strong> in 1 Posten" in html
     assert f'id="posten-{november.pk}"' in html
     assert "04.11.2026" in html
     assert "3. Werktag des Monats" in html
@@ -49,7 +49,7 @@ def test_gesamtliste_mit_filter(neuer_vertrag: VertragBauer, angemeldet: Client)
 
     html = angemeldet.get(liste).content.decode()
     assert a.nummer in html and b.nummer in html
-    assert "2 Posten" in html and "125,00 €" in html
+    assert "2 Posten" in html and "125,00\u00a0€" in html
 
     html = angemeldet.get(liste, {"suche": a.nummer}).content.decode()
     assert "1 Posten" in html and b.nummer not in html

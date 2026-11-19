@@ -1,0 +1,38 @@
+{% load bausteine %}{% comment %} Kopf der Zählerseite. Wird nach jedem Speichern im Dialog ersetzt (oob). {% endcomment %}
+<div id="zaehler-kopf"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <header class="seitenkopf">
+    <div class="seitenkopf-text">
+      <p class="kopf-pfad"><a href="{% url 'zaehler:uebersicht' %}">Zähler</a> / {{ zaehler.standort_objekt.kuerzel }}</p>
+      <h1>{{ zaehler.get_art_display }} {{ zaehler.nummer }}{% if not zaehler.ist_eingebaut %} {% badge "neutral" "ausgebaut" %}{% endif %}</h1>
+      <p class="seitenkopf-meta">
+        {% if zaehler.einheit %}Einheit <a href="{% url 'stammdaten:einheit' zaehler.einheit.pk %}">{{ zaehler.einheit.nw_id }}</a>{% else %}Hauptzähler · {{ zaehler.ort }}{% endif %}{% if zaehler.bezeichnung %} · {{ zaehler.bezeichnung }}{% endif %}
+      </p>
+    </div>
+    <div class="seitenkopf-aktionen">
+      {% if zaehler.ist_eingebaut %}
+      <a class="knopf knopf-zweit" href="{% url 'zaehler:ablesung' zaehler.standort_objekt.pk %}#zaehler-{{ zaehler.pk }}">Ablesung {{ zaehler.standort_objekt.kuerzel }}</a>
+      <a class="knopf knopf-primaer" href="{{ basis }}?dialog=stand" hx-get="{{ basis }}?dialog=stand" hx-target="#dialog-inhalt" aria-haspopup="dialog">Stand erfassen</a>
+      {% endif %}
+      <details class="menue">
+        <summary class="knopf knopf-zweit">mehr ▾</summary>
+        <ul class="menue-liste">
+          <li><a href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">Stammfelder ändern</a></li>
+          {% if zaehler.ist_eingebaut %}<li><a href="{{ basis }}?dialog=wechsel" hx-get="{{ basis }}?dialog=wechsel" hx-target="#dialog-inhalt">Zähler wechseln</a></li>{% endif %}
+          <li><a href="{% url 'kern:protokoll' %}?bezug=zaehler.zaehler:{{ zaehler.pk }}">Verlauf im Protokoll</a></li>
+        </ul>
+      </details>
+    </div>
+  </header>
+
+  {% if not zaehler.ist_eingebaut %}
+  <p class="hinweis-band hinweis-warnung" role="note">Ausgebaut am {{ zaehler.ausgebaut_am|date:"d.m.Y" }}.{% if zaehler.nachfolger %} Nachfolger: <a href="{% url 'zaehler:zaehler' zaehler.nachfolger.pk %}">{{ zaehler.nachfolger.nummer }}</a>.{% endif %}</p>
+  {% endif %}
+  {% if vorgaenger %}<p class="hinweis-band" role="note">Ersetzt Zähler <a href="{% url 'zaehler:zaehler' vorgaenger.pk %}">{{ vorgaenger.nummer }}</a> (ausgebaut am {{ vorgaenger.ausgebaut_am|date:"d.m.Y" }}).</p>{% endif %}
+
+  <dl class="fakten">
+    <div class="fakt fakt-breit"><dt>Stand zum {{ stichtag|date:"d.m.Y" }}</dt><dd>{% if stand_stichtag %}<span class="fakt-wert zahl">{{ stand_stichtag.stand_text|zahl }}</span>{% if stand_stichtag.ist_geschaetzt %} {% badge "geschaetzt" %}{% endif %}<span class="fakt-unter">am {{ stand_stichtag.datum|date:"d.m.Y" }}{% if not stand_stichtag.foto %} · ohne Foto{% endif %}</span>{% else %}<span class="text-fehler">fehlt</span>{% endif %}</dd></div>
+    <div class="fakt"><dt>Einbaudatum</dt><dd>{% if zaehler.einbaudatum %}{{ zaehler.einbaudatum|date:"d.m.Y" }}{% else %}<span class="text-fehler">fehlt</span>{% endif %}</dd></div>
+    <div class="fakt"><dt>Eichfrist bis</dt><dd>{% if zaehler.eichfrist_bis %}{{ zaehler.eichfrist_bis|date:"d.m.Y" }}{% else %}<span class="text-fehler">fehlt</span>{% endif %}</dd></div>
+    <div class="fakt"><dt>Stände</dt><dd>{{ staende|length }}</dd></div>
+  </dl>
+</div>

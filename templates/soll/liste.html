@@ -1,16 +1,31 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Offene Posten{% endblock %}
 
 {% block inhalt %}
-<h1>Offene Posten</h1>
-<form method="get" class="filter filter-soll">
-  {% for feld in form %}
-  <div><label for="{{ feld.id_for_label }}">{{ feld.label }}</label> {{ feld }}</div>
-  {% endfor %}
-  <button type="submit" class="zweitrangig">Filtern</button>
+{% seitenkopf "Offene Posten" "Sollposten aller Verträge im Hof-System. „offen“ und „überfällig“ zählen wie Cockpit, Rückstände und Mahnwesen." %}{% endseitenkopf %}
+
+<form method="get" class="filterleiste" role="search" aria-label="Offene Posten filtern">
+  {% feld form.suche breit=True %}
+  {% feld form.status %}
+  {% feld form.art %}
+  {% feld form.mandant %}
+  {% feld form.faellig_bis %}
+  <div class="filterleiste-knoepfe">
+    <button type="submit" class="knopf knopf-zweit">Filtern</button>
+    {% if request.GET %}<a class="knopf knopf-text" href="{% url 'soll:liste' %}">zurücksetzen</a>{% endif %}
+  </div>
 </form>
 
-<p class="leise">{{ anzahl }} Posten{% if abgeschnitten %} (angezeigt die ersten {{ grenze }}, bitte enger filtern){% endif %} · offen zusammen <strong>{{ summe_offen|floatformat:"2g" }} €</strong></p>
-{% include "soll/_tabelle.html" with mit_vertrag=True %}
+<div class="kennzahlen-reihe">
+  {% kennzahl "Posten" anzahl|zahl %}
+  {% kennzahl "Summe offen" summe_offen|euro %}
+</div>
+
+{% if abgeschnitten %}<p class="hinweis-band hinweis-warnung">{{ anzahl }} Posten (angezeigt die ersten {{ grenze }}, bitte enger filtern)</p>{% endif %}
+{% karte "Posten" zahl=anzahl %}
+  {% include "soll/_tabelle.html" with mit_vertrag=True %}
+{% endkarte %}
+<p class="text-2">{{ anzahl }} Posten · offen zusammen <strong>{{ summe_offen|euro }}</strong></p>
 {% endblock %}

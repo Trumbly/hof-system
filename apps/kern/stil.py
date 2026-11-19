@@ -70,6 +70,24 @@ class DialogForm(forms.Form):
         return tag
 
 
+class FilterBeispielForm(forms.Form):
+    """Filterleiste und Formular auf der Seite (R2-9); wird nie gespeichert."""
+
+    suche = forms.CharField(
+        label="Suche",
+        required=False,
+        widget=forms.TextInput(
+            attrs={"type": "search", "placeholder": "V-Nummer, NW-ID oder Name"}
+        ),
+    )
+    status = forms.ChoiceField(
+        label="Status", required=False, choices=[("", "alle"), ("offen", "offen")]
+    )
+    von = forms.DateField(
+        label="von", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+
 FARBEN = (
     ("Grund", "--grund"),
     ("Fläche", "--flaeche"),
@@ -173,6 +191,7 @@ def stilseite(request: HttpRequest) -> HttpResponse:
             "form": BeispielForm(prefix="beispiel"),
             "fehlerhaft": fehlerhaft,
             "fotos": FotoForm(),
+            "filter": FilterBeispielForm(prefix="filter"),
             "reiter": _reiter(reiter),
             "reiter_aktiv": reiter,
             "beispiele_zahlen": (

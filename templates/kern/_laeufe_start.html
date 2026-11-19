@@ -1,0 +1,20 @@
+{% load bausteine %}{% comment %} Läufe zum Starten (Review 2, B16). Wird nach dem Start ersetzt (oob). {% endcomment %}
+<div id="laeufe-start"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% aufklapper "Einzelne Läufe starten" zahl=startbar|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten" id="startbar">
+    <thead><tr><th>Lauf</th><th>läuft sonst</th><th>zuletzt</th><th class="eng" aria-label="Aktion"></th></tr></thead>
+    <tbody>
+    {% for s in startbar %}
+    <tr id="start-{{ s.name }}">
+      <td data-titel="Lauf"><strong>{{ s.name }}</strong></td>
+      <td data-titel="läuft sonst" class="text-2">{{ s.rhythmus }}</td>
+      <td data-titel="zuletzt">{% if s.letzter %}<span>{% badge s.letzter.status %} <a href="{% url 'kern:laeufe' %}#lauf-{{ s.letzter.pk }}">{{ s.letzter.gestartet_am|date:"d.m.Y H:i" }}</a></span>{% else %}<span class="text-3">noch nie</span>{% endif %}</td>
+      <td class="eng">{% include "kern/_lauf_knopf.html" with name=s.name titel="" primaer=False %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endaufklapper %}
+</div>

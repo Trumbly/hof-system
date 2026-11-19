@@ -169,6 +169,44 @@ def lauf_beenden(
     return lauf
 
 
+class LaufNichtGestartet(ValueError):
+    """Den Befehl gibt es nicht, oder er ist kein Lauf (``LaufBefehl``)."""
+
+
+def lauf_ausfuehren(befehl: str, **optionen: Any) -> Lauf:
+    """Führt einen Lauf sofort aus, wie der Timer auf dem Server (Review 2, B16: Knopf
+    „jetzt ausführen“; „Erneut abrufen“ an einem Bankkonto).
+
+    Rückgabe ist der Eintrag im Laufprotokoll. Bricht der Lauf ab, ist das kein Fehler
+    dieser Funktion: Er steht dann als „abgebrochen“ im Protokoll, seine Änderungen sind
+    zurückgerollt (``LaufBefehl``). Welche Läufe die Oberfläche anbietet, entscheidet sie
+    selbst (``apps.kern.views.ausfuehrbare_laeufe``).
+    """
+    from io import StringIO
+
+    from django.core.management import call_command, get_commands, load_command_class
+    from django.core.management.base import CommandError
+
+    from apps.kern.laeufe import LaufBefehl
+
+    app = get_commands().get(befehl)
+    if app is None:
+        raise LaufNichtGestartet(f"Den Lauf {befehl} gibt es nicht.")
+    instanz = load_command_class(app, befehl)
+    if not isinstance(instanz, LaufBefehl):
+        raise LaufNichtGestartet(f"{befehl} ist kein Lauf.")
+    try:
+        call_command(instanz, stdout=StringIO(), stderr=StringIO(), **optionen)
+    except CommandError:
+        # LaufBefehl hat den Abbruch schon im Laufprotokoll festgehalten.
+        logger.info("Lauf %s aus der Oberfläche abgebrochen", befehl)
+    lauf: Lauf | None = getattr(instanz, "lauf", None)
+    if lauf is None or lauf.pk is None:
+        raise LaufNichtGestartet(f"Der Lauf {befehl} ist nicht gestartet.")
+    lauf.refresh_from_db()
+    return lauf
+
+
 # --- Arbeitsposten -------------------------------------------------------------------
 
 

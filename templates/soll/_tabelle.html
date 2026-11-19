@@ -1,25 +1,21 @@
-<div class="tabelle-rahmen"><table class="karten sollposten">
-  <thead><tr>{% if mit_vertrag %}<th>Vertrag</th>{% endif %}<th>Art</th><th>Zeitraum</th><th>fällig</th><th class="zahl-rechts">Betrag</th><th class="zahl-rechts">offen</th><th>Status</th>{% if mit_storno %}<th>Aktion</th>{% endif %}</tr></thead>
+{% load bausteine %}{% comment %} Sollposten als Tabelle (am Handy Karten). mit_vertrag: Spalte Vertrag; mit_storno:
+   „Stornieren …“ als Dialog (basis: URL der Vertragsseite). {% endcomment %}
+<div class="tabelle-box"><table class="tab tab-karten sollposten">
+  <thead><tr>{% if mit_vertrag %}<th>Vertrag</th>{% endif %}<th>Art</th><th>Zeitraum</th><th>fällig</th><th class="zahl">Betrag</th><th class="zahl">offen</th><th>Status</th>{% if mit_storno %}<th class="eng" aria-label="Aktion"></th>{% endif %}</tr></thead>
   <tbody>
   {% for p in posten %}
-  <tr id="posten-{{ p.pk }}" class="posten-{{ p.status }}{% if p.offen and p.faellig_am < heute %} soll-ueberfaellig{% endif %}">
-    {% if mit_vertrag %}<td data-titel="Vertrag"><a href="{% url 'soll:vertrag' p.vertrag_id %}">{{ p.vertrag.nummer }}</a> <span class="leise">{% for e in p.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>{% endif %}
-    <td data-titel="Art">{{ p.get_art_display }}{% if p.bezeichnung %} <span class="leise">{{ p.bezeichnung }}</span>{% endif %}</td>
+  <tr id="posten-{{ p.pk }}" class="posten-{{ p.status }}{% if p.offen and p.faellig_am < heute %} zeile-markiert{% endif %}">
+    {% if mit_vertrag %}<td data-titel="Vertrag"><span><a href="{% url 'soll:vertrag' p.vertrag_id %}">{{ p.vertrag.nummer }}</a> <span class="text-3">{% for e in p.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></span></td>{% endif %}
+    <td data-titel="Art"><span>{{ p.get_art_display }}{% if p.bezeichnung %} <span class="text-3">{{ p.bezeichnung }}</span>{% endif %}</span></td>
     <td data-titel="Zeitraum">{{ p.zeitraum_text }}</td>
     <td data-titel="fällig">{{ p.faellig_am|date:"d.m.Y" }}</td>
-    <td data-titel="Betrag" class="zahl-rechts">{{ p.betrag }} €{% if p.steuer %} <span class="leise">inkl. {{ p.steuer }} € USt</span>{% endif %}</td>
-    <td data-titel="offen" class="zahl-rechts">{{ p.offen }} €</td>
-    <td data-titel="Status">{{ p.get_status_display }}{% if p.status == "storniert" %} <span class="leise">{{ p.storniert_am|date:"d.m.Y" }}</span>{% endif %}{% if p.ersetzt_id %} <span class="leise">ersetzt #{{ p.ersetzt_id }}</span>{% endif %}</td>
-    {% if mit_storno %}<td data-titel="Aktion">{% if p.status == "offen" and not p.bezahlt %}
-      <details><summary>Stornieren</summary>
-        <form method="post" action="{% url 'soll:stornieren' p.pk %}" class="formular">{% csrf_token %}
-          <p><label for="grund-{{ p.pk }}">Grund</label> <input id="grund-{{ p.pk }}" name="grund" maxlength="200" required></p>
-          <button type="submit" class="zweitrangig">Posten #{{ p.pk }} stornieren</button>
-        </form>
-      </details>{% endif %}</td>{% endif %}
+    <td data-titel="Betrag" class="zahl"><span>{{ p.betrag|euro }}{% if p.steuer %}<br><span class="text-3 klein">inkl. {{ p.steuer|euro }} USt</span>{% endif %}</span></td>
+    <td data-titel="offen" class="zahl">{{ p.offen|euro }}</td>
+    <td data-titel="Status"><span>{% if p.offen and p.faellig_am < heute %}{% badge "ueberfaellig" %}{% else %}{% badge p.status p.get_status_display %}{% endif %}{% if p.status == "storniert" %} <span class="text-3 klein">{{ p.storniert_am|date:"d.m.Y" }}</span>{% endif %}{% if p.ersetzt_id %} <span class="text-3 klein">ersetzt #{{ p.ersetzt_id }}</span>{% endif %}</span></td>
+    {% if mit_storno %}<td class="eng">{% if p.status == "offen" and not p.bezahlt %}<a class="knopf knopf-text knopf-klein" href="{{ basis }}?dialog=storno&amp;posten={{ p.pk }}" hx-get="{{ basis }}?dialog=storno&amp;posten={{ p.pk }}" hx-target="#dialog-inhalt" aria-haspopup="dialog">Stornieren …</a>{% endif %}</td>{% endif %}
   </tr>
   {% empty %}
-  <tr><td colspan="8">Keine Posten für diese Auswahl.</td></tr>
+  {% include "bausteine/leer.html" with spalten=8 text="Keine Posten für diese Auswahl." %}
   {% endfor %}
   </tbody>
 </table></div>

@@ -103,7 +103,7 @@ def test_jede_fehlende_oder_abweichende_id_steht_in_der_arbeitsliste(
     for nw_id in (g, s, lager, alt, "NW-G-0999", w2, "W-17"):
         assert nw_id in liste
     seite = angemeldet.get(reverse("anbindungen:abweichungen")).content.decode()
-    assert "Offen (9)" in seite
+    assert 'Offen <span class="zaehler">9</span>' in seite
 
 
 def test_behobene_abweichung_schliesst_sich_beim_naechsten_lauf(hof: dict[str, Einheit]) -> None:

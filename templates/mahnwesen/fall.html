@@ -1,65 +1,40 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Mahnfall #{{ fall.pk }}{% endblock %}
 
 {% block inhalt %}
-{% include "mahnwesen/_reiter.html" %}
-<h1>Mahnfall #{{ fall.pk }} <span class="leise">Vertrag {{ fall.vertrag.nummer }}</span></h1>
-<p class="leise">{% for e in fall.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · <a href="{% url 'abgleich:mietkonto' fall.vertrag.pk %}">Mietkonto</a> · <a href="{% url 'stammdaten:vertrag' fall.vertrag.pk %}">Vertrag</a> · <a href="{% url 'mahnwesen:kuendigen' fall.vertrag.pk %}">Ordentlich kündigen (H4.6)</a></p>
-<dl class="angaben">
-  <div><dt>Status</dt><dd class="status">{{ fall.get_status_display }}</dd></div>
-  {% if fall.sperrgrund %}<div><dt>gesperrt, weil</dt><dd class="faellig">{{ fall.sperrgrund }}</dd></div>{% endif %}
-  <div><dt>Stufe</dt><dd>{{ fall.stufe.titel|default:"noch keine" }}</dd></div>
-  <div><dt>belegt am</dt><dd>{{ fall.stufe_belegt_am|date:"d.m.Y"|default:"noch nicht belegt" }}</dd></div>
-  <div><dt>nächste Stufe frühestens</dt><dd>{{ fall.naechste_stufe_fruehestens|date:"d.m.Y"|default:"–" }}</dd></div>
-  <div><dt>eröffnet</dt><dd>{{ fall.eroeffnet_am|date:"d.m.Y" }}{% if fall.geschlossen_am %} · erledigt {{ fall.geschlossen_am|date:"d.m.Y" }}{% endif %}</dd></div>
-</dl>
+{% include "mahnwesen/_fall_kopf.html" %}
 
-<h2>Stufenverlauf</h2>
-<div class="tabelle-rahmen">
-<table class="tabelle">
-  <thead><tr><th>Stichtag</th><th>Stufe</th><th>Schreiben</th><th>belegt</th><th>Hinweis</th></tr></thead>
-  <tbody>
-  {% for s in schritte %}
-  <tr id="schritt-{{ s.pk }}">
-    <td>{{ s.stichtag|date:"d.m.Y" }}</td>
-    <td>{{ s.stufe.titel }}{% if s.stufe.anwalt_bestaetigung %}<br><span class="faellig">{{ anwalt_hinweis }}</span>{% endif %}</td>
-    <td>{% if s.schreiben %}<a href="{% url 'dokumente:schreiben' s.schreiben.pk %}">#{{ s.schreiben.pk }}</a> {{ s.schreiben.get_status_display }}{% elif s.probebetrieb %}<span class="status">Probebetrieb</span>{% else %}–{% endif %}</td>
-    <td>{% if s.belegt_am %}{{ s.belegt_am|date:"d.m.Y" }}{% elif s.abgebrochen_am %}<span class="leise">abgebrochen {{ s.abgebrochen_am|date:"d.m.Y" }}</span>{% else %}offen{% if s.stufe.einseitige_erklaerung %} <span class="leise">(mit Zustellnachweis)</span>{% endif %}{% endif %}</td>
-    <td>{{ s.hinweis }}{% if s.vermerk %}<br><span class="leise">{{ s.vermerk }}</span>{% endif %}
-      {% if s.offen and not s.schreiben %}
-      <details><summary>Von Hand belegen</summary>
-        <form method="post" class="formular">{% csrf_token %}<input type="hidden" name="schritt" value="{{ s.pk }}">{{ belegen.as_p }}<button type="submit">Belegt</button></form>
-      </details>
-      {% endif %}
-    </td>
-  </tr>
-  {% empty %}<tr><td colspan="5">Noch keine Stufe.</td></tr>{% endfor %}
-  </tbody>
-</table>
-</div>
+<div class="stapel">
+{% include "mahnwesen/_stufenverlauf.html" %}
 
-<h2>Offene Posten</h2>
-<div class="tabelle-rahmen">
-<table class="tabelle">
-  <thead><tr><th>Posten</th><th>fällig</th><th class="zahl">Betrag</th><th class="zahl">offen</th><th>Status</th></tr></thead>
-  <tbody>
-  {% for p in posten %}
-  <tr><td>{{ p.get_art_display }} {{ p.zeitraum_text }}</td><td>{{ p.faellig_am|date:"d.m.Y" }}</td><td class="zahl">{{ p.betrag|floatformat:"2g" }}</td><td class="zahl">{{ p.offen|floatformat:"2g" }}</td><td>{{ p.get_status_display }}</td></tr>
-  {% empty %}<tr><td colspan="5">Keine Posten.</td></tr>{% endfor %}
-  </tbody>
-</table>
-</div>
+{% url 'soll:vertrag' fall.vertrag.pk as offene_posten %}
+{% karte "Offene Posten" zahl=posten|length link=offene_posten link_text="alle Posten des Vertrags" %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Posten</th><th>fällig</th><th class="zahl">Betrag</th><th class="zahl">offen</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in posten %}
+    <tr><td data-titel="Posten">{{ p.get_art_display }} {{ p.zeitraum_text }}</td><td data-titel="fällig">{{ p.faellig_am|date:"d.m.Y" }}</td><td data-titel="Betrag" class="zahl">{{ p.betrag|euro }}</td><td data-titel="offen" class="zahl">{{ p.offen|euro }}</td><td data-titel="Status">{% badge p.status p.get_status_display %}</td></tr>
+    {% empty %}{% include "bausteine/leer.html" with spalten=5 text="Keine Posten." %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
 
-<h2>Sperren</h2>
-<ul>
-  {% for s in sperren %}<li>#{{ s.pk }} {{ s.get_grund_display }}{% if s.automatisch %} (automatisch){% endif %}: ab {{ s.von|date:"d.m.Y" }}{% if s.bis %} bis {{ s.bis|date:"d.m.Y" }}{% endif %}{% if s.aufgehoben_am %} · aufgehoben {{ s.aufgehoben_am|date:"d.m.Y" }}{% endif %}</li>
-  {% empty %}<li>Keine.</li>{% endfor %}
-</ul>
-<p><a href="{% url 'mahnwesen:sperren' %}">Sperre setzen oder aufheben</a></p>
+{% url 'mahnwesen:sperren' as sperren_url %}
+{% karte "Sperren" zahl=sperren|length link=sperren_url link_text="Sperren verwalten" %}
+  <ul class="liste">
+    {% for s in sperren %}<li><span class="liste-haupt">{{ s.get_grund_display }}{% if s.automatisch %} <span class="text-3">(automatisch)</span>{% endif %}</span><span class="liste-neben">ab {{ s.von|date:"d.m.Y" }}{% if s.bis %} bis {{ s.bis|date:"d.m.Y" }}{% endif %}{% if s.aufgehoben_am %} · aufgehoben {{ s.aufgehoben_am|date:"d.m.Y" }}{% endif %}</span></li>
+    {% empty %}<li class="text-3">Keine.</li>{% endfor %}
+  </ul>
+{% endkarte %}
 
 {% if kuendigungen %}
-<h2>Kündigungen zum Vertrag</h2>
-<ul>{% for k in kuendigungen %}<li><a href="{% url 'dokumente:schreiben' k.pk %}">Schreiben #{{ k.pk }}</a> {{ k.get_status_display }} · {{ anwalt_hinweis }}</li>{% endfor %}</ul>
+{% karte "Kündigungen zum Vertrag" zahl=kuendigungen|length %}
+  <ul class="liste">{% for k in kuendigungen %}<li><a href="{% url 'dokumente:schreiben' k.pk %}">Schreiben #{{ k.pk }}</a><span class="liste-neben">{% badge k.status k.get_status_display %} · {{ anwalt_hinweis }}</span></li>{% endfor %}</ul>
+{% endkarte %}
 {% endif %}
+</div>
 {% endblock %}

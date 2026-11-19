@@ -430,6 +430,11 @@ class Vorgangszeile:
         return max(0, self.anzahl - len(self.eintraege))
 
     @property
+    def anzahl_text(self) -> str:
+        """„1 Änderung“, „2 Änderungen“ (Titel des Aufklappers im Protokoll)."""
+        return f"{self.anzahl} Änderung" + ("" if self.anzahl == 1 else "en")
+
+    @property
     def zuruecknehmbar(self) -> bool:
         """Ob die Oberfläche „Zurücknehmen“ anbietet (die genaue Prüfung macht der Service)."""
         return not (
@@ -478,6 +483,50 @@ def bezug_erweitern_registrieren(
     _BEZUG_ERWEITERN[modell] = funktion
 
 
+@dataclass(frozen=True)
+class BezugSuche:
+    """Suchfeld des Protokolls (R2-9): eine App findet ihre Objekte zu einem Text, schlägt
+    Texte für die Auswahlliste vor und beschriftet ein Objekt so, dass die Suche es wiederfindet.
+
+    Die Texte sind nur für die Oberfläche (Max' eigene Seiten), nie für Logs.
+    """
+
+    suchen: Callable[[str], list[models.Model]]
+    vorschlaege: Callable[[], list[str]]
+    beschriften: Callable[[models.Model], str | None]
+
+
+_BEZUG_SUCHE: list[BezugSuche] = []
+
+
+def bezug_suche_registrieren(suche: BezugSuche) -> None:
+    _BEZUG_SUCHE.append(suche)
+
+
+def bezug_suchen(text: str) -> list[models.Model]:
+    """Alle Objekte, die zu ``text`` passen (V-Nummer, NW-ID, Name …), erste Treffer zuerst."""
+    treffer: list[models.Model] = []
+    for suche in _BEZUG_SUCHE:
+        treffer.extend(suche.suchen(text))
+    return treffer
+
+
+def bezug_vorschlaege() -> list[str]:
+    return [text for suche in _BEZUG_SUCHE for text in suche.vorschlaege()]
+
+
+def bezug_beschriften(objekt: models.Model) -> str:
+    """Der Suchtext zu einem Objekt (etwa „V-0005 · NW-G-0018 · Tom Bohnbach“)."""
+    for suche in _BEZUG_SUCHE:
+        text = suche.beschriften(objekt)
+        if text:
+            return text
+    return objekt_titel(
+        type(objekt),
+        {f.attname: getattr(objekt, f.attname) for f in type(objekt)._meta.concrete_fields},
+    )
+
+
 def bezug_aus_text(text: str) -> models.Model | None:
     """``"stammdaten.vertrag:12"`` → das Objekt (oder ``None``)."""
     try:
@@ -509,12 +558,18 @@ def _kontexte_zu(objekt: models.Model) -> set[uuid.UUID]:
     return ids
 
 
+#: Werte des Filters „wer“ (``vorgaenge_suchen``)
+WER_LAUF = "lauf"
+WER_BENUTZER = "benutzer:"
+
+
 def vorgaenge_suchen(
     *,
     modell: str = "",
     bezug: models.Model | None = None,
     von: datetime.date | None = None,
     bis: datetime.date | None = None,
+    wer: str = "",
     anzahl: int = 50,
     versatz: int = 0,
 ) -> list[Vorgangszeile]:
@@ -522,8 +577,21 @@ def vorgaenge_suchen(
 
     Datenbasis der Filter „nach Vertrag/Einheit“ und „nach Person“ (``bezug``: Vertrag,
     Einheit oder Partei; die Stammdaten melden an, was dazugehört) und „Zeitraum“.
+    ``wer``: ``"benutzer:<ID>"`` (Aktionen dieses Benutzers) oder ``"lauf"`` (nur Läufe).
     """
     ereignisse = Events.objects.filter(pgh_context_id__isnull=False)
+    if wer == WER_LAUF:
+        ereignisse = ereignisse.filter(
+            pgh_context_id__in=Context.objects.filter(metadata__has_key="lauf").values("pk")
+        )
+    elif wer.startswith(WER_BENUTZER):
+        try:
+            benutzer_id = int(wer.removeprefix(WER_BENUTZER))
+        except ValueError:
+            benutzer_id = 0
+        ereignisse = ereignisse.filter(
+            pgh_context_id__in=Context.objects.filter(metadata__user=benutzer_id).values("pk")
+        )
     if modell:
         ids = set(
             Events.objects.filter(pgh_obj_model=modell).values_list("pgh_context_id", flat=True)

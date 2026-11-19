@@ -39,7 +39,11 @@ def test_bereiter_monat_hat_knopf_und_schliesst_ab(januar: Januar, angemeldet: C
     seite = angemeldet.get(SEITE).content.decode()
     assert "Monat 01/2026 jetzt abschließen" in seite
     assert _knopf(januar.gbr.pk, JAN) in seite
-    assert "confirm(" in seite
+    # R2-9: Rückfrage als Dialog (statt confirm() des Browsers)
+    assert f'hx-get="{_knopf(januar.gbr.pk, JAN)}"' in seite
+    dialog = angemeldet.get(_knopf(januar.gbr.pk, JAN)).content.decode()
+    assert "Monat 01/2026 für" in dialog and "Jetzt abschließen" in dialog
+    assert not Monatsabschluss.objects.filter(abgeschlossen_am__isnull=False).exists()
     assert januar.gbr.bezeichnung in seite
 
     antwort = angemeldet.post(_knopf(januar.gbr.pk, JAN), follow=True)
