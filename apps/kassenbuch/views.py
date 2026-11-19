@@ -7,6 +7,7 @@ import datetime
 from decimal import Decimal
 from typing import Any
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -17,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from apps.bank.models import Bankumsatz
+from apps.bank.models import Bankkonto, Bankumsatz
 from apps.kassenbuch import auswertung, pdf, services
 from apps.kassenbuch.forms import (
     BerichtForm,
@@ -28,6 +29,7 @@ from apps.kassenbuch.forms import (
     monat_aus_text,
 )
 from apps.kassenbuch.models import Buchung, Monatsabschluss, Monatsbericht, Zuordnungsregel
+from apps.kern import htmx
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
 
 BUCHUNGEN_JE_SEITE = 100
@@ -376,15 +378,34 @@ def abschluesse(request: HttpRequest) -> HttpResponse:
             else None
         )
         gruppen.append({"mandant": mandant, "abschluesse": liste, "pruefung": pruefung})
-    return render(request, "kassenbuch/abschluesse.html", {"gruppen": gruppen})
+    # „abschlussgruppen“: ``gruppen`` belegt die Navigation der neuen Gestaltung (base_neu).
+    return render(
+        request,
+        "kassenbuch/abschluesse.html",
+        {
+            "abschlussgruppen": gruppen,
+            # Kontonamen statt „Konto #3“ (Review 2, B11)
+            "kontonamen": dict(Bankkonto.objects.values_list("pk", "bezeichnung")),
+        },
+    )
+
+
+def _nach_abschluss(request: HttpRequest, ziel: str) -> HttpResponse:
+    """Aus dem Dialog (HTMX) per HX-Redirect, sonst normal umleiten; die Meldung bleibt."""
+    if htmx.ist_htmx(request):
+        antwort = HttpResponse("")
+        antwort["HX-Redirect"] = ziel
+        return antwort
+    return redirect(ziel)
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def abschluss_jetzt(request: HttpRequest, mandant: int, jahr: int, monat: int) -> HttpResponse:
     """Knopf „Monat jetzt abschließen“ für einen Monat, der bereit ist (Review 2, A11).
 
-    Geht nur für den nächsten offenen Monat und nur, wenn die Prüfung von jetzt stimmt;
+    GET liefert den Bestätigungsdialog (R2-9, statt ``confirm()`` des Browsers), POST schließt
+    ab. Geht nur für den nächsten offenen Monat und nur, wenn die Prüfung von jetzt stimmt;
     sonst sagt die Seite, was fehlt. Abgeschlossen ist abgeschlossen (Sperre).
     """
     eintrag = get_object_or_404(Mandant, pk=mandant)
@@ -393,16 +414,30 @@ def abschluss_jetzt(request: HttpRequest, mandant: int, jahr: int, monat: int) -
     except ValueError:
         return redirect("kassenbuch:abschluesse")
     name = eintrag.bezeichnung or eintrag.kuerzel
+    if request.method == "GET":
+        return render(
+            request,
+            "bausteine/dialog_formular.html",
+            {
+                "titel": f"Monat {erster:%m/%Y} für {name} abschließen?",
+                "form": forms.Form(),
+                "url": request.path,
+                "hinweis": "Danach ist der Monat gesperrt; geändert wird nur noch per "
+                "Stornobuchung im offenen Monat.",
+                "knopf": "Jetzt abschließen",
+                "gefahr": True,
+            },
+        )
     if services.naechster_abschlussmonat(eintrag, None) != erster:
         messages.error(
             request,
             f"{erster:%m/%Y} ist für {name} nicht der nächste offene Monat; abgeschlossen wird "
             "der Reihe nach.",
         )
-        return redirect("kassenbuch:abschluesse")
+        return _nach_abschluss(request, reverse("kassenbuch:abschluesse"))
     if erster > auswertung.vormonat(timezone.localdate()):
         messages.error(request, f"{erster:%m/%Y} ist noch nicht vorbei.")
-        return redirect("kassenbuch:abschluesse")
+        return _nach_abschluss(request, reverse("kassenbuch:abschluesse"))
     ergebnis = services.monat_abschliessen(eintrag, erster)
     if ergebnis.abschluss.abgeschlossen:
         messages.success(
@@ -415,7 +450,7 @@ def abschluss_jetzt(request: HttpRequest, mandant: int, jahr: int, monat: int) -
             request,
             f"Monat {erster:%m/%Y} für {name} ist nicht bereit; was fehlt, steht unten.",
         )
-    return redirect(f"{reverse('kassenbuch:abschluesse')}#mandant-{eintrag.pk}")
+    return _nach_abschluss(request, f"{reverse('kassenbuch:abschluesse')}#mandant-{eintrag.pk}")
 
 
 # --- Monatsbericht (H10.2) -----------------------------------------------------------

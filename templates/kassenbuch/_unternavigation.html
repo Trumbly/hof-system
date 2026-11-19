@@ -1,6 +1,1 @@
-<nav class="filter" aria-label="Kassenbuch">
-  <a href="{% url 'kassenbuch:buchungen' %}"{% if request.resolver_match.url_name == 'buchungen' %} aria-current="page"{% endif %}>Buchungen</a> ·
-  <a href="{% url 'kassenbuch:regeln' %}"{% if request.resolver_match.url_name == 'regeln' %} aria-current="page"{% endif %}>Regeln</a> ·
-  <a href="{% url 'kassenbuch:abschluesse' %}"{% if request.resolver_match.url_name == 'abschluesse' %} aria-current="page"{% endif %}>Abschlüsse</a> ·
-  <a href="{% url 'kassenbuch:bericht' %}"{% if request.resolver_match.url_name == 'bericht' %} aria-current="page"{% endif %}>Monatsbericht</a>
-</nav>
+{% load bausteine %}{% unternavigation "Kassenbuch" "kassenbuch:buchungen=Buchungen" "kassenbuch:regeln=Regeln" "kassenbuch:abschluesse=Abschlüsse" "kassenbuch:bericht=Monatsbericht" %}

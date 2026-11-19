@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from apps.cockpit import kacheln, tageslauf
 from apps.cockpit import services as cockpit
-from apps.kern.models import Benutzer
+from apps.kern.models import Arbeitsposten, Benutzer
 from apps.mahnwesen import services
 from apps.mahnwesen.models import Mahnsperre, Mahnstufe
 from tests.mahnwesen.conftest import (
@@ -32,15 +32,21 @@ TAG = datetime.timedelta(days=1)
 
 def test_menuepunkt_und_seiten(mahnhof: Mahnhof, vorlagen: Vorlagen, angemeldet: Client) -> None:
     """Schritt 7: Menüpunkt „Mahnwesen“; Liste der Mahnfälle und Detail mit Stufenverlauf
-    und Sperren."""
+    und Sperren. Die Liste zeigt den Mieter mit Namen (Max' Oberfläche, CLAUDE.md
+    Abschnitt 1); Lauf-Meldung, Arbeitsposten (Notion) und Status-MCP bleiben ohne Namen."""
     vertrag = mahnhof.vertrag()
-    lauf(FAELLIG_OKT + 5 * TAG)
+    ergebnis = lauf(FAELLIG_OKT + 5 * TAG)
     fall = fall_zu(vertrag)
 
     liste = angemeldet.get(reverse("mahnwesen:faelle")).content.decode()
     assert ">Mahnwesen</a>" in liste
     assert f"fall-{fall.pk}" in liste and "Zahlungserinnerung" in liste
-    assert mahnhof.mieter.nachname not in liste
+    assert mahnhof.mieter.nachname in liste  # Oberfläche: mit Namen
+    # Was nach Notion, in den MCP und in Lauf-Meldungen geht: ohne Namen
+    name = mahnhof.mieter.nachname
+    assert name not in ergebnis.text()
+    assert all(name not in p.hinweis for p in Arbeitsposten.objects.all())
+    assert name not in str(services.kachel_mahnfaelle())
 
     detail = angemeldet.get(reverse("mahnwesen:fall", args=[fall.pk])).content.decode()
     assert "Stufenverlauf" in detail and "Sperren" in detail

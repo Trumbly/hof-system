@@ -156,7 +156,8 @@ def test_ruecknahme_ueber_die_oberflaeche(angemeldet: Client) -> None:
     html = antwort.content.decode()
     assert "„Halle umbenannt“ zurückgenommen" in html
     assert "Rücknahme ansehen" in html
-    assert "zurückgenommen ·" in html  # Kennzeichen am Vorgang, ohne zweiten Knopf
+    # Kennzeichen am Vorgang (Badge), ohne zweiten Knopf
+    assert '<span class="badge badge-neutral">zurückgenommen</span>' in html
 
 
 def test_ruecknahme_nimmt_nur_die_felder_des_ereignisses_zurueck() -> None:

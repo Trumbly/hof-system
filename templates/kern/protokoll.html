@@ -1,54 +1,67 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Protokoll{% endblock %}
 
 {% block inhalt %}
-<h1>Protokoll</h1>
-<p class="leise">Je Aktion oder Lauf ein Vorgang. Zurückgenommen wird immer der ganze Vorgang.</p>
-<form method="get" class="filter">
-  <label for="modell">Betrifft</label>
-  <select name="modell" id="modell">
-    <option value="">alle</option>
-    {% for label, titel in modellwahl %}<option value="{{ label }}"{% if label == gewaehlt %} selected{% endif %}>{{ titel }}</option>{% endfor %}
-  </select>
-  <label for="von">von</label>
-  <input type="date" name="von" id="von" value="{{ von|date:'Y-m-d' }}">
-  <label for="bis">bis</label>
-  <input type="date" name="bis" id="bis" value="{{ bis|date:'Y-m-d' }}">
-  {% if bezug %}<input type="hidden" name="bezug" value="{{ bezug_text }}">{% endif %}
-  <button type="submit" class="zweitrangig">Filtern</button>
-</form>
-{% if bezug %}
-<p class="leise">Nur Vorgänge zu {{ bezug_titel }} · <a href="{% url 'kern:protokoll' %}">alle zeigen</a></p>
-{% endif %}
+{% seitenkopf "Protokoll" "Je Aktion oder Lauf ein Vorgang. Zurückgenommen wird immer der ganze Vorgang." %}{% endseitenkopf %}
 
-<ol class="protokoll" id="protokoll">
-  {% for v in zeilen %}
-  <li class="eintrag vorgang vorgang-{{ v.art }}" id="vorgang-{{ v.id }}">
-    <details>
-      <summary class="eintrag-kopf">
-        <span><strong>{{ v.titel }}</strong> · {{ v.anzahl }} Änderung{{ v.anzahl|pluralize:"en" }}</span>
-        <time class="leise" datetime="{{ v.zeit|date:'c' }}">{{ v.zeit|date:"d.m.Y H:i" }} · {{ v.wer }}</time>
-      </summary>
-      {% include "kern/_vorgang_eintraege.html" %}
-      {% if v.weitere %}<p class="leise">… und {{ v.weitere }} weitere Änderungen (<a href="{% url 'kern:vorgang' v.id %}">alle ansehen</a>)</p>{% endif %}
-    </details>
-    {% if v.zurueckgenommen_durch %}
-    <p class="hinweis-zurueck">zurückgenommen · <a href="{% url 'kern:vorgang' v.zurueckgenommen_durch %}">Rücknahme ansehen</a></p>
-    {% elif v.ruecknahme_von %}
-    <p class="hinweis-zurueck">Rücknahme · <a href="{% url 'kern:vorgang' v.ruecknahme_von %}">zurückgenommener Vorgang</a></p>
-    {% elif v.zuruecknehmbar %}
-    <p class="aktionen"><a class="knopf zweitrangig" href="{% url 'kern:vorgang' v.id %}">Zurücknehmen …</a></p>
-    {% endif %}
-  </li>
-  {% empty %}
-  <li>Noch keine Vorgänge.</li>
-  {% endfor %}
-</ol>
+<form method="get" class="filterleiste" id="protokoll-filter" role="search" aria-label="Protokoll filtern">
+  {% feld form.suche breit=True %}
+  {% feld form.wer %}
+  {% feld form.von %}
+  {% feld form.bis %}
+  {% feld form.modell %}
+  <div class="filterleiste-knoepfe">
+    <button type="submit" class="knopf knopf-zweit">Filtern</button>
+    {% if gefiltert %}<a class="knopf knopf-text" href="{% url 'kern:protokoll' %}">zurücksetzen</a>{% endif %}
+  </div>
+</form>
+<datalist id="protokoll-bezuege">{% for v in vorschlaege %}<option value="{{ v }}"></option>{% endfor %}</datalist>
+
+{% if kandidaten %}
+{% karte "Mehrere passen – welcher ist gemeint?" zahl=kandidaten|length id="kandidaten" %}
+  <ul class="liste">{% for titel, url in kandidaten %}<li><a href="{{ url }}">{{ titel }}</a></li>{% endfor %}</ul>
+{% endkarte %}
+{% else %}
+{% if bezug %}<p class="filter-aktiv"><span>Nur Vorgänge zu {{ bezug_titel }}</span> <a class="knopf knopf-text knopf-klein" href="{% url 'kern:protokoll' %}">alle zeigen</a></p>{% endif %}
+
+{% karte "Vorgänge" id="protokoll-liste" %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten protokoll" id="protokoll">
+    <thead><tr><th>Zeit</th><th>Vorgang</th><th>Wer</th><th>Rücknahme</th></tr></thead>
+    <tbody>
+    {% for v in zeilen %}
+    <tr id="vorgang-{{ v.id }}" class="vorgang vorgang-{{ v.art }}">
+      <td data-titel="Zeit" class="eng"><time datetime="{{ v.zeit|date:'c' }}">{{ v.zeit|date:"d.m.Y H:i" }}</time></td>
+      <td><div>
+        <a href="{% url 'kern:vorgang' v.id %}"><strong>{{ v.titel }}</strong></a>{% if v.art == "ruecknahme" %} {% badge "hinweis" v.art_titel %}{% endif %}
+        {% aufklapper v.anzahl_text %}
+          {% include "kern/_vorgang_eintraege.html" %}
+          {% if v.weitere %}<p class="text-3 klein">… und {{ v.weitere }} weitere Änderungen · <a href="{% url 'kern:vorgang' v.id %}">alle ansehen</a></p>{% endif %}
+        {% endaufklapper %}
+      </div></td>
+      <td data-titel="Wer">{{ v.wer }}</td>
+      <td data-titel="Rücknahme">
+        {% if v.zurueckgenommen_durch %}<span>{% badge "neutral" "zurückgenommen" %} <a href="{% url 'kern:vorgang' v.zurueckgenommen_durch %}">Rücknahme ansehen</a></span>
+        {% elif v.ruecknahme_von %}<a href="{% url 'kern:vorgang' v.ruecknahme_von %}">zurückgenommener Vorgang</a>
+        {% elif v.zuruecknehmbar %}<a class="knopf knopf-text knopf-klein" href="{% url 'kern:vorgang' v.id %}#ruecknahme">Zurücknehmen …</a>
+        {% else %}<span class="text-3">–</span>{% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    {% include "bausteine/leer.html" with spalten=4 text="Noch keine Vorgänge." hilfe="Für diese Auswahl gibt es keinen Vorgang. Der Filter oben lässt sich zurücksetzen." %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+
 {% if zurueck_url or weiter_url %}
-<p class="aktionen">
-  {% if zurueck_url %}<a href="{{ zurueck_url }}">← neuere</a>{% endif %}
-  {% if weiter_url %}<a href="{{ weiter_url }}">ältere →</a>{% endif %}
-</p>
+<nav class="formular-fuss" aria-label="Seiten">
+  {% if zurueck_url %}<a class="knopf knopf-zweit" href="{{ zurueck_url }}">← neuere</a>{% endif %}
+  {% if weiter_url %}<a class="knopf knopf-zweit" href="{{ weiter_url }}">ältere →</a>{% endif %}
+</nav>
+{% endif %}
 {% endif %}
 {% endblock %}

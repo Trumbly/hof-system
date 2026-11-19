@@ -1,31 +1,44 @@
-{% extends "base.html" %}
-{% load anbindungen %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Kennzahlen Wohnraum{% endblock %}
 
 {% block inhalt %}
-<h1>Kennzahlen Wohnraum</h1>
+{% seitenkopf "Kennzahlen Wohnraum" "Aus Verwaltio, nachts über den Lauf verwaltio_kennzahlen. Nur NW-ID und Zahlen; Namen und Einzelheiten stehen in Verwaltio." %}{% endseitenkopf %}
 {% include "anbindungen/_unternavigation.html" %}
-<p class="leise">Aus Verwaltio, nachts über den Lauf <code>verwaltio_kennzahlen</code>. Nur NW-ID und Zahlen; Namen und Einzelheiten stehen in Verwaltio.</p>
-<ul class="kacheln">{% kachel_wohnraum %}</ul>
-{% if wohnraum.ohne_kennzahl %}<p class="meldung meldung-warning">{{ wohnraum.ohne_kennzahl }} Wohnung{{ wohnraum.ohne_kennzahl|pluralize:"en" }} ohne Kennzahlen am {{ wohnraum.stand|date:"d.m.Y" }} (siehe ID-Abweichungen und Lauf).</p>{% endif %}
-<div class="tabelle-rahmen">
-<table class="karten">
-  <thead><tr><th>NW-ID</th><th class="zahl-rechts">offene Posten</th><th class="zahl-rechts">Mahnfälle</th><th>NKA</th><th class="zahl-rechts">Fristen</th><th>nächste Frist</th></tr></thead>
-  <tbody>
-  {% for z in zeilen %}
-  <tr id="kennzahl-{{ z.nw_id }}">
-    <td data-titel="NW-ID">{{ z.nw_id }}</td>
-    <td data-titel="offene Posten" class="zahl-rechts">{{ z.offene_posten }} €</td>
-    <td data-titel="Mahnfälle" class="zahl-rechts">{{ z.mahnfaelle }}</td>
-    <td data-titel="NKA">{% if z.nka_jahr %}{{ z.nka_jahr }}: {% endif %}{{ z.get_nka_stand_display }}</td>
-    <td data-titel="Fristen" class="zahl-rechts">{{ z.fristen_offen }}</td>
-    <td data-titel="nächste Frist">{{ z.naechste_frist|date:"d.m.Y"|default:"–" }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="6">Noch keine Kennzahlen.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+
+{% if wohnraum.stand %}
+{% with mit=wohnraum.mit_kennzahl|stringformat:"d" alle=wohnraum.wohneinheiten|stringformat:"d" anzahl_mahnung=wohnraum.einheiten_mit_mahnung|stringformat:"d" naechste=wohnraum.naechste_frist|date:"d.m.Y" %}
+<div class="kennzahlen-reihe">
+  {% kennzahl "Offene Posten" wohnraum.offene_posten|euro unter=mit|add:" von "|add:alle|add:" Wohnungen" %}
+  {% if wohnraum.mahnfaelle %}{% kennzahl "Mahnfälle" wohnraum.mahnfaelle art="warnung" unter="in "|add:anzahl_mahnung|add:" Wohnungen" %}{% else %}{% kennzahl "Mahnfälle" 0 %}{% endif %}
+  {% if wohnraum.naechste_frist %}{% kennzahl "Fristen offen" wohnraum.fristen_offen unter="nächste am "|add:naechste %}{% else %}{% kennzahl "Fristen offen" wohnraum.fristen_offen %}{% endif %}
+  {% kennzahl "Stand" wohnraum.stand|date:"d.m.Y" art=wohnraum.veraltet|yesno:"warnung," unter=wohnraum.veraltet|yesno:"veraltet,aktuell" %}
 </div>
+{% endwith %}
+{% if wohnraum.nka %}<p class="text-2">NKA{% if wohnraum.nka_jahr %} {{ wohnraum.nka_jahr }}{% endif %}: {% for titel, anzahl in wohnraum.nka %}{{ anzahl }} {{ titel }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+{% if wohnraum.ohne_kennzahl %}<p class="hinweis-band hinweis-warnung" role="note">{{ wohnraum.ohne_kennzahl }} Wohnung{{ wohnraum.ohne_kennzahl|pluralize:"en" }} ohne Kennzahlen am {{ wohnraum.stand|date:"d.m.Y" }} (siehe <a href="{% url 'anbindungen:abweichungen' %}">ID-Abweichungen</a> und <a href="{% url 'kern:laeufe' %}?name=verwaltio_kennzahlen">Lauf</a>).</p>{% endif %}
+{% endif %}
+
+{% karte "Je Wohnung" zahl=zeilen|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>NW-ID</th><th class="zahl">offene Posten</th><th class="zahl">Mahnfälle</th><th>NKA</th><th class="zahl">Fristen</th><th>nächste Frist</th></tr></thead>
+    <tbody>
+    {% for z in zeilen %}
+    <tr id="kennzahl-{{ z.nw_id }}">
+      <td data-titel="NW-ID">{{ z.nw_id }}</td>
+      <td data-titel="offene Posten" class="zahl">{{ z.offene_posten|euro }}</td>
+      <td data-titel="Mahnfälle" class="zahl">{{ z.mahnfaelle }}</td>
+      <td data-titel="NKA">{% if z.nka_jahr %}{{ z.nka_jahr }}: {% endif %}{{ z.get_nka_stand_display }}</td>
+      <td data-titel="Fristen" class="zahl">{{ z.fristen_offen }}</td>
+      <td data-titel="nächste Frist">{{ z.naechste_frist|date:"d.m.Y"|default:"–" }}</td>
+    </tr>
+    {% empty %}
+    {% include "bausteine/leer.html" with spalten=6 text="Noch keine Kennzahlen." hilfe="Der Lauf verwaltio_kennzahlen holt sie nachts aus Verwaltio." %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
 {% endblock %}

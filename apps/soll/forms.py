@@ -73,4 +73,9 @@ class PostenForm(forms.Form):
 
 
 class StornoForm(forms.Form):
-    grund = forms.CharField(label="Grund", max_length=200)
+    grund = forms.CharField(
+        label="Grund",
+        max_length=200,
+        help_text="Kurz, z. B. „doppelt gestellt“; steht im Protokoll.",
+        error_messages={"required": "Ein Storno braucht einen Grund."},
+    )

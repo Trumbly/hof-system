@@ -1,32 +1,36 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Mahnstufen{% endblock %}
 
 {% block inhalt %}
+{% seitenkopf "Stufen je Vertragsart" "Startdaten nach der SOP. Eine Stufe folgt erst, wenn die vorige belegt ist; scharf wird sie erst mit einer freigegebenen Vorlage (sonst Probebetrieb)." %}{% endseitenkopf %}
 {% include "mahnwesen/_reiter.html" %}
-<h1>Stufen je Vertragsart</h1>
-<p class="leise">Startdaten nach der SOP. Eine Stufe folgt erst, wenn die vorige belegt ist; scharf wird sie erst mit einer freigegebenen Vorlage (sonst Probebetrieb).</p>
-{% for art, titel, liste in gruppen %}
-<section class="gruppe" id="art-{{ art }}">
-  <h2>{{ titel }} ({{ art }})</h2>
-  <div class="tabelle-rahmen">
-  <table class="tabelle">
-    <thead><tr><th>#</th><th>Stufe</th><th>Auslöser</th><th class="zahl">Frist</th><th>Vorlage</th><th>Versandweg</th><th></th></tr></thead>
+
+<div class="stapel">
+{% for art, titel, liste in stufengruppen %}
+{% karte titel|add:" ("|add:art|add:")" zahl=liste|length id="art-"|add:art %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th class="zahl">Nr.</th><th>Stufe</th><th>Auslöser</th><th class="zahl">Frist</th><th>Vorlage</th><th>Versandweg</th><th>Besonderheit</th></tr></thead>
     <tbody>
     {% for s in liste %}
-    <tr{% if not s.aktiv %} class="leise"{% endif %}>
-      <td>{{ s.reihenfolge }}</td>
-      <td><a href="{% url 'mahnwesen:stufe' s.pk %}">{{ s.titel }}</a>{% if not s.aktiv %} (aus){% endif %}</td>
-      <td>{{ s.get_ausloeser_display }}: {{ s.ausloeser_wert }}</td>
-      <td class="zahl">{{ s.frist_tage }} Tage</td>
-      <td>{{ s.vorlagenart }}{% if s.vorlage_name %} „{{ s.vorlage_name }}“{% endif %}</td>
-      <td>{{ s.get_versandweg_display }}</td>
-      <td>{% if s.einseitige_erklaerung %}Zustellnachweis{% endif %}{% if s.anwalt_bestaetigung %} · Anwalt{% endif %}</td>
+    <tr id="stufe-{{ s.pk }}"{% if not s.aktiv %} class="zeile-leise"{% endif %}>
+      <td data-titel="Nr." class="zahl">{{ s.reihenfolge }}</td>
+      <td data-titel="Stufe"><span><a href="{% url 'mahnwesen:stufe' s.pk %}">{{ s.titel }}</a>{% if not s.aktiv %} {% badge "neutral" "aus" %}{% endif %}</span></td>
+      <td data-titel="Auslöser">{{ s.get_ausloeser_display }}: {{ s.ausloeser_wert }}</td>
+      <td data-titel="Frist" class="zahl">{{ s.frist_tage }} Tage</td>
+      <td data-titel="Vorlage">{{ s.vorlagenart }}{% if s.vorlage_name %} „{{ s.vorlage_name }}“{% endif %}</td>
+      <td data-titel="Versandweg">{{ s.get_versandweg_display }}</td>
+      <td data-titel="Besonderheit">{% if s.einseitige_erklaerung %}Zustellnachweis{% endif %}{% if s.anwalt_bestaetigung %} · Anwalt{% endif %}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
-</section>
-{% empty %}<p>Noch keine Stufen.</p>{% endfor %}
+{% endkarte %}
+{% empty %}
+{% include "bausteine/leer.html" with text="Noch keine Stufen." %}
+{% endfor %}
+</div>
 {% endblock %}

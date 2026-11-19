@@ -1,35 +1,42 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Zähler für den nächsten Besuch{% endblock %}
 
 {% block inhalt %}
 <div class="druckseite">
-<h1>Zähler für deinen nächsten Besuch</h1>
-<p class="leise">{{ anzahl }} Zähler ohne Stand zum Stichtag {{ stichtag|date:"d.m.Y" }}, ohne Foto, ohne Eichfrist oder mit anderen Lücken; sortiert nach Objekt. Stand {{ heute|date:"d.m.Y" }}.</p>
-<p class="nur-bildschirm"><button type="button" onclick="window.print()">Drucken</button> <a href="{% url 'stammdaten:datenstand' %}#bereich-zaehler">zum Datenstand</a></p>
+<p class="kopf-pfad nur-bildschirm"><a href="{% url 'zaehler:uebersicht' %}">← Zähler</a></p>
+{% seitenkopf "Zähler für deinen nächsten Besuch" %}
+  <a class="knopf knopf-zweit nur-bildschirm" href="{% url 'stammdaten:datenstand' %}#bereich-zaehler">zum Datenstand</a>
+  <button type="button" class="knopf knopf-primaer nur-bildschirm" onclick="window.print()">Drucken</button>
+{% endseitenkopf %}
+<p class="text-2">{{ anzahl }} Zähler ohne Stand zum Stichtag {{ stichtag|date:"d.m.Y" }}, ohne Foto, ohne Eichfrist oder mit anderen Lücken; sortiert nach Objekt. Stand {{ heute|date:"d.m.Y" }}.</p>
 
-{% for g in gruppen %}
-<section class="besuch-objekt">
-  <h2>{{ g.objekt.kuerzel }} <span class="leise">{{ g.objekt.bezeichnung }}</span></h2>
-  <div class="tabelle-rahmen"><table class="besuchsliste">
-    <thead><tr><th>Zähler</th><th>Art</th><th>Ort</th><th>fehlt</th><th>letzter Stand</th><th class="nur-druck">neuer Stand</th></tr></thead>
+<div class="stapel">
+{% for g in objektgruppen %}
+{% url 'zaehler:ablesung' g.objekt.pk as ablesen %}
+{% karte g.objekt.kuerzel|add:" · "|add:g.objekt.bezeichnung zahl=g.zeilen|length link=ablesen link_text="Ablesung öffnen" %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten besuchsliste">
+    <thead><tr><th>Zähler</th><th>Art</th><th>Ort</th><th>fehlt</th><th class="zahl">letzter Stand</th><th class="nur-druck">neuer Stand</th></tr></thead>
     <tbody>
       {% for zeile in g.zeilen %}
       <tr>
-        <td><a href="{{ zeile.luecke.url }}">{{ zeile.zaehler.nummer }}</a></td>
-        <td>{{ zeile.zaehler.get_art_display }}</td>
-        <td>{{ zeile.zaehler.ort }}{% if zeile.zaehler.bezeichnung %} · {{ zeile.zaehler.bezeichnung }}{% endif %}</td>
-        <td>{{ zeile.luecke.felder_titel }}</td>
-        <td>{% if zeile.letzter %}{{ zeile.letzter.stand_text }} ({{ zeile.letzter.datum|date:"d.m.Y" }}){% if zeile.letzter.ist_geschaetzt %} <span class="kennzeichen-geschaetzt">geschätzt</span>{% endif %}{% else %}–{% endif %}</td>
+        <td data-titel="Zähler"><a href="{{ zeile.luecke.url }}">{{ zeile.zaehler.nummer }}</a></td>
+        <td data-titel="Art">{{ zeile.zaehler.get_art_display }}</td>
+        <td data-titel="Ort"><span>{{ zeile.zaehler.ort }}{% if zeile.zaehler.bezeichnung %} · {{ zeile.zaehler.bezeichnung }}{% endif %}</span></td>
+        <td data-titel="fehlt">{{ zeile.luecke.felder_titel }}</td>
+        <td data-titel="letzter Stand" class="zahl">{% if zeile.letzter %}<span>{{ zeile.letzter.stand_text|zahl }} <span class="text-3">({{ zeile.letzter.datum|date:"d.m.Y" }})</span>{% if zeile.letzter.ist_geschaetzt %} {% badge "geschaetzt" %}{% endif %}</span>{% else %}–{% endif %}</td>
         <td class="nur-druck schreibfeld"></td>
       </tr>
       {% endfor %}
     </tbody>
-  </table></div>
-  <p class="nur-bildschirm"><a href="{% url 'zaehler:ablesung' g.objekt.pk %}">Ablesung {{ g.objekt.kuerzel }} öffnen</a></p>
-</section>
+  </table>
+  </div>
+{% endkarte %}
 {% empty %}
-<p>Alle Zähler sind vollständig.</p>
+{% include "bausteine/leer.html" with text="Alle Zähler sind vollständig." %}
 {% endfor %}
+</div>
 </div>
 {% endblock %}

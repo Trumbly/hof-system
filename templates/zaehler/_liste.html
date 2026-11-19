@@ -1,0 +1,34 @@
+{% load bausteine %}{% comment %} Zähler je Objekt (Übersicht). Wird nach „Neuer Zähler“ im Dialog ersetzt (oob). {% endcomment %}
+<div id="zaehler-liste" class="stapel"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% for g in objektgruppen %}
+{% url 'zaehler:ablesung' g.objekt.pk as ablesen %}
+{% karte g.objekt.kuerzel|add:" · "|add:g.objekt.bezeichnung zahl=g.eingebaut|length link=ablesen link_text="ablesen" id="objekt-"|add:g.objekt.kuerzel %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Nummer</th><th>Art</th><th>Ort</th><th class="zahl">letzter Stand</th><th>am</th><th>Eichfrist bis</th></tr></thead>
+    <tbody>
+      {% for z in g.eingebaut %}
+      <tr id="zaehler-{{ z.pk }}">
+        <td data-titel="Nummer"><a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.nummer }}</a></td>
+        <td data-titel="Art">{{ z.get_art_display }}</td>
+        <td data-titel="Ort"><span>{{ z.ort }}{% if z.bezeichnung %} <span class="text-3">· {{ z.bezeichnung }}</span>{% endif %}</span></td>
+        <td data-titel="letzter Stand" class="zahl">{% if z.letzter %}<span>{{ z.letzter.stand_text|zahl }}{% if z.letzter.ist_geschaetzt %} {% badge "geschaetzt" %}{% endif %}</span>{% else %}–{% endif %}</td>
+        <td data-titel="am">{{ z.letzter.datum|date:"d.m.Y"|default:"–" }}</td>
+        <td data-titel="Eichfrist bis">{% if z.eichfrist_bis %}{{ z.eichfrist_bis|date:"d.m.Y" }}{% else %}<span class="text-fehler">fehlt</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      {% include "bausteine/leer.html" with spalten=6 text="Keine Zähler an diesem Objekt." %}
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+{% if g.ausgebaut %}
+  {% aufklapper "Ausgebaut" zahl=g.ausgebaut|length %}
+    <ul class="liste">{% for z in g.ausgebaut %}<li><a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.get_art_display }} {{ z.nummer }}</a><span class="liste-neben">ausgebaut {{ z.ausgebaut_am|date:"d.m.Y" }}</span></li>{% endfor %}</ul>
+  {% endaufklapper %}
+  {% endif %}
+{% empty %}
+{% include "bausteine/leer.html" with text="Noch kein Objekt." %}
+{% endfor %}
+</div>

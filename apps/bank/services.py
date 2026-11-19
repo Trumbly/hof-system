@@ -291,6 +291,32 @@ def bankabruf_beenden(
     return abruf
 
 
+@dataclass(frozen=True)
+class AbrufErgebnis:
+    """Was „Erneut abrufen“ ergeben hat: der Lauf und, falls es dazu kam, sein Abruf."""
+
+    lauf: Lauf
+    abruf: Bankabruf | None
+
+
+def abruf_starten(konto: Bankkonto) -> AbrufErgebnis:
+    """Knopf „Erneut abrufen“ (Review 2, R2-6 an der Kontoseite, R2-9 an der Kontenliste):
+    ruft dieses Konto sofort ab, als Lauf ``bank_abruf --konto <ID>`` mit eigenem Eintrag im
+    Laufprotokoll. Wie nachts prüft der Lauf danach Salden, Freigaben und Zulieferung.
+
+    Nur für Konten mit Enable Banking; die übrigen liefert der hof-mac zu oder ein Import.
+    Scheitert der Abruf, steht das im Abruf (``status``, ``meldung``) und als Arbeitsposten.
+    """
+    if konto.zugang != Bankkonto.Zugang.ENABLE_BANKING or not konto.aktiv:
+        raise BankFehler(
+            f"Konto #{konto.pk} ruft das Hof-System nicht selbst ab (Zugang: "
+            f"{konto.get_zugang_display()}{'' if konto.aktiv else ', inaktiv'})."
+        )
+    lauf = kern_services.lauf_ausfuehren("bank_abruf", konto=konto.pk)
+    abruf = konto.abrufe.filter(lauf=lauf).order_by("-pk").first()
+    return AbrufErgebnis(lauf=lauf, abruf=abruf)
+
+
 def abruf_gescheitert_melden(
     konto: Bankkonto, grund: str, *, lauf: Lauf | None = None
 ) -> Arbeitsposten | None:

@@ -1,25 +1,33 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Bankfreigabe{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Bankfreigabe · {{ konto.bezeichnung }}</h1>
+{% seitenkopf "Bankfreigabe · "|add:konto.bezeichnung konto.bank|add:" · "|add:konto.get_zugang_display %}{% endseitenkopf %}
 {% include "bank/_unternavigation.html" %}
-<p>Konto #{{ konto.pk }} · {{ konto.bank }} · {{ konto.get_zugang_display }}</p>
-<p>{% if freigabe %}Aktuelle Freigabe gilt bis <strong>{{ freigabe.gueltig_bis|date:"d.m.Y" }}</strong>.{% else %}Es gibt noch keine Freigabe.{% endif %}</p>
+
+<dl class="fakten">
+  <div class="fakt fakt-breit"><dt>Aktuelle Freigabe</dt><dd>{% if freigabe %}gilt bis <strong>{{ freigabe.gueltig_bis|date:"d.m.Y" }}</strong>{% else %}{% badge "fehler" "keine" %}{% endif %}</dd></div>
+  <div class="fakt"><dt>Mandant</dt><dd>{{ konto.mandant.kuerzel }}</dd></div>
+  <div class="fakt"><dt>IBAN</dt><dd><code class="klein">{{ konto.iban }}</code></dd></div>
+</dl>
 
 {% if enable_banking %}
-<p>Die Freigabe läuft über Enable Banking: Nach dem Klick geht es zur Bank, dort in der App bestätigen. Danach kommst du hierher zurück.</p>
-<form method="post">
-  {% csrf_token %}
-  <button type="submit">Bei der Bank freigeben</button>
-</form>
+{% karte "Bei der Bank freigeben" %}
+  <p>Die Freigabe läuft über Enable Banking: Nach dem Klick geht es zur Bank, dort in der App bestätigen. Danach kommst du hierher zurück.</p>
+  <form method="post" class="formular-fuss">
+    {% csrf_token %}
+    <a class="knopf knopf-zweit" href="{% url 'bank:konten' %}">Abbrechen</a>
+    <button type="submit" class="knopf knopf-primaer">Bei der Bank freigeben</button>
+  </form>
+{% endkarte %}
 {% else %}
-<p>Dieses Konto ruft der hof-mac über FinTS ab. Nach der Freigabe am hof-mac (TAN) hier eintragen, bis wann sie gilt.</p>
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ von_hand.as_p }}
-  <button type="submit">Eintragen</button>
-</form>
+{% karte "Freigabe von Hand eintragen" %}
+  <p>Dieses Konto ruft der hof-mac über FinTS ab. Nach der Freigabe am hof-mac (TAN) hier eintragen, bis wann sie gilt.</p>
+  {% url 'bank:konten' as zurueck %}
+  {% include "bausteine/formular.html" with form=von_hand knopf="Eintragen" abbrechen=zurueck %}
+{% endkarte %}
 {% endif %}
 {% endblock %}

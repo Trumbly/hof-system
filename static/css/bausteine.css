@@ -2517,3 +2517,155 @@ dialog.dialog[open] {
   object-fit: cover;
   border-radius: var(--radius-klein);
 }
+
+/* --- Filterleiste (R2-9): Felder nebeneinander über einer Liste ----------------------------
+   <form class="filterleiste">{% feld f.suche %}…<div class="filterleiste-knoepfe">…</div></form>
+   Am Desktop eine Zeile, am Handy brechen die Felder um; der Knopf steht unten. */
+
+.filterleiste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--a3);
+  margin: 0 0 var(--a4);
+}
+
+.filterleiste > .feld {
+  flex: 1 1 150px;
+}
+
+.filterleiste > .feld-breit {
+  flex: 3 1 260px;
+}
+
+.filterleiste-knoepfe {
+  display: flex;
+  gap: var(--a2);
+}
+
+/* Filter sind immer freiwillig: kein „optional“ an jedem Feld. Dasselbe für Formulare, in
+   denen jedes Feld freiwillig ist (z. B. die Ablesung: leere Felder bleiben unverändert). */
+.filterleiste .feld-optional,
+.ohne-optional .feld-optional {
+  display: none;
+}
+
+/* Aktiver Filter als Zeile über der Liste: „Nur Vorgänge zu V-0005 · alle zeigen“ */
+.filter-aktiv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
+  margin: 0 0 var(--a4);
+  color: var(--text-2);
+}
+
+@media (max-width: 599px) {
+  .filterleiste-knoepfe,
+  .filterleiste-knoepfe .knopf {
+    flex: 1 1 auto;
+  }
+}
+
+/* --- Druck (R2-9): Seiten wie die Besuchsliste der Zähler ohne Leiste und Knöpfe ----------
+   .nur-bildschirm verschwindet beim Drucken, .nur-druck erscheint nur dort. */
+
+.neu .nur-druck {
+  display: none;
+}
+
+@media print {
+  .neu .leiste,
+  .neu .kopf-handy,
+  .neu .unten,
+  .neu .stichtag-band,
+  .neu .toasts,
+  .neu .nur-bildschirm {
+    display: none !important;
+  }
+
+  .neu .nur-druck {
+    display: table-cell;
+  }
+
+  body.neu,
+  .neu .haupt {
+    padding: 0;
+    color: #000;
+    background: #fff;
+  }
+
+  .neu .geruest {
+    display: block;
+    background: none;
+  }
+
+  .neu .karte,
+  .neu .tabelle-box {
+    border-color: #000;
+    break-inside: avoid-page;
+  }
+
+  .neu .tab th,
+  .neu .tab td {
+    border: 1px solid #000;
+  }
+
+  .neu .tab-karten thead {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+  }
+
+  .neu .tab-karten tr {
+    display: table-row;
+  }
+
+  .neu .tab-karten td {
+    display: table-cell;
+  }
+
+  .neu .tab-karten td[data-titel]::before {
+    content: none;
+  }
+
+  .neu a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .neu .schreibfeld {
+    min-width: 7rem;
+  }
+}
+
+/* Karten-Tabellen am Handy (R2-9): Die Tabelle wird nie breiter als der Bildschirm. Ein
+   langer Wert (Meldung, Zweck) rutscht unter seine Beschriftung, statt nach rechts aus dem
+   Bild zu laufen. Mehrere Teile einer Zelle stehen in einem Element (span/div). */
+@media (max-width: 1023px) {
+  .tab-karten,
+  .tab-karten tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .tab-karten td {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .tab-karten td > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .tab-karten td.eng {
+    width: auto;
+  }
+
+  .tab-karten td > .aufklapper {
+    flex: 1 1 100%;
+  }
+}

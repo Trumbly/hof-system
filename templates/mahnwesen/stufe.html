@@ -1,10 +1,14 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Stufe {{ stufe.titel }}{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-{% include "mahnwesen/_reiter.html" %}
-<h1>{{ stufe.titel }} <span class="leise">{{ stufe.get_vertragsart_display }}, Stufe {{ stufe.reihenfolge }}</span></h1>
-{% include "stammdaten/_formular.html" with form=form aktion="speichern" knopf="Speichern" %}
-<p><a href="{% url 'mahnwesen:stufen' %}">Zurück zu den Stufen</a></p>
+<p class="kopf-pfad"><a href="{% url 'mahnwesen:stufen' %}#art-{{ stufe.vertragsart }}">← Stufen</a></p>
+{% with nr=stufe.reihenfolge|stringformat:"d" %}{% seitenkopf stufe.titel stufe.get_vertragsart_display|add:", Stufe "|add:nr %}{% endseitenkopf %}{% endwith %}
+{% karte "" %}
+  {% url 'mahnwesen:stufen' as zurueck %}
+  {% include "bausteine/formular.html" with form=form aktion="speichern" knopf="Speichern" abbrechen=zurueck %}
+{% endkarte %}
 {% endblock %}

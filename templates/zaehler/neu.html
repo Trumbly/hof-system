@@ -1,9 +1,14 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Neuer Zähler{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Neuer Zähler</h1>
-<p class="leise">Ein Zähler hängt an einer Einheit oder, als Hauptzähler, an einem Objekt. Wohnraum führt Verwaltio.</p>
-{% include "stammdaten/_formular.html" with form=form aktion="neu" knopf="Anlegen" %}
+<p class="kopf-pfad"><a href="{% url 'zaehler:uebersicht' %}">← Zähler</a></p>
+{% seitenkopf "Neuer Zähler" "Ein Zähler hängt an einer Einheit oder, als Hauptzähler, an einem Objekt. Wohnraum führt Verwaltio." %}{% endseitenkopf %}
+{% karte "" %}
+  {% url 'zaehler:uebersicht' as zurueck %}
+  {% include "bausteine/formular.html" with form=form knopf="Anlegen" abbrechen=zurueck %}
+{% endkarte %}
 {% endblock %}

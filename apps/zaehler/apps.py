@@ -12,6 +12,11 @@ class ZaehlerConfig(AppConfig):
 
         konfiguration.laden()
 
+        # Suche in der Kopfzeile (Review 2, B1): Zählernummer
+        from apps.zaehler import suche
+
+        suche.anmelden()
+
         # Täglich im Tageslauf nach den Fristen; der Lauf prüft das Ablesefenster selbst.
         from apps.cockpit import tageslauf
 

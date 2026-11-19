@@ -1,26 +1,23 @@
-"""Seiten des Kerns: Arbeitslisten, Protokoll, Läufe, Gesundheits-Endpunkt."""
+"""Seiten des Kerns: Arbeitslisten und Gesundheits-Endpunkt.
+
+Protokoll und Läufe stehen in ``protokoll_seite`` und ``laeufe_seite``.
+"""
 
 from __future__ import annotations
 
-import datetime
-import uuid
 from itertools import groupby
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import DatabaseError, connection, transaction
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBadRequest
+from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
-from django.utils.html import format_html
-from django.utils.http import urlencode
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from apps.kern import aktionen, services, vorgaenge
-from apps.kern.models import Arbeitsposten, Benutzer, Lauf
-from apps.kern.protokoll import protokollierte_modelle
+from apps.kern import aktionen, vorgaenge
+from apps.kern.models import Arbeitsposten, Benutzer
 
 PROTOKOLL_ANZAHL = 50
 LAEUFE_ANZAHL = 50
@@ -91,173 +88,6 @@ def arbeitsposten_aktion(request: HttpRequest, pk: int, aktion: str) -> HttpResp
         )
     messages.success(request, f"Arbeitsposten #{posten.pk}: {ausfuehrung.titel}.")
     return redirect("kern:arbeitslisten")
-
-
-# --- Protokoll -----------------------------------------------------------------------
-
-
-def _modellwahl() -> list[tuple[str, str]]:
-    return sorted(
-        ((m._meta.label, str(m._meta.verbose_name_plural)) for m in protokollierte_modelle()),
-        key=lambda eintrag: eintrag[1],
-    )
-
-
-def _datum(text: str) -> datetime.date | None:
-    try:
-        return datetime.date.fromisoformat(text) if text else None
-    except ValueError:
-        return None
-
-
-@login_required
-def protokoll(request: HttpRequest) -> HttpResponse:
-    """Die letzten Vorgänge (Review 2, A4 und B14): je Nutzeraktion oder Lauf eine Zeile mit
-    Titel, Zeit und Zahl der Änderungen, die Einzelheiten zum Aufklappen.
-
-    Filter: ``modell`` (Label), ``bezug`` (``app.modell:ID``, etwa ein Vertrag, eine
-    Einheit oder eine Partei), ``von``/``bis`` (Datum), ``seite``.
-    """
-    modellwahl = _modellwahl()
-    gewaehlt = request.GET.get("modell", "")
-    if gewaehlt not in dict(modellwahl):
-        gewaehlt = ""
-    bezug_text = request.GET.get("bezug", "")
-    bezug = vorgaenge.bezug_aus_text(bezug_text) if bezug_text else None
-    von = _datum(request.GET.get("von", ""))
-    bis = _datum(request.GET.get("bis", ""))
-    try:
-        seite = max(1, int(request.GET.get("seite", "1")))
-    except ValueError:
-        seite = 1
-    zeilen = vorgaenge.vorgaenge_suchen(
-        modell=gewaehlt,
-        bezug=bezug,
-        von=von,
-        bis=bis,
-        anzahl=PROTOKOLL_ANZAHL + 1,
-        versatz=(seite - 1) * PROTOKOLL_ANZAHL,
-    )
-    weiter = len(zeilen) > PROTOKOLL_ANZAHL
-    filter_ohne_seite = {
-        k: v
-        for k, v in {
-            "modell": gewaehlt,
-            "bezug": bezug_text if bezug else "",
-            "von": von.isoformat() if von else "",
-            "bis": bis.isoformat() if bis else "",
-        }.items()
-        if v
-    }
-    return render(
-        request,
-        "kern/protokoll.html",
-        {
-            "zeilen": zeilen[:PROTOKOLL_ANZAHL],
-            "modellwahl": modellwahl,
-            "gewaehlt": gewaehlt,
-            "bezug": bezug,
-            "bezug_text": bezug_text if bezug else "",
-            "bezug_titel": vorgaenge.objekt_titel(
-                type(bezug),
-                {f.attname: getattr(bezug, f.attname) for f in type(bezug)._meta.concrete_fields},
-            )
-            if bezug is not None
-            else "",
-            "von": von,
-            "bis": bis,
-            "seite": seite,
-            "weiter_url": "?" + urlencode({**filter_ohne_seite, "seite": seite + 1})
-            if weiter
-            else "",
-            "zurueck_url": "?" + urlencode({**filter_ohne_seite, "seite": seite - 1})
-            if seite > 1
-            else "",
-        },
-    )
-
-
-@login_required
-def vorgang(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
-    """Ein Vorgang mit allen Einzelheiten und der Vorschau seiner Rücknahme.
-
-    Lässt er sich nicht zurücknehmen, sagt die Seite warum (mit Link zur Ursache, etwa zum
-    versandten Schreiben).
-    """
-    zeile = vorgaenge.vorgang_lesen(pk)
-    if zeile is None:
-        raise Http404("Diesen Vorgang gibt es nicht.")
-    vorschau: services.Ruecknahmebericht | None = None
-    sperren: list[services.Sperre] = []
-    if zeile.zuruecknehmbar or zeile.zurueckgenommen_durch:
-        try:
-            vorschau = services.ruecknahme_vorschau(pk)
-        except services.RuecknahmeGesperrt as fehler:
-            sperren = fehler.sperren
-        except services.RuecknahmeNichtMoeglich as fehler:
-            sperren = [services.Sperre(str(fehler))]
-    elif zeile.ruecknahme_von is not None or zeile.art == vorgaenge.Art.RUECKNAHME:
-        sperren = [
-            services.Sperre(
-                "Eine Rücknahme lässt sich nicht zurücknehmen. Bitte die ursprüngliche Aktion "
-                "neu ausführen, etwa die Kündigung neu erfassen."
-            )
-        ]
-    elif zeile.testhof:
-        sperren = [
-            services.Sperre(
-                "Den Aufbau des Testhofs nimmt man nicht zurück; „hof testhof“ baut ihn neu auf."
-            )
-        ]
-    return render(
-        request,
-        "kern/vorgang.html",
-        {
-            "v": zeile,
-            "vorschau": vorschau,
-            "sperren": sperren,
-            "ruecknahme_von_titel": vorgaenge.titel_von(zeile.ruecknahme_von)
-            if zeile.ruecknahme_von
-            else "",
-        },
-    )
-
-
-@login_required
-@require_POST
-def vorgang_zuruecknehmen(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
-    """Nimmt einen ganzen Vorgang zurück. Die Meldung sagt, was passiert ist, mit Link."""
-    try:
-        bericht = services.vorgang_zuruecknehmen(pk)
-    except services.RuecknahmeNichtMoeglich as fehler:
-        messages.error(request, f"Nicht zurückgenommen: {fehler}")
-        if vorgaenge.vorgang_lesen(pk) is None:
-            return redirect("kern:protokoll")
-        return redirect("kern:vorgang", pk=pk)
-    kurz = vorgaenge.zusammenfassen(s.text for s in bericht.schritte)
-    schritte = " · ".join(kurz[:8])
-    if len(kurz) > 8:
-        schritte += f" · und {len(kurz) - 8} weitere"
-    messages.success(
-        request,
-        format_html(
-            '„{}“ zurückgenommen{}{} → <a href="{}">Rücknahme ansehen</a>',
-            bericht.titel,
-            ": " if schritte else ".",
-            schritte,
-            reverse("kern:vorgang", args=[bericht.ruecknahme_id]),
-        ),
-    )
-    return redirect("kern:protokoll")
-
-
-# --- Läufe ---------------------------------------------------------------------------
-
-
-@login_required
-def laeufe(request: HttpRequest) -> HttpResponse:
-    """Letzte Läufe mit Status und Zählern."""
-    return render(request, "kern/laeufe.html", {"laeufe": Lauf.objects.all()[:LAEUFE_ANZAHL]})
 
 
 # --- Gesundheit ----------------------------------------------------------------------

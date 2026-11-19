@@ -2,7 +2,7 @@ from django.urls import path
 
 from apps.cockpit import views as cockpit
 
-from . import stil, suchseite, views
+from . import laeufe_seite, protokoll_seite, stil, suchseite, views
 
 app_name = "kern"
 
@@ -15,14 +15,15 @@ urlpatterns = [
         views.arbeitsposten_aktion,
         name="arbeitsposten_aktion",
     ),
-    path("protokoll/", views.protokoll, name="protokoll"),
-    path("protokoll/vorgang/<uuid:pk>/", views.vorgang, name="vorgang"),
+    path("protokoll/", protokoll_seite.protokoll, name="protokoll"),
+    path("protokoll/vorgang/<uuid:pk>/", protokoll_seite.vorgang, name="vorgang"),
     path(
         "protokoll/vorgang/<uuid:pk>/zuruecknehmen/",
-        views.vorgang_zuruecknehmen,
+        protokoll_seite.vorgang_zuruecknehmen,
         name="vorgang_zuruecknehmen",
     ),
-    path("laeufe/", views.laeufe, name="laeufe"),
+    path("laeufe/", laeufe_seite.laeufe, name="laeufe"),
+    path("laeufe/ausfuehren/", laeufe_seite.ausfuehren, name="lauf_ausfuehren"),
     # Bausteine der neuen Gestaltung mit Beispielen (Review 2, C3)
     path("stil/", stil.stilseite, name="stil"),
     path("stil/dialog/", stil.stil_dialog, name="stil_dialog"),

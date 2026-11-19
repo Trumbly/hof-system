@@ -48,6 +48,15 @@ SEITEN: tuple[tuple[str, str], ...] = (
     ("uebergabe", "Übergabe (Schritt Fotos)"),
     ("zaehler_ablesung", "Zähler-Ablesung"),
     ("protokoll", "Protokoll"),
+    # R2-9: Seiten von System, Bank, Mahnwesen und Zählern in der neuen Gestaltung
+    ("laeufe", "Läufe"),
+    ("zaehler", "Zähler"),
+    ("bank", "Bank: Konten"),
+    ("bank_umsaetze", "Bank: Umsätze"),
+    ("offene_posten", "Offene Posten"),
+    ("mahnwesen", "Mahnwesen"),
+    ("anbindungen", "Anbindungen"),
+    ("abschluesse", "Monatsabschlüsse"),
 )
 BREITEN = {"1440": DESKTOP, "390": HANDY}
 

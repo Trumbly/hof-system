@@ -1,7 +1,1 @@
-{% with seite=request.resolver_match.url_name %}
-<nav class="reiter" aria-label="Mahnwesen">
-  <a href="{% url 'mahnwesen:faelle' %}"{% if seite == 'faelle' or seite == 'fall' %} aria-current="page"{% endif %}>Mahnfälle</a>
-  <a href="{% url 'mahnwesen:stufen' %}"{% if seite == 'stufen' or seite == 'stufe' %} aria-current="page"{% endif %}>Stufen</a>
-  <a href="{% url 'mahnwesen:sperren' %}"{% if seite == 'sperren' %} aria-current="page"{% endif %}>Sperren</a>
-</nav>
-{% endwith %}
+{% load bausteine %}{% unternavigation "Mahnwesen" "mahnwesen:faelle,mahnwesen:fall,mahnwesen:kuendigen=Mahnfälle" "mahnwesen:stufen,mahnwesen:stufe=Stufen" "mahnwesen:sperren=Sperren" %}

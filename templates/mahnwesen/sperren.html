@@ -1,32 +1,23 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Mahnsperren{% endblock %}
 
 {% block inhalt %}
+{% url 'mahnwesen:sperren' as basis %}
+{% seitenkopf "Sperren" "Ein offener Klärfall sperrt automatisch (der Mahnlauf setzt und hebt die Sperre). Gesperrte Fälle schreiten nicht fort; bereite Schreiben werden verworfen." %}
+  <a class="knopf knopf-primaer" href="{{ basis }}?dialog=sperre" hx-get="{{ basis }}?dialog=sperre" hx-target="#dialog-inhalt" aria-haspopup="dialog">Sperre setzen</a>
+{% endseitenkopf %}
 {% include "mahnwesen/_reiter.html" %}
-<h1>Sperren</h1>
-<p class="leise">Ein offener Klärfall aus dem Abgleich sperrt automatisch (der Mahnlauf setzt und hebt die Sperre). Rechtsfall, Ratenplan und Sperren von Hand setzt du hier. Gesperrte Fälle schreiten nicht fort; bereite Schreiben werden verworfen.</p>
-<div class="tabelle-rahmen">
-<table class="tabelle">
-  <thead><tr><th>Sperre</th><th>Vertrag</th><th>Einheit</th><th>Grund</th><th>gilt</th><th></th></tr></thead>
-  <tbody>
-  {% for s in gueltig %}
-  <tr id="sperre-{{ s.pk }}">
-    <td>#{{ s.pk }}</td>
-    <td>{{ s.vertrag.nummer }}</td>
-    <td>{% for e in s.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-    <td>{{ s.get_grund_display }}{% if s.automatisch %} <span class="leise">(automatisch)</span>{% endif %}</td>
-    <td>ab {{ s.von|date:"d.m.Y" }}{% if s.bis %} bis {{ s.bis|date:"d.m.Y" }}{% endif %}</td>
-    <td>{% if not s.automatisch %}
-      <form method="post" action="{% url 'mahnwesen:sperre_aufheben' s.pk %}" class="formular">{% csrf_token %}{{ aufheben.as_p }}<button type="submit" class="zweitrangig">Aufheben</button></form>
-    {% endif %}</td>
-  </tr>
-  {% empty %}<tr><td colspan="6">Keine Sperre gilt.</td></tr>{% endfor %}
-  </tbody>
-</table>
-</div>
-{% if spaeter %}<h2>Später gültig</h2><ul>{% for s in spaeter %}<li>#{{ s.pk }} {{ s.vertrag.nummer }} · {{ s.get_grund_display }} ab {{ s.von|date:"d.m.Y" }}</li>{% endfor %}</ul>{% endif %}
 
-<h2>Sperre setzen</h2>
-{% include "stammdaten/_formular.html" with form=form aktion="sperren" knopf="Sperre setzen" %}
+{% if formular_offen %}
+{# Ohne JavaScript: das Formular mit seinen Fehlern auf der Seite statt im Dialog. #}
+<div class="stapel" id="sperre-setzen">
+{% karte "Sperre setzen" %}
+  {% include "bausteine/formular.html" with form=form knopf="Sperre setzen" abbrechen=basis %}
+{% endkarte %}
+</div>
+{% endif %}
+
+{% include "mahnwesen/_sperren.html" %}
 {% endblock %}

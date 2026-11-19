@@ -1,43 +1,30 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Offene Posten {{ vertrag.nummer }}{% endblock %}
 
 {% block inhalt %}
-<h1>Offene Posten <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
-<p class="leise"><a href="{% url 'stammdaten:vertrag' vertrag.pk %}">Zum Vertrag</a> · {{ vertrag.get_status_display }} · {% for e in einheiten %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · {{ vertrag.beginn|date:"d.m.Y" }} bis {{ vertrag.ende|date:"d.m.Y"|default:"auf unbestimmte Zeit" }}</p>
-<ul class="kennzahlen">
-  <li>Offen: <strong>{{ summe_offen|floatformat:"2g" }} €</strong> in {{ offen|length }} Posten</li>
-  <li>Fälligkeit: {% if faelligkeit.art == "werktag" %}{{ faelligkeit.tag }}. Werktag des Monats{% else %}am {{ faelligkeit.tag }}. des Monats{% endif %}</li>
-  <li>Soll im Hof-System ab: {{ soll_ab|date:"d.m.Y"|default:"Vertragsbeginn" }}</li>
-  <li>Vortrag aus dem alten System: {% if vortrag %}{{ vortrag.betrag|floatformat:"2g" }} € ({{ vortrag.get_status_display }}){% else %}keiner{% endif %}</li>
-</ul>
+<header class="seitenkopf">
+  <div class="seitenkopf-text">
+    <p class="kopf-pfad"><a href="{% url 'soll:liste' %}">Offene Posten</a> / <a href="{% url 'stammdaten:vertrag' vertrag.pk %}">Vertrag {{ vertrag.nummer }}</a></p>
+    <h1>Offene Posten · {{ vertrag.nummer }} {% badge vertrag.status vertrag.get_status_display %}</h1>
+    <p class="seitenkopf-meta">{% for e in einheiten %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %} · {{ vertrag.beginn|date:"d.m.Y" }} bis {{ vertrag.ende|date:"d.m.Y"|default:"auf unbestimmte Zeit" }}</p>
+  </div>
+  <div class="seitenkopf-aktionen">
+    <form method="post" action="{{ basis }}" hx-post="{{ basis }}" hx-swap="none" hx-disabled-elt="find button">{% csrf_token %}<input type="hidden" name="aktion" value="neu_stellen"><button type="submit" class="knopf knopf-zweit">Soll neu stellen</button></form>
+    <a class="knopf knopf-zweit" href="{{ basis }}?dialog=regel" hx-get="{{ basis }}?dialog=regel" hx-target="#dialog-inhalt" aria-haspopup="dialog">Fälligkeit ändern</a>
+    <a class="knopf knopf-primaer" href="{{ basis }}?dialog=posten" hx-get="{{ basis }}?dialog=posten" hx-target="#dialog-inhalt" aria-haspopup="dialog">Posten von Hand</a>
+  </div>
+</header>
 
-<div class="aktionen">
-  <form method="post">{% csrf_token %}<input type="hidden" name="aktion" value="neu_stellen"><button type="submit" class="zweitrangig">Soll neu stellen</button></form>
-  <a class="knopf zweitrangig" href="{% url 'soll:liste' %}">Alle offenen Posten</a>
+{% if offenes_formular %}
+{# Ohne JavaScript: das Formular mit seinen Fehlern auf der Seite statt im Dialog. #}
+<div class="stapel" id="{{ offene_aktion }}">
+{% karte offener_titel %}
+  {% include "bausteine/formular.html" with form=offenes_formular aktion=offene_aktion knopf=offener_knopf abbrechen=basis %}
+{% endkarte %}
 </div>
+{% endif %}
 
-<section id="offen">
-  <h2>Offen</h2>
-  {% include "soll/_tabelle.html" with posten=offen mit_storno=True %}
-</section>
-
-<section id="erledigt">
-  <details>
-    <summary>Bezahlt und storniert ({{ erledigt|length }})</summary>
-    {% include "soll/_tabelle.html" with posten=erledigt %}
-  </details>
-</section>
-
-<section id="regel">
-  <h2>Fälligkeit und Beginn</h2>
-  <p class="leise">Gilt für diesen Vertrag statt des Standards. Offene Posten, die danach anders fällig sind, werden storniert und neu gestellt.</p>
-  {% include "stammdaten/_formular.html" with form=regel_form aktion="regel" %}
-</section>
-
-<section id="posten">
-  <h2>Posten von Hand</h2>
-  <p class="leise">Kaution oder Sonstiges. Miete und Pauschale entstehen aus den Konditionen.</p>
-  {% include "stammdaten/_formular.html" with form=posten_form aktion="posten" knopf="Posten anlegen" %}
-</section>
+{% include "soll/_vertrag.html" %}
 {% endblock %}

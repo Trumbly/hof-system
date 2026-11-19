@@ -1,0 +1,34 @@
+{% load bausteine laeufe %}{% comment %} Letzte Läufe (Review 2, B16). Wird nach dem Start eines Laufs ersetzt (oob). {% endcomment %}
+<div id="laeufe-liste"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% karte "Letzte Läufe" zahl=zeilen|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten laeufe">
+    <thead>
+      <tr><th>Lauf</th><th>Start</th><th>Status</th><th class="zahl">gebucht</th><th class="zahl">Arbeits&shy;posten</th><th class="zahl">Fehler</th><th>Meldung</th></tr>
+    </thead>
+    <tbody>
+      {% for z in zeilen %}{% with lauf=z.lauf %}
+      <tr id="lauf-{{ lauf.pk }}"{% if lauf.status == "abgebrochen" %} class="zeile-markiert"{% endif %}>
+        <td data-titel="Lauf"><span><a href="{% url 'kern:laeufe' %}?name={{ lauf.name|urlencode }}" title="nur Läufe {{ lauf.name }}">{{ lauf.name }}</a> <span class="text-3">#{{ lauf.pk }}</span></span></td>
+        <td data-titel="Start" class="eng"><span><time datetime="{{ lauf.gestartet_am|date:'c' }}">{{ lauf.gestartet_am|date:"d.m.Y H:i" }}</time>{% if lauf.dauer_sekunden is not None %} <span class="text-3">{{ lauf.dauer_sekunden|zahl:1 }} s</span>{% endif %}</span></td>
+        <td data-titel="Status" class="eng">{% badge lauf.status %}</td>
+        <td data-titel="gebucht" class="zahl">{{ lauf.gebucht|zahl }}</td>
+        <td data-titel="Arbeitsposten" class="zahl">{{ lauf.arbeitsposten|zahl }}</td>
+        <td data-titel="Fehler" class="zahl">{% if lauf.fehler %}<strong class="text-fehler">{{ lauf.fehler|zahl }}</strong>{% else %}0{% endif %}</td>
+        <td data-titel="Meldung">
+          {% if lauf.meldung %}<span class="lauf-meldung">{{ lauf.meldung|verlinkt }}</span>{% else %}<span class="text-3">–</span>{% endif %}
+          {% if z.posten %}
+          {% aufklapper "Arbeitsposten dieses Laufs" zahl=z.posten|length %}
+            <ul class="liste">{% for p in z.posten %}<li><a href="{% url 'kern:arbeitslisten' %}?art={{ p.art|urlencode }}#posten-{{ p.pk }}">Arbeitsposten #{{ p.pk }}</a><span class="liste-neben">{{ p.art }} · {{ p.get_status_display }}</span></li>{% endfor %}</ul>
+          {% endaufklapper %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endwith %}{% empty %}
+      {% include "bausteine/leer.html" with spalten=7 text="Noch keine Läufe." hilfe="Der Tageslauf läuft jede Nacht; oben lässt er sich auch sofort starten." %}
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+</div>

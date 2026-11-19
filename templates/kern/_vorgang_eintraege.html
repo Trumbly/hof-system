@@ -1,14 +1,15 @@
-<ul class="aenderungen">
+{% load bausteine %}{% comment %} Änderungen eines Vorgangs (Review 2, A4 und B14): Feldnamen und Werte deutsch;
+   Ereignis-ID und technische Felder (inhalt_html, pdf_sha256 …) nur in „technische Angaben“. {% endcomment %}
+<ul class="liste aenderungen">
   {% for e in v.eintraege %}
   <li class="eintrag-{{ e.art }}">
-    {{ e.objekt }} {{ e.art_titel }}{% if e.sichtbar %}:
-    {% for f in e.sichtbar %}<span class="feldaenderung">{{ f.feld }}: {{ f.alt }} → {{ f.neu }}</span>{% if not forloop.last %}; {% endif %}{% endfor %}{% endif %}
-    <details class="technik">
-      <summary class="leise">technische Angaben</summary>
-      <p class="leise"><code>{{ e.ereignis_id }}</code> · {{ e.zeit|date:"d.m.Y H:i:s" }}</p>
-      {% if e.technisch %}<ul>{% for f in e.technisch %}<li class="leise">{{ f.feld }}: {{ f.alt|truncatechars:80 }} → {{ f.neu|truncatechars:80 }}</li>{% endfor %}</ul>{% endif %}
-    </details>
+    <span class="liste-haupt">{{ e.objekt }} {{ e.art_titel }}{% if e.sichtbar %}:
+    {% for f in e.sichtbar %}<span class="feldaenderung">{{ f.feld }}: {{ f.alt }} → {{ f.neu }}</span>{% if not forloop.last %}; {% endif %}{% endfor %}{% endif %}</span>
+    {% aufklapper "technische Angaben" %}
+      <p class="text-3 klein"><code>{{ e.ereignis_id }}</code> · {{ e.zeit|date:"d.m.Y H:i:s" }}</p>
+      {% if e.technisch %}<ul class="liste">{% for f in e.technisch %}<li class="text-3 klein">{{ f.feld }}: {{ f.alt|truncatechars:80 }} → {{ f.neu|truncatechars:80 }}</li>{% endfor %}</ul>{% endif %}
+    {% endaufklapper %}
   </li>
   {% endfor %}
 </ul>
-<p class="leise">Vorgang <code>{{ v.id }}</code> · {{ v.art_titel }}</p>
+<p class="text-3 klein">Vorgang <code>{{ v.id }}</code> · {{ v.art_titel }}</p>
