@@ -31,7 +31,7 @@
       <dt>Konto</dt><dd>{{ u.konto.bezeichnung }}</dd>
       <dt>Klärfall</dt><dd>{{ klaerfall.get_art_display }} · Konfidenz {% widthratio klaerfall.konfidenz 1 100 %} %{% if not klaerfall.offen %} · {{ klaerfall.get_ergebnis_display }}{% endif %}</dd>
     </dl>
-    {% if posten_arbeit and posten_arbeit.hinweis %}<p class="leise">{{ posten_arbeit.hinweis|pfade_verlinken }}</p>{% endif %}
+    {% if posten_arbeit and posten_arbeit.hinweis %}<p class="leise">{{ posten_arbeit.hinweis|verlinkt }}</p>{% endif %}
     <p><a href="{% url 'kassenbuch:umsatz' u.pk %}">Umsatz im Kassenbuch</a></p>
   {% endkarte %}
 

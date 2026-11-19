@@ -11,6 +11,7 @@ from django.urls import reverse
 from apps.kern import aktionen, verweise
 from apps.kern.models import Arbeitsposten
 from apps.mahnwesen.models import Mahnfall
+from apps.stammdaten.verweise import vertrag_text
 
 
 def _fall_seite(posten: Arbeitsposten) -> str:
@@ -19,5 +20,8 @@ def _fall_seite(posten: Arbeitsposten) -> str:
 
 aktionen.registrieren("mahnfall_ansehen", "Ansehen", seite=_fall_seite)
 verweise.registrieren(
-    Mahnfall, "Mahnfall ansehen", lambda f: reverse("mahnwesen:fall", args=[f.pk])
+    Mahnfall,
+    "Mahnfall ansehen",
+    lambda f: reverse("mahnwesen:fall", args=[f.pk]),
+    beschreibung=lambda f: vertrag_text(f.vertrag),
 )

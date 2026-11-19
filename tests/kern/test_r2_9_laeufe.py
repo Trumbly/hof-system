@@ -11,6 +11,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.cockpit import tageslauf
 from apps.kern import meldungen, services
@@ -36,7 +37,7 @@ def test_jetzt_ausfuehren_startet_den_lauf_in_dev(angemeldet: Client) -> None:
     lauf = Lauf.objects.get(name="kern_selbsttest")
     assert lauf.status == Lauf.Status.ERFOLGREICH and lauf.arbeitsposten == 1
     html = antwort.content.decode()
-    assert f"Lauf #{lauf.pk} kern_selbsttest: erfolgreich · 1 Arbeitsposten" in html
+    assert f"Lauf #{lauf.pk} kern_selbsttest: erfolgreich · 1 Arbeitsposten" in strip_tags(html)
     assert f'href="{SEITE}#lauf-{lauf.pk}"' in html
 
 

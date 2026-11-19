@@ -253,7 +253,7 @@
 
 <section class="stil-abschnitt" id="toast">
   <h2>Toast-Meldung</h2>
-  <p class="stil-zweck">Sagt, was passiert ist, und verlinkt auf das Ergebnis. Verschwindet nach acht Sekunden; Fehler bleiben stehen.</p>
+  <p class="stil-zweck">Sagt, was passiert ist, und verlinkt auf das Ergebnis. Nummern und Pfade im Text werden Links (<code>|verlinkt</code>). Ohne Link verschwindet sie nach acht Sekunden; Fehler und Meldungen mit Link bleiben stehen, bis man sie schließt.</p>
   <div class="stapel" style="max-width: 440px">
     {% include "bausteine/toast.html" with text="Kündigung erfasst · Ende 28.02.2027 · Bestätigung #3 liegt bereit" link="#toast" link_text="ansehen" art="ok" %}
     {% include "bausteine/toast.html" with text="Mailserver nicht erreichbar, Schreiben bleibt bereit." art="warnung" link="" %}

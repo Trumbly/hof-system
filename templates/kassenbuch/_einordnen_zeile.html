@@ -1,4 +1,4 @@
-{# Umsatz einordnen in der Zeile (Review 2, B3): Umsatz, Vorschlag und Felder; Knöpfe rechts. #}
+{% load kern %}{# Umsatz einordnen in der Zeile (Review 2, B3): Umsatz, Vorschlag und Felder; Knöpfe rechts. #}
 {% with u=k.umsatz %}
 <div class="posten-arbeit">
   <input type="hidden" name="{{ p }}-da" value="1">
@@ -21,6 +21,6 @@
     </select>
     <label class="haken-label"><input type="checkbox" class="feld-haken" name="{{ p }}-regel" value="1"{% if k.vorschlag.regel_merken %} checked{% endif %}><span>Als Regel merken</span></label>
   </div>
-  {% if k.vorschlag.quelle %}<p class="posten-vorschlag">Vorschlag: {{ k.vorschlag.quelle }}{% if not k.vorschlag.vollstaendig %} (unvollständig){% endif %}</p>{% elif not k.vorschlag.vollstaendig %}<p class="posten-vorschlag">Kein Vorschlag: Kategorie und Objekt wählen.</p>{% endif %}
+  {% if k.vorschlag.quelle %}<p class="posten-vorschlag">Vorschlag: {{ k.vorschlag.quelle|verlinkt }}{% if not k.vorschlag.vollstaendig %} (unvollständig){% endif %}</p>{% elif not k.vorschlag.vollstaendig %}<p class="posten-vorschlag">Kein Vorschlag: Kategorie und Objekt wählen.</p>{% endif %}
 </div>
 {% endwith %}

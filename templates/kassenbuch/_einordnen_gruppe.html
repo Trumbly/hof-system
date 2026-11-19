@@ -1,5 +1,12 @@
-{# Kopf einer Gruppe „Umsätze einordnen“: Kategorie und Objekt für alle (Review 1, Punkt 5). #}
+{# Kopf einer Gruppe „Umsätze einordnen“: Kategorie und Objekt für alle (Review 1, Punkt 5), oder bei „passen auf Regel #…“ der Knopf „Regel anwenden“ (Review 3, Punkt 3). #}
 <div class="zeile-formular">
+  {% if k.regel %}
+  <input type="hidden" name="{{ gp }}-regel_anwenden" value="{{ k.regel.pk }}">
+  <button type="submit" class="knopf knopf-zweit knopf-klein" name="gruppe" value="{{ gp }}" formaction="{% url 'kern:posten_gruppe' %}"
+          hx-post="{% url 'kern:posten_gruppe' %}" hx-vals='{"gruppe": "{{ gp }}"}' hx-target="#posteingang" hx-swap="outerHTML">Regel anwenden</button>
+  <a class="knopf knopf-text knopf-klein" href="{{ k.vorschau_url }}">Vorschau</a>
+  <a class="knopf knopf-text knopf-klein" href="{{ k.regel_url }}">Regel #{{ k.regel.pk }} ansehen</a>
+  {% else %}
   <label class="nur-leser" for="{{ gp }}-kategorie">Kategorie für alle</label>
   <select class="feld-auswahl" id="{{ gp }}-kategorie" name="{{ gp }}-kategorie">
     <option value="">Kategorie wählen</option>
@@ -14,4 +21,5 @@
   <button type="submit" class="knopf knopf-zweit knopf-klein" name="gruppe" value="{{ gp }}" formaction="{% url 'kern:posten_gruppe' %}"
           hx-post="{% url 'kern:posten_gruppe' %}" hx-vals='{"gruppe": "{{ gp }}"}' hx-target="#posteingang" hx-swap="outerHTML">Für alle {{ anzahl }} anwenden</button>
   {% if k.regeln_url %}<a class="knopf knopf-text knopf-klein" href="{{ k.regeln_url }}">Regeln prüfen</a>{% endif %}
+  {% endif %}
 </div>

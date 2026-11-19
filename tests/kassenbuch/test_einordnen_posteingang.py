@@ -103,7 +103,7 @@ def test_regelseite_zeigt_ueberschneidung_als_satz(klein: KleinerHof, angemeldet
             "bezeichnung": "Doppelt",
             "gegen_iban": iban,
             "kategorie": klein.strom.pk,
-            "objekt": klein.hof.pk,
+            "objekt": klein.halle.pk,
             "prioritaet": 10,
             "aktiv": "on",
         },
@@ -178,13 +178,15 @@ def test_uebernehmen_mit_regel_merken(klein: KleinerHof, material: Kategorie) ->
     )
     posten.refresh_from_db()
     assert posten.status == Arbeitsposten.Status.ERLEDIGT
-    # Eine zweite gleiche Regel wird nicht angelegt; gebucht wird trotzdem.
+    # Eine zweite gleiche Regel wird nicht angelegt, die erste wird verwendet (Review 3,
+    # Punkt 3); gebucht wird nach ihr.
     noch_einer = _baumarkt(klein, FEB, iban)
     zweite = services.einordnen_uebernehmen(
         [noch_einer], kategorie=material, objekt=klein.hof, regel_merken=True
     )
-    assert zweite.regel is None and "überschneidet sich" in zweite.regel_fehler
+    assert zweite.regel == ergebnis.regel and not zweite.regel_neu
     assert services.ist_gebucht(noch_einer)
+    assert Zuordnungsregel.objects.count() == 1
 
 
 # --- Posteingang (Review 2, B2) -------------------------------------------------------
@@ -224,8 +226,9 @@ def test_ein_klick_uebernimmt_und_die_zeile_verschwindet(
     html = antwort.content.decode()
     assert antwort.status_code == 200
     assert f'id="posten-{posten.pk}"' not in html
-    assert f"Umsatz #{eintrag.pk} gebucht: Material · HOF." in html
-    assert reverse("kassenbuch:umsatz", args=[eintrag.pk]) in html
+    umsatz_url = reverse("kassenbuch:umsatz", args=[eintrag.pk])
+    # Die Nummer im Text ist ein Link (Review 3, Punkt 8).
+    assert f'<a href="{umsatz_url}">Umsatz #{eintrag.pk}</a> gebucht: Material · HOF.' in html
     (buchung,) = Buchung.objects.filter(umsatz=eintrag)
     assert (buchung.kategorie, buchung.objekt) == (material, klein.hof)
 

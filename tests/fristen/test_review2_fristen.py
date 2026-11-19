@@ -9,6 +9,7 @@ import re
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.fristen import services, views
 from apps.fristen.models import Frist
@@ -123,7 +124,7 @@ def test_erledigt_in_der_zeile_mit_meldung(angemeldet: Client) -> None:
     antwort = angemeldet.post(reverse("fristen:erledigt", args=[frist.pk]), HTTP_HX_REQUEST="true")
     teil = antwort.content.decode()
     assert teil.lstrip().startswith("<tr")
-    assert f"Frist #{frist.pk} erledigt" in teil and 'hx-swap-oob="beforeend"' in teil
+    assert f"Frist #{frist.pk} erledigt" in strip_tags(teil) and 'hx-swap-oob="beforeend"' in teil
 
 
 def test_abgeloeste_bankfreigabe_schliesst_ihre_frist(testhof: Testhof, angemeldet: Client) -> None:

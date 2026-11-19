@@ -24,4 +24,9 @@ def _umsatz_text(umsatz: Bankumsatz) -> str:
 
 
 verweise.registrieren(Bankumsatz, "Umsatz ansehen", _umsatz, beschreibung=_umsatz_text)
-verweise.registrieren(Monatsabschluss, "Abschluss ansehen", _abschluss)
+verweise.registrieren(
+    Monatsabschluss,
+    "Abschluss ansehen",
+    _abschluss,
+    beschreibung=lambda a: f"{a.mandant.kuerzel} · {a.monat:%m/%Y}",
+)

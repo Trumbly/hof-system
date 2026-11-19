@@ -108,7 +108,9 @@ def test_ablehnen_ueber_den_arbeitsposten(freie_garage: Einheit, angemeldet: Cli
     liste = angemeldet.get(reverse("kern:arbeitslisten")).content.decode()
     ziel = reverse("anbindungen:anfrage", args=[anfrage.pk])
     assert ziel in liste  # Aktion „Anfrage entscheiden“ und Verweis führen zur Anfrage
-    assert NAME not in liste  # Die Arbeitsliste nennt nur die NW-ID
+    # Der Titel nennt den Gegenstand aus dem Bezug (Review 3, Punkt 8), der Hinweis keine Namen.
+    assert f"{freie_garage.nw_id} · {NAME}" in liste
+    assert NAME not in pruefen.hinweis
 
     angemeldet.post(ziel, {"status": "abgelehnt"})
     anfrage.refresh_from_db()

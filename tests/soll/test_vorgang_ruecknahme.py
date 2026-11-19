@@ -14,6 +14,7 @@ import pytest
 from django.contrib.contenttypes.models import ContentType
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 from pghistory.models import Events
 
 from apps.dokumente import services as dokumente
@@ -142,7 +143,7 @@ def test_kuendigung_mit_versandter_bestaetigung_ist_gesperrt(
     assert f'href="{sperre.url}"' in seite
     assert "Ganzen Vorgang zurücknehmen" not in seite
     antwort = angemeldet.post(reverse("kern:vorgang_zuruecknehmen", args=[vid]), follow=True)
-    assert "Nicht zurückgenommen: Schreiben #" in antwort.content.decode()
+    assert "Nicht zurückgenommen: Schreiben #" in strip_tags(antwort.content.decode())
     vertrag.refresh_from_db()
     assert vertrag.status == Vertrag.Status.GEKUENDIGT
     assert Kuendigung.objects.filter(pk=kuendigung.pk).exists()

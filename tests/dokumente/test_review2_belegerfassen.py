@@ -15,6 +15,7 @@ from decimal import Decimal
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.bank import fingerabdruck
 from apps.bank.models import Bankumsatz
@@ -250,7 +251,7 @@ def test_nach_dem_bestaetigen_oeffnet_sich_der_naechste_offene_beleg(
     antwort = angemeldet.post(url, daten, follow=True)
     assert antwort.redirect_chain[-1][0] == reverse("dokumente:beleg", args=[zweiter.pk])
     seite = antwort.content.decode()
-    assert f"Beleg #{erster.pk} bestätigt" in seite
+    assert f"Beleg #{erster.pk} bestätigt" in strip_tags(seite)
     assert f'href="{url}"' in seite
     # Der neue Lieferant ist als Vorschlag aus der ersten Zeile eingetragen.
     assert _wert(seite, "lieferant_neu") == "Neuer Lieferant Beispiel"

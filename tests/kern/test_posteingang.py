@@ -6,6 +6,7 @@ import pytest
 from django.core.management import call_command
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.bank import enablebanking
 from apps.bank import services as bank
@@ -130,7 +131,7 @@ def test_bankabruf_gescheitert_mit_passenden_aktionen(
 
     fake.fehler = None
     gelungen = angemeldet.post(url, **HTMX).content.decode()
-    assert f"Abruf für Konto #{vivid.pk} gelungen" in gelungen
+    assert f"Abruf für Konto #{vivid.pk} gelungen" in strip_tags(gelungen)
     posten.refresh_from_db()
     assert posten.status == Arbeitsposten.Status.ERLEDIGT
     letzter = Lauf.objects.filter(name="bank_abruf").order_by("-pk").first()

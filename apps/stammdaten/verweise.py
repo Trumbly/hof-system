@@ -10,7 +10,15 @@ from __future__ import annotations
 from django.urls import reverse
 
 from apps.kern import verweise
-from apps.stammdaten.models import Checkliste, Einheit, Kaution, Vertrag, Vertragspartei
+from apps.stammdaten.models import (
+    Checkliste,
+    Einheit,
+    Kaution,
+    Kuendigung,
+    Uebergabe,
+    Vertrag,
+    Vertragspartei,
+)
 
 
 def vertrag_text(vertrag: Vertrag) -> str:
@@ -47,6 +55,18 @@ verweise.registrieren(
     Kaution, "Kaution abrechnen", _kaution, beschreibung=lambda k: vertrag_text(k.vertrag)
 )
 verweise.registrieren(Checkliste, "Checkliste öffnen", _checkliste, beschreibung=_checkliste_text)
+verweise.registrieren(
+    Kuendigung,
+    "Vertrag öffnen",
+    lambda k: reverse("stammdaten:vertrag", args=[k.vertrag_id]),
+    beschreibung=lambda k: f"{vertrag_text(k.vertrag)} · Kündigung",
+)
+verweise.registrieren(
+    Uebergabe,
+    "Übergabe öffnen",
+    lambda u: reverse("stammdaten:uebergabe", args=[u.pk, 1]),
+    beschreibung=lambda u: f"{vertrag_text(u.vertrag)} · {u.get_art_display()}",
+)
 verweise.registrieren(
     Einheit,
     "Einheit öffnen",
