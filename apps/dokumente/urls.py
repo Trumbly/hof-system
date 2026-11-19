@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import belegseite, views
 
 app_name = "dokumente"
 
@@ -12,7 +12,8 @@ urlpatterns = [
     path("dokument/<int:pk>/original", views.dokument_original, name="dokument_original"),
     path("belege/hochladen/", views.beleg_hochladen, name="beleg_hochladen"),
     path("belege/vorschlag/", views.beleg_vorschlag, name="beleg_vorschlag"),
-    path("belege/<int:pk>/", views.beleg, name="beleg"),
+    path("belege/neu/", belegseite.neu, name="beleg_neu"),
+    path("belege/<int:pk>/", belegseite.seite, name="beleg"),
     path("belege/<int:pk>/buchung/", views.beleg_buchung, name="beleg_buchung"),
     path("belege/<int:pk>/verwerfen/", views.beleg_verwerfen, name="beleg_verwerfen"),
     path("belege/<int:pk>/umwidmen/", views.beleg_umwidmen, name="beleg_umwidmen"),

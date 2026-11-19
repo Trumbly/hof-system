@@ -1,30 +1,25 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
-{% block titel %}Beleg hochladen{% endblock %}
+{% block titel %}Dokument von Hand ablegen{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Beleg hochladen</h1>
-<p class="leise">Foto oder PDF; die Felder trägst du von Hand ein. Wählst du einen bekannten Lieferanten, kommen Objekt, Kostenart und Leistungsjahr aus seinen früheren Belegen.</p>
-<form method="post" enctype="multipart/form-data" class="formular">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<p class="formfehler">{{ form.non_field_errors|join:" " }}</p>{% endif %}
-  <p>
-    {{ form.datei.label_tag }}
-    {{ form.datei }}
-    {% if form.datei.errors %}<span class="formfehler">{{ form.datei.errors|join:" " }}</span>{% endif %}
-  </p>
-  <p>
-    {{ form.art.label_tag }}
-    {{ form.art }}
-  </p>
-  {% include "dokumente/_beleg_felder.html" %}
-  <p>
-    {{ form.bemerkung.label_tag }}
-    {{ form.bemerkung }}
-  </p>
-  <div class="aktionen">
-    <button type="submit">Ablegen</button>
+{% seitenkopf "Dokument von Hand ablegen" "Für Mahnungen, Rücklastschriften und Belege ohne lesbares PDF. Belege mit PDF gehen schneller über „Beleg hochladen“ in der Ablage." %}{% endseitenkopf %}
+<form method="post" enctype="multipart/form-data" class="karte">
+  <div class="karte-rumpf">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder">
+      {% dateiknoepfe form.datei %}
+      {% feld form.art %}
+    </div>
+    {% include "dokumente/_beleg_felder.html" %}
+    <div class="felder">{% feld form.bemerkung %}</div>
+    <div class="formular-fuss">
+      <button type="submit" class="knopf knopf-primaer">Ablegen</button>
+    </div>
   </div>
 </form>
 {% endblock %}

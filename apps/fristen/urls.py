@@ -7,4 +7,5 @@ app_name = "fristen"
 urlpatterns = [
     path("", views.fristenliste, name="liste"),
     path("<int:pk>/erledigt/", views.erledigt, name="erledigt"),
+    path("<int:pk>/verschieben/", views.verschieben, name="verschieben"),
 ]

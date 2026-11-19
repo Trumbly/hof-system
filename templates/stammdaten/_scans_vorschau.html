@@ -1,0 +1,31 @@
+{% load bausteine %}{# Vorschau der Zuordnung (Review 2, B12): je Datei der Vertrag oder der Grund, warum nicht. #}
+<form class="dialog-formular" method="post" action="{% url 'stammdaten:datenstand_scans' %}" hx-post="{% url 'stammdaten:datenstand_scans' %}" hx-target="#dialog-inhalt" hx-swap="innerHTML">
+  {% csrf_token %}
+  <input type="hidden" name="aktion" value="uebernehmen">
+  <input type="hidden" name="kennung" value="{{ kennung }}">
+  <header class="dialog-kopf">
+    <h2 class="dialog-titel" id="dialog-titel">Zuordnung prüfen</h2>
+    <button type="button" class="knopf knopf-text knopf-symbol" data-dialog-schliessen aria-label="Schließen">×</button>
+  </header>
+  <div class="dialog-rumpf">
+    <p class="dialog-hinweis">{{ passend }} von {{ zuordnung|length }} Dateien passen zu einem Vertrag ohne Scan.</p>
+    <div class="tabelle-box">
+    <table class="tab tab-karten" id="scan-zuordnung">
+      <thead><tr><th>Datei</th><th>Vertrag</th><th>Ergebnis</th></tr></thead>
+      <tbody>
+        {% for z in zuordnung %}
+        <tr{% if not z.ok %} class="zeile-leise"{% endif %}>
+          <td data-titel="Datei">{{ z.dateiname }}</td>
+          <td data-titel="Vertrag">{% if z.vertrag %}<a href="{% url 'stammdaten:vertrag' z.vertrag.pk %}" target="_blank" rel="noopener">{{ z.vertrag.nummer }}</a>{% else %}{{ z.v_nummer|default:"–" }}{% endif %}</td>
+          <td data-titel="Ergebnis">{% if z.ok %}{% badge "ok" "wird angehängt" %}{% else %}{{ z.hinweis }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <footer class="dialog-fuss">
+    <button type="button" class="knopf knopf-zweit" data-dialog-schliessen>Abbrechen</button>
+    <button type="submit" class="knopf knopf-primaer"{% if not passend %} disabled{% endif %}>{{ passend }} Scan{{ passend|pluralize:"s" }} übernehmen</button>
+  </footer>
+</form>

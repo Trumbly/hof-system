@@ -62,6 +62,7 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
 <p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
 <p>wir möchten Sie zu Ihrer Einheit {{ einheit.kuerzel }} im Objekt {{ objekt.bezeichnung }}
 informieren.</p>
+{% if mitteilung.text %}{{ mitteilung.text|linebreaks }}{% endif %}
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
 """,
     ),
@@ -72,6 +73,7 @@ informieren.</p>
         """\
 <p>{{ empfaenger.anrede }},</p>
 <p>für das Objekt {{ objekt.bezeichnung }} ({{ objekt.kuerzel }}) gilt ab sofort Folgendes.</p>
+{% if mitteilung.text %}{{ mitteilung.text|linebreaks }}{% endif %}
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
 """,
     ),

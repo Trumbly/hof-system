@@ -1,55 +1,78 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Ablage{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Ablage</h1>
-<div class="aktionen">
-  <a class="knopf" href="{% url 'dokumente:beleg_hochladen' %}">Beleg hochladen</a>
-  <a class="knopf zweitrangig" href="{% url 'dokumente:belegmappe' %}">Belegmappe</a>
+{% seitenkopf "Ablage" "Belege, Rechnungen und Dokumente · aufbewahrt nach Löschfrist" %}
+  <details class="menue">
+    <summary class="knopf knopf-zweit">mehr ▾</summary>
+    <ul class="menue-liste">
+      <li><a href="{% url 'dokumente:beleg_hochladen' %}">Dokument von Hand ablegen (Mahnung, Rücklastschrift …)</a></li>
+    </ul>
+  </details>
+{% endseitenkopf %}
+
+<div class="stapel">
+<div class="raster raster-2-1">
+  {% karte "Belege zuordnen" zahl=offen|length %}
+    {% if offen %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Eingang</th><th>Lieferant</th><th>Herkunft</th><th class="eng"></th></tr></thead>
+      <tbody>
+        {% for b in offen %}
+        <tr>
+          <td data-titel="Eingang">{{ b.dokument.datum|date:"d.m.Y" }}</td>
+          <td data-titel="Lieferant">{{ b.lieferant.name|default:"noch unbekannt" }}</td>
+          <td data-titel="Herkunft">{{ b.dokument.get_herkunft_display }}</td>
+          <td class="eng"><a class="knopf knopf-zweit knopf-klein" href="{% url 'dokumente:beleg' b.pk %}">prüfen</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}{% include "bausteine/leer.html" with text="Keine offenen Belege." hilfe="Rechnungen aus dem Postfach und hochgeladene Belege erscheinen hier." %}{% endif %}
+  {% endkarte %}
+
+  {% karte "Beleg hochladen" %}
+    <form method="post" action="{% url 'dokumente:beleg_neu' %}" enctype="multipart/form-data" class="stapel">
+      {% csrf_token %}
+      {% dateiknoepfe hochladen.datei kamera=True sofort=True %}
+      <noscript><button type="submit" class="knopf knopf-primaer">Hochladen</button></noscript>
+    </form>
+  {% endkarte %}
 </div>
 
-<section class="gruppe">
-  <h2>Belege zuordnen <span class="zahl">{{ offen|length }}</span></h2>
-  <ul class="posten-liste">
-    {% for b in offen %}
-    <li class="posten">
-      <div class="posten-kopf">
-        <a class="posten-titel" href="{% url 'dokumente:beleg' b.pk %}">Beleg #{{ b.pk }}</a>
-        <span class="faellig">{{ b.dokument.datum|date:"d.m.Y" }}</span>
-      </div>
-      <p class="leise posten-meta">{{ b.dokument.get_herkunft_display }}{% if b.lieferant %} · {{ b.lieferant.name }}{% endif %}</p>
-    </li>
-    {% empty %}<li class="leise">Keine.</li>{% endfor %}
-  </ul>
-</section>
-
-<section class="gruppe">
-  <h2>Dokumente</h2>
-  <form method="get" class="filter">
-    <label for="art">Art</label>
-    <select name="art" id="art" onchange="this.form.submit()">
-      <option value="">alle</option>
-      {% for schluessel, titel in arten %}<option value="{{ schluessel }}"{% if schluessel == art %} selected{% endif %}>{{ titel }}</option>{% endfor %}
-    </select>
-    <noscript><button type="submit">Zeigen</button></noscript>
+{% karte "Dokumente" %}
+  <form method="get" class="filterleiste">
+    <div class="feld">
+      <label class="feld-label" for="art">Art</label>
+      <select class="feld-auswahl" name="art" id="art" onchange="this.form.submit()">
+        <option value="">alle</option>
+        {% for schluessel, titel in arten %}<option value="{{ schluessel }}"{% if schluessel == art %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+      </select>
+    </div>
+    <noscript><button type="submit" class="knopf knopf-zweit">Zeigen</button></noscript>
   </form>
-  <div class="tabelle-rahmen">
-  <table>
-    <thead><tr><th>Dokument</th><th>Art</th><th>Datum</th><th>Eingang</th><th>aufbewahren bis</th></tr></thead>
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Datum</th><th>Lieferant / Absender</th><th>Betreff</th><th class="zahl">Betrag</th><th>Eingang</th><th>aufbewahren bis</th></tr></thead>
     <tbody>
-      {% for d in dokumente %}
+      {% for z in dokumente %}
       <tr>
-        <td data-titel="Dokument"><a href="{% url 'dokumente:dokument' d.pk %}">#{{ d.pk }}</a></td>
-        <td data-titel="Art">{{ d.dokumentart.titel }}</td>
-        <td data-titel="Datum">{{ d.datum|date:"d.m.Y" }}</td>
-        <td data-titel="Eingang">{{ d.get_herkunft_display }}, {{ d.eingegangen_am|date:"d.m.Y" }}</td>
-        <td data-titel="aufbewahren bis">{{ d.loeschfrist|date:"d.m.Y" }}</td>
+        <td data-titel="Datum">{{ z.dokument.datum|date:"d.m.Y" }}</td>
+        <td data-titel="Lieferant / Absender">{{ z.absender|default:"–" }}</td>
+        <td data-titel="Betreff"><a href="{{ z.url }}">{{ z.betreff }}</a> <a class="text-3 klein" href="{% url 'dokumente:dokument' z.dokument.pk %}">Dokument #{{ z.dokument.pk }}</a></td>
+        <td data-titel="Betrag" class="zahl">{% if z.betrag is not None %}{{ z.betrag|euro }}{% else %}–{% endif %}</td>
+        <td data-titel="Eingang">{{ z.dokument.get_herkunft_display }}, {{ z.dokument.eingegangen_am|date:"d.m.Y" }}</td>
+        <td data-titel="aufbewahren bis">{{ z.dokument.loeschfrist|date:"d.m.Y" }}</td>
       </tr>
-      {% empty %}<tr><td colspan="5" class="leise">Noch nichts abgelegt.</td></tr>{% endfor %}
+      {% empty %}{% include "bausteine/leer.html" with spalten=6 text="Noch nichts abgelegt." %}{% endfor %}
     </tbody>
   </table>
   </div>
-</section>
+{% endkarte %}
+</div>
 {% endblock %}

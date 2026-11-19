@@ -1,20 +1,24 @@
 """Beleg erfassen: der offene Beleg aus dem Rechnungspostfach (Arbeitsposten
 „Belege zuordnen“).
 
-Weg heute: Arbeitslisten → „Zuordnen“ → Seite des Belegs. Lieferant, Objekt und Kostenart
-sind aus früheren Belegen vorbelegt; Belegdatum, Betrag und Rechnungsnummer liest man vom PDF
-ab und tippt sie → „Bestätigen“. Die Werte vom PDF liefert ``tests/e2e/adressen.py``
-(Textschicht des erfundenen PDFs).
+Weg seit R2-8 (Review 2, B9): Arbeitslisten → „Zuordnen“ → Seite des Belegs (PDF links,
+Formular rechts). Datum, Betrag, Rechnungsnummer und Lieferant stehen aus der Textschicht
+des PDFs im Formular, Objekt und Kostenart aus dem letzten Beleg des Lieferanten; die passende
+Abbuchung ist vorgewählt → „Bestätigen“. Die Werte, die ein Mensch vom PDF abliest, liefert
+``tests/e2e/adressen.py`` (eigene Muster, nicht die Erkennung der Anwendung).
 
-Dazu ``hochladen``: ein neuer Beleg eines neuen Lieferanten über „Beleg hochladen“.
+Dazu ``hochladen``: ein neuer Beleg eines neuen Lieferanten über „Beleg hochladen“ in der
+Ablage (Datei wählen genügt, die Seite des Belegs öffnet sich vorausgefüllt).
 """
 
 from __future__ import annotations
 
+import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from testhof.pdfs import einfaches_pdf
+from testhof.pdfs import rechnung_pdf
 from tests.e2e.klickmessung.messung import Messung
 
 NAME = "beleg_erfassen"
@@ -32,10 +36,9 @@ SELEKTOREN = {
     "leistungsjahr": "input[name=leistungsjahr]",
     "rechnungsnummer": "input[name=rechnungsnummer]",
     "bestaetigen": "main button:has-text('Bestätigen')",
-    # Hochladen
-    "hochladen": "main a:has-text('Beleg hochladen')",
-    "datei": "input[type=file][name=datei]",
-    "ablegen": "main button:has-text('Ablegen')",
+    "rueckmeldung": "#toasts",
+    # Hochladen: „Datei wählen“ (nicht „Foto aufnehmen“) in der Karte „Beleg hochladen“
+    "datei": "form[action$='/belege/neu/'] input[type=file][name=datei]:not([capture])",
 }
 
 #: Erfundener Beleg für das Hochladen (neuer Lieferant).
@@ -63,27 +66,27 @@ def durchspielen(m: Messung, adressen: dict[str, Any]) -> None:
     m.tippe(s["rechnungsnummer"], angaben["rechnungsnummer"])
     m.klick(s["bestaetigen"])
     m.anhalten()
-    assert "bestätigt" in m.text(), "Der Beleg ist nicht bestätigt."
+    assert "bestätigt" in m.text(s["rueckmeldung"]), "Der Beleg ist nicht bestätigt."
 
 
 def hochladen(m: Messung, adressen: dict[str, Any], ablage: Path) -> None:
-    """Neuer Beleg über „Beleg hochladen“ (Ablage → Beleg hochladen → Felder → Ablegen)."""
+    """Neuer Beleg über „Beleg hochladen“ (Ablage → Datei wählen → prüfen → Bestätigen)."""
     s = SELEKTOREN
     b = NEUER_BELEG
     pdf = ablage / "beleg-neu.pdf"
     pdf.write_bytes(
-        einfaches_pdf(
-            [
-                f"{b['lieferant']} (erfunden, Testhof)",
-                f"Rechnungsnummer {b['rechnungsnummer']}",
-                "Datum 28.10.2026",
-                f"Betrag {b['betrag']} EUR",
-            ]
+        rechnung_pdf(
+            lieferant=b["lieferant"],
+            nummer=b["rechnungsnummer"],
+            datum=datetime.date.fromisoformat(b["datum"]),
+            betrag=Decimal(b["betrag"].replace(",", ".")),
+            leistung="Material (erfunden, Testhof)",
         )
     )
     m.beginnen(adressen["seiten"]["dokumente"])
-    m.klick(s["hochladen"])
-    m.datei(s["datei"], str(pdf))
+    with m.seite.expect_navigation():
+        m.datei(s["datei"], str(pdf))  # sendet sofort (Baustein dateiknoepfe, sofort)
+    m.seite.wait_for_load_state("networkidle")
     m.tippe(s["lieferant_neu"], b["lieferant"])
     m.tippe(s["datum"], b["datum"])
     m.tippe(s["betrag"], b["betrag"])
@@ -91,6 +94,6 @@ def hochladen(m: Messung, adressen: dict[str, Any], ablage: Path) -> None:
     m.waehle(s["kategorie"], b["kategorie"])
     m.tippe(s["leistungsjahr"], b["leistungsjahr"], vorbelegt_reicht=True)
     m.tippe(s["rechnungsnummer"], b["rechnungsnummer"])
-    m.klick(s["ablegen"])
+    m.klick(s["bestaetigen"])
     m.anhalten()
-    assert "/dokumente/belege/" in m.seite.url or "Beleg" in m.text(), m.seite.url
+    assert "bestätigt" in m.text(s["rueckmeldung"]), m.seite.url

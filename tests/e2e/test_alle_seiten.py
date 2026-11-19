@@ -67,6 +67,8 @@ def _seiten_sammeln(seite: Page, server: Server) -> dict[str, str]:
         antwort = seite.request.get(server.url(pfad), max_redirects=0)
         if not antwort.headers.get("content-type", "").startswith("text/html"):
             continue
+        if antwort.status < 300 and "<html" not in antwort.text()[:1000]:
+            continue  # Inhalt eines Dialogs (HTMX), keine eigene Seite
         gefunden[name] = pfad
         if antwort.status >= 300:
             continue

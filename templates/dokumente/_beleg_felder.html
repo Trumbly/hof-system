@@ -1,12 +1,6 @@
-<fieldset id="beleg-felder" class="beleg-felder">
-  <legend>Angaben zum Beleg</legend>
-  {% if vorschlag_text %}<p class="leise" role="status">{{ vorschlag_text }}</p>{% endif %}
-  {% for name in felder %}{% for feld in form %}{% if feld.name == name %}
-  <p>
-    {{ feld.label_tag }}
-    {{ feld }}
-    {% if feld.help_text %}<span class="leise">{{ feld.help_text }}</span>{% endif %}
-    {% if feld.errors %}<span class="formfehler">{{ feld.errors|join:" " }}</span>{% endif %}
-  </p>
-  {% endif %}{% endfor %}{% endfor %}
-</fieldset>
+{% load bausteine %}<div id="beleg-felder" class="beleg-felder">
+  {% if vorschlag_text %}<p class="hinweis-band" role="status">{{ vorschlag_text }}</p>{% endif %}
+  <div class="felder felder-2">
+  {% for name in felder %}{% for f in form %}{% if f.name == name %}{% feld f %}{% endif %}{% endfor %}{% endfor %}
+  </div>
+</div>

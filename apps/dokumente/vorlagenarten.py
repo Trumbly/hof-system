@@ -100,6 +100,9 @@ _STAMMDATEN = (
 )
 
 
+#: Freitext einer Serienmitteilung (Review 2, B13), eingegeben auf der Seite der Serie.
+FREITEXT = "mitteilung.text"
+
 #: Hinweis an jedem Schreiben einer Art mit ``anwalt_bestaetigung`` (Mahnwesen, H4.3, H4.6).
 ANWALT_HINWEIS = "vor Versand zum Anwalt"
 
@@ -117,6 +120,11 @@ class Vorlagenart:
     platzhalter: tuple[str, ...] = ()
     briefkopf: bool = False
     anwalt_bestaetigung: bool = False
+    #: Steht als Vorlage der Serienmitteilung zur Wahl (Review 2, B13). Vertrag,
+    #: Übergabeprotokoll oder Mahnung gehören zu einem einzelnen Vorgang und nicht dazu.
+    serie: bool = False
+    #: Hat ein Freitextfeld („Mitteilung an Nutzer“): Platzhalter ``mitteilung.text``.
+    freitext: bool = False
 
     def erlaubte_platzhalter(self) -> frozenset[str]:
         if self.briefkopf:
@@ -126,12 +134,20 @@ class Vorlagenart:
 
 VORLAGENARTEN: tuple[Vorlagenart, ...] = (
     Vorlagenart("briefkopf", "Briefkopf", briefkopf=True),
-    Vorlagenart("mitteilung", "Mitteilung", platzhalter=(*_VERTRAG, "betrag")),
+    Vorlagenart(
+        "mitteilung",
+        "Mitteilung",
+        platzhalter=(*_VERTRAG, "betrag", FREITEXT),
+        serie=True,
+        freitext=True,
+    ),
     Vorlagenart(
         "aushang",
         "Aushang",
         versandweg=Versandweg.SELBST,
-        platzhalter=("objekt.kuerzel", "objekt.bezeichnung", "objekt.anschrift"),
+        platzhalter=("objekt.kuerzel", "objekt.bezeichnung", "objekt.anschrift", FREITEXT),
+        serie=True,
+        freitext=True,
     ),
     Vorlagenart(
         "vertrag",
@@ -225,6 +241,11 @@ def holen(schluessel: str) -> Vorlagenart:
 
 def alle() -> list[Vorlagenart]:
     return list(_ARTEN.values())
+
+
+def seriengeeignet() -> list[str]:
+    """Schlüssel der Arten, die als Vorlage einer Serienmitteilung zur Wahl stehen."""
+    return [art.schluessel for art in _ARTEN.values() if art.serie]
 
 
 def auswahl() -> list[tuple[str, str]]:

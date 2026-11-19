@@ -26,6 +26,8 @@ from django.db import models
 Kontextfunktion = Callable[[Any], Mapping[str, Any]]
 Auswahlfunktion = Callable[[], "models.QuerySet[Any]"]
 Bezeichnungsfunktion = Callable[[Any], str]
+#: (Auswahl, Objekt oder None, Typ der Einheit oder "") → eingegrenzte Auswahl (Review 2, B13)
+Filterfunktion = Callable[["models.QuerySet[Any]", Any, str], "models.QuerySet[Any]"]
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,17 @@ class Bezugsart:
     auswahl: Auswahlfunktion
     #: Text in der Auswahlliste (Max' Oberfläche: mit Namen, Review 2, Klarstellung).
     bezeichnung: Bezeichnungsfunktion = str
+    #: Eingrenzen nach Objekt und Typ der Einheit; ohne: nur nach Objekt, wenn möglich.
+    filtern: Filterfunktion | None = None
+    #: Lässt sich nach dem Typ der Einheit eingrenzen?
+    nach_typ: bool = False
+
+    def eingrenzen(
+        self, auswahl: models.QuerySet[Any], objekt: Any, typ: str
+    ) -> models.QuerySet[Any]:
+        if self.filtern is not None:
+            return self.filtern(auswahl, objekt, typ)
+        return auswahl
 
     @property
     def schluessel(self) -> str:
@@ -52,9 +65,17 @@ def registrieren(
     kontext: Kontextfunktion,
     auswahl: Auswahlfunktion,
     bezeichnung: Bezeichnungsfunktion = str,
+    filtern: Filterfunktion | None = None,
+    nach_typ: bool = False,
 ) -> Bezugsart:
     art = Bezugsart(
-        modell=modell, titel=titel, kontext=kontext, auswahl=auswahl, bezeichnung=bezeichnung
+        modell=modell,
+        titel=titel,
+        kontext=kontext,
+        auswahl=auswahl,
+        bezeichnung=bezeichnung,
+        filtern=filtern,
+        nach_typ=nach_typ,
     )
     _BEZUGSARTEN[art.schluessel] = art
     return art
@@ -100,4 +121,5 @@ def objekt_anmelden() -> None:
         kontext=_objekt_kontext,
         auswahl=lambda: Objekt.objects.filter(aktiv=True).order_by("kuerzel"),
         bezeichnung=lambda o: f"{o.kuerzel} · {o.bezeichnung}",
+        filtern=lambda auswahl, objekt, _typ: auswahl.filter(pk=objekt.pk) if objekt else auswahl,
     )

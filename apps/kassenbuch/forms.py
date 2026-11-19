@@ -45,7 +45,25 @@ def _datum_widget() -> forms.DateInput:
     return forms.DateInput(attrs={"type": "date"})
 
 
+class KontoWahl(forms.ModelChoiceField):  # type: ignore[type-arg]
+    """Konten mit Namen statt „Bankkonto #3“ (Review 2, B11)."""
+
+    def label_from_instance(self, obj: Any) -> str:
+        return str(obj.bezeichnung)
+
+
 class BuchungFilter(forms.Form):
+    """Filter des Kassenbuchs (Review 2, B11): sichtbar sind nur Suche und Monat, der Rest
+    steht im zugeklappten Bereich „Weitere Filter“ (``WEITERE``)."""
+
+    q = forms.CharField(
+        label="Suche",
+        required=False,
+        widget=forms.TextInput(
+            attrs={"type": "search", "placeholder": "Gegenpartei, Zweck, Kategorie, Betrag"}
+        ),
+    )
+    monat = forms.CharField(label="Monat", required=False, widget=None)
     von = forms.DateField(required=False, widget=_datum_widget())
     bis = forms.DateField(required=False, widget=_datum_widget())
     mandant = MandantWahl(Mandant.objects.order_by("kuerzel"), required=False, empty_label="alle")
@@ -56,10 +74,32 @@ class BuchungFilter(forms.Form):
     art = forms.ChoiceField(
         label="Art", choices=[("", "alle"), *Kategorie.Art.choices], required=False
     )
-    konto = forms.ModelChoiceField(
+    konto = KontoWahl(
         Bankkonto.objects.order_by("bezeichnung"), required=False, empty_label="alle Konten"
     )
     ohne_storno = forms.BooleanField(label="ohne Stornos und stornierte Buchungen", required=False)
+
+    #: Felder unter „Weitere Filter“
+    WEITERE = ("von", "bis", "mandant", "objekt", "kategorie", "art", "konto", "ohne_storno")
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["monat"].widget = MonatAuswahl(leer=True)
+
+    def clean_monat(self) -> datetime.date | None:
+        text = self.cleaned_data.get("monat") or ""
+        if not text:
+            return None
+        monat = monat_aus_text(text)
+        if monat is None:
+            raise forms.ValidationError("Bitte Monat und Jahr wählen.")
+        return monat
+
+    @property
+    def weitere_aktiv(self) -> bool:
+        """Ist unter „Weitere Filter“ etwas gesetzt? Dann steht der Bereich offen."""
+        daten = self.cleaned_data if self.is_bound and self.is_valid() else {}
+        return any(daten.get(name) for name in self.WEITERE)
 
 
 class ZuordnenForm(forms.Form):
@@ -181,16 +221,23 @@ class MonatAuswahl(forms.MultiWidget):
     Der Wert bleibt „JJJJ-MM“; Links mit ``?monat=2026-10`` gehen weiter.
     """
 
-    def __init__(self, attrs: dict[str, Any] | None = None) -> None:
+    def __init__(self, attrs: dict[str, Any] | None = None, *, leer: bool = False) -> None:
         jahre = range(ERSTES_JAHR, datetime.date.today().year + 2)
+        # ``leer``: als Filter auch „alle“ (Kassenbuch, Review 2, B11)
+        vorn: list[tuple[str, str]] = [("", "alle Monate")] if leer else []
+        jahr_vorn: list[tuple[str, str]] = [("", "–")] if leer else []
         super().__init__(
             [
                 forms.Select(
                     attrs={"aria-label": "Monat"},
-                    choices=[(f"{n:02d}", name) for n, name in enumerate(MONATSNAMEN, start=1)],
+                    choices=vorn
+                    + [(f"{n:02d}", name) for n, name in enumerate(MONATSNAMEN, start=1)],
                 ),
                 forms.Select(
-                    attrs={"aria-label": "Jahr"}, choices=[(str(j), str(j)) for j in jahre]
+                    attrs={"aria-label": "Jahr"},
+                    choices=jahr_vorn + [(str(j), str(j)) for j in reversed(jahre)]
+                    if leer
+                    else [(str(j), str(j)) for j in jahre],
                 ),
             ],
             attrs,

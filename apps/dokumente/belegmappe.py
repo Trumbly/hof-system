@@ -20,6 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from django.db.models import Count
 from django.template.loader import render_to_string
 from django.utils import timezone
 from pypdf import PdfReader, PdfWriter
@@ -176,6 +177,48 @@ def daten(objekt: Objekt, jahr: int) -> Mappe:
     )
     mappe.belege_ohne_buchung = [b.pk for b in belege if b.buchung_id is None]
     return mappe
+
+
+def vorgabe(jahr: int) -> Objekt | None:
+    """Vorbelegung der Seite (Review 2, B11): das Objekt mit den meisten Belegen im Jahr,
+    sonst das erste aktive."""
+    am_meisten = (
+        Beleg.objects.filter(status=Beleg.Status.BESTAETIGT, leistungsjahr=jahr)
+        .values("objekt_id")
+        .annotate(anzahl=Count("pk"))
+        .order_by("-anzahl", "objekt_id")
+        .first()
+    )
+    if am_meisten and am_meisten["objekt_id"]:
+        return Objekt.objects.filter(pk=am_meisten["objekt_id"]).first()
+    return Objekt.objects.filter(aktiv=True).order_by("kuerzel").first()
+
+
+def buchungen(ids: list[int]) -> list[Buchung]:
+    """Die Buchungen zu ``Mappe.buchungen_ohne_beleg`` mit Umsatz (Datum, Gegenpartei)."""
+    return list(
+        Buchung.objects.filter(pk__in=ids)
+        .select_related("umsatz", "kategorie")
+        .order_by("datum", "pk")
+    )
+
+
+def belege_fuer(buchung: Buchung, mappe: Mappe) -> list[Beleg]:
+    """Belege, die zur Buchung passen können: bestätigt, noch ohne Buchung; zuerst die
+    der Mappe, dann nach Abstand im Betrag und im Datum."""
+    kandidaten = (
+        Beleg.objects.filter(status=Beleg.Status.BESTAETIGT, buchung__isnull=True)
+        .select_related("dokument", "lieferant", "kategorie", "objekt")
+        .order_by("-dokument__datum", "-pk")[:200]
+    )
+    in_mappe = {z.beleg.pk for z in mappe.zeilen}
+
+    def abstand(beleg: Beleg) -> tuple[int, Decimal, int]:
+        betrag = abs((beleg.betrag or NULL) - buchung.betrag)
+        tage = abs((beleg.dokument.datum - buchung.datum).days)
+        return (0 if beleg.pk in in_mappe else 1, betrag, tage)
+
+    return sorted(kandidaten, key=abstand)[:10]
 
 
 def _seiten(inhalt: bytes) -> int:

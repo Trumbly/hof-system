@@ -228,7 +228,10 @@ def test_pflichtfelder_auf_der_seite_des_belegs(angemeldet: Client, belegwelt: B
     beleg = services.beleg_anlegen(dokument)
     antwort = angemeldet.post(reverse("dokumente:beleg", args=[beleg.pk]), {"datum": "2026-11-02"})
     assert antwort.status_code == 200
-    assert "Der Lieferant fehlt." in antwort.content.decode()
+    html = antwort.content.decode()
+    # Review 2: Fehler als deutsche Sätze am Feld
+    assert "Bitte den Lieferanten wählen oder einen neuen eintragen." in html
+    assert "Bitte den Betrag angeben." in html
     beleg.refresh_from_db()
     assert beleg.status == Beleg.Status.OFFEN
 
