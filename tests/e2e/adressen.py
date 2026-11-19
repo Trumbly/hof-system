@@ -148,10 +148,29 @@ def sammeln() -> dict[str, Any]:
     }
 
 
+def _mitteilung_erzeugen() -> Any:
+    """Ein Schreiben (Mitteilung an Nutzer, V-0005) für die Seite eines Schreibens, falls der
+    frische Testhof noch keines hat. Erzeugt, nicht gesendet."""
+    from apps.dokumente import services
+    from apps.dokumente.models import Vorlage
+    from apps.stammdaten import schreiben as stammdaten_schreiben
+
+    vorlage = Vorlage.objects.filter(art="mitteilung", status=Vorlage.Status.FREIGEGEBEN).first()
+    if vorlage is None:
+        return None
+    vertrag = Vertrag.objects.get(nummer=VERTRAG_SMOKE)
+    kontext = dict(stammdaten_schreiben.kontext_vertrag(vertrag))
+    kontext["mitteilung"] = {"text": "Am Samstag wird der Hof gekehrt (Beispiel)."}
+    try:
+        return services.schreiben_erzeugen(vorlage, vertrag, kontext)
+    except Exception:
+        return None  # ohne WeasyPrint (PDF) gibt es die Seite nicht; der Test überspringt sie
+
+
 def _seiten_r2_8(beleg: Beleg) -> dict[str, str]:
     from apps.dokumente.models import Schreiben
 
-    schreiben = Schreiben.objects.order_by("pk").first()
+    schreiben = Schreiben.objects.order_by("pk").first() or _mitteilung_erzeugen()
     seiten = {
         "beleg": reverse("dokumente:beleg", args=[beleg.pk]),
         "ablage": reverse("dokumente:ablage"),

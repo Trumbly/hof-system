@@ -21,7 +21,7 @@
     {% for g in gruppen_feld %}
     {% aufklapper g.titel zahl=g.anzahl offen=g.offen %}
       {% if g.sammelaktion == "scans" %}
-      <p><a class="knopf knopf-zweit knopf-klein" href="?dialog=scans" hx-get="?dialog=scans" hx-target="#dialog-inhalt">Scans hochladen und per V-Nummer zuordnen</a></p>
+      <p><a class="knopf knopf-zweit knopf-klein" href="?dialog=scans" hx-get="?dialog=scans" hx-target="#dialog-inhalt">Scans hochladen</a> <span class="text-3 klein">Zuordnung über die V-Nummer im Dateinamen</span></p>
       {% endif %}
       <div class="tabelle-box">
       <table class="tab tab-karten">

@@ -2817,3 +2817,24 @@ form.sendet .datei-knoepfe {
   flex: 1 1 0;
   min-width: 0;
 }
+
+/* Am Handy (Review 2, C5): Die verborgene Kopfzeile von .tab-karten ist absolut gesetzt.
+   Ohne eigenen Bezugsrahmen ragte sie aus dem scrollenden Kasten und machte die Seite
+   breiter (Datenstand bei 390 px mit breiterer Schrift). Knöpfe in Karten und Zeilen
+   dürfen umbrechen. */
+.tabelle-box {
+  position: relative;
+}
+
+@media (max-width: 1023px) {
+  .zeilen-aktionen {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .karte-rumpf .knopf,
+  .liste-neben .knopf {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
