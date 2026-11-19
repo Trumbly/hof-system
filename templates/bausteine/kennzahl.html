@@ -1,0 +1,5 @@
+{% if link %}<a class="kennzahl{% if art %} kennzahl-{{ art }}{% endif %}" href="{{ link }}">{% else %}<div class="kennzahl{% if art %} kennzahl-{{ art }}{% endif %}">{% endif %}
+  <span class="kennzahl-titel">{{ titel }}</span>
+  <span class="kennzahl-wert">{{ wert }}</span>
+  {% if unter %}<span class="kennzahl-unter">{{ unter }}</span>{% endif %}
+{% if link %}</a>{% else %}</div>{% endif %}

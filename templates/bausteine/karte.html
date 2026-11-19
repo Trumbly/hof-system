@@ -1,0 +1,7 @@
+<section class="karte"{% if id %} id="{{ id }}"{% endif %}>
+  {% if titel or link %}<header class="karte-kopf">
+    {% if titel %}<h2 class="karte-titel">{{ titel }}{% if zahl != "" %} <span class="zaehler">{{ zahl }}</span>{% endif %}</h2>{% endif %}
+    {% if link %}<a class="karte-link" href="{{ link }}">{{ link_text|default:"alle ansehen" }}</a>{% endif %}
+  </header>{% endif %}
+  <div class="karte-rumpf">{{ inhalt }}</div>
+</section>

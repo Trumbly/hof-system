@@ -37,7 +37,12 @@ def anmelden() -> None:
     from apps.cockpit import kacheln
 
     kacheln.kachel_anmelden(
-        "belege", "dokumente/_kachel_belege.html", belege_kontext, kacheln.BELEGE
+        "belege",
+        "dokumente/_kachel_belege.html",
+        belege_kontext,
+        kacheln.BELEGE,
+        # Die Kachel zeigt die offenen Belege; „Offene Freigaben“ nennt sie nicht noch einmal.
+        arten=("Belege zuordnen",),
     )
     kacheln.kachel_anmelden(
         "eingangsrechnungen",

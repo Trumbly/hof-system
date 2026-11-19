@@ -140,7 +140,8 @@ def test_seiten_in_navigation_und_am_handy(angemeldet: Client, seite: str) -> No
     html = angemeldet.get(reverse(seite)).content.decode()
 
     assert 'name="viewport"' in html
-    assert 'class="nav-schalter"' in html
+    # Alte Seiten: Navigation zum Aufklappen; neue (base_neu): Leiste unten mit „Mehr“.
+    assert 'class="nav-schalter"' in html or 'data-dialog-oeffnen="mehr"' in html
     for ziel in ("kern:arbeitslisten", "kern:protokoll", "kern:laeufe"):
         assert f'href="{reverse(ziel)}"' in html
     assert 'aria-current="page"' in html

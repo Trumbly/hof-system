@@ -1,0 +1,77 @@
+{% load static bausteine %}<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block titel %}Hof-System{% endblock %} · Hof-System</title>
+  {# Neue Gestaltung (Review 2, C): nur Seiten, die schon umgestellt sind, nutzen diese Vorlage. #}
+  <link rel="stylesheet" href="{% static 'css/werte.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bausteine.css' %}">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/bausteine.js' %}" defer></script>
+</head>
+<body class="neu" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <a class="sprung" href="#inhalt">Zum Inhalt</a>
+  {% include "bausteine/stichtag_band.html" %}
+  <div class="geruest">
+    {% if user.is_authenticated %}
+    {% navigation as gruppen %}
+    <aside class="leiste" aria-label="Seitenleiste">
+      <a class="marke" href="{% url 'kern:startseite' %}"><span class="marke-zeichen" aria-hidden="true">H</span>Hof-System</a>
+      <nav class="nav-neu" aria-label="Hauptnavigation">
+        {% for titel, links in gruppen %}
+        <div class="nav-gruppe">
+          <p class="nav-gruppe-titel">{{ titel }}</p>
+          <ul>{% for l in links %}<li><a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{{ l.titel }}{% if l.marke %} <span class="nav-marke">{{ l.marke }}</span>{% endif %}</a></li>{% endfor %}</ul>
+        </div>
+        {% endfor %}
+      </nav>
+      <form method="post" action="{% url 'account_logout' %}" class="leiste-fuss">
+        {% csrf_token %}
+        <span class="leiste-benutzer" title="{{ user.email }}">{{ user.email }}</span>
+        <button type="submit" class="knopf knopf-text knopf-klein">Abmelden</button>
+      </form>
+    </aside>
+    <header class="kopf-handy">
+      <a class="marke" href="{% url 'kern:startseite' %}"><span class="marke-zeichen" aria-hidden="true">H</span>Hof-System</a>
+      {% block kopf_handy %}{% endblock %}
+    </header>
+    {% endif %}
+
+    <main class="haupt" id="inhalt">
+      <div class="inhalt-neu{% block breite %}{% endblock %}">
+        {% block inhalt %}{% endblock %}
+      </div>
+    </main>
+
+    {% if user.is_authenticated %}
+    <nav class="unten" aria-label="Schnellzugriff">
+      {% navigation_unten as schnell %}
+      {% for l in schnell %}<a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{% include "bausteine/symbol.html" with name=l.symbol %}<span>{{ l.titel }}</span></a>{% endfor %}
+      <button type="button" data-dialog-oeffnen="mehr" aria-haspopup="dialog">{% include "bausteine/symbol.html" with name="mehr" %}<span>Mehr</span></button>
+    </nav>
+    <dialog id="mehr" class="blatt" aria-label="Alle Bereiche">
+      <header class="dialog-kopf">
+        <h2 class="dialog-titel">Alle Bereiche</h2>
+        <button type="button" class="knopf knopf-text knopf-symbol" data-dialog-schliessen aria-label="Schließen">×</button>
+      </header>
+      <div class="dialog-rumpf">
+        {% for titel, links in gruppen %}
+        <details class="nav-aufklapper"{% for l in links %}{% if l.aktiv %} open{% endif %}{% endfor %}{% if forloop.first %} open{% endif %}>
+          <summary>{{ titel }}</summary>
+          <ul>{% for l in links %}<li><a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{{ l.titel }}{% if l.marke %} <span class="nav-marke">{{ l.marke }}</span>{% endif %}</a></li>{% endfor %}</ul>
+        </details>
+        {% endfor %}
+        <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="knopf knopf-zweit knopf-voll">Abmelden</button></form>
+      </div>
+    </dialog>
+    {% endif %}
+  </div>
+
+  {# Ein Dialog für alle Aktionen der Seite; HTMX lädt seinen Inhalt (apps.kern.htmx). #}
+  <dialog id="dialog" class="dialog" aria-labelledby="dialog-titel"><div id="dialog-inhalt"></div></dialog>
+  <div id="toasts" class="toasts" aria-live="polite">
+    {% for meldung in messages %}{% include "bausteine/toast.html" with text=meldung art=meldung.tags|meldungsart link="" %}{% endfor %}
+  </div>
+</body>
+</html>

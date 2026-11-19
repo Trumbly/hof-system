@@ -43,7 +43,9 @@ def eigene_kacheln(monkeypatch: pytest.MonkeyPatch) -> dict[str, kacheln.Kachel]
 
 
 def _kachel(html: str, name: str) -> str:
-    return html.split(f'id="kachel-{name}"', 1)[1].split("</li>", 1)[0]
+    """HTML einer Kachel: bis zur nächsten Kachel (Kacheln enthalten selbst Listen)."""
+    rest = html.split(f'id="kachel-{name}"', 1)[1]
+    return rest.split('<li id="kachel-', 1)[0].split('id="objekte"', 1)[0]
 
 
 def _startseite(client: Client) -> str:
@@ -80,8 +82,9 @@ def test_startseite_liest_direkt_aus_der_datenbank(
     """Abnahme Schritt 9: Die Startseite zeigt alles direkt aus der Datenbank. Eine Änderung
     erscheint beim nächsten Aufruf, ohne Lauf und ohne Kopie."""
     html = _startseite(angemeldet)
-    assert "Offene Freigaben: 0" in _kachel(html, "freigaben")
-    assert "Fristen bis in 14 Tagen: 0" in _kachel(html, "fristen")
+    assert "Nichts wartet auf dich" in _kachel(html, "freigaben")
+    assert "Keine überfällige Frist" in _kachel(html, "fristen")
+    assert "Keine Frist in den nächsten 14 Tagen" in _kachel(html, "fristen")
     assert "Noch keine Läufe" in _kachel(html, "laeufe")
     assert "Statusdatei fehlt" in _kachel(html, "sicherung")
 
@@ -98,12 +101,13 @@ def test_startseite_liest_direkt_aus_der_datenbank(
 
     html = _startseite(angemeldet)
     freigaben = _kachel(html, "freigaben")
-    assert "Offene Freigaben: 4" in freigaben
-    assert "Frist fällig: <strong>2</strong>" in freigaben
-    assert "Selbsttest: <strong>1</strong>" in freigaben
+    # Review 1, Punkt 7: Der Selbsttest wartet auf niemanden und fehlt im Cockpit.
+    assert 'Offene Freigaben <span class="zaehler">3</span>' in freigaben
+    assert "Frist fällig" in freigaben and "Umsätze einordnen" in freigaben
+    assert "Selbsttest" not in freigaben
     frist_kachel = _kachel(html, "fristen")
-    assert "Fristen bis in 14 Tagen: 2" in frist_kachel
-    assert "1 überfällig" in frist_kachel
+    assert 'Überfällig <span class="zaehler">1</span>' in frist_kachel
+    assert 'Nächste 14 Tage <span class="zaehler">1</span>' in frist_kachel
     laeufe = _kachel(html, "laeufe")
     assert "kern_selbsttest" in laeufe and "erfolgreich" in laeufe
     assert "in Ordnung" in _kachel(html, "sicherung")

@@ -1,4 +1,5 @@
-"""Kachel „Fristen“ im Hof-Cockpit: offene Fristen der nächsten 14 Tage, auch überfällige."""
+"""Kachel „Fristen“ im Hof-Cockpit: überfällige Fristen und die der nächsten 14 Tage als
+zwei Listen (Review 1, Punkt 6)."""
 
 from __future__ import annotations
 
@@ -10,6 +11,8 @@ from django.utils import timezone
 from apps.fristen import services
 
 TAGE = 14
+#: Höchstens so viele Zeilen je Liste; der Rest hinter dem Link auf die Fristen.
+ZEILEN = 5
 
 
 def fristen_kontext() -> dict[str, Any]:
@@ -19,10 +22,15 @@ def fristen_kontext() -> dict[str, Any]:
         .filter(datum__lte=heute + datetime.timedelta(days=TAGE))
         .order_by("datum", "pk")
     )
+    ueberfaellig = [f for f in fristen if f.datum < heute]
+    bald = [f for f in fristen if f.datum >= heute]
     return {
         "anzahl": len(fristen),
-        "ueberfaellig": sum(1 for f in fristen if f.datum < heute),
-        "naechste": fristen[:5],
+        "ueberfaellig": len(ueberfaellig),
+        "ueberfaellige": ueberfaellig[:ZEILEN],
+        "bald": bald[:ZEILEN],
+        "bald_anzahl": len(bald),
+        "naechste": fristen[:ZEILEN],
         "heute": heute,
         "tage": TAGE,
     }

@@ -17,6 +17,8 @@ os.environ.setdefault("HOF_NOTION_CLIENT", "apps.cockpit.notion.FakeNotion")
 # Briefkopf (Review 1, Punkt 4): erfundener Absender, sonst ist Senden gesperrt.
 os.environ.setdefault("HOF_ABSENDER_NAME", "Testhof GbR (erfunden)")
 os.environ.setdefault("HOF_ABSENDER_ANSCHRIFT", "Musterweg 1;99999 Musterstadt")
+# Stichtag des Testhofs (testhof.aufbau.STICHTAG) als Band oben auf jeder Seite.
+os.environ.setdefault("HOF_STICHTAG", "2026-11-01")
 
 from .base import *  # noqa: F403
 

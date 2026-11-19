@@ -1,1 +1,1 @@
-<a href="{% url 'soll:vertrag' vertrag.pk %}">Offene Posten</a>: {% if anzahl %}<strong>{{ summe|floatformat:"2g" }} €</strong> in {{ anzahl }} Posten{% if rueckstand %}, davon überfällig {{ rueckstand|floatformat:"2g" }} €{% endif %}{% else %}keine{% endif %}
+<a href="{% url 'soll:vertrag' vertrag.pk %}">Offene Posten</a>: {% if anzahl %}<strong>{{ summe|euro }}</strong> in {{ anzahl }} Posten{% if rueckstand %}, davon überfällig {{ rueckstand|euro }}{% endif %}{% else %}keine{% endif %}

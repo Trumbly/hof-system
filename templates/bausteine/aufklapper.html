@@ -1,0 +1,4 @@
+<details class="aufklapper"{% if offen %} open{% endif %}>
+  <summary>{{ titel }}{% if zahl != "" %} <span class="zaehler">{{ zahl }}</span>{% endif %}</summary>
+  <div class="aufklapper-inhalt">{{ inhalt }}</div>
+</details>

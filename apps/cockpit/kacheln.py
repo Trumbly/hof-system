@@ -28,6 +28,10 @@ echte Kachel, eine echte Kachel ersetzt immer den Platzhalter; die Reihenfolge d
 ``ready()``-Aufrufe spielt keine Rolle. So steht „Rückstände“ schon da, bevor Schritt 6
 (``abgleich``) seine Kachel anmeldet.
 
+Arten: Zeigt eine Kachel selbst offene Arbeitsposten einer Art (z. B. „Belege zuordnen“),
+meldet sie diese mit ``arten=(…)`` an. Die Kachel „Offene Freigaben“ lässt diese Arten
+dann weg, damit nichts doppelt steht (Review 1, Punkt 7).
+
 Schlägt die Kontextfunktion fehl, zeigt das Cockpit an ihrer Stelle einen Hinweis; die
 übrigen Kacheln bleiben sichtbar.
 
@@ -65,6 +69,8 @@ class Kachel:
     kontext_funktion: Kontext
     reihenfolge: int
     platzhalter: bool = False
+    #: Arten offener Arbeitsposten, die diese Kachel selbst zeigt.
+    arten: tuple[str, ...] = ()
 
 
 _KACHELN: dict[str, Kachel] = {}
@@ -77,6 +83,7 @@ def kachel_anmelden(
     reihenfolge: int,
     *,
     platzhalter: bool = False,
+    arten: tuple[str, ...] = (),
 ) -> Kachel:
     """Meldet eine Kachel für die Startseite an (siehe Modul-Doku)."""
     kachel = Kachel(
@@ -85,6 +92,7 @@ def kachel_anmelden(
         kontext_funktion=kontext_funktion,
         reihenfolge=reihenfolge,
         platzhalter=platzhalter,
+        arten=tuple(arten),
     )
     vorhanden = _KACHELN.get(name)
     if platzhalter and vorhanden is not None and not vorhanden.platzhalter:
@@ -100,3 +108,8 @@ def kachel_abmelden(name: str) -> None:
 def kacheln() -> list[Kachel]:
     """Alle Kacheln in der Reihenfolge der Startseite."""
     return sorted(_KACHELN.values(), key=lambda k: (k.reihenfolge, k.name))
+
+
+def eigene_arten() -> set[str]:
+    """Arten offener Arbeitsposten, die eine eigene Kachel zeigt."""
+    return {art for kachel in _KACHELN.values() for art in kachel.arten}

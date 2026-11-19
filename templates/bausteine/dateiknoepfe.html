@@ -1,0 +1,21 @@
+{# Eigene Dateiknöpfe (Review 2, C4): Kamera und Datei, mit Vorschau. Keine Browser-Texte. #}
+<div class="feld datei{% if feld.errors %} feld-fehlerhaft{% endif %}">
+  <span class="feld-label" id="{{ id }}-label">{{ feld.label }}{% if not pflicht %} <span class="feld-optional">optional</span>{% endif %}</span>
+  <div class="datei-knoepfe" role="group" aria-labelledby="{{ id }}-label">
+    {% if kamera %}
+    <label class="knopf knopf-zweit datei-knopf">
+      <input class="datei-eingabe" type="file" name="{{ name }}" accept="image/*" capture="environment"{% if mehrere %} multiple{% endif %} data-vorschau="{{ id }}-vorschau">
+      <svg aria-hidden="true" viewBox="0 0 24 24" class="symbol"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      Foto aufnehmen
+    </label>
+    {% endif %}
+    <label class="knopf knopf-zweit datei-knopf">
+      <input class="datei-eingabe" type="file" name="{{ name }}"{% if accept %} accept="{{ accept }}"{% endif %}{% if mehrere %} multiple{% endif %} data-vorschau="{{ id }}-vorschau">
+      <svg aria-hidden="true" viewBox="0 0 24 24" class="symbol"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>
+      Datei wählen
+    </label>
+  </div>
+  <ul class="datei-vorschau" id="{{ id }}-vorschau" aria-live="polite" data-leer="Noch nichts gewählt."><li class="datei-leer">Noch nichts gewählt.</li></ul>
+  {% if feld.errors %}<p class="feld-fehler">{{ feld.errors|join:" " }}</p>{% endif %}
+  {% if feld.help_text %}<p class="feld-hilfe">{{ feld.help_text }}</p>{% endif %}
+</div>

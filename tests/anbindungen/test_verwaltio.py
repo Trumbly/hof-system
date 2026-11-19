@@ -192,7 +192,7 @@ def test_cockpit_kachel_wohnraum_ohne_namen(
     html = angemeldet.get(reverse("kern:startseite")).content.decode()
 
     kachel = html.split('id="kachel-wohnraum"', 1)[1].split("</li>", 1)[0]
-    assert "Offene Posten: <strong>765,50 €</strong>" in kachel
+    assert "Offene Posten: <strong>765,50\u00a0€</strong>" in kachel
     assert "Mahnfälle: <strong>3</strong>" in kachel
     assert "NKA 2025: 1 in Arbeit, 1 versendet, 1 abgeschlossen" in kachel
     assert "Fristen: <strong>3</strong> offen, nächste am 02.12.2026" in kachel

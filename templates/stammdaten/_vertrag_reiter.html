@@ -1,0 +1,220 @@
+{% load bausteine soll %}{% comment %}
+Reiter der Vertragsseite (Review 2, B7). Wechsel per HTMX ohne Neuladen; nach dem Speichern
+im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhalten.
+{% endcomment %}{% url 'stammdaten:vertrag' vertrag.pk as basis %}
+<div id="vertrag-reiter"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% include "bausteine/reiter.html" with reiter=reiter aktiv=reiter_aktiv ziel="vertrag-reiter" beschriftung="Bereiche des Vertrags" %}
+
+{% if reiter_aktiv == "uebersicht" %}
+<div class="raster raster-2-1">
+  <div class="stapel">
+    <section class="karte" id="kondition">
+      <header class="karte-kopf"><h2 class="karte-titel">Miete und Konditionen</h2><a class="karte-link" href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a></header>
+      <div class="tabelle-box">
+        <table class="tab tab-karten">
+          <thead><tr><th>gültig ab</th><th>gültig bis</th><th class="zahl">Miete</th><th class="zahl">Pauschale</th><th class="zahl">USt</th><th>Zahlweise</th><th>Grund</th></tr></thead>
+          <tbody>
+          {% for k in konditionen %}
+          <tr class="kondition{% if k == kondition_heute %} aktuell{% elif k.gueltig_bis and k.gueltig_bis < heute %} zeile-leise{% endif %}">
+            <td data-titel="gültig ab">{{ k.gueltig_ab|date:"d.m.Y" }}{% if k == kondition_heute %} {% badge "ok" "heute" %}{% endif %}</td>
+            <td data-titel="gültig bis">{{ k.gueltig_bis|date:"d.m.Y"|default:"–" }}</td>
+            <td data-titel="Miete" class="zahl">{{ k.miete|euro }}</td>
+            <td data-titel="Pauschale" class="zahl">{{ k.pauschale|euro }}</td>
+            <td data-titel="USt" class="zahl">{{ k.steuersatz|zahl }} %</td>
+            <td data-titel="Zahlweise">{{ k.get_zahlweise_display }}</td>
+            <td data-titel="Grund">{{ k.grund|default:"–" }}</td>
+          </tr>
+          {% empty %}{% include "bausteine/leer.html" with spalten=7 text="Noch keine Kondition." hilfe="Über „Miete ändern“ die erste Miete ab einem Datum erfassen." %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="karte" id="parteien">
+      <header class="karte-kopf"><h2 class="karte-titel">Parteien <span class="zaehler">{{ vertragsparteien|length }}</span></h2><a class="karte-link" href="{{ basis }}?dialog=partei" hx-get="{{ basis }}?dialog=partei" hx-target="#dialog-inhalt">Partei hinzufügen</a></header>
+      <ul class="liste">
+        {% for m in mieter %}<li><span class="liste-haupt"><a href="{% url 'stammdaten:partei' m.partei_id %}">{{ m.name }}</a> <span class="text-3 klein">{{ m.rolle }}</span></span><span class="liste-neben klein">{% for t in m.telefon %}{{ t }}{% if not forloop.last or m.email %} · {% endif %}{% endfor %}{% for e in m.email %}{{ e }}{% if not forloop.last %} · {% endif %}{% endfor %}</span></li>
+        {% empty %}<li class="text-3">Keine Partei.</li>{% endfor %}
+      </ul>
+    </section>
+
+    <section class="karte" id="kuendigung">
+      <header class="karte-kopf"><h2 class="karte-titel">Kündigung</h2>{% if vertrag.status == "aktiv" %}<a class="karte-link" href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a>{% endif %}</header>
+      <div class="karte-rumpf">
+        {% for k in kuendigungen %}
+        <p>Zugang {{ k.zugang_am|date:"d.m.Y" }} ({{ k.get_von_display }}{% if k.zugangsweg %}, {{ k.get_zugangsweg_display }}{% endif %}): {% if k.aufhebung %}Aufhebung zum Wunschtermin <strong>{{ k.fristende|date:"d.m.Y" }}</strong>{% else %}Fristende <strong>{{ k.fristende|date:"d.m.Y" }}</strong>{% endif %}, Rückgabe am {{ k.rueckgabetermin|date:"d.m.Y" }}.</p>
+        {% empty %}
+        <p class="text-3">Nicht gekündigt. Kündigungsfrist: {{ kuendigungsregel.titel }}{% if not vertrag.kuendigungsregel %} (Standard der Vertragsart, am Vertrag noch nicht geprüft){% endif %}.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="karte" id="uebergaben">
+      <header class="karte-kopf"><h2 class="karte-titel">Übergaben und Rückgaben</h2></header>
+      <ul class="liste">{% for u in uebergaben %}<li><span class="liste-haupt">{{ u.get_art_display }} am {{ u.datum|date:"d.m.Y" }}</span><span class="liste-neben">{% badge u.status u.get_status_display %}{% if u.status == "begonnen" %} <a href="{% url 'stammdaten:uebergabe' u.pk 1 %}">weiter</a>{% endif %}</span></li>{% empty %}<li class="text-3">Keine.</li>{% endfor %}</ul>
+    </section>
+
+    <section class="karte" id="checklisten">
+      <header class="karte-kopf"><h2 class="karte-titel">Checklisten</h2></header>
+      <div class="karte-rumpf">{% include "stammdaten/_checklisten.html" %}</div>
+    </section>
+  </div>
+
+  <div class="stapel">
+    <section class="karte" id="stammfelder">
+      <header class="karte-kopf"><h2 class="karte-titel">Vertrag</h2><a class="karte-link" href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">bearbeiten</a></header>
+      <div class="karte-rumpf">
+        <dl class="angaben-neu">
+          <dt>Vertragsart</dt><dd>{{ vertrag.get_vertragsart_display }}</dd>
+          <dt>Mandant</dt><dd>{{ vertrag.mandant.bezeichnung|default:vertrag.mandant.kuerzel }}</dd>
+          <dt>Laufzeit</dt><dd>{{ vertrag.beginn|date:"d.m.Y" }} bis {{ vertrag.ende|date:"d.m.Y"|default:"auf unbestimmte Zeit" }}</dd>
+          <dt>Kündigungsfrist</dt><dd>{{ kuendigungsregel.titel }}</dd>
+          <dt>Offene Posten</dt><dd>{% offene_posten_link vertrag %}</dd>
+          {% for a in buchungsanfragen %}<dt>{% if forloop.first %}Anfrage{% endif %}</dt><dd>Aus {{ a.get_art_display }}sanfrage <a href="{% url 'anbindungen:anfrage' a.pk %}">#{{ a.pk }}</a> ({{ a.get_status_display }})</dd>{% endfor %}
+          {% if vertrag.sonderabreden %}<dt>Sonderabreden</dt><dd>{{ vertrag.sonderabreden|linebreaksbr }}</dd>{% endif %}
+        </dl>
+      </div>
+    </section>
+
+    <section class="karte" id="unterschrift">
+      <header class="karte-kopf"><h2 class="karte-titel">Unterschrift und Scan</h2><a class="karte-link" href="{{ basis }}?dialog=unterschrift" hx-get="{{ basis }}?dialog=unterschrift" hx-target="#dialog-inhalt">erfassen</a></header>
+      <div class="karte-rumpf">
+        <p>{% if vertrag.unterschrieben_am %}Unterschrieben am {{ vertrag.unterschrieben_am|date:"d.m.Y" }}.{% else %}{% badge "warnung" "noch nicht unterschrieben" %}{% endif %}</p>
+        <p class="text-2">{% if vertrag.unterschriebener_scan %}Scan liegt vor.{% else %}Kein Scan.{% endif %}</p>
+      </div>
+    </section>
+
+    <section class="karte" id="kaution">
+      <header class="karte-kopf"><h2 class="karte-titel">Kaution</h2>{% if kaution_obj %}<a class="karte-link" href="{{ basis }}?dialog=kaution" hx-get="{{ basis }}?dialog=kaution" hx-target="#dialog-inhalt">bearbeiten</a>{% endif %}</header>
+      <div class="karte-rumpf">
+        {% if kaution_obj %}
+        <dl class="angaben-neu">
+          <dt>Betrag</dt><dd class="zahl">{{ kaution_obj.betrag|euro|default:"–" }}</dd>
+          <dt>Eingang</dt><dd>{% if kaution_obj.eingang_am %}{{ kaution_obj.eingang_am|date:"d.m.Y" }}{% if kaution_obj.konto %} · {{ kaution_obj.konto }}{% endif %}{% else %}{% badge "warnung" "noch nicht eingegangen" %}{% endif %}</dd>
+          {% if kaution_obj.abgerechnet_am %}<dt>Abgerechnet</dt><dd>{{ kaution_obj.abgerechnet_am|date:"d.m.Y" }}: Einbehalt {{ kaution_obj.einbehalt|euro }}, ausgezahlt {{ kaution_obj.ausgezahlt|euro }}</dd>
+          {% elif kaution_obj.abrechnung_faellig_am %}<dt>Abrechnung</dt><dd>{% badge "warnung" "fällig" %} bis {{ kaution_obj.abrechnung_faellig_am|date:"d.m.Y" }} · <a href="{{ basis }}?dialog=kaution_abrechnen" hx-get="{{ basis }}?dialog=kaution_abrechnen" hx-target="#dialog-inhalt">abrechnen</a></dd>{% endif %}
+        </dl>
+        {% else %}<p class="text-3">Keine Kaution vereinbart.</p>{% endif %}
+      </div>
+    </section>
+
+    <section class="karte" id="fristen">
+      <header class="karte-kopf"><h2 class="karte-titel">Offene Fristen <span class="zaehler">{{ fristen|length }}</span></h2><a class="karte-link" href="{% url 'fristen:liste' %}">alle Fristen</a></header>
+      <ul class="liste">{% for frist in fristen %}<li><span class="liste-haupt">{{ frist.get_art_display }}</span><span class="liste-neben">{% if frist.datum < heute %}{% badge "fehler" frist.datum|date:"d.m.Y" %}{% else %}<time>{{ frist.datum|date:"d.m.Y" }}</time>{% endif %}</span></li>{% empty %}<li class="text-3">Keine offene Frist.</li>{% endfor %}</ul>
+    </section>
+  </div>
+</div>
+
+{% elif reiter_aktiv == "mietkonto" %}
+<section class="karte" id="mietkonto">
+  <header class="karte-kopf">
+    <h2 class="karte-titel">Mietkonto</h2>
+    <span class="karte-link"><a href="{% url 'abgleich:handzahlung' vertrag.pk %}">Handzahlung erfassen</a> · <a href="{% url 'abgleich:mietkonto' vertrag.pk %}">Zuordnungen bearbeiten</a></span>
+  </header>
+  {% if konto.klaerfaelle %}<div class="karte-rumpf"><p>{% badge "warnung" "in Klärung" %} {% for k in konto.klaerfaelle %}<a href="{% url 'abgleich:klaerfall' k.pk %}">Klärfall #{{ k.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p></div>{% endif %}
+  <div class="tabelle-box">
+    <table class="tab tab-karten mietkonto">
+      <thead><tr><th>Datum</th><th>Vorgang</th><th class="zahl">Soll</th><th class="zahl">Zahlung</th><th class="zahl">Saldo</th></tr></thead>
+      <tbody>
+      {% for z in kontozeilen %}
+      <tr{% if z.kuenftig %} class="zeile-leise"{% endif %}>
+        <td data-titel="Datum"><time>{{ z.datum|date:"d.m.Y" }}</time></td>
+        <td data-titel="Vorgang">{{ z.text }}{% if z.kuenftig %} <span class="klein">(noch nicht fällig)</span>{% endif %}</td>
+        <td data-titel="Soll" class="zahl">{% if z.soll is not None %}{{ z.soll|euro }}{% endif %}</td>
+        <td data-titel="Zahlung" class="zahl">{% if z.zahlung is not None %}{{ z.zahlung|euro }}{% endif %}</td>
+        <td data-titel="Saldo" class="zahl">{% if z.saldo is not None %}{% if z.saldo > 0 %}<span class="text-fehler">{{ z.saldo|euro }}</span>{% elif z.saldo < 0 %}{{ z.saldo|euro }}{% else %}{{ z.saldo|euro }}{% endif %}{% endif %}</td>
+      </tr>
+      {% empty %}{% include "bausteine/leer.html" with spalten=5 text="Keine Posten im Abgleich." hilfe="Sollposten erscheinen ab Vertragsbeginn bzw. ab Beginn des Abgleichs." %}
+      {% endfor %}
+      </tbody>
+      {% if kontozeilen %}<tfoot><tr><td colspan="4">Saldo heute ({{ saldo.text }})</td><td class="zahl">{{ saldo.wert|euro }}</td></tr></tfoot>{% endif %}
+    </table>
+  </div>
+</section>
+<p class="text-3 klein" style="margin-top: var(--a2)">Saldo: positiv heißt offen, negativ Guthaben. Posten, die erst später fällig sind, zählen noch nicht.</p>
+
+{% elif reiter_aktiv == "dokumente" %}
+<div class="stapel">
+  <section class="karte" id="schreiben">
+    <header class="karte-kopf"><h2 class="karte-titel">Schreiben <span class="zaehler">{{ schreiben|length }}</span></h2>
+      <span class="karte-link">{% if vertrag.status == "entwurf" %}<form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}" style="display:inline">{% csrf_token %}<button type="submit" class="knopf knopf-text knopf-klein">Vertragsdokument erzeugen</button></form> · {% endif %}<a href="{% url 'dokumente:serie_neu' %}">Serienmitteilung</a></span>
+    </header>
+    <div class="tabelle-box">
+      <table class="tab tab-karten">
+        <thead><tr><th>Nr.</th><th>Art</th><th>Betreff</th><th>Versandweg</th><th>Status</th><th>erzeugt</th></tr></thead>
+        <tbody>
+        {% for s in schreiben %}
+        <tr>
+          <td data-titel="Nr."><a href="{% url 'dokumente:schreiben' s.pk %}">#{{ s.pk }}</a></td>
+          <td data-titel="Art">{{ s.vorlage.name|default:s.art }}</td>
+          <td data-titel="Betreff">{{ s.betreff|default:"–" }}</td>
+          <td data-titel="Versandweg">{{ s.get_versandweg_display }}</td>
+          <td data-titel="Status">{% badge s.status %}</td>
+          <td data-titel="erzeugt"><time>{{ s.erzeugt_am|date:"d.m.Y" }}</time></td>
+        </tr>
+        {% empty %}{% include "bausteine/leer.html" with spalten=6 text="Noch kein Schreiben zu diesem Vertrag." hilfe="Bestätigungen, Protokolle und Mahnungen erscheinen hier, sobald das System sie erzeugt." %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="karte" id="dokumente">
+    <header class="karte-kopf"><h2 class="karte-titel">Dokumente</h2><a class="karte-link" href="{% url 'dokumente:ablage' %}">Ablage</a></header>
+    <ul class="liste">
+      {% if vertrag.unterschriebener_scan %}<li><span class="liste-haupt">Unterschriebener Vertrag (Scan)</span><span class="liste-neben">{{ vertrag.unterschrieben_am|date:"d.m.Y" }}</span></li>{% endif %}
+      {% for d in dokumente %}<li><span class="liste-haupt"><a href="{% url 'dokumente:dokument' d.pk %}">{{ d.dokumentart.titel|default:d.art }} #{{ d.pk }}</a></span><span class="liste-neben"><time>{{ d.datum|date:"d.m.Y" }}</time></span></li>{% endfor %}
+      {% if not vertrag.unterschriebener_scan and not dokumente %}<li class="text-3">Keine Dokumente.</li>{% endif %}
+    </ul>
+  </section>
+</div>
+
+{% elif reiter_aktiv == "mahnwesen" %}
+<div class="stapel">
+  <section class="karte" id="mahnfaelle">
+    <header class="karte-kopf"><h2 class="karte-titel">Mahnfälle <span class="zaehler">{{ mahnfaelle|length }}</span></h2><a class="karte-link" href="{% url 'mahnwesen:faelle' %}">alle Mahnfälle</a></header>
+    <div class="tabelle-box">
+      <table class="tab tab-karten">
+        <thead><tr><th>Fall</th><th>Stufe</th><th>Status</th><th>eröffnet</th><th>nächste Stufe frühestens</th></tr></thead>
+        <tbody>
+        {% for m in mahnfaelle %}
+        <tr>
+          <td data-titel="Fall"><a href="{% url 'mahnwesen:fall' m.pk %}">#{{ m.pk }}</a></td>
+          <td data-titel="Stufe">{{ m.stufe.titel|default:"–" }}</td>
+          <td data-titel="Status">{% badge m.status m.get_status_display %}</td>
+          <td data-titel="eröffnet"><time>{{ m.eroeffnet_am|date:"d.m.Y" }}</time></td>
+          <td data-titel="nächste Stufe">{{ m.naechste_stufe_fruehestens|date:"d.m.Y"|default:"–" }}</td>
+        </tr>
+        {% empty %}{% include "bausteine/leer.html" with spalten=5 text="Kein Mahnfall." hilfe="Ein Fall entsteht, wenn der Mahnlauf einen Rückstand findet." %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="karte" id="sperren">
+    <header class="karte-kopf"><h2 class="karte-titel">Mahnsperren</h2><a class="karte-link" href="{% url 'mahnwesen:sperren' %}">alle Sperren</a></header>
+    <ul class="liste">{% for s in sperren %}<li><span class="liste-haupt">{{ s.get_grund_display }}{% if s.automatisch %} <span class="text-3 klein">automatisch</span>{% endif %}</span><span class="liste-neben">{% if s.aufgehoben_am %}aufgehoben {{ s.aufgehoben_am|date:"d.m.Y" }}{% else %}{% badge "gesperrt" %} ab {{ s.von|date:"d.m.Y" }}{% if s.bis %} bis {{ s.bis|date:"d.m.Y" }}{% endif %}{% endif %}</span></li>{% empty %}<li class="text-3">Keine Sperre.</li>{% endfor %}</ul>
+  </section>
+</div>
+
+{% elif reiter_aktiv == "verlauf" %}
+<section class="karte" id="verlauf">
+  <header class="karte-kopf"><h2 class="karte-titel">Verlauf</h2><a class="karte-link" href="{% url 'kern:protokoll' %}">Protokoll</a></header>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Zeit</th><th>Was</th><th>Änderung</th></tr></thead>
+      <tbody>
+      {% for e in verlauf %}
+      <tr>
+        <td data-titel="Zeit" class="eng"><time>{{ e.zeit|date:"d.m.Y H:i" }}</time></td>
+        <td data-titel="Was">{{ e.was }} <span class="text-3 klein">{{ e.art }}</span></td>
+        <td data-titel="Änderung">{% for feld_, alt, neu in e.aenderungen %}<div>{{ feld_ }}: <span class="text-3">{{ alt|default:"–" }}</span> → {{ neu|default:"–" }}</div>{% empty %}<span class="text-3">–</span>{% endfor %}</td>
+      </tr>
+      {% empty %}{% include "bausteine/leer.html" with spalten=3 text="Noch keine Änderungen." %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+</div>
