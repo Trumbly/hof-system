@@ -1,0 +1,3 @@
+{% if karten %}{% for karte in karten %}{% include "abgleich/_vertrag_karte.html" %}{% endfor %}
+{% elif text|length >= 2 %}<p class="posten-vorschlag">Kein Vertrag zu „{{ text }}“.</p>
+{% endif %}

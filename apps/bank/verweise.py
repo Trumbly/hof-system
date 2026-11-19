@@ -29,6 +29,16 @@ def _kontostand(stand: Kontostand) -> str:
     return f"{reverse('bank:umsaetze')}?{urlencode(parameter)}"
 
 
-verweise.registrieren(Bankkonto, "Konto ansehen", _konto)
-verweise.registrieren(Bankfreigabe, "Freigabe erneuern", _freigabe)
-verweise.registrieren(Kontostand, "Umsätze ansehen", _kontostand)
+verweise.registrieren(Bankkonto, "Konto ansehen", _konto, beschreibung=lambda k: k.bezeichnung)
+verweise.registrieren(
+    Bankfreigabe,
+    "Freigabe erneuern",
+    _freigabe,
+    beschreibung=lambda f: f"{f.konto.bezeichnung}, gültig bis {f.gueltig_bis:%d.%m.%Y}",
+)
+verweise.registrieren(
+    Kontostand,
+    "Umsätze ansehen",
+    _kontostand,
+    beschreibung=lambda s: f"{s.konto.bezeichnung}, Stand {s.datum:%d.%m.%Y}",
+)

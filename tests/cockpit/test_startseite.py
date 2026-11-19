@@ -163,11 +163,12 @@ def test_kaputte_kachel_nimmt_die_seite_nicht_mit(
 
 
 def test_arbeitsliste_nach_art(angemeldet: Client) -> None:
-    """Die Links aus Cockpit und Hof-Backlog zeigen nur die Posten einer Art."""
-    kern.arbeitsposten_anlegen("Frist fällig")
-    kern.arbeitsposten_anlegen("Umsätze einordnen")
+    """Die Links aus Cockpit und Hof-Backlog zeigen nur die Posten einer Art (links stehen
+    weiter alle Arten, Review 2, B2)."""
+    frist = kern.arbeitsposten_anlegen("Frist fällig")
+    umsatz = kern.arbeitsposten_anlegen("Umsätze einordnen")
     html = angemeldet.get(reverse("kern:arbeitslisten"), {"art": "Frist fällig"}).content.decode()
-    assert "Frist fällig" in html and "Umsätze einordnen" not in html
+    assert f'id="posten-{frist.pk}"' in html and f'id="posten-{umsatz.pk}"' not in html
 
 
 def test_kacheln_am_handy_einspaltig() -> None:

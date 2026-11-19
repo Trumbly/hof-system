@@ -9,7 +9,13 @@ class AbgleichConfig(AppConfig):
     def ready(self) -> None:
         # Aktionen der Arbeitsliste „Zahlungen klären“, Links an Arbeitsposten, Stornowege
         # im Protokoll, Schritt im Tageslauf und Kachel „Rückstände“ im Hof-Cockpit.
-        from apps.abgleich import aktionen, services, verweise  # noqa: F401
+        # Posteingang der Arbeitslisten: Klärfall mit Karten in der Zeile (Review 2, B4).
+        from apps.abgleich import (  # noqa: F401
+            aktionen,
+            posteingang,
+            services,
+            verweise,
+        )
         from apps.abgleich.models import Klaerfall
         from apps.cockpit import kacheln, tageslauf
         from apps.cockpit import services as cockpit

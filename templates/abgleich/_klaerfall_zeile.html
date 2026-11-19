@@ -1,0 +1,14 @@
+{# Klärfall in der Zeile der Arbeitsliste (Review 2, B4): Umsatz, Karten, Suche. #}
+{% with u=k.umsatz %}
+<div class="posten-arbeit">
+  <input type="hidden" name="{{ p }}-da" value="1">
+  <p class="posten-umsatz">
+    <time datetime="{{ u.buchungsdatum|date:'Y-m-d' }}">{{ u.buchungsdatum|date:"d.m.Y" }}</time>
+    <strong class="zahl betrag-{{ u.richtung }}">{{ k.buchung.betrag|euro }}</strong>
+    {% if k.offen_betrag != k.buchung.betrag %}<span class="leise">noch offen {{ k.offen_betrag|euro }}</span>{% endif %}
+    <span class="posten-zweck">{{ u.verwendungszweck|default:"ohne Zweck" }}</span>
+    <span class="leise">{{ u.konto.bezeichnung }}</span>
+  </p>
+  {% include "abgleich/_klaerfall_karten.html" %}
+</div>
+{% endwith %}

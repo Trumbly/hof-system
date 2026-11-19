@@ -1,18 +1,38 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% load bausteine %}
 
-{% block titel %}Zuordnen{% endblock %}
+{% block titel %}Umsatz einordnen{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Zuordnen</h1>
-{% include "kassenbuch/_unternavigation.html" %}
-{% include "kassenbuch/_umsatz_kopf.html" %}
-{% if hat_gueltige %}<p class="meldung meldung-warning">Der Umsatz ist schon gebucht. Speichern storniert die bisherige Buchung und bucht neu.</p>{% endif %}
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <div class="aktionen">
-    <button type="submit">Buchen</button>
-    <a class="knopf zweitrangig" href="{% url 'kassenbuch:aufteilen' umsatz.pk %}">Lieber aufteilen</a>
+<p class="kopf-pfad">{% if posten %}<a href="{% url 'kern:arbeitslisten' %}?art={{ posten.art|urlencode }}">Arbeitsliste „{{ posten.art }}“</a> · {% endif %}<a href="{% url 'kassenbuch:umsatz' umsatz.pk %}">Umsatz #{{ umsatz.pk }}</a></p>
+{% seitenkopf "Umsatz einordnen" %}
+  <a class="knopf knopf-zweit" href="{% url 'kassenbuch:aufteilen' umsatz.pk %}">Lieber aufteilen</a>
+{% endseitenkopf %}
+
+{% karte "Umsatz" %}
+  <dl class="angaben-neu">
+    <dt>Betrag</dt><dd><strong class="zahl betrag-{{ umsatz.richtung }}">{% if umsatz.richtung == "ausgang" %}−{% endif %}{{ umsatz.betrag|euro }}</strong> <span class="leise">{{ umsatz.get_richtung_display }}</span></dd>
+    <dt>Gegenpartei</dt><dd>{{ umsatz.gegenpartei|default:"–" }}{% if umsatz.gegen_iban %}<br><code class="leise">{{ umsatz.gegen_iban }}</code>{% endif %}</dd>
+    <dt>Zweck</dt><dd>{{ umsatz.verwendungszweck|default:"–" }}</dd>
+    <dt>Datum</dt><dd>{{ umsatz.buchungsdatum|date:"d.m.Y" }}</dd>
+    <dt>Konto</dt><dd>{{ umsatz.konto.bezeichnung }}</dd>
+  </dl>
+  {% if gesperrt %}<p class="hinweis-band hinweis-warnung">Der Monat dieses Umsatzes ist abgeschlossen. Die Buchung bekommt ein Datum im ersten offenen Monat.</p>{% endif %}
+  {% if rueckbuchung_zu %}<p class="leise">Vermutlich Rückbuchung zu <a href="{% url 'kassenbuch:umsatz' rueckbuchung_zu.pk %}">Umsatz #{{ rueckbuchung_zu.pk }}</a>.</p>{% endif %}
+{% endkarte %}
+
+<form method="post" class="karte">
+  <div class="karte-rumpf stapel">
+    {% csrf_token %}
+    {% if hat_gueltige %}<p class="hinweis-band hinweis-warnung">Der Umsatz ist schon gebucht. Buchen storniert die bisherige Buchung und bucht neu.</p>{% endif %}
+    {% if vorschlag.quelle %}<p class="feld-hilfe">Vorschlag: {{ vorschlag.quelle }}.</p>{% endif %}
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for f in form.non_field_errors %}<p>{{ f }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder">
+      {% for f in form.visible_fields %}{% feld f %}{% endfor %}
+    </div>
+    <div class="formular-fuss">
+      <button type="submit" class="knopf knopf-primaer">Buchen</button>
+    </div>
   </div>
 </form>
 {% endblock %}

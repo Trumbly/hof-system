@@ -2,17 +2,25 @@ from django.urls import path
 
 from apps.cockpit import views as cockpit
 
-from . import laeufe_seite, protokoll_seite, stil, suchseite, views
+from . import arbeitslisten, laeufe_seite, protokoll_seite, stil, suchseite, views
 
 app_name = "kern"
 
 urlpatterns = [
     # Die Startseite ist das Hof-Cockpit (Schritt 9); der Name bleibt kern:startseite.
     path("", cockpit.startseite, name="startseite"),
-    path("arbeitslisten/", views.arbeitslisten, name="arbeitslisten"),
+    # Arbeitslisten als Posteingang (Review 2, B2)
+    path("arbeitslisten/", arbeitslisten.arbeitslisten, name="arbeitslisten"),
+    path("arbeitslisten/sammel/", arbeitslisten.posten_sammel, name="posten_sammel"),
+    path("arbeitslisten/gruppe/", arbeitslisten.posten_gruppe, name="posten_gruppe"),
+    path(
+        "arbeitslisten/<int:pk>/uebernehmen/",
+        arbeitslisten.posten_uebernehmen,
+        name="posten_uebernehmen",
+    ),
     path(
         "arbeitslisten/<int:pk>/<slug:aktion>/",
-        views.arbeitsposten_aktion,
+        arbeitslisten.arbeitsposten_aktion,
         name="arbeitsposten_aktion",
     ),
     path("protokoll/", protokoll_seite.protokoll, name="protokoll"),

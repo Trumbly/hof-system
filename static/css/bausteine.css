@@ -2838,3 +2838,383 @@ form.sendet .datei-knoepfe {
     white-space: normal;
   }
 }
+
+/* --- Raster 1:2 (schmale Spalte links), z. B. Klärfall: Umsatz links, Karten rechts ------ */
+
+@media (min-width: 1024px) {
+  .raster-1-2 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+}
+
+/* --- Posteingang (Review 2, B2): links die Arten, rechts die Posten ---------------------
+ * Am Desktop zwei Spalten. Am Handy erst die Arten; nach der Wahl (.posteingang-gewaehlt)
+ * nur die Liste mit „← Arten“. Die Zeile: Wahl, Inhalt mit Arbeitsfläche, Knöpfe rechts. */
+
+.posteingang {
+  display: grid;
+  gap: var(--a4);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .posteingang {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .posteingang-arten {
+    position: sticky;
+    top: var(--a4);
+  }
+
+  .posteingang-zurueck {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .posteingang:not(.posteingang-gewaehlt) .posteingang-liste,
+  .posteingang.posteingang-gewaehlt .posteingang-arten {
+    display: none;
+  }
+}
+
+.arten-liste {
+  margin: 0;
+  padding: var(--a1);
+  list-style: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.neu .arten-liste a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a2);
+  min-height: 36px;
+  padding: var(--a1) var(--a3);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-klein);
+}
+
+.neu .arten-liste a:hover {
+  background: var(--flaeche-2);
+}
+
+.neu .arten-liste a[aria-current="page"] {
+  font-weight: var(--gewicht-mittel);
+  background: var(--primaer-weich);
+}
+
+.arten-trenner {
+  margin-top: var(--a1);
+  padding-top: var(--a1);
+  border-top: 1px solid var(--linie);
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .neu .arten-liste a {
+    min-height: var(--ziel);
+  }
+}
+
+.posteingang-liste {
+  min-width: 0;
+}
+
+.posteingang-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2) var(--a4);
+  margin-bottom: var(--a3);
+}
+
+.neu .posteingang-kopf h2 {
+  margin: 0;
+  margin-right: auto;
+  font-size: var(--text-17);
+}
+
+.posteingang-sammel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
+}
+
+.posten-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.posten-liste .posten-liste {
+  border: 0;
+  border-top: 1px solid var(--linie);
+  border-radius: 0;
+}
+
+.posten-zeile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--a1) var(--a3);
+  padding: var(--a3) var(--a4);
+  border-top: 1px solid var(--linie);
+  outline: 0;
+}
+
+.posten-liste > li:first-child {
+  border-top: 0;
+}
+
+.posten-zeile:hover {
+  background: color-mix(in srgb, var(--flaeche-2) 50%, var(--flaeche));
+}
+
+/* Die Auswahl (j/k): Streifen links und weicher Grund */
+.posten-zeile.posten-aktiv {
+  background: var(--flaeche-2);
+  box-shadow: inset 3px 0 0 var(--primaer);
+}
+
+.posten-fehlerhaft {
+  box-shadow: inset 3px 0 0 var(--fehler);
+}
+
+.posten-wahl {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+  cursor: pointer;
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .posten-wahl {
+    align-items: center;
+    justify-content: center;
+    min-width: var(--ziel);
+    min-height: var(--ziel);
+    margin: -10px 0 0 -10px;
+    padding-top: 0;
+  }
+}
+
+.posten-inhalt {
+  min-width: 0;
+}
+
+.neu .posten-titel {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.posten-art {
+  margin-right: var(--a1);
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.neu .posten-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--a3);
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.neu .posten-hinweis {
+  margin: var(--a1) 0 0;
+  font-size: var(--text-13);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.posten-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--a1);
+}
+
+/* Übernehmen: in der gewählten Zeile die Hauptaktion (eine je Ansicht) */
+.posten-aktiv .knopf-uebernehmen {
+  color: var(--primaer-text);
+  background: var(--primaer);
+  border-color: var(--primaer);
+}
+
+@media (max-width: 1023px) {
+  .posten-zeile {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .posten-knoepfe {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+/* Arbeitsfläche in der Zeile: Umsatz, Felder, Vorschlag */
+.posten-arbeit {
+  margin-top: var(--a2);
+}
+
+.neu .posten-umsatz {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--a3);
+  margin: 0 0 var(--a2);
+}
+
+.posten-zweck {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.neu .posten-vorschlag {
+  margin: var(--a1) 0 0;
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+/* Felder in einer Zeile (Umsatz einordnen, Kopf einer Gruppe); am Handy untereinander */
+.zeile-formular {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2) var(--a3);
+}
+
+.zeile-formular .feld-auswahl,
+.zeile-formular .feld-eingabe {
+  width: auto;
+  min-width: 140px;
+  max-width: 100%;
+  flex: 0 1 200px;
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .zeile-formular .haken-label {
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 599px) {
+  .zeile-formular .feld-auswahl,
+  .zeile-formular .feld-eingabe {
+    flex-basis: 100%;
+  }
+}
+
+/* Gruppe gleicher Ursache (Review 1, Punkt 5) */
+.posten-gruppe {
+  border-top: 1px solid var(--linie);
+}
+
+.posten-gruppe > .aufklapper {
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--primaer-weich) 40%, var(--flaeche));
+}
+
+.posten-gruppe-kopf {
+  padding: 0 var(--a4) var(--a3);
+}
+
+/* --- Wahl-Karten (Review 2, B4): Vorschlag und Alternativen, ein Klick wählt ------------- */
+
+.wahl-karten {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--a3);
+  margin: var(--a2) 0;
+}
+
+.wahl-karten:empty {
+  display: none;
+}
+
+.wahl-karte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a1);
+  min-width: 0;
+  padding: var(--a3);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.wahl-karte-vorschlag {
+  border-color: var(--primaer);
+  box-shadow: inset 0 0 0 1px var(--primaer);
+}
+
+.wahl-karte-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
+}
+
+.wahl-karte-marke {
+  margin-left: auto;
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  color: var(--primaer);
+}
+
+.neu .wahl-karte-name {
+  margin: 0;
+  font-weight: var(--gewicht-mittel);
+  overflow-wrap: anywhere;
+}
+
+.neu .wahl-karte-einheit,
+.neu .wahl-karte-hinweis {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.wahl-karte-posten {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-13);
+}
+
+.wahl-karte-posten li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--a2);
+}
+
+.neu .wahl-karte-summe {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding-top: var(--a1);
+  border-top: 1px solid var(--linie);
+}
+
+.wahl-karte .knopf {
+  margin-top: auto;
+}
+
+.vertrag-suche {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--a3);
+}

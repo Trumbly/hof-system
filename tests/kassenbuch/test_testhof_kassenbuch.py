@@ -82,8 +82,9 @@ def test_nach_dem_lauf_ist_jeder_umsatz_gebucht_oder_arbeitsposten(testhof: Test
 
     gesamt = Bankumsatz.objects.count()
     assert lauf.status == "erfolgreich"
-    # 50 Posten: 24 Material, 24 Versicherung, 2 Rückbuchungen (eine aus dem Abgleich,
-    # testhof/abgleich.py, Schritt 6). Gebucht ist alles andere bis auf die Sammelrechnung.
+    # 50 Posten: 24 Material, 24 Versicherung auf VR (beide ohne Regel), 2 Rückbuchungen
+    # (eine aus dem Abgleich, testhof/abgleich.py, Schritt 6). Gebucht ist alles andere bis
+    # auf die Sammelrechnung.
     assert (lauf.gebucht, lauf.arbeitsposten, lauf.fehler) == (gesamt - 1 - 50, 50, 0)
 
     mit_posten = services.offene_posten_umsatz_ids()
@@ -108,9 +109,10 @@ def test_nach_dem_lauf_ist_jeder_umsatz_gebucht_oder_arbeitsposten(testhof: Test
 
 
 def test_testhof_arbeitsposten_und_sonderfaelle_nach_dem_lauf(testhof: Testhof) -> None:
-    """Die erwarteten Lücken: Material auf Vivid (keine Regel), Versicherung auf VR
-    (mehrdeutig) und die Rückbuchung (mit Hinweis auf den Eingang). Wohnraum ist gebucht
-    und markiert, Entnahmen stehen bei der GbR."""
+    """Die erwarteten Lücken: Material auf Vivid und Versicherung auf VR (keine Regel) und
+    die Rückbuchung (mit Hinweis auf den Eingang). Review 1, Punkt 5: Keine Lücke kommt
+    mehr von zwei gleichrangigen Regeln. Wohnraum ist gebucht und markiert, Entnahmen stehen
+    bei der GbR."""
     _einordnen()
     posten = Arbeitsposten.objects.filter(art=services.ART_EINORDNEN).order_by("pk")
     umsaetze = {p.bezug_id: p for p in posten}
@@ -121,8 +123,7 @@ def test_testhof_arbeitsposten_und_sonderfaelle_nach_dem_lauf(testhof: Testhof) 
     assert sum(z.startswith("Versicherungsbeitrag") for z in zwecke) == 24
     eingang, zurueck = testhof.bank.rueckbuchung
     assert f"Rückbuchung zu Umsatz #{eingang.pk}" in umsaetze[zurueck.pk].hinweis
-    mehrdeutig = next(p for p in posten if "gleicher Priorität" in p.hinweis)
-    assert mehrdeutig.aktionen == list(services.AKTIONEN_EINORDNEN)
+    assert not any("gleicher Priorität" in p.hinweis for p in posten)
 
     wohnraum = Buchung.objects.filter(umsatz__gegen_iban=testhof.bank.wohnraum_iban)
     assert wohnraum.count() == 24

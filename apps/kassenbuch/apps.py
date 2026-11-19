@@ -8,7 +8,13 @@ class KassenbuchConfig(AppConfig):
 
     def ready(self) -> None:
         # Aktionen der Arbeitsliste, Links an Arbeitsposten und Stornowege im Protokoll.
-        from apps.kassenbuch import aktionen, services, verweise  # noqa: F401
+        # Posteingang der Arbeitslisten: „Umsätze einordnen“ in der Zeile (Review 2, B3).
+        from apps.kassenbuch import (  # noqa: F401
+            aktionen,
+            posteingang,
+            services,
+            verweise,
+        )
 
         services.stornowege_registrieren()
         # Rücknahme eines Vorgangs: Buchungen stornieren (Review 2, A4).

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from django.urls import reverse
 
-from apps.dokumente.models import Beleg, Dokument, Eingangsrechnung
+from apps.dokumente.models import Beleg, Dokument, Eingangsrechnung, Schreiben
 from apps.kern import aktionen, verweise
 from apps.kern.models import Arbeitsposten
 
@@ -34,4 +34,8 @@ verweise.registrieren(
     Eingangsrechnung,
     "Zum Beleg",
     lambda r: reverse("dokumente:beleg", args=[r.beleg_id]),
+)
+# Review 1, Punkt 8: Jeder Posten verlinkt auf seinen Bezug, auch ein Schreiben.
+verweise.registrieren(
+    Schreiben, "Schreiben ansehen", lambda s: reverse("dokumente:schreiben", args=[s.pk])
 )

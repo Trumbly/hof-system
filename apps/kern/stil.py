@@ -201,6 +201,7 @@ def stilseite(request: HttpRequest) -> HttpResponse:
                 ("zahl:2", 1234567, zahlen.zahl(1234567, 2)),
             ),
             "stichtag_beispiel": D(2026, 11, 1),
+            "beispiel_betrag": Decimal("48.90"),
         },
     )
 

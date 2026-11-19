@@ -27,7 +27,9 @@ def test_arbeitslisten_gruppiert_nach_art(angemeldet: Client) -> None:
 
     html = angemeldet.get(reverse("kern:arbeitslisten")).content.decode()
 
-    assert html.count("<h2") == 2
+    # Review 2, B2: Die Arten stehen links mit ihrer Zahl, die Posten nach Art sortiert.
+    assert "<span>Frist fällig</span>" in html and "<span>Umsätze einordnen</span>" in html
+    assert html.index(f'id="posten-{b1.pk}"') < html.index(f'id="posten-{a1.pk}"')
     assert html.index("Frist fällig") < html.index(f'id="posten-{b1.pk}"')
     assert html.index("Umsätze einordnen") < html.index(f'id="posten-{a1.pk}"')
     assert f'id="posten-{a2.pk}"' in html
@@ -35,7 +37,9 @@ def test_arbeitslisten_gruppiert_nach_art(angemeldet: Client) -> None:
 
 
 def test_aktion_per_htmx_liefert_den_posten_neu(angemeldet: Client) -> None:
-    """Schritt 0b, Aufgabe 7: Aktionen per HTMX ersetzen nur den Posten."""
+    """Schritt 0b, Aufgabe 7: Aktionen per HTMX ersetzen nur den Posten. Review 2, B2: Ein
+    erledigter Posten verschwindet aus der Liste (leere Zeile), die Zahlen links kommen neu,
+    und eine Meldung sagt, was passiert ist."""
     posten = services.arbeitsposten_anlegen("Selbsttest")
     url = reverse("kern:arbeitsposten_aktion", args=[posten.pk, "erledigen"])
 
@@ -43,7 +47,8 @@ def test_aktion_per_htmx_liefert_den_posten_neu(angemeldet: Client) -> None:
 
     assert antwort.status_code == 200
     html = antwort.content.decode()
-    assert html.lstrip().startswith(f'<li class="posten" id="posten-{posten.pk}"')
+    assert f'id="posten-{posten.pk}"' not in html
+    assert html.lstrip().startswith('<nav class="posteingang-arten"')
     assert "<html" not in html
     assert "jetzt erledigt" in html
     posten.refresh_from_db()
@@ -60,6 +65,9 @@ def test_zurueckstellen_und_wieder_oeffnen(angemeldet: Client) -> None:
     assert posten.status == Arbeitsposten.Status.ZURUECKGESTELLT
     html = angemeldet.get(reverse("kern:arbeitslisten")).content.decode()
     assert "Zurückgestellt" in html
+    html = angemeldet.get(
+        reverse("kern:arbeitslisten"), {"status": "zurueckgestellt"}
+    ).content.decode()
     assert reverse("kern:arbeitsposten_aktion", args=[posten.pk, "wieder_oeffnen"]) in html
 
     angemeldet.post(

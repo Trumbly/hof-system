@@ -1,0 +1,15 @@
+{# Posten mit derselben Ursache (Review 1, Punkt 5): Kopf mit „für alle anwenden“, darunter die Posten. #}
+<li class="posten-gruppe" id="gruppe-{{ g.gruppe.praefix }}">
+  <details class="aufklapper" open>
+    <summary>{{ g.gruppe.titel }} <span class="zaehler">{{ g.zeilen|length }}</span></summary>
+    <div class="posten-gruppe-kopf">
+      <input type="hidden" name="{{ g.gruppe.praefix }}-da" value="1">
+      {% for z in g.zeilen %}<input type="hidden" name="{{ g.gruppe.praefix }}-posten" value="{{ z.posten.pk }}">{% endfor %}
+      {% if g.gruppe.vorlage %}{% include g.gruppe.vorlage with gp=g.gruppe.praefix k=g.gruppe.kontext anzahl=g.zeilen|length %}{% endif %}
+      {% if g.gruppe.hinweis %}<p class="posten-vorschlag">{{ g.gruppe.hinweis }}</p>{% endif %}
+    </div>
+    <ul class="posten-liste">
+      {% for z in g.zeilen %}{% include "kern/_posten.html" %}{% endfor %}
+    </ul>
+  </details>
+</li>

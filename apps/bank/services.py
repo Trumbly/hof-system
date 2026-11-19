@@ -43,6 +43,10 @@ ART_ZULIEFERUNG = "Bankumsätze fehlen"
 
 #: Grund eines gescheiterten Abrufs ohne gültige Freigabe (steht im Hinweis des Postens).
 GRUND_KEINE_FREIGABE = "keine gültige Bankfreigabe"
+#: Aktionen an den Posten (Review 1, Punkt 8; registriert in ``apps.bank.aktionen``): Ein
+#: gescheiterter Abruf und eine fehlende Freigabe sind erst erledigt, wenn es wieder stimmt.
+AKTIONEN_ABRUF = ("bank_erneut_abrufen", "bank_freigabe_erneuern", "zurueckstellen")
+AKTIONEN_FREIGABE = ("bank_freigabe_erneuern", "zurueckstellen")
 
 TOKEN_PRAEFIX = "hofz_"  # noqa: S105  (Präfix, kein Geheimnis)
 
@@ -229,6 +233,7 @@ def freigaben_pruefen(heute: datetime.date, *, lauf: Lauf | None = None) -> list
                     kern_services.arbeitsposten_anlegen(
                         ART_FREIGABE_FEHLT,
                         bezug=konto,
+                        aktionen=AKTIONEN_FREIGABE,
                         faellig_am=heute,
                         hinweis=(
                             f"Für Konto #{konto.pk} gibt es keine Bankfreigabe. "
@@ -245,6 +250,7 @@ def freigaben_pruefen(heute: datetime.date, *, lauf: Lauf | None = None) -> list
             kern_services.arbeitsposten_anlegen(
                 ART_FREIGABE,
                 bezug=freigabe,
+                aktionen=AKTIONEN_FREIGABE,
                 faellig_am=freigabe.gueltig_bis,
                 hinweis=(
                     f"Die Bankfreigabe #{freigabe.pk} für Konto #{konto.pk} "
@@ -329,6 +335,7 @@ def abruf_gescheitert_melden(
     return kern_services.arbeitsposten_anlegen(
         ART_ABRUF,
         bezug=konto,
+        aktionen=AKTIONEN_ABRUF,
         faellig_am=timezone.localdate(),
         hinweis=f"Der Abruf für Konto #{konto.pk} ist gescheitert: {grund}",
         lauf=lauf,

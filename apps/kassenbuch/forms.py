@@ -103,7 +103,11 @@ class BuchungFilter(forms.Form):
 
 
 class ZuordnenForm(forms.Form):
-    """Ein Umsatz ganz auf eine Kategorie (Aktion „Zuordnen“)."""
+    """Ein Umsatz ganz auf eine Kategorie (Aktion „Zuordnen“).
+
+    Mit ``richtung`` zeigt die Auswahl nur passende Kategorien (Review 2, B3: keine
+    Einnahmen bei einer Ausgabe); ``dazu`` nimmt eine weitere auf, etwa den Vorschlag.
+    """
 
     kategorie = KategorieWahl(_aktive_kategorien())
     objekt = ObjektWahl(_aktive_objekte())
@@ -120,6 +124,31 @@ class ZuordnenForm(forms.Form):
         decimal_places=2,
         required=False,
         help_text="leer: Vorgabe der Kategorie",
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        richtung: str = "",
+        dazu: Kategorie | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        if richtung:
+            from apps.kassenbuch import einordnen
+
+            self.fields["kategorie"].queryset = einordnen.kategorien_fuer(  # type: ignore[attr-defined]
+                richtung, dazu=dazu
+            )
+
+
+class EinordnenForm(ZuordnenForm):
+    """„Zuordnen“ mit „Als Regel merken“ (Review 2, B3)."""
+
+    regel_merken = forms.BooleanField(
+        label="Als Regel merken",
+        required=False,
+        help_text="Künftige Umsätze dieser Gegenpartei werden genauso gebucht.",
     )
 
 

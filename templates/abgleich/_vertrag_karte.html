@@ -1,0 +1,27 @@
+{% load bausteine %}{% comment %} Eine Karte zum Zuordnen (Review 2, B4): Vertrag, Einheit, Mieter, offene Posten.
+  In der Arbeitsliste (posten, p) per HTMX an „Übernehmen“; auf der Seite des Klärfalls (seite)
+  als Knopf des Formulars „Zuordnen“. {% endcomment %}
+<article class="wahl-karte{% if karte.vorschlag %} wahl-karte-vorschlag{% endif %}" data-vertrag="{{ karte.vertrag.nummer }}">
+  <header class="wahl-karte-kopf">
+    <strong>{{ karte.vertrag.nummer }}</strong>
+    {% badge karte.vertrag.status %}
+    {% if karte.vorschlag %}<span class="wahl-karte-marke">Vorschlag</span>{% endif %}
+  </header>
+  <p class="wahl-karte-name">{{ karte.mieter|default:"ohne Mieter" }}</p>
+  <p class="wahl-karte-einheit">{{ karte.einheiten|default:"ohne Einheit" }}</p>
+  <ul class="wahl-karte-posten">
+    {% for o in karte.offen_kurz %}<li><span>{{ o.sollposten.get_art_display }} {{ o.sollposten.von|date:"m/Y" }}</span><span class="zahl">{{ o.offen|euro }}</span></li>
+    {% empty %}<li class="leise">keine offenen Posten</li>{% endfor %}
+    {% if karte.offen_weitere %}<li class="leise">und {{ karte.offen_weitere }} weitere</li>{% endif %}
+  </ul>
+  <p class="wahl-karte-summe"><span>offen</span><strong class="zahl">{{ karte.summe_offen|euro }}</strong></p>
+  {% if karte.aendert_regel and zahlerregel %}<p class="wahl-karte-hinweis">Mit Haken zeigt Zahlerregel #{{ zahlerregel.pk }} danach hierhin.</p>{% endif %}
+  {% if seite %}
+  <button type="submit" name="vertrag" value="{{ karte.vertrag.pk }}" class="knopf {% if karte.vorschlag %}knopf-primaer{% else %}knopf-zweit{% endif %} knopf-voll">Zuordnen</button>
+  {% else %}
+  <button type="submit" class="knopf knopf-zweit knopf-klein knopf-voll{% if karte.vorschlag %} knopf-uebernehmen{% endif %}"{% if karte.vorschlag %} data-uebernehmen{% endif %}
+          name="{{ p }}-vertrag" value="{{ karte.vertrag.pk }}" formaction="{% url 'kern:posten_uebernehmen' posten.pk %}"
+          hx-post="{% url 'kern:posten_uebernehmen' posten.pk %}" hx-vals='{"{{ p }}-vertrag": "{{ karte.vertrag.pk }}"}'
+          hx-target="#posten-{{ posten.pk }}" hx-swap="outerHTML">Zuordnen</button>
+  {% endif %}
+</article>

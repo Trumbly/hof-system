@@ -1,23 +1,64 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% load bausteine kern %}
 
 {% block titel %}Zahlung klären{% endblock %}
 
 {% block inhalt %}
-<h1>Zahlung klären <span class="leise">#{{ klaerfall.pk }}</span></h1>
-{% include "abgleich/_buchung_kopf.html" %}
-{% if klaerfall.offen %}
-<div class="aktionen">
-  {% if klaerfall.art == "rueckbuchung" %}
-  <a class="knopf" href="{% url 'kern:arbeitslisten' %}">Zur Arbeitsliste</a>
-  {% else %}
-  <a class="knopf" href="{% url 'abgleich:zuordnen' klaerfall.pk %}">Zuordnen</a>
-  <a class="knopf zweitrangig" href="{% url 'abgleich:aufteilen' klaerfall.pk %}">Aufteilen</a>
-  <a class="knopf zweitrangig" href="{% url 'abgleich:regel_aus_klaerfall' klaerfall.pk %}">Regel anlegen</a>
+{% with u=k.umsatz %}
+<p class="kopf-pfad"><a href="{% url 'kern:arbeitslisten' %}?art={{ art_klaeren|urlencode }}">Arbeitsliste „Zahlungen klären“</a></p>
+{% seitenkopf "Zahlung klären" meta %}
+  {% if klaerfall.offen and klaerfall.art != "rueckbuchung" %}
+  <details class="menue">
+    <summary class="knopf knopf-zweit">mehr ▾</summary>
+    <ul class="menue-liste">
+      <li><a href="{% url 'abgleich:aufteilen' klaerfall.pk %}">Auf mehrere Posten aufteilen</a></li>
+      <li><a href="{% url 'abgleich:regel_aus_klaerfall' klaerfall.pk %}">Zahlerregel anlegen</a></li>
+      {% if posten_arbeit and posten_arbeit.status == "offen" %}
+      <li><form method="post" action="{% url 'kern:arbeitsposten_aktion' posten_arbeit.pk 'nicht_vertragsbezogen' %}">{% csrf_token %}<button type="submit">Nicht vertragsbezogen</button></form></li>
+      {% endif %}
+    </ul>
+  </details>
+  {% endif %}
+{% endseitenkopf %}
+
+<div class="stapel">
+<div class="raster raster-1-2">
+  {% karte "Umsatz" %}
+    <dl class="angaben-neu">
+      <dt>Betrag</dt><dd><strong class="zahl">{{ buchung.betrag|euro }}</strong>{% if offen_betrag != buchung.betrag %} <span class="leise">noch offen {{ offen_betrag|euro }}</span>{% endif %}</dd>
+      <dt>Gegenpartei</dt><dd>{{ u.gegenpartei|default:"–" }}{% if u.gegen_iban %}<br><code class="leise">{{ u.gegen_iban }}</code>{% endif %}</dd>
+      <dt>Zweck</dt><dd>{{ u.verwendungszweck|default:"–" }}</dd>
+      <dt>Datum</dt><dd>{{ u.buchungsdatum|date:"d.m.Y" }}</dd>
+      <dt>Konto</dt><dd>{{ u.konto.bezeichnung }}</dd>
+      <dt>Klärfall</dt><dd>{{ klaerfall.get_art_display }} · Konfidenz {% widthratio klaerfall.konfidenz 1 100 %} %{% if not klaerfall.offen %} · {{ klaerfall.get_ergebnis_display }}{% endif %}</dd>
+    </dl>
+    {% if posten_arbeit and posten_arbeit.hinweis %}<p class="leise">{{ posten_arbeit.hinweis|pfade_verlinken }}</p>{% endif %}
+    <p><a href="{% url 'kassenbuch:umsatz' u.pk %}">Umsatz im Kassenbuch</a></p>
+  {% endkarte %}
+
+  {% if klaerfall.offen and klaerfall.art != "rueckbuchung" %}
+  {% karte "Zuordnen" %}
+    <form method="post" action="{% url 'abgleich:zuordnen' klaerfall.pk %}" class="stapel">
+      {% csrf_token %}
+      <input type="hidden" name="rest_als_guthaben" value="on">
+      {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for f in form.non_field_errors %}<p>{{ f }}</p>{% endfor %}</div>{% endif %}
+      {% if form.vertrag.errors %}<div class="formfehler" role="alert"><p>Bitte einen Vertrag wählen.</p></div>{% endif %}
+      {% include "abgleich/_klaerfall_karten.html" with seite=True %}
+      <p class="feld-hilfe">Der offene Betrag geht auf die offenen Posten des Vertrags, älteste zuerst; ein Rest wird Guthaben.</p>
+    </form>
+  {% endkarte %}
+  {% elif klaerfall.offen %}
+  {% karte "Rückbuchung" %}
+    <p>Diese Zahlung wurde vermutlich zurückgebucht. Bitte in der Arbeitsliste bestätigen oder verneinen.</p>
+    <p><a class="knopf knopf-primaer" href="{% url 'kern:arbeitslisten' %}?art={{ art_klaeren|urlencode }}">Zur Arbeitsliste</a></p>
+  {% endkarte %}
   {% endif %}
 </div>
-{% endif %}
+
 {% if zuordnungen %}
-<h2>Zuordnungen</h2>
-<ul>{% for z in zuordnungen %}<li>{{ z.sollposten.vertrag.nummer }} · Posten #{{ z.sollposten_id }}: {{ z.betrag|floatformat:"2g" }} €{% if z.storniert_am %} <span class="leise">(storniert)</span>{% endif %}</li>{% endfor %}</ul>
+{% karte "Zuordnungen" %}
+<ul class="liste">{% for z in zuordnungen %}<li><span class="liste-haupt"><a href="{% url 'abgleich:mietkonto' z.sollposten.vertrag_id %}">{{ z.sollposten.vertrag.nummer }}</a> · Posten #{{ z.sollposten_id }}{% if z.storniert_am %} <span class="leise">(storniert)</span>{% endif %}</span><span class="liste-neben zahl">{{ z.betrag|euro }}</span></li>{% endfor %}</ul>
+{% endkarte %}
 {% endif %}
+</div>
+{% endwith %}
 {% endblock %}

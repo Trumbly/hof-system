@@ -1,0 +1,2 @@
+{# Knopf einer Aktion am Posten: sofort (HTMX ersetzt die Zeile) oder mit Eingabe (weiter auf ihre Seite per HX-Redirect). #}
+{% url 'kern:arbeitsposten_aktion' z.posten.pk k.schluessel as aktion_url %}<button type="submit" class="knopf knopf-text knopf-klein" formaction="{{ aktion_url }}" hx-post="{{ aktion_url }}" hx-target="#posten-{{ z.posten.pk }}" hx-swap="outerHTML" data-aktion="{{ k.schluessel }}"{% if k.seite %} data-seite="{{ k.seite }}"{% endif %}>{{ k.titel }}</button>
