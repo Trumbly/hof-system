@@ -1,25 +1,40 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Parteien{% endblock %}
 
 {% block inhalt %}
-<h1>Parteien</h1>
-<p><a class="knopf" href="{% url 'stammdaten:partei_neu' %}">Neue Partei</a></p>
-<div class="tabelle-rahmen">
-<table class="karten">
-  <thead><tr><th>#</th><th>Name</th><th>Ort</th><th>Kontakt</th></tr></thead>
-  <tbody>
-  {% for p in parteien %}
-  <tr>
-    <td data-titel="#"><a href="{% url 'stammdaten:partei' p.pk %}">#{{ p.pk }}</a></td>
-    <td data-titel="Name"><a href="{% url 'stammdaten:partei' p.pk %}">{{ p.anzeigename }}</a></td>
-    <td data-titel="Ort">{{ p.ort|default:"–" }}</td>
-    <td data-titel="Kontakt">{% with k=p.kontaktwege.all|first %}{{ k.wert|default:"–" }}{% endwith %}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4">Noch keine Parteien.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% url 'stammdaten:parteien' as basis %}
+{% seitenkopf "Parteien" "Mieter, Zahler und Bürgen außerhalb von Wohnraum." %}
+  <a class="knopf knopf-primaer" href="{% url 'stammdaten:partei_neu' %}">Neue Partei</a>
+{% endseitenkopf %}
+
+<form class="filterleiste" method="get" action="{{ basis }}" role="search"
+  hx-get="{{ basis }}" hx-target="#parteien-liste" hx-select="#parteien-liste" hx-swap="outerHTML" hx-push-url="true"
+  hx-trigger="input changed delay:300ms from:input[type=search], submit">
+  <input type="search" name="suche" class="feld-eingabe filterleiste-suche" value="{{ suche }}" placeholder="Name, Ort, E-Mail oder Telefon" aria-label="Parteien durchsuchen">
+  <noscript><button type="submit" class="knopf knopf-zweit">Suchen</button></noscript>
+</form>
+
+<div id="parteien-liste">
+  <p class="text-3 klein filterleiste-ergebnis">{{ zeilen|length }} von {{ anzahl_alle }} Parteien{% if suche %} · <a href="{{ basis }}">Suche zurücksetzen</a>{% endif %}</p>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Name</th><th>Rolle</th><th>Verträge</th><th>Ort</th><th>Kontakt</th></tr></thead>
+      <tbody>
+      {% for z in zeilen %}
+      <tr>
+        <td data-titel="Name"><a href="{% url 'stammdaten:partei' z.partei.pk %}">{{ z.partei.anzeigename|default:"(ohne Namen)" }}</a>{% if z.partei.art == "firma" %} <span class="text-3 klein">Firma</span>{% endif %}</td>
+        <td data-titel="Rolle">{% for r in z.rollen %}{{ r }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-3">ohne Vertrag</span>{% endfor %}</td>
+        <td data-titel="Verträge">{% for v in z.vertraege %}<a href="{% url 'stammdaten:vertrag' v.pk %}"{% if v.status == "beendet" %} class="text-3"{% endif %}>{{ v.nummer }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-3">–</span>{% endfor %}{% if z.laufend %} <span class="text-3 klein">({{ z.laufend }} laufend)</span>{% endif %}</td>
+        <td data-titel="Ort">{{ z.partei.ort|default:"–" }}</td>
+        <td data-titel="Kontakt">{% if z.kontakt %}{% if z.kontakt.art == "email" %}<a href="mailto:{{ z.kontakt.wert }}">{{ z.kontakt.wert }}</a>{% else %}<a href="tel:{{ z.kontakt.wert|cut:' ' }}">{{ z.kontakt.wert }}</a>{% endif %}{% else %}<span class="text-3">–</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      {% if suche %}{% include "bausteine/leer.html" with spalten=5 text="Keine Partei passt zur Suche." hilfe="Anderen Namen, Ort oder eine E-Mail-Adresse versuchen." %}{% else %}{% include "bausteine/leer.html" with spalten=5 text="Noch keine Parteien." %}{% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

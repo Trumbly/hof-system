@@ -84,7 +84,8 @@ class Messung:
         self.seite.wait_for_load_state("networkidle")
         self.seite.wait_for_timeout(300)
         self.seite.wait_for_load_state("networkidle")
-        fehler = self.seite.locator(".meldung-error").all_inner_texts()
+        # Alte Seiten: .meldung-error; neue Gestaltung (R2-4): Toast-Meldung „Fehler“.
+        fehler = self.seite.locator(".meldung-error, .toast-fehler").all_inner_texts()
         if fehler:
             raise Gescheitert("Fehlermeldung der Seite: " + " ".join(fehler))
 

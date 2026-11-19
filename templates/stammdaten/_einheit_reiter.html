@@ -1,0 +1,174 @@
+{% load bausteine %}{% comment %}
+Reiter der Einheitenseite (Review 2, B7): Übersicht · Verträge · Zähler · Bilder und Katalog ·
+Verlauf. Wechsel per HTMX ohne Neuladen; nach dem Speichern im Dialog ersetzt (oob).
+{% endcomment %}{% url 'stammdaten:einheit' einheit.pk as basis %}
+<div id="einheit-reiter"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% include "bausteine/reiter.html" with reiter=reiter aktiv=reiter_aktiv ziel="einheit-reiter" beschriftung="Bereiche der Einheit" %}
+
+{% if reiter_aktiv == "uebersicht" %}
+<div class="raster raster-2-1">
+  <div class="stapel">
+    {% if not einheit.ist_wohnraum %}
+    <section class="karte" id="status">
+      <header class="karte-kopf"><h2 class="karte-titel">Status</h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=status" hx-get="{{ basis }}?dialog=status" hx-target="#dialog-inhalt">Status setzen</a></header>
+      <div class="tabelle-box">
+        <table class="tab tab-karten">
+          <thead><tr><th>Status</th><th>gültig ab</th><th>gültig bis</th><th>Grund</th></tr></thead>
+          <tbody>
+          {% for s in statusstaende %}
+          <tr{% if s == status_heute %} class="aktuell"{% elif s.gueltig_bis and s.gueltig_bis < heute %} class="zeile-leise"{% endif %}>
+            <td data-titel="Status">{{ s.get_status_display }}{% if s == status_heute %} {% badge "ok" "heute" %}{% endif %}</td>
+            <td data-titel="gültig ab">{{ s.gueltig_ab|date:"d.m.Y" }}</td>
+            <td data-titel="gültig bis">{{ s.gueltig_bis|date:"d.m.Y"|default:"–" }}</td>
+            <td data-titel="Grund">{{ s.grund|default:"–" }}</td>
+          </tr>
+          {% empty %}{% include "bausteine/leer.html" with spalten=4 text="Noch kein Status." hilfe="Übergabe und Rückgabe setzen ihn; „Status setzen“ für gesperrt oder in Vorbereitung." %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="karte" id="zielmiete">
+      <header class="karte-kopf"><h2 class="karte-titel">Zielmiete</h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=zielmiete" hx-get="{{ basis }}?dialog=zielmiete" hx-target="#dialog-inhalt">Zielmiete ändern</a></header>
+      <div class="tabelle-box">
+        <table class="tab tab-karten">
+          <thead><tr><th class="zahl">Betrag</th><th>gültig ab</th><th>gültig bis</th><th>Begründung</th></tr></thead>
+          <tbody>
+          {% for z in zielmieten %}
+          <tr{% if z == zielmiete_heute %} class="aktuell"{% elif z.gueltig_bis and z.gueltig_bis < heute %} class="zeile-leise"{% endif %}>
+            <td data-titel="Betrag" class="zahl">{{ z.betrag|euro }}</td>
+            <td data-titel="gültig ab">{{ z.gueltig_ab|date:"d.m.Y" }}{% if z == zielmiete_heute %} {% badge "ok" "heute" %}{% endif %}</td>
+            <td data-titel="gültig bis">{{ z.gueltig_bis|date:"d.m.Y"|default:"–" }}</td>
+            <td data-titel="Begründung">{{ z.begruendung|default:"–" }}</td>
+          </tr>
+          {% empty %}{% include "bausteine/leer.html" with spalten=4 text="Noch keine Zielmiete." hilfe="Sie ist die Grundlage des Leerstands und der Vorbelegung im neuen Vertrag." %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="karte" id="schluessel">
+      <header class="karte-kopf"><h2 class="karte-titel">Schlüssel <span class="zaehler">{{ schluessel_liste|length }}</span></h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=schluessel" hx-get="{{ basis }}?dialog=schluessel" hx-target="#dialog-inhalt">Schlüssel hinzufügen</a></header>
+      <ul class="liste">
+        {% for s in schluessel_liste %}<li><span class="liste-haupt">{{ s.anzahl }} × {{ s.get_art_display }}{% if s.bezeichnung %} „{{ s.bezeichnung }}“{% endif %} <span class="text-3 klein">bei {% if s.partei %}{{ s.partei.anzeigename }}{% elif s.inhaber_text %}{{ s.inhaber_text }}{% else %}{{ s.get_inhaber_display }}{% endif %}</span></span><span class="liste-neben"><a href="{{ basis }}?dialog=schluessel-{{ s.pk }}" hx-get="{{ basis }}?dialog=schluessel-{{ s.pk }}" hx-target="#dialog-inhalt">bearbeiten</a></span></li>
+        {% empty %}<li class="text-3">Noch keine Schlüssel erfasst.</li>{% endfor %}
+      </ul>
+    </section>
+
+    <section class="karte" id="checklisten">
+      <header class="karte-kopf"><h2 class="karte-titel">Checklisten</h2></header>
+      <div class="karte-rumpf">{% include "stammdaten/_checklisten.html" %}</div>
+    </section>
+    {% endif %}
+  </div>
+
+  <div class="stapel">
+    <section class="karte" id="stammfelder">
+      <header class="karte-kopf"><h2 class="karte-titel">Einheit</h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">bearbeiten</a></header>
+      <div class="karte-rumpf">
+        <dl class="angaben-neu">
+          <dt>NW-ID</dt><dd>{{ einheit.nw_id }}</dd>
+          <dt>Typ</dt><dd>{{ einheit.get_typ_display }}</dd>
+          <dt>Objekt</dt><dd>{{ einheit.objekt.kuerzel }}{% if einheit.objekt.bezeichnung %} · {{ einheit.objekt.bezeichnung }}{% endif %}</dd>
+          <dt>Bezeichnung</dt><dd>{{ einheit.bezeichnung|default:"–" }}</dd>
+          {% if not einheit.ist_wohnraum %}
+          <dt>Fläche</dt><dd>{% if einheit.flaeche_qm %}{{ einheit.flaeche_qm|zahl }} m²{% else %}–{% endif %}</dd>
+          <dt>Vermarktung</dt><dd>{{ einheit.get_vermarktung_display }}</dd>
+          {% endif %}
+          {% if einheit.notiz %}<dt>Notiz</dt><dd>{{ einheit.notiz|linebreaksbr }}</dd>{% endif %}
+        </dl>
+      </div>
+    </section>
+  </div>
+</div>
+
+{% elif reiter_aktiv == "vertraege" %}
+<section class="karte" id="vertraege">
+  <header class="karte-kopf"><h2 class="karte-titel">Verträge <span class="zaehler">{{ vertraege|length }}</span></h2>{% if lage.ist_frei %}<a class="karte-link" href="{% url 'stammdaten:vertrag_neu' %}?einheit={{ einheit.pk }}" hx-get="{% url 'stammdaten:vertrag_neu' %}?einheit={{ einheit.pk }}" hx-target="#dialog-inhalt">Neuer Vertrag</a>{% endif %}</header>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Nummer</th><th>Mieter</th><th>Beginn</th><th>Ende</th><th class="zahl">Miete</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for z in vertraege %}
+      <tr{% if z.vertrag.status == "beendet" %} class="zeile-leise"{% endif %}>
+        <td data-titel="Nummer"><a href="{% url 'stammdaten:vertrag' z.vertrag.pk %}">{{ z.vertrag.nummer }}</a></td>
+        <td data-titel="Mieter">{{ z.mieter|default:"–" }}</td>
+        <td data-titel="Beginn"><time>{{ z.vertrag.beginn|date:"d.m.Y" }}</time></td>
+        <td data-titel="Ende">{{ z.vertrag.ende|date:"d.m.Y"|default:"–" }}</td>
+        <td data-titel="Miete" class="zahl">{{ z.kondition.miete|euro|default:"–" }}</td>
+        <td data-titel="Status">{% badge z.vertrag.status %}</td>
+      </tr>
+      {% empty %}{% include "bausteine/leer.html" with spalten=6 text="Noch kein Vertrag über diese Einheit." %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% elif reiter_aktiv == "zaehler" %}
+<section class="karte" id="zaehler">
+  <header class="karte-kopf"><h2 class="karte-titel">Zähler</h2><a class="karte-link" href="{% url 'zaehler:neu' %}?einheit={{ einheit.pk }}">Zähler anlegen</a></header>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Zähler</th><th>Art</th><th class="zahl">letzter Stand</th><th>am</th><th>Eichfrist</th></tr></thead>
+      <tbody>
+      {% for z, stand in zaehler_zeilen %}
+      <tr{% if z.ausgebaut_am %} class="zeile-leise"{% endif %}>
+        <td data-titel="Zähler"><a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.nummer }}</a>{% if z.bezeichnung %} <span class="text-3 klein">{{ z.bezeichnung }}</span>{% endif %}{% if z.ausgebaut_am %} <span class="text-3 klein">ausgebaut {{ z.ausgebaut_am|date:"d.m.Y" }}</span>{% endif %}</td>
+        <td data-titel="Art">{{ z.get_art_display }}</td>
+        <td data-titel="letzter Stand" class="zahl">{% if stand %}{{ stand.stand|zahl }}{% if stand.ist_geschaetzt %} {% badge "hinweis" "geschätzt" %}{% endif %}{% else %}–{% endif %}</td>
+        <td data-titel="am">{% if stand %}<time>{{ stand.datum|date:"d.m.Y" }}</time>{% else %}–{% endif %}</td>
+        <td data-titel="Eichfrist">{{ z.eichfrist_bis|date:"d.m.Y"|default:"–" }}</td>
+      </tr>
+      {% empty %}{% include "bausteine/leer.html" with spalten=5 text="Kein Zähler an dieser Einheit." hilfe="Ein Stellplatz ohne Strom braucht keinen; sonst über „Zähler anlegen“." %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% elif reiter_aktiv == "bilder" %}
+<div class="raster raster-2-1">
+  <section class="karte" id="bilder">
+    <header class="karte-kopf"><h2 class="karte-titel">Bilder <span class="zaehler">{{ bilder|length }}</span></h2><a class="karte-link" href="{% url 'anbindungen:bilder' einheit.pk %}">Bilder verwalten</a></header>
+    <div class="karte-rumpf">
+      {% if bilder %}<ul class="bilder-raster">{% for b in bilder %}<li><img src="{% url 'anbindungen:bild' b.pk %}" alt="{{ b.beschreibung|default:'Bild der Einheit' }}" loading="lazy">{% if b.beschreibung %}<span class="text-3 klein">{{ b.beschreibung }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}{% include "bausteine/leer.html" with text="Noch kein Bild." hilfe="Bilder erscheinen im Katalog der Website, sobald die Einheit vermarktet wird." %}{% endif %}
+    </div>
+  </section>
+  <section class="karte" id="katalog">
+    <header class="karte-kopf"><h2 class="karte-titel">Katalog der Website</h2><a class="karte-link" href="{% url 'anbindungen:vermarktung' %}">Vermarktung</a></header>
+    <div class="karte-rumpf">
+      <dl class="angaben-neu">
+        <dt>Vermarktung</dt><dd>{{ einheit.get_vermarktung_display }}</dd>
+        <dt>Website-Slug</dt><dd>{{ einheit.website_slug|default:"–" }}</dd>
+        <dt>Buchbar ab</dt><dd>{% if buchbar_ab %}{{ buchbar_ab|date:"d.m.Y" }}{% else %}<span class="text-3">derzeit nicht im Katalog</span>{% endif %}</dd>
+        <dt>Zielmiete</dt><dd>{{ zielmiete_heute.betrag|euro|default:"–" }}</dd>
+      </dl>
+    </div>
+  </section>
+</div>
+
+{% elif reiter_aktiv == "verlauf" %}
+<section class="karte" id="verlauf">
+  <header class="karte-kopf"><h2 class="karte-titel">Verlauf</h2><a class="karte-link" href="{{ verlauf_url }}">im Protokoll ansehen</a></header>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Zeit</th><th>Was</th><th>Änderung</th></tr></thead>
+      <tbody>
+      {% for e in verlauf %}
+      <tr>
+        <td data-titel="Zeit" class="eng"><time>{{ e.zeit|date:"d.m.Y H:i" }}</time></td>
+        <td data-titel="Was">{{ e.was }} <span class="text-3 klein">{{ e.art }}</span></td>
+        <td data-titel="Änderung">{% for feld_, alt, neu in e.aenderungen %}<div>{{ feld_ }}: <span class="text-3">{{ alt|default:"–" }}</span> → {{ neu|default:"–" }}</div>{% empty %}<span class="text-3">–</span>{% endfor %}</td>
+      </tr>
+      {% empty %}{% include "bausteine/leer.html" with spalten=3 text="Noch keine Änderungen." %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+</div>

@@ -62,7 +62,9 @@ ENGLISCH = re.compile(
 #: Eingebaute Felder, deren Text der Browser in seiner Sprache zeichnet (nicht im DOM):
 #: Dateifeld „Choose file / No file chosen“, Monatsfeld „October 2026“.
 EINGEBAUTE_FELDER = {
-    "input[type=file]": "Dateifeld zeigt „Choose file / No file chosen“",
+    # Die Dateiknöpfe der Bausteine (.datei-eingabe, R2-4) zeichnen ihren Text selbst; ihr
+    # Eingabefeld ist 1 px groß und durchsichtig, zählt für Playwright aber als sichtbar.
+    "input[type=file]:not(.datei-eingabe)": "Dateifeld zeigt „Choose file / No file chosen“",
     "input[type=month]": "Monatsfeld zeigt englische Monatsnamen",
 }
 

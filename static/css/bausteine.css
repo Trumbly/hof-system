@@ -2036,3 +2036,228 @@ dialog.dialog[open] {
   min-height: var(--ziel);
   cursor: pointer;
 }
+
+/* === Bausteine aus R2-7 (Stammdaten): Filterleiste, Fortschritt, Auswahl-Treffer ======== */
+
+/* Ausgeblendete Teile bleiben aus, auch wenn ihre Klasse ein display setzt (data-wenn) */
+.neu [hidden] {
+  display: none !important;
+}
+
+/* Filterleiste über Listen: Suche breit, Auswahlen daneben; am Handy untereinander */
+.filterleiste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a2);
+  margin: 0 0 var(--a3);
+}
+
+.filterleiste > .feld-eingabe,
+.filterleiste > .feld-auswahl {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 160px;
+}
+
+.filterleiste > .filterleiste-suche {
+  flex: 3 1 240px;
+}
+
+.neu .filterleiste-ergebnis {
+  margin: 0 0 var(--a2);
+}
+
+/* Gruppe von Feldern ohne Rahmen (fieldset), z. B. „Mieter“ im neuen Vertrag */
+.feld-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feld-gruppe > legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.feld-einzug {
+  padding: var(--a3) 0 0 var(--a4);
+  border-left: 2px solid var(--linie);
+}
+
+/* Checkbox auf Höhe des Nachbarfelds (felder-2) */
+@media (min-width: 600px) {
+  .feld-unten {
+    align-self: end;
+  }
+}
+
+/* Treffer einer Auswahl als Zeilen mit Radio (Parteisuche) */
+.partei-treffer {
+  display: flex;
+  align-items: center;
+  gap: var(--a3);
+  min-height: var(--ziel);
+  padding: var(--a1) var(--a3);
+  cursor: pointer;
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-klein);
+}
+
+.partei-treffer:has(input:checked) {
+  background: var(--primaer-weich);
+  border-color: var(--primaer);
+}
+
+.partei-name {
+  font-weight: var(--gewicht-mittel);
+}
+
+/* Fortschrittsleiste eines Assistenten (Übergabe am Handy, Review 2, B8) */
+.fortschritt {
+  display: flex;
+  gap: var(--a1);
+  margin: 0 0 var(--a3);
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.fortschritt li {
+  flex: 1 0 auto;
+  min-width: 0;
+}
+
+.neu .fortschritt a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--a1);
+  min-height: var(--ziel);
+  padding: var(--a1) var(--a1) var(--a2);
+  font-size: var(--text-13);
+  color: var(--text-3);
+  text-align: center;
+  text-decoration: none;
+  border-bottom: 3px solid var(--linie);
+}
+
+.fortschritt-nummer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-weight: var(--gewicht-fett);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  background: var(--flaeche-2);
+  border-radius: var(--radius-rund);
+}
+
+.neu .fortschritt-erledigt a {
+  color: var(--text-2);
+  border-bottom-color: var(--primaer);
+}
+
+.fortschritt-erledigt .fortschritt-nummer {
+  color: var(--primaer-text);
+  background: var(--primaer);
+}
+
+.neu .fortschritt-luecke a {
+  color: var(--warnung);
+  border-bottom-color: var(--warnung);
+}
+
+.fortschritt-luecke .fortschritt-nummer {
+  color: var(--warnung);
+  background: var(--warnung-grund);
+}
+
+.neu .fortschritt-aktuell a {
+  font-weight: var(--gewicht-mittel);
+  color: var(--text);
+  border-bottom-color: var(--text);
+}
+
+.fortschritt-aktuell .fortschritt-nummer {
+  color: var(--flaeche);
+  background: var(--text);
+}
+
+/* Am Handy nur die Nummern, der Titel des Schritts steht darunter */
+@media (max-width: 599px) {
+  .fortschritt-titel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.neu .schritt-zeile {
+  margin: 0 0 var(--a3);
+}
+
+/* Knöpfe des Assistenten: am Handy unten fest, mit dem Daumen erreichbar */
+@media (max-width: 1023px) {
+  .schritt-fuss {
+    position: sticky;
+    bottom: calc(var(--hoehe-unten) + env(safe-area-inset-bottom));
+    z-index: 5;
+    margin-top: var(--a4);
+    padding: var(--a3) 0;
+    background: var(--grund);
+    border-top: 1px solid var(--linie);
+  }
+
+  .schritt-fuss .knopf {
+    flex: 1;
+  }
+}
+
+.neu .zaehler-eingabe {
+  margin: 0;
+  padding: var(--a3) var(--a4) var(--a4);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.neu .zaehler-eingabe legend {
+  padding: 0 var(--a1);
+  font-weight: var(--gewicht-mittel);
+}
+
+.neu .zusammenfassung-titel {
+  margin: var(--a5) 0 var(--a2);
+}
+
+/* Bilder als Raster (Einheit, Übergabe) */
+.bilder-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--a2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bilder-raster li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a1);
+}
+
+.bilder-raster img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-klein);
+}

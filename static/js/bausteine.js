@@ -149,4 +149,86 @@
       liste.appendChild(li);
     });
   });
+
+  // Bedingte Teile (Review 2, B6 und B8): [data-wenn="feld"] erscheint nur, wenn das Feld
+  // desselben Formulars passt. Der Server setzt den Anfangszustand (hidden) selbst.
+  //   data-gleich="wert"  Auswahl oder Radio hat diesen Wert; Checkbox „an“ oder „aus“
+  //   data-ab="100"       Zahl im Feld (Komma oder Punkt) ist mindestens so groß
+  function feldWert(form, name) {
+    var felder = form.querySelectorAll("[name='" + name + "']");
+    var wert = "";
+    Array.prototype.forEach.call(felder, function (f) {
+      if (f.type === "checkbox") {
+        wert = f.checked ? "an" : "aus";
+      } else if (f.type === "radio") {
+        if (f.checked) {
+          wert = f.value;
+        }
+      } else {
+        wert = f.value;
+      }
+    });
+    return wert;
+  }
+
+  function zahlLesen(text) {
+    text = String(text || "").trim();
+    if (text.indexOf(",") >= 0) {
+      text = text.replace(/\./g, "").replace(",", ".");
+    }
+    return parseFloat(text);
+  }
+
+  function bedingtePruefen() {
+    document.querySelectorAll("[data-wenn]").forEach(function (teil) {
+      var form = teil.closest("form") || document;
+      var wert = feldWert(form, teil.getAttribute("data-wenn"));
+      var zeigen = true;
+      if (teil.hasAttribute("data-gleich")) {
+        zeigen = wert === teil.getAttribute("data-gleich");
+      }
+      if (teil.hasAttribute("data-ab")) {
+        var zahl = zahlLesen(wert);
+        zeigen = !isNaN(zahl) && zahl >= parseFloat(teil.getAttribute("data-ab"));
+      }
+      teil.hidden = !zeigen;
+    });
+  }
+  document.addEventListener("change", bedingtePruefen);
+  document.addEventListener("input", bedingtePruefen);
+  document.addEventListener("htmx:afterSettle", bedingtePruefen);
+
+  // Sprungmarke öffnet den Dialog (Review 2, B7): Zeigt die Adresse auf eine Karte
+  // (#stammfelder, etwa aus dem Datenstand) und hat die Karte einen Link [data-anker-dialog],
+  // öffnet sich dessen Dialog. Ohne HTMX führt der Link zur Seite mit offenem Formular.
+  document.addEventListener("DOMContentLoaded", function () {
+    var ziel = window.location.hash && document.getElementById(window.location.hash.slice(1));
+    var link = ziel && ziel.querySelector("[data-anker-dialog]");
+    if (link) {
+      window.setTimeout(function () { link.click(); }, 0);
+    }
+  });
+
+  // Vorbelegen aus der gewählten Option (Review 2, B6): <option data-werte='{"miete": "55,00"}'>
+  // setzt beim Wechsel die Felder gleichen Namens im Formular, z. B. die Zielmiete der Einheit.
+  document.addEventListener("change", function (e) {
+    var auswahl = e.target;
+    if (!auswahl.matches || !auswahl.matches("select")) {
+      return;
+    }
+    var option = auswahl.options[auswahl.selectedIndex];
+    var roh = option && option.getAttribute("data-werte");
+    var form = auswahl.closest("form");
+    if (!roh || !form) {
+      return;
+    }
+    var werte = JSON.parse(roh);
+    Object.keys(werte).forEach(function (name) {
+      var feld = form.querySelector("[name='" + name + "']");
+      if (feld) {
+        feld.value = werte[name];
+        feld.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  });
 })();

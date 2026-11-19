@@ -38,7 +38,7 @@ from apps.anbindungen import services as anbindungen
 from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Dokumentbezug, Schreiben
 from apps.fristen.models import Frist
-from apps.kern import htmx, zahlen
+from apps.kern import htmx, vorgaenge, zahlen
 from apps.kern.protokoll import ART_TITEL
 from apps.stammdaten import forms as f
 from apps.stammdaten import konfiguration, services
@@ -90,6 +90,14 @@ DIALOGE: dict[str, Dialog] = {
     "kaution": Dialog("Kaution", "Speichern", "kaution"),
     "kaution_abrechnen": Dialog("Kaution abrechnen", "Abrechnen", "kaution"),
     "stammfelder": Dialog("Vertragsdaten bearbeiten", "Speichern", "stammfelder"),
+    # Review 2, B7: ein einzelnes Schreiben zum Vertrag aus einer Vorlage
+    "schreiben_erstellen": Dialog(
+        "Schreiben erstellen",
+        "Schreiben erzeugen",
+        "schreiben",
+        "Das Schreiben entsteht im Status „bereit“ mit PDF. Hinaus geht es erst, wenn du es "
+        "nach der Vorschau sendest.",
+    ),
 }
 
 
@@ -185,6 +193,7 @@ def formulare(
             request, "unterschrift", f.UnterschriftForm, initial={"unterschrieben_am": heute}
         ),
         "partei": _gebunden(request, "partei", f.VertragsparteiForm),
+        "schreiben_erstellen": _gebunden(request, "schreiben_erstellen", f.EinzelschreibenForm),
     }
     if kaution is not None:
         ergebnis["kaution"] = _gebunden(request, "kaution", f.KautionForm, instance=kaution)
@@ -307,7 +316,33 @@ def _speichern_stammfelder(v: Vertrag, form: forms.Form) -> Rueckmeldung:
     return Rueckmeldung("Vertragsdaten gespeichert", _url(v, anker="stammfelder"))
 
 
+def _speichern_schreiben(v: Vertrag, form: forms.Form) -> Rueckmeldung:
+    """Einzelschreiben zum Vertrag (Review 2, B7) über die Bezugsart „Verträge“
+    (``apps.dokumente.bezuege``, angemeldet in ``stammdaten.schreiben.vertrag_anmelden``)."""
+    from apps.dokumente import bezuege, pdf
+    from apps.dokumente import services as dokumente
+    from apps.dokumente.platzhalter import PlatzhalterFehler
+
+    d = form.cleaned_data
+    bezugsart = bezuege.fuer_objekt(v)
+    if bezugsart is None:
+        raise services.StammdatenFehler("Verträge sind nicht als Bezug für Schreiben angemeldet.")
+    try:
+        brief = dokumente.schreiben_erzeugen(
+            d["vorlage"], v, bezugsart.kontext(v), d["versandweg"] or None
+        )
+    except (dokumente.SchreibenFehler, PlatzhalterFehler, pdf.PdfNichtVerfuegbar) as fehler:
+        raise services.StammdatenFehler(str(fehler)) from fehler
+    return Rueckmeldung(
+        f"Schreiben #{brief.pk} „{brief.betreff or brief.art}“ liegt bereit · gesendet wird "
+        "erst nach der Vorschau",
+        reverse("dokumente:schreiben", args=[brief.pk]),
+        "ansehen und senden",
+    )
+
+
 HANDLER: dict[str, Callable[..., Rueckmeldung]] = {
+    "schreiben_erstellen": _speichern_schreiben,
     "kondition": _speichern_kondition,
     "kuendigung": _speichern_kuendigung,
     "unterschrift": _speichern_unterschrift,
@@ -406,6 +441,7 @@ def kopf_kontext(vertrag: Vertrag) -> dict[str, Any]:
         "bonitaet": services.bonitaet_noetig(vertrag),
         "bonitaet_ab": konfiguration.laden().bonitaet_ab_miete,
         "buchungsanfragen": vertrag.buchungsanfragen.order_by("pk"),  # type: ignore[attr-defined]
+        "verlauf_url": protokoll_url(vertrag),
     }
 
 
@@ -501,13 +537,24 @@ def _feldname(modell: type[Model] | None, feld: str) -> str:
 
 def verlauf(vertrag: Vertrag) -> list[Verlaufszeile]:
     """Änderungen am Vertrag und an allem, was an ihm hängt, mit deutschen Feldnamen."""
+    return verlauf_aus(
+        [
+            *_bezuege(vertrag),
+            (Kondition, list(vertrag.konditionen.values_list("pk", flat=True))),
+            (Vertragspartei, list(vertrag.vertragsparteien.values_list("pk", flat=True))),
+        ]
+    )
+
+
+def protokoll_url(objekt: Model) -> str:
+    """Das Protokoll, gefiltert auf ein Objekt (``?bezug=stammdaten.vertrag:12``, R2-2)."""
+    return reverse("kern:protokoll") + "?" + urlencode({"bezug": vorgaenge.bezug_als_text(objekt)})
+
+
+def verlauf_aus(bezuege: list[tuple[type[Model], list[int]]]) -> list[Verlaufszeile]:
+    """Die letzten Änderungen an den genannten Objekten (Modell, IDs), neueste zuerst."""
     modelle: dict[str, type[Model]] = {}
     q = Q(pk__in=[])
-    bezuege = [
-        *_bezuege(vertrag),
-        (Kondition, list(vertrag.konditionen.values_list("pk", flat=True))),
-        (Vertragspartei, list(vertrag.vertragsparteien.values_list("pk", flat=True))),
-    ]
     for modell, ids in bezuege:
         if ids:
             modelle[modell._meta.label] = modell
@@ -666,7 +713,11 @@ def seite(request: HttpRequest, pk: int) -> HttpResponse:
         if aktion := request.GET.get("dialog"):
             if aktion not in alle:
                 raise Http404("Diese Aktion gibt es für diesen Vertrag nicht.")
-            return _dialog(request, vertrag, aktion, alle[aktion], reiter, anfrage)
+            if htmx.ist_htmx(request):
+                return _dialog(request, vertrag, aktion, alle[aktion], reiter, anfrage)
+            # Ohne JavaScript (oder aus einem Link): die Seite mit dem Formular offen.
+            kontext = _teile(request, vertrag, reiter, False, anfrage)
+            return render(request, "stammdaten/vertrag.html", _mit_formular(kontext, alle, aktion))
         if htmx.ist_htmx(request) and request.headers.get("HX-Target") == "vertrag-reiter":
             return render(
                 request, "stammdaten/_vertrag_reiter.html", _teile(request, vertrag, reiter, False)

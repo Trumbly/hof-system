@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from typing import Any, ClassVar
 
@@ -243,12 +244,103 @@ class VertragsparteiForm(forms.Form):
     rolle = forms.ChoiceField(choices=Vertragspartei.Rolle.choices, label="Rolle")
 
 
+class EinheitAuswahl(forms.Select):
+    """Auswahl, deren Optionen Werte zum Vorbelegen tragen (``data-werte``), z. B. die
+    Zielmiete einer Einheit für das Feld „Miete“ (``static/js/bausteine.js``)."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.werte: dict[str, dict[str, str]] = {}
+
+    def create_option(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        option: dict[str, Any] = super().create_option(*args, **kwargs)
+        werte = self.werte.get(str(option["value"]))
+        if werte:
+            option["attrs"]["data-werte"] = json.dumps(werte)
+        return option
+
+
+class EinheitFeld(forms.ModelChoiceField):  # type: ignore[type-arg]
+    """Einheit mit Typ, Bezeichnung und Zielmiete im Text (Review 2, B6)."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.lagen: dict[int, Any] = {}
+
+    def label_from_instance(self, obj: Any) -> str:
+        from apps.kern import zahlen
+
+        teile = [obj.nw_id, str(obj.get_typ_display())]
+        if obj.bezeichnung:
+            teile.append(obj.bezeichnung)
+        lage = self.lagen.get(obj.pk)
+        if lage is not None:
+            if lage.zielmiete is not None:
+                teile.append(f"Ziel {zahlen.euro(lage.zielmiete)}")
+            if not lage.ist_frei:
+                teile.append(lage.status_text)
+        return " · ".join(teile)
+
+
 class VertragNeuForm(forms.Form):
-    einheit = forms.ModelChoiceField(
-        Einheit.objects.exclude(typ=Einheit.Typ.WOHNUNG).filter(aufgeloest_am__isnull=True),
-        label="Einheit",
+    """Neuer Vertrag (Review 2, B5 und B6).
+
+    - Einheit: nur freie Einheiten, mit Typ und Zielmiete; ``alle`` zeigt alle vermietbaren.
+    - Miete: aus der Zielmiete vorbelegt (beim Wechsel der Einheit im Browser nachgezogen).
+    - Mieter: ID einer vorhandenen Partei (Suchfeld mit Namen) oder „neu“; dann legen die
+      Felder ``neu_*`` die Partei mit E-Mail und Telefon gleich mit an.
+    - Kaution: Betrag oder „keine Kaution“ (Betrag 0); leer heißt „noch offen“.
+    """
+
+    NEU = "neu"
+
+    einheit = EinheitFeld(Einheit.objects.none(), label="Einheit", widget=EinheitAuswahl)
+    alle = forms.BooleanField(label="auch vermietete Einheiten zeigen", required=False)
+    mieter = forms.CharField(label="Mieter", required=False)
+    partei_suche = forms.CharField(label="Partei suchen", required=False, max_length=100)
+    neu_vorname = forms.CharField(label="Vorname", required=False, max_length=100)
+    neu_nachname = forms.CharField(label="Nachname", required=False, max_length=100)
+    neu_firma = forms.CharField(
+        label="Firma", required=False, max_length=200, help_text="Nur bei einer Firma."
     )
-    mieter = forms.ModelChoiceField(Partei.objects.all(), label="Mieter")
+    neu_email = forms.EmailField(
+        label="E-Mail",
+        required=False,
+        max_length=200,
+        error_messages={"invalid": "Bitte eine gültige E-Mail-Adresse angeben."},
+    )
+    neu_telefon = forms.CharField(label="Telefon", required=False, max_length=50)
+    beginn = forms.DateField(label="Beginn", widget=Datum())
+    miete = forms.DecimalField(
+        label="Miete je Monat (netto)",
+        min_value=0,
+        decimal_places=2,
+        localize=True,
+        widget=forms.TextInput(attrs={"inputmode": "decimal", "autocomplete": "off"}),
+        help_text="Vorbelegt mit der Zielmiete der Einheit.",
+    )
+    kaution = forms.DecimalField(
+        label="Kaution",
+        min_value=0,
+        decimal_places=2,
+        required=False,
+        localize=True,
+        widget=forms.TextInput(attrs={"inputmode": "decimal", "autocomplete": "off"}),
+        help_text="Leer lassen, wenn sie noch nicht feststeht.",
+    )
+    keine_kaution = forms.BooleanField(label="keine Kaution", required=False)
+    ende = forms.DateField(label="Ende (nur bei Befristung)", required=False, widget=Datum())
+    zahlweise = forms.ChoiceField(
+        choices=[c for c in Kondition.Zahlweise.choices if c[0]],
+        label="Zahlweise",
+        initial=Kondition.Zahlweise.MONATLICH,
+    )
+    pauschale = forms.DecimalField(
+        label="Pauschale je Monat", min_value=0, decimal_places=2, required=False
+    )
+    steuersatz = forms.DecimalField(
+        label="Umsatzsteuer (%)", min_value=0, decimal_places=2, required=False
+    )
     vertragsart = forms.ChoiceField(
         choices=[("", "– nach Typ der Einheit –"), *Vertrag.Art.choices],
         label="Vertragsart",
@@ -260,26 +352,82 @@ class VertragNeuForm(forms.Form):
         required=False,
         help_text="Leer: Mandant des Objekts.",
     )
-    beginn = forms.DateField(label="Beginn", widget=Datum())
-    ende = forms.DateField(label="Ende (nur bei Befristung)", required=False, widget=Datum())
-    miete = forms.DecimalField(label="Miete je Monat (netto)", min_value=0, decimal_places=2)
-    pauschale = forms.DecimalField(
-        label="Pauschale je Monat", min_value=0, decimal_places=2, required=False
-    )
-    steuersatz = forms.DecimalField(
-        label="Umsatzsteuer (%)", min_value=0, decimal_places=2, required=False
-    )
-    zahlweise = forms.ChoiceField(
-        choices=[c for c in Kondition.Zahlweise.choices if c[0]], label="Zahlweise"
-    )
-    kaution = forms.DecimalField(label="Kaution", min_value=0, decimal_places=2, required=False)
     kuendigungsregel = forms.ChoiceField(label="Kündigungsfrist", required=False, choices=())
+    anfrage = forms.IntegerField(required=False, widget=forms.HiddenInput)
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    #: Felder unter „Weitere Angaben“ (zugeklappt).
+    WEITERE = ("ende", "zahlweise", "pauschale", "steuersatz", "vertragsart", "mandant")
+
+    def __init__(self, *args: Any, heute: Any = None, **kwargs: Any) -> None:
+        import datetime
+
+        from apps.stammdaten import einheitenliste
+
         super().__init__(*args, **kwargs)
         self.fields["kuendigungsregel"].choices = _regel_auswahl(  # type: ignore[attr-defined]
             "– Standard der Vertragsart –"
         )
+        heute = heute or datetime.date.today()
+        vermietbar = Einheit.objects.exclude(typ=Einheit.Typ.WOHNUNG).filter(
+            aufgeloest_am__isnull=True
+        )
+        self.lagen = {lage.einheit.pk: lage for lage in einheitenliste.lagen(heute, vermietbar)}
+        feld: EinheitFeld = self.fields["einheit"]  # type: ignore[assignment]
+        feld.lagen = self.lagen
+        self.alle_zeigen = bool(self._wert("alle"))
+        gewaehlt = str(self._wert("einheit") or "")
+        if self.alle_zeigen:
+            ids = list(self.lagen)
+        else:
+            ids = [pk for pk, lage in self.lagen.items() if lage.ist_frei]
+            if gewaehlt.isdigit() and int(gewaehlt) in self.lagen:
+                ids.append(int(gewaehlt))
+        feld.queryset = vermietbar.filter(pk__in=ids).order_by("nw_id")
+        widget: EinheitAuswahl = feld.widget  # type: ignore[assignment]
+        widget.werte = {
+            str(pk): {"miete": f"{lage.zielmiete:.2f}".replace(".", ",")}
+            for pk, lage in self.lagen.items()
+            if lage.zielmiete is not None
+        }
+        self.partei: Partei | None = None
+
+    def _wert(self, name: str) -> Any:
+        if self.is_bound:
+            return self.data.get(self.add_prefix(name))
+        return self.initial.get(name, self.fields[name].initial)
+
+    @property
+    def mieter_wahl(self) -> str:
+        """Gewählter Mieter: ID, „neu“ oder leer (für die Vorlage)."""
+        return str(self._wert("mieter") or "")
+
+    @property
+    def mieter_vorschlag(self) -> Partei | None:
+        """Die vorgewählte Partei (aus der Anfrage oder nach einem Fehler), für die Treffer."""
+        wahl = self.mieter_wahl
+        return Partei.objects.filter(pk=int(wahl)).first() if wahl.isdigit() else None
+
+    def clean_mieter(self) -> str:
+        wahl = (self.cleaned_data.get("mieter") or "").strip()
+        if wahl == self.NEU:
+            return wahl
+        if wahl.isdigit():
+            self.partei = Partei.objects.filter(pk=int(wahl)).first()
+            if self.partei is not None:
+                return wahl
+        raise forms.ValidationError(
+            "Bitte eine Partei über die Suche wählen oder „Neue Partei“ anlegen."
+        )
+
+    def clean(self) -> dict[str, Any]:
+        daten = super().clean() or {}
+        if daten.get("mieter") == self.NEU and not any(
+            (daten.get(f) or "").strip() for f in ("neu_vorname", "neu_nachname", "neu_firma")
+        ):
+            self.add_error("neu_nachname", "Bitte den Namen der neuen Partei angeben.")
+        if daten.get("keine_kaution"):
+            daten["kaution"] = Decimal("0.00")
+        return daten
 
 
 class UebergabeVorabForm(forms.Form):
@@ -369,3 +517,71 @@ def foto_pruefen(datei: Any) -> str | None:
     if datei.size > MAX_FOTO_BYTES:
         return "Das Foto ist größer als 15 MB."
     return None
+
+
+#: Vorlagenarten, aus denen sich ein einzelnes Schreiben zum Vertrag erzeugen lässt
+#: (Review 2, B7): Ihre Platzhalter füllt der Kontext des Vertrags allein. Kündigungs-
+#: bestätigung, Protokolle und Mahnstufen entstehen an ihren Vorgängen, das Vertragsdokument
+#: über „Vertragsdokument als PDF erzeugen“.
+EINZELSCHREIBEN_ARTEN = ("mitteilung",)
+
+
+class EinzelschreibenForm(forms.Form):
+    """„Schreiben erstellen“ an der Vertragsseite: Vorlage und Versandweg wählen."""
+
+    vorlage = forms.ModelChoiceField(
+        label="Vorlage",
+        queryset=None,
+        empty_label=None,
+        error_messages={"required": "Bitte eine Vorlage wählen."},
+    )
+    versandweg = forms.ChoiceField(label="Versandweg", required=False, choices=())
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        from apps.dokumente.models import Vorlage
+        from apps.dokumente.vorlagenarten import Versandweg
+
+        super().__init__(*args, **kwargs)
+        self.fields["vorlage"].queryset = Vorlage.objects.filter(  # type: ignore[attr-defined]
+            status=Vorlage.Status.FREIGEGEBEN, art__in=EINZELSCHREIBEN_ARTEN
+        ).order_by("art", "name")
+        self.fields["versandweg"].choices = [  # type: ignore[attr-defined]
+            ("", "wie in der Vorlage vorgesehen"),
+            *Versandweg.TITEL.items(),
+        ]
+
+
+class MehrereDateien(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class UebergabeFotosForm(forms.Form):
+    """Nur für die Dateiknöpfe im Schritt „Fotos“ (gelesen wird ``request.FILES``)."""
+
+    fotos = forms.FileField(
+        label="Fotos vom Zustand",
+        required=False,
+        widget=MehrereDateien(attrs={"accept": "image/*"}),
+        help_text="Ohne neues Foto geht es einfach weiter.",
+    )
+
+
+class UebergabeUnterschriftForm(forms.Form):
+    """Nur für die Dateiknöpfe im Schritt „Zustand und Unterschrift“."""
+
+    unterschrift = forms.FileField(
+        label="Unterschrift (Foto der Quittung)",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"accept": "image/*"}),
+    )
+
+
+def zaehler_foto_feld(zaehler_pk: int) -> Any:
+    """Dateiknöpfe für das Foto eines Zählers im Schritt „Zählerstände“ (Name ``foto_<id>``)."""
+    form = forms.Form()
+    form.fields[f"foto_{zaehler_pk}"] = forms.FileField(
+        label="Foto des Zählers",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"accept": "image/*"}),
+    )
+    return form[f"foto_{zaehler_pk}"]
