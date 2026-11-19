@@ -2,28 +2,27 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import datetime
+import uuid
 from itertools import groupby
-from typing import Any
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db import DatabaseError, connection, transaction
-from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import format_html
 from django.utils.http import urlencode
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
-from pghistory.models import Events
 
-from apps.kern import aktionen, services
+from apps.kern import aktionen, services, vorgaenge
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf
-from apps.kern.protokoll import ART_TITEL, protokollierte_modelle
+from apps.kern.protokoll import protokollierte_modelle
 
-PROTOKOLL_ANZAHL = 100
+PROTOKOLL_ANZAHL = 50
 LAEUFE_ANZAHL = 50
 
 
@@ -81,7 +80,8 @@ def arbeitsposten_aktion(request: HttpRequest, pk: int, aktion: str) -> HttpResp
     benutzer = request.user
     if not isinstance(benutzer, Benutzer):  # login_required stellt das sicher
         return HttpResponseBadRequest("Nicht angemeldet.")
-    ausfuehrung.ausfuehren(posten, benutzer)
+    with vorgaenge.vorgang(f"Arbeitsposten #{posten.pk}: {ausfuehrung.titel}"):
+        ausfuehrung.ausfuehren(posten, benutzer)
     posten.refresh_from_db()
     if _ist_htmx(request):
         return render(
@@ -96,20 +96,6 @@ def arbeitsposten_aktion(request: HttpRequest, pk: int, aktion: str) -> HttpResp
 # --- Protokoll -----------------------------------------------------------------------
 
 
-@dataclass
-class Protokollzeile:
-    ereignis_id: str
-    zeit: Any
-    art: str
-    art_titel: str
-    modell_titel: str
-    objekt_id: str | None
-    aenderungen: list[tuple[str, Any, Any]]
-    kontext: str
-    ruecknahme_von: str | None
-    zurueckgenommen: bool
-
-
 def _modellwahl() -> list[tuple[str, str]]:
     return sorted(
         ((m._meta.label, str(m._meta.verbose_name_plural)) for m in protokollierte_modelle()),
@@ -117,91 +103,152 @@ def _modellwahl() -> list[tuple[str, str]]:
     )
 
 
-def _kontext_text(kontext: dict[str, Any] | None, benutzer: dict[int, str]) -> str:
-    if not kontext:
-        return "ohne Kontext"
-    teile = []
-    if kontext.get("lauf"):
-        teile.append(f"Lauf #{kontext['lauf']} {kontext.get('lauf_name', '')}".strip())
-    if kontext.get("user"):
-        teile.append(benutzer.get(int(kontext["user"]), f"Benutzer #{kontext['user']}"))
-    if kontext.get("ruecknahme_von"):
-        teile.append(f"Rücknahme von {kontext['ruecknahme_von']}")
-    return " · ".join(teile) or "ohne Kontext"
+def _datum(text: str) -> datetime.date | None:
+    try:
+        return datetime.date.fromisoformat(text) if text else None
+    except ValueError:
+        return None
 
 
 @login_required
 def protokoll(request: HttpRequest) -> HttpResponse:
-    """Letzte Änderungen, filterbar nach Modell, mit Knopf „Zurücknehmen“."""
+    """Die letzten Vorgänge (Review 2, A4 und B14): je Nutzeraktion oder Lauf eine Zeile mit
+    Titel, Zeit und Zahl der Änderungen, die Einzelheiten zum Aufklappen.
+
+    Filter: ``modell`` (Label), ``bezug`` (``app.modell:ID``, etwa ein Vertrag, eine
+    Einheit oder eine Partei), ``von``/``bis`` (Datum), ``seite``.
+    """
     modellwahl = _modellwahl()
     gewaehlt = request.GET.get("modell", "")
-    ereignisse = Events.objects.order_by("-pgh_created_at", "-pgh_id")
-    if gewaehlt in dict(modellwahl):
-        ereignisse = ereignisse.filter(pgh_obj_model=gewaehlt)
-    else:
+    if gewaehlt not in dict(modellwahl):
         gewaehlt = ""
-    ereignisse = list(ereignisse[:PROTOKOLL_ANZAHL])
-
-    ids = [e.pgh_slug for e in ereignisse]
-    zurueckgenommen = set(
-        Events.objects.filter(pgh_context__ruecknahme_von__in=ids).values_list(
-            "pgh_context__ruecknahme_von", flat=True
-        )
+    bezug_text = request.GET.get("bezug", "")
+    bezug = vorgaenge.bezug_aus_text(bezug_text) if bezug_text else None
+    von = _datum(request.GET.get("von", ""))
+    bis = _datum(request.GET.get("bis", ""))
+    try:
+        seite = max(1, int(request.GET.get("seite", "1")))
+    except ValueError:
+        seite = 1
+    zeilen = vorgaenge.vorgaenge_suchen(
+        modell=gewaehlt,
+        bezug=bezug,
+        von=von,
+        bis=bis,
+        anzahl=PROTOKOLL_ANZAHL + 1,
+        versatz=(seite - 1) * PROTOKOLL_ANZAHL,
     )
-    benutzer_ids = {
-        int(e.pgh_context["user"]) for e in ereignisse if (e.pgh_context or {}).get("user")
+    weiter = len(zeilen) > PROTOKOLL_ANZAHL
+    filter_ohne_seite = {
+        k: v
+        for k, v in {
+            "modell": gewaehlt,
+            "bezug": bezug_text if bezug else "",
+            "von": von.isoformat() if von else "",
+            "bis": bis.isoformat() if bis else "",
+        }.items()
+        if v
     }
-    benutzer = {b.pk: b.email for b in get_user_model().objects.filter(pk__in=benutzer_ids)}
-    titel = {label: name for label, name in modellwahl}
-
-    zeilen = []
-    for e in ereignisse:
-        kontext = e.pgh_context or {}
-        aenderungen = [
-            (feld, werte[0], werte[1])
-            for feld, werte in sorted((e.pgh_diff or {}).items())
-            if e.pgh_label == "update"
-        ]
-        zeilen.append(
-            Protokollzeile(
-                ereignis_id=e.pgh_slug,
-                zeit=e.pgh_created_at,
-                art=e.pgh_label,
-                art_titel=ART_TITEL.get(e.pgh_label, e.pgh_label),
-                modell_titel=titel.get(e.pgh_obj_model, e.pgh_obj_model),
-                objekt_id=e.pgh_obj_id,
-                aenderungen=aenderungen,
-                kontext=_kontext_text(kontext, benutzer),
-                ruecknahme_von=kontext.get("ruecknahme_von"),
-                zurueckgenommen=e.pgh_slug in zurueckgenommen,
-            )
-        )
     return render(
         request,
         "kern/protokoll.html",
-        {"zeilen": zeilen, "modellwahl": modellwahl, "gewaehlt": gewaehlt},
+        {
+            "zeilen": zeilen[:PROTOKOLL_ANZAHL],
+            "modellwahl": modellwahl,
+            "gewaehlt": gewaehlt,
+            "bezug": bezug,
+            "bezug_text": bezug_text if bezug else "",
+            "bezug_titel": vorgaenge.objekt_titel(
+                type(bezug),
+                {f.attname: getattr(bezug, f.attname) for f in type(bezug)._meta.concrete_fields},
+            )
+            if bezug is not None
+            else "",
+            "von": von,
+            "bis": bis,
+            "seite": seite,
+            "weiter_url": "?" + urlencode({**filter_ohne_seite, "seite": seite + 1})
+            if weiter
+            else "",
+            "zurueck_url": "?" + urlencode({**filter_ohne_seite, "seite": seite - 1})
+            if seite > 1
+            else "",
+        },
+    )
+
+
+@login_required
+def vorgang(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
+    """Ein Vorgang mit allen Einzelheiten und der Vorschau seiner Rücknahme.
+
+    Lässt er sich nicht zurücknehmen, sagt die Seite warum (mit Link zur Ursache, etwa zum
+    versandten Schreiben).
+    """
+    zeile = vorgaenge.vorgang_lesen(pk)
+    if zeile is None:
+        raise Http404("Diesen Vorgang gibt es nicht.")
+    vorschau: services.Ruecknahmebericht | None = None
+    sperren: list[services.Sperre] = []
+    if zeile.zuruecknehmbar or zeile.zurueckgenommen_durch:
+        try:
+            vorschau = services.ruecknahme_vorschau(pk)
+        except services.RuecknahmeGesperrt as fehler:
+            sperren = fehler.sperren
+        except services.RuecknahmeNichtMoeglich as fehler:
+            sperren = [services.Sperre(str(fehler))]
+    elif zeile.ruecknahme_von is not None or zeile.art == vorgaenge.Art.RUECKNAHME:
+        sperren = [
+            services.Sperre(
+                "Eine Rücknahme lässt sich nicht zurücknehmen. Bitte die ursprüngliche Aktion "
+                "neu ausführen, etwa die Kündigung neu erfassen."
+            )
+        ]
+    elif zeile.testhof:
+        sperren = [
+            services.Sperre(
+                "Den Aufbau des Testhofs nimmt man nicht zurück; „hof testhof“ baut ihn neu auf."
+            )
+        ]
+    return render(
+        request,
+        "kern/vorgang.html",
+        {
+            "v": zeile,
+            "vorschau": vorschau,
+            "sperren": sperren,
+            "ruecknahme_von_titel": vorgaenge.titel_von(zeile.ruecknahme_von)
+            if zeile.ruecknahme_von
+            else "",
+        },
     )
 
 
 @login_required
 @require_POST
-def zuruecknehmen(request: HttpRequest) -> HttpResponse:
-    ereignis_id = request.POST.get("ereignis", "")
+def vorgang_zuruecknehmen(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
+    """Nimmt einen ganzen Vorgang zurück. Die Meldung sagt, was passiert ist, mit Link."""
     try:
-        ereignis = services.zuruecknehmen(ereignis_id)
+        bericht = services.vorgang_zuruecknehmen(pk)
     except services.RuecknahmeNichtMoeglich as fehler:
         messages.error(request, f"Nicht zurückgenommen: {fehler}")
-    else:
-        messages.success(
-            request,
-            f"Zurückgenommen: {ereignis.modell._meta.verbose_name} #{ereignis.objekt_id} "
-            f"({ART_TITEL.get(ereignis.art, ereignis.art)}).",
-        )
-    ziel = reverse("kern:protokoll")
-    modell = request.POST.get("modell")
-    if modell:
-        ziel += "?" + urlencode({"modell": modell})
-    return redirect(ziel)
+        if vorgaenge.vorgang_lesen(pk) is None:
+            return redirect("kern:protokoll")
+        return redirect("kern:vorgang", pk=pk)
+    kurz = vorgaenge.zusammenfassen(s.text for s in bericht.schritte)
+    schritte = " · ".join(kurz[:8])
+    if len(kurz) > 8:
+        schritte += f" · und {len(kurz) - 8} weitere"
+    messages.success(
+        request,
+        format_html(
+            '„{}“ zurückgenommen{}{} → <a href="{}">Rücknahme ansehen</a>',
+            bericht.titel,
+            ": " if schritte else ".",
+            schritte,
+            reverse("kern:vorgang", args=[bericht.ruecknahme_id]),
+        ),
+    )
+    return redirect("kern:protokoll")
 
 
 # --- Läufe ---------------------------------------------------------------------------

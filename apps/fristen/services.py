@@ -30,7 +30,7 @@ Regeln:
   idempotent: Ein zweiter Aufruf liefert die vorhandene Frist zurück.
 - Eine Frist wird nicht gelöscht. Sie verschwindet aus den Listen erst mit einem
   Erledigt-Datum (``frist_erledigen``). Zurücknehmen geht über das Protokoll
-  (``kern.services.zuruecknehmen``).
+  (``kern.services.vorgang_zuruecknehmen``; siehe ``apps.fristen.ruecknahme``).
 - Ist eine Frist fällig (Datum minus Vorlauf erreicht), legt der Lauf ``fristen`` einen
   Arbeitsposten „Frist fällig“ an, höchstens einen je Frist. Mit dem Erledigen der
   Frist schließt er sich.

@@ -12,6 +12,10 @@ class DokumenteConfig(AppConfig):
         from apps.kassenbuch import services as kassenbuch
 
         bezuege.objekt_anmelden()
+        # Rücknahme eines Vorgangs: Schreiben verwerfen, versandte sperren (Review 2, A4).
+        from apps.dokumente import ruecknahme
+
+        ruecknahme.registrieren()
         # Kacheln „Belege zuordnen“ und „Eingangsrechnungen“ im Hof-Cockpit.
         from apps.dokumente import kacheln
 

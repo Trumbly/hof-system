@@ -16,3 +16,8 @@ class StammdatenConfig(AppConfig):
         from apps.stammdaten import kacheln  # Kacheln „Leerstand“ und „Datenstand“
 
         kacheln.anmelden()
+
+        # Protokoll: Filter nach Einheit und Partei schließt ihre Verträge ein (Review 2, B14).
+        from apps.stammdaten import protokoll
+
+        protokoll.registrieren()

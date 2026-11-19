@@ -11,6 +11,10 @@ class KassenbuchConfig(AppConfig):
         from apps.kassenbuch import aktionen, services, verweise  # noqa: F401
 
         services.stornowege_registrieren()
+        # Rücknahme eines Vorgangs: Buchungen stornieren (Review 2, A4).
+        from apps.kassenbuch import ruecknahme
+
+        ruecknahme.registrieren()
 
         from apps.cockpit import tageslauf
 

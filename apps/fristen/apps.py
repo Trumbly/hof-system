@@ -14,4 +14,8 @@ class FristenConfig(AppConfig):
         )
 
         kacheln.anmelden()
+        # Rücknahme eines Vorgangs: Fristen an entfernten Objekten erledigen (Review 2, A4).
+        from apps.fristen import ruecknahme
+
+        ruecknahme.registrieren()
         tageslauf.schritt_anmelden("fristen", reihenfolge=tageslauf.FRISTEN)

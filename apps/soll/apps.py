@@ -13,6 +13,10 @@ class SollConfig(AppConfig):
 
         konfiguration.laden()
         services.stornowege_registrieren()
+        # Rücknahme eines Vorgangs: Soll-Haken danach (Review 2, A4).
+        from apps.soll import ruecknahme
+
+        ruecknahme.registrieren()
 
         # Kachel „Offene Posten“; soll_monat ist idempotent und läuft darum täglich mit.
         from apps.cockpit import tageslauf

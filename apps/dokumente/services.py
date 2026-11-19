@@ -94,6 +94,7 @@ from apps.kassenbuch import services as kassenbuch_services
 from apps.kassenbuch.models import Buchung, Kategorie
 from apps.kern import services as kern_services
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
+from apps.kern.vorgaenge import als_vorgang
 
 logger = logging.getLogger(__name__)
 
@@ -531,6 +532,7 @@ def _sendebereit(schreiben: Schreiben, benutzer: Benutzer, *, anwalt_gesehen: bo
         )
 
 
+@als_vorgang("Schreiben #{schreiben.pk} gesendet")
 def schreiben_senden(
     schreiben: Schreiben, benutzer: Benutzer, *, pruefsumme: str, anwalt_gesehen: bool = False
 ) -> Schreiben:
@@ -600,6 +602,7 @@ def serie_senden(serie: uuid.UUID, benutzer: Benutzer, *, pruefsumme: str) -> Se
     return ergebnis
 
 
+@als_vorgang("Schreiben #{schreiben.pk} verworfen")
 def schreiben_verwerfen(schreiben: Schreiben) -> Schreiben:
     """Verwirft ein Schreiben, das noch nicht gesendet ist (Stornieren statt löschen)."""
     if schreiben.status != Schreiben.Status.BEREIT:

@@ -5,7 +5,8 @@ Ein Modell erbt von ``ProtokolliertesModell`` und bekommt damit ohne weitere Arb
   und Löschung, geschrieben von Triggern in der Datenbank),
 - den Kontext jeder Änderung: Benutzer und Adresse aus der Anfrage
   (``pghistory.middleware.HistoryMiddleware``), Lauf aus der Lauf-Basisklasse
-  (``apps.kern.laeufe``), Rücknahme aus ``kern.services.zuruecknehmen``.
+  (``apps.kern.laeufe``), Rücknahme aus ``kern.services.vorgang_zuruecknehmen``.
+  Ein Kontext ist ein Vorgang (``apps.kern.vorgaenge``): alle Änderungen einer Aktion.
 
 Die Ereignismodelle entstehen beim Laden der Modelle und gehen über
 ``makemigrations`` in die Migrationen ihrer App ein.

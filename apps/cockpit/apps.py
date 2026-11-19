@@ -14,5 +14,11 @@ class CockpitConfig(AppConfig):
 
         eigene_kacheln.anmelden()
         aufgaben.empfaenger_anmelden(services.aufgabe_vormerken)
+        # Rücknahme eines Vorgangs: Aufgaben im Hof-Backlog folgen den Arbeitsposten (das
+        # Erledigen merkt sie vor), sie werden nicht selbst zurückgedreht (Review 2, A4).
+        from apps.cockpit.models import NotionAufgabe
+        from apps.kern import services as kern
+
+        kern.ruecknahmeweg_registrieren(NotionAufgabe, abgeleitet=lambda _daten: True)
         tageslauf.schritt_anmelden("aufgaben_abgleich", reihenfolge=tageslauf.COCKPIT)
         tageslauf.schritt_anmelden("sicherung_pruefen", reihenfolge=tageslauf.SICHERUNG)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pghistory
 import pytest
 from django.core.management import call_command
 from django.db import DatabaseError, models, transaction
@@ -17,6 +16,7 @@ from apps.kern import services
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Mandant, Objekt
 from apps.kern.personenfelder import eigene_modelle
 from apps.kern.protokoll import ist_protokolliert, protokollierte_modelle
+from apps.kern.vorgaenge import vorgang
 from apps.statusmcp.models import Kennzahl
 from tests.factories import MandantFabrik, ObjektFabrik
 
@@ -92,46 +92,71 @@ def test_aenderung_aus_lauf_traegt_den_lauf() -> None:
 
 def test_testaenderung_steht_im_protokoll_und_laesst_sich_zuruecknehmen() -> None:
     """Abnahme Schritt 0, Punkt 2: Eine Teständerung steht im Protokoll und lässt sich
-    zurücknehmen. Die Rücknahme ist selbst eine neue, protokollierte Änderung."""
+    zurücknehmen. Die Rücknahme ist selbst eine neue, protokollierte Änderung (Review 2, A4:
+    ein eigener Vorgang, der auf den zurückgenommenen verweist)."""
     objekt = ObjektFabrik(bezeichnung="Halle Nord")
-    with pghistory.context(user=4711):
+    with vorgang("Halle umbenannt", user=4711) as v:
         services.objekt_aendern(objekt, bezeichnung="Halle Süd")
     aenderung = ereignisse(objekt)[-1]
     assert aenderung.pgh_label == "update"
     assert aenderung.pgh_diff == {"bezeichnung": ["Halle Nord", "Halle Süd"]}
+    assert aenderung.pgh_context_id == v.id
 
-    services.zuruecknehmen(aenderung.pgh_slug)
+    with vorgang(user=4712):  # wie die Middleware: die Anfrage, aus der zurückgenommen wird
+        bericht = services.vorgang_zuruecknehmen(v.id)
 
     objekt.refresh_from_db()
     assert objekt.bezeichnung == "Halle Nord"
     ruecknahme = ereignisse(objekt)[-1]
     assert ruecknahme.pgh_label == "update"
     assert ruecknahme.pgh_diff == {"bezeichnung": ["Halle Süd", "Halle Nord"]}
-    assert ruecknahme.pgh_context["ruecknahme_von"] == aenderung.pgh_slug
+    assert ruecknahme.pgh_context_id == bericht.ruecknahme_id != v.id
+    assert ruecknahme.pgh_context["ruecknahme_von"] == str(v.id)
+    assert ruecknahme.pgh_context["titel"] == "Rücknahme von „Halle umbenannt“"
+    assert ruecknahme.pgh_context["user"] == 4712  # wer zurücknimmt, steht dabei
     assert len(ereignisse(objekt)) == 3
 
 
-def test_ruecknahme_ueber_die_oberflaeche(angemeldet: Client) -> None:
-    """Abnahme Schritt 0, Punkt 2: Über den Knopf „Zurücknehmen“ im Protokoll."""
+def test_einzelnes_ereignis_bleibt_als_baustein() -> None:
+    """Review 2, A4: Die Einzel-Rücknahme bleibt intern (für Tests und als Baustein), als
+    eigener Vorgang mit ``ruecknahme_ereignis``."""
     objekt = ObjektFabrik(bezeichnung="Halle Nord")
     services.objekt_aendern(objekt, bezeichnung="Halle Süd")
-    ereignis_id = letzte_ereignis_id(objekt)
+    aenderung = ereignisse(objekt)[-1]
 
-    seite = angemeldet.get(reverse("kern:protokoll"), {"modell": "kern.Objekt"})
-    assert ereignis_id in seite.content.decode()
-    assert "Zurücknehmen" in seite.content.decode()
+    services.zuruecknehmen(aenderung.pgh_slug)
 
-    antwort = angemeldet.post(
-        reverse("kern:zuruecknehmen"),
-        {"ereignis": ereignis_id, "modell": "kern.Objekt"},
-        follow=True,
-    )
+    objekt.refresh_from_db()
+    assert objekt.bezeichnung == "Halle Nord"
+    assert ereignisse(objekt)[-1].pgh_context["ruecknahme_ereignis"] == aenderung.pgh_slug
+
+
+def test_ruecknahme_ueber_die_oberflaeche(angemeldet: Client) -> None:
+    """Abnahme Schritt 0, Punkt 2: Über den Knopf „Zurücknehmen“ im Protokoll. Review 2, A4:
+    Der Knopf gilt dem ganzen Vorgang; die Einzel-Rücknahme gibt es in der Oberfläche nicht
+    mehr. Die Meldung sagt, was passiert ist, und verlinkt die Rücknahme."""
+    objekt = ObjektFabrik(bezeichnung="Halle Nord")
+    with vorgang("Halle umbenannt") as v:
+        services.objekt_aendern(objekt, bezeichnung="Halle Süd")
+
+    seite = angemeldet.get(reverse("kern:protokoll"), {"modell": "kern.Objekt"}).content.decode()
+    assert "Halle umbenannt" in seite
+    assert reverse("kern:vorgang", args=[v.id]) in seite
+    assert 'name="ereignis"' not in seite  # keine Einzel-Rücknahme mehr
+
+    vorschau = angemeldet.get(reverse("kern:vorgang", args=[v.id])).content.decode()
+    assert "Bezeichnung Halle Süd → Halle Nord" in vorschau
+    objekt.refresh_from_db()
+    assert objekt.bezeichnung == "Halle Süd"  # die Vorschau ändert nichts
+
+    antwort = angemeldet.post(reverse("kern:vorgang_zuruecknehmen", args=[v.id]), follow=True)
 
     objekt.refresh_from_db()
     assert objekt.bezeichnung == "Halle Nord"
     html = antwort.content.decode()
-    assert "Zurückgenommen" in html
-    assert "zurückgenommen" in html  # Kennzeichen am Eintrag, ohne zweiten Knopf
+    assert "„Halle umbenannt“ zurückgenommen" in html
+    assert "Rücknahme ansehen" in html
+    assert "zurückgenommen ·" in html  # Kennzeichen am Vorgang, ohne zweiten Knopf
 
 
 def test_ruecknahme_nimmt_nur_die_felder_des_ereignisses_zurueck() -> None:

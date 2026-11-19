@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from django.test import Client
 from django.urls import reverse
 
 from apps.kern import services
 from apps.kern.models import Arbeitsposten
+from apps.kern.vorgaenge import vorgang
 from tests.factories import MandantFabrik, ObjektFabrik
 
 pytestmark = pytest.mark.django_db
@@ -94,30 +97,33 @@ def test_nicht_angebotene_aktion_wird_abgelehnt(angemeldet: Client) -> None:
 
 
 def test_protokoll_filtert_nach_modell(angemeldet: Client) -> None:
-    """Schritt 0b, Aufgabe 7: Das Protokoll zeigt die letzten Änderungen, filterbar nach Modell."""
-    mandant = MandantFabrik()
-    objekt = ObjektFabrik(mandant=mandant)
-    services.objekt_aendern(objekt, bezeichnung="Halle Ost")
+    """Schritt 0b, Aufgabe 7: Das Protokoll zeigt die letzten Änderungen, filterbar nach Modell.
+    Review 2, A4: als Vorgänge, deren Einzelheiten die Änderungen nennen."""
+    with vorgang("Mandant angelegt"):
+        mandant = MandantFabrik()
+    with vorgang("Objekt angelegt"):
+        objekt = ObjektFabrik(mandant=mandant)
+    with vorgang("Halle umbenannt"):
+        services.objekt_aendern(objekt, bezeichnung="Halle Ost")
 
     alle = angemeldet.get(reverse("kern:protokoll")).content.decode()
-    assert f"Mandanten #{mandant.pk}" in alle
-    assert f"Objekte #{objekt.pk}" in alle
-    assert "Halle Ost" in alle
+    assert "Mandant angelegt" in alle and "Halle umbenannt" in alle
+    assert f"Objekt {objekt.kuerzel} geändert" in alle
+    assert "Bezeichnung:" in alle and "Halle Ost" in alle
 
     nur_objekte = angemeldet.get(reverse("kern:protokoll"), {"modell": "kern.Objekt"})
     html = nur_objekte.content.decode()
-    assert f"Objekte #{objekt.pk}" in html
-    assert f"Mandanten #{mandant.pk}" not in html
+    assert "Halle umbenannt" in html and "Objekt angelegt" in html
+    assert "Mandant angelegt" not in html
     assert '<option value="kern.Objekt" selected>' in html
 
 
 def test_ruecknahme_mit_fehler_zeigt_meldung(angemeldet: Client) -> None:
     """Schritt 0b, Aufgabe 7: Scheitert die Rücknahme, erklärt eine Meldung den Grund."""
-    antwort = angemeldet.post(
-        reverse("kern:zuruecknehmen"), {"ereignis": "kern.ObjektEvent:999999"}, follow=True
-    )
+    unbekannt = uuid.uuid4()
+    antwort = angemeldet.post(reverse("kern:vorgang_zuruecknehmen", args=[unbekannt]), follow=True)
 
-    assert "Nicht zurückgenommen" in antwort.content.decode()
+    assert "Nicht zurückgenommen: Diesen Vorgang gibt es nicht." in antwort.content.decode()
 
 
 def test_laeufe_seite_ohne_laeufe(angemeldet: Client) -> None:

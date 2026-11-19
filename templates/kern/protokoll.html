@@ -4,41 +4,51 @@
 
 {% block inhalt %}
 <h1>Protokoll</h1>
+<p class="leise">Je Aktion oder Lauf ein Vorgang. Zurückgenommen wird immer der ganze Vorgang.</p>
 <form method="get" class="filter">
-  <label for="modell">Modell</label>
+  <label for="modell">Betrifft</label>
   <select name="modell" id="modell">
     <option value="">alle</option>
     {% for label, titel in modellwahl %}<option value="{{ label }}"{% if label == gewaehlt %} selected{% endif %}>{{ titel }}</option>{% endfor %}
   </select>
+  <label for="von">von</label>
+  <input type="date" name="von" id="von" value="{{ von|date:'Y-m-d' }}">
+  <label for="bis">bis</label>
+  <input type="date" name="bis" id="bis" value="{{ bis|date:'Y-m-d' }}">
+  {% if bezug %}<input type="hidden" name="bezug" value="{{ bezug_text }}">{% endif %}
   <button type="submit" class="zweitrangig">Filtern</button>
 </form>
+{% if bezug %}
+<p class="leise">Nur Vorgänge zu {{ bezug_titel }} · <a href="{% url 'kern:protokoll' %}">alle zeigen</a></p>
+{% endif %}
 
 <ol class="protokoll" id="protokoll">
-  {% for z in zeilen %}
-  <li class="eintrag eintrag-{{ z.art }}">
-    <div class="eintrag-kopf">
-      <span><strong>{{ z.modell_titel }} #{{ z.objekt_id }}</strong> {{ z.art_titel }}</span>
-      <time class="leise" datetime="{{ z.zeit|date:'c' }}">{{ z.zeit|date:"d.m.Y H:i:s" }}</time>
-    </div>
-    {% if z.aenderungen %}
-    <ul class="aenderungen">
-      {% for feld, alt, neu in z.aenderungen %}<li><code>{{ feld }}</code>: {{ alt|default_if_none:"–" }} → {{ neu|default_if_none:"–" }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-    <p class="leise eintrag-kontext">{{ z.kontext }} · <code>{{ z.ereignis_id }}</code></p>
-    {% if z.zurueckgenommen %}
-    <p class="hinweis-zurueck">zurückgenommen</p>
-    {% else %}
-    <form method="post" action="{% url 'kern:zuruecknehmen' %}" hx-boost="true" hx-confirm="Diese Änderung zurücknehmen?">
-      {% csrf_token %}
-      <input type="hidden" name="ereignis" value="{{ z.ereignis_id }}">
-      <input type="hidden" name="modell" value="{{ gewaehlt }}">
-      <button type="submit" class="zweitrangig">Zurücknehmen</button>
-    </form>
+  {% for v in zeilen %}
+  <li class="eintrag vorgang vorgang-{{ v.art }}" id="vorgang-{{ v.id }}">
+    <details>
+      <summary class="eintrag-kopf">
+        <span><strong>{{ v.titel }}</strong> · {{ v.anzahl }} Änderung{{ v.anzahl|pluralize:"en" }}</span>
+        <time class="leise" datetime="{{ v.zeit|date:'c' }}">{{ v.zeit|date:"d.m.Y H:i" }} · {{ v.wer }}</time>
+      </summary>
+      {% include "kern/_vorgang_eintraege.html" %}
+      {% if v.weitere %}<p class="leise">… und {{ v.weitere }} weitere Änderungen (<a href="{% url 'kern:vorgang' v.id %}">alle ansehen</a>)</p>{% endif %}
+    </details>
+    {% if v.zurueckgenommen_durch %}
+    <p class="hinweis-zurueck">zurückgenommen · <a href="{% url 'kern:vorgang' v.zurueckgenommen_durch %}">Rücknahme ansehen</a></p>
+    {% elif v.ruecknahme_von %}
+    <p class="hinweis-zurueck">Rücknahme · <a href="{% url 'kern:vorgang' v.ruecknahme_von %}">zurückgenommener Vorgang</a></p>
+    {% elif v.zuruecknehmbar %}
+    <p class="aktionen"><a class="knopf zweitrangig" href="{% url 'kern:vorgang' v.id %}">Zurücknehmen …</a></p>
     {% endif %}
   </li>
   {% empty %}
-  <li>Noch keine Änderungen.</li>
+  <li>Noch keine Vorgänge.</li>
   {% endfor %}
 </ol>
+{% if zurueck_url or weiter_url %}
+<p class="aktionen">
+  {% if zurueck_url %}<a href="{{ zurueck_url }}">← neuere</a>{% endif %}
+  {% if weiter_url %}<a href="{{ weiter_url }}">ältere →</a>{% endif %}
+</p>
+{% endif %}
 {% endblock %}

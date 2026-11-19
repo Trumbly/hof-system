@@ -1,0 +1,14 @@
+<ul class="aenderungen">
+  {% for e in v.eintraege %}
+  <li class="eintrag-{{ e.art }}">
+    {{ e.objekt }} {{ e.art_titel }}{% if e.sichtbar %}:
+    {% for f in e.sichtbar %}<span class="feldaenderung">{{ f.feld }}: {{ f.alt }} → {{ f.neu }}</span>{% if not forloop.last %}; {% endif %}{% endfor %}{% endif %}
+    <details class="technik">
+      <summary class="leise">technische Angaben</summary>
+      <p class="leise"><code>{{ e.ereignis_id }}</code> · {{ e.zeit|date:"d.m.Y H:i:s" }}</p>
+      {% if e.technisch %}<ul>{% for f in e.technisch %}<li class="leise">{{ f.feld }}: {{ f.alt|truncatechars:80 }} → {{ f.neu|truncatechars:80 }}</li>{% endfor %}</ul>{% endif %}
+    </details>
+  </li>
+  {% endfor %}
+</ul>
+<p class="leise">Vorgang <code>{{ v.id }}</code> · {{ v.art_titel }}</p>
