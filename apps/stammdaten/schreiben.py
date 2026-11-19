@@ -31,6 +31,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import models, transaction
+from django.utils import timezone
 
 from apps.dokumente import pdf
 from apps.dokumente import services as dokumente
@@ -38,7 +39,7 @@ from apps.dokumente.models import Schreiben
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten
-from apps.stammdaten import konfiguration
+from apps.stammdaten import fristrechnung, konfiguration
 from apps.stammdaten.models import (
     Einheit,
     Kaution,
@@ -47,6 +48,7 @@ from apps.stammdaten.models import (
     Partei,
     Uebergabe,
     Vertrag,
+    Vertragspartei,
 )
 from apps.zaehler import services as zaehler
 
@@ -215,14 +217,27 @@ def kontext_vertrag(vertrag: Vertrag, stichtag: datetime.date | None = None) -> 
 def kontext_kuendigung(kuendigung: Kuendigung) -> Kontext:
     """Platzhalter der Kündigungsbestätigung: Vertrag plus Zugang, Fristende, Rückgabe."""
     kontext = kontext_vertrag(kuendigung.vertrag)
+    regel = konfiguration.kuendigungsregel(kuendigung.kuendigungsregel)
     kontext["kuendigung"] = {
         "von": kuendigung.get_von_display(),
         "zugang_am": kuendigung.zugang_am,
         "zum_wunsch": kuendigung.zum_wunsch,
         "fristende": kuendigung.fristende,
         "rueckgabetermin": kuendigung.rueckgabetermin,
-        "kuendigungsfrist": konfiguration.kuendigungsregel(kuendigung.kuendigungsregel).titel,
+        "kuendigungsfrist": regel.titel,
+        # Review 2, A3: Wie die Kündigung zuging. Bei Textform (Website, Mail) erkennt die
+        # Bestätigung die Form nicht ausdrücklich an, bis der Anwalt das geklärt hat.
+        "zugangsweg": kuendigung.get_zugangsweg_display() if kuendigung.zugangsweg else "",
+        "textform": kuendigung.in_textform,
+        "website": kuendigung.zugangsweg == Kuendigung.Zugangsweg.WEBSITE,
+        "aufhebung": kuendigung.aufhebung,
     }
+    if kuendigung.aufhebung:
+        kontext["aufhebung"] = {
+            "zum": kuendigung.fristende,
+            "fristende_ordentlich": fristrechnung.fristende(kuendigung.zugang_am, regel),
+            "rueckgabetermin": kuendigung.rueckgabetermin,
+        }
     return kontext
 
 
@@ -319,6 +334,13 @@ def kuendigungsbestaetigung_erzeugen(kuendigung: Kuendigung) -> Ergebnis:
     return _erzeugen("kuendigungsbestaetigung", kuendigung, kontext, _mail_oder_brief(kontext))
 
 
+def aufhebungsvertrag_erzeugen(kuendigung: Kuendigung) -> Ergebnis:
+    """Aufhebungsvertrag zum Wunschtermin vor dem Fristende (Review 2, A11). Beide Seiten
+    unterschreiben; bis dahin gilt die ordentliche Kündigung."""
+    kontext = kontext_kuendigung(kuendigung)
+    return _erzeugen("aufhebungsvertrag", kuendigung, kontext, _mail_oder_brief(kontext))
+
+
 def kautionsabrechnung_erzeugen(kaution: Kaution) -> Ergebnis:
     """Abrechnung der Kaution nach der Rückgabe (H2.10)."""
     kontext = kontext_kautionsabrechnung(kaution)
@@ -330,3 +352,41 @@ def protokoll_erzeugen(uebergabe: Uebergabe) -> Ergebnis:
     """Übergabe- oder Rückgabeprotokoll (H2.4, H2.9)."""
     art = "uebergabeprotokoll" if uebergabe.art == Uebergabe.Art.UEBERGABE else "rueckgabeprotokoll"
     return _erzeugen(art, uebergabe, kontext_uebergabe(uebergabe))
+
+
+# --- Serienmitteilung an Nutzer (H8.4; Review 2, A8) ---------------------------------
+
+
+def _vertrag_bezeichnung(vertrag: Vertrag) -> str:
+    """Zeile der Auswahlliste: V-Nummer, Einheiten und Mieter (Max' Oberfläche)."""
+    einheiten = ", ".join(e.nw_id for e in vertrag.einheiten.all())
+    mieter = ", ".join(
+        vp.partei.anzeigename
+        for vp in vertrag.vertragsparteien.all()
+        if vp.rolle == Vertragspartei.Rolle.MIETER
+    )
+    return " · ".join(t for t in (vertrag.nummer, einheiten, mieter) if t)
+
+
+def _vertraege_fuer_serie() -> models.QuerySet[Vertrag]:
+    """Laufende Verträge (aktiv oder gekündigt), ohne Wohnraum (den führt Verwaltio)."""
+    return (
+        Vertrag.objects.filter(status__in=(Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT))
+        .exclude(einheiten__typ=Einheit.Typ.WOHNUNG)
+        .prefetch_related("einheiten", "vertragsparteien__partei")
+        .distinct()
+        .order_by("nummer")
+    )
+
+
+def vertrag_anmelden() -> None:
+    """Meldet Verträge als Bezug der Serienmitteilung an (Empfänger: erster Mieter)."""
+    from apps.dokumente import bezuege
+
+    bezuege.registrieren(
+        Vertrag,
+        titel="Verträge",
+        kontext=lambda v: kontext_vertrag(v, timezone.localdate()),
+        auswahl=_vertraege_fuer_serie,
+        bezeichnung=_vertrag_bezeichnung,
+    )

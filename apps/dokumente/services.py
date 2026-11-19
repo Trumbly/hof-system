@@ -50,7 +50,7 @@ import logging
 import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any
 
@@ -111,7 +111,9 @@ __all__ = [
     "schreiben_erzeugen",
     "schreiben_senden",
     "schreiben_verwerfen",
+    "serie_aus_plan",
     "serie_erzeugen",
+    "serie_planen",
     "serie_pruefsumme",
     "serie_senden",
     "versandstand_abrufen",
@@ -325,14 +327,22 @@ def _versandweg_pruefen(versandweg: str, kontext: Mapping[str, Any]) -> None:
         raise SchreibenFehler(f"Unbekannter Versandweg {versandweg}.")
     empfaenger = kontext.get("empfaenger")
     if not isinstance(empfaenger, Mapping):
-        raise SchreibenFehler("Im Kontext fehlt „empfaenger“.")
+        raise SchreibenFehler(f"Für das Schreiben fehlt {platzhalter.bedeutung('empfaenger')}.")
+    fehlt = versandweg_fehlt(versandweg, empfaenger)
+    if fehlt:
+        raise SchreibenFehler(fehlt)
+
+
+def versandweg_fehlt(versandweg: str, empfaenger: Mapping[str, Any]) -> str:
+    """Was für den Versandweg fehlt, als Satz; leer, wenn alles da ist."""
     if versandweg == Versandweg.MAIL and not str(empfaenger.get("email") or "").strip():
-        raise SchreibenFehler("Für den Versand per Mail fehlt empfaenger.email.")
+        return f"Für den Versand per Mail fehlt {platzhalter.bedeutung('empfaenger.email')}."
     if (
         versandweg in (Versandweg.BRIEF, Versandweg.EINWURF_EINSCHREIBEN)
         and not str(empfaenger.get("anschrift") or "").strip()
     ):
-        raise SchreibenFehler("Für den Versand als Brief fehlt empfaenger.anschrift.")
+        return f"Für den Versand als Brief fehlt {platzhalter.bedeutung('empfaenger.anschrift')}."
+    return ""
 
 
 def _sha256(daten: bytes) -> str:
@@ -438,6 +448,137 @@ def serie_erzeugen(
     if not schreiben:
         raise SchreibenFehler("Eine Serie braucht mindestens einen Bezug.")
     return schreiben
+
+
+#: Versandweg einer Zeile der Empfängervorschau, die kein Schreiben bekommt.
+AUSLASSEN = "auslassen"
+#: Wahl für Empfänger ohne E-Mail-Adresse, wenn die Serie per Mail geht.
+OHNE_MAIL = {Versandweg.BRIEF: "als Brief", AUSLASSEN: "auslassen"}
+
+
+@dataclass(frozen=True)
+class Serienempfaenger:
+    """Eine Zeile der Empfängervorschau einer Serie (Review 2, A8): Bezug, Kontext,
+    Versandweg (oder ``AUSLASSEN``) und ein Hinweis als Satz, warum umgestellt oder
+    ausgelassen. Name und Einheit liest die Oberfläche aus dem Kontext; in Logs stehen nur
+    IDs."""
+
+    bezug: models.Model
+    kontext: Mapping[str, Any]
+    versandweg: str
+    hinweis: str = ""
+
+    @property
+    def ausgelassen(self) -> bool:
+        return self.versandweg == AUSLASSEN
+
+    @property
+    def name(self) -> str:
+        return str((self.kontext.get("empfaenger") or {}).get("name") or "")
+
+    @property
+    def einheit(self) -> str:
+        """NW-IDs der Einheiten (Vertrag), sonst das Kürzel des Objekts."""
+        einheiten = self.kontext.get("einheiten") or []
+        ids = [str(e.get("nw_id")) for e in einheiten if isinstance(e, Mapping) and e.get("nw_id")]
+        if ids:
+            return ", ".join(ids)
+        return str((self.kontext.get("objekt") or {}).get("kuerzel") or "")
+
+    @property
+    def versandweg_titel(self) -> str:
+        if self.ausgelassen:
+            return "ausgelassen"
+        return Versandweg.TITEL.get(self.versandweg, self.versandweg)
+
+
+def serienempfaenger(
+    bezug: models.Model,
+    kontext: Mapping[str, Any],
+    versandweg: str,
+    *,
+    ohne_mail: str = Versandweg.BRIEF,
+) -> Serienempfaenger:
+    """Plant eine Zeile: Fehlt für ``versandweg`` etwas (E-Mail, Anschrift), geht eine Mail
+    stattdessen als ``ohne_mail`` (Brief), wenn dafür alles da ist; sonst wird der Empfänger
+    ausgelassen. Der Hinweis sagt in einem Satz, warum."""
+    empfaenger = kontext.get("empfaenger") or {}
+    if versandweg == AUSLASSEN:
+        return Serienempfaenger(bezug, kontext, AUSLASSEN, "Von Hand ausgelassen.")
+    fehlt = versandweg_fehlt(versandweg, empfaenger)
+    if not fehlt:
+        return Serienempfaenger(bezug, kontext, versandweg)
+    if versandweg == Versandweg.MAIL and ohne_mail != AUSLASSEN:
+        fehlt_ersatz = versandweg_fehlt(ohne_mail, empfaenger)
+        if not fehlt_ersatz:
+            titel = Versandweg.TITEL.get(ohne_mail, ohne_mail)
+            return Serienempfaenger(
+                bezug, kontext, ohne_mail, f"Keine E-Mail-Adresse, deshalb als {titel}."
+            )
+        fehlt = f"{fehlt.removesuffix('.')}, und {fehlt_ersatz[0].lower()}{fehlt_ersatz[1:]}"
+    return Serienempfaenger(bezug, kontext, AUSLASSEN, fehlt)
+
+
+def serie_planen(
+    vorlage: Vorlage,
+    bezuege: Iterable[tuple[models.Model, Mapping[str, Any]]],
+    versandweg: str | None = None,
+    *,
+    ohne_mail: str = Versandweg.BRIEF,
+) -> list[Serienempfaenger]:
+    """Empfängervorschau einer Serie (Review 2, A8): je Bezug Versandweg oder „ausgelassen“.
+
+    Erzeugt nichts. Wer keine E-Mail-Adresse hat, bekommt bei einer Mail-Serie einen Brief
+    (``ohne_mail=Versandweg.BRIEF``, Standard) oder wird ausgelassen
+    (``ohne_mail=AUSLASSEN``)."""
+    if ohne_mail not in OHNE_MAIL:
+        raise SchreibenFehler("Für Empfänger ohne E-Mail-Adresse gibt es nur Brief oder auslassen.")
+    weg = versandweg or vorlage.vorlagenart.versandweg
+    return [serienempfaenger(b, k, weg, ohne_mail=ohne_mail) for b, k in bezuege]
+
+
+@dataclass
+class Serie:
+    """Ergebnis von ``serie_aus_plan``: die erzeugten Schreiben (alle mit derselben Kennung)
+    und die ausgelassenen Empfänger mit Grund."""
+
+    kennung: uuid.UUID
+    schreiben: list[Schreiben] = field(default_factory=list)
+    ausgelassen: list[Serienempfaenger] = field(default_factory=list)
+
+
+def serie_aus_plan(vorlage: Vorlage, plan: Iterable[Serienempfaenger]) -> Serie:
+    """Erzeugt die Schreiben einer geplanten Serie (H8.4; Review 2, A8).
+
+    Ausgelassene Zeilen bekommen kein Schreiben. Scheitert ein einzelnes Schreiben (fehlender
+    Platzhalter, fehlende Angaben), bricht die Serie nicht ab: Der Empfänger steht mit dem
+    Grund unter ``ausgelassen``, die anderen Schreiben entstehen trotzdem. Eine nicht
+    freigegebene Vorlage betrifft alle und bricht ab (``VorlageNichtFreigegeben``)."""
+    if vorlage.status != Vorlage.Status.FREIGEGEBEN:
+        raise VorlageNichtFreigegeben(
+            f"Vorlage #{vorlage.pk} ist {vorlage.get_status_display()}, nicht freigegeben."
+        )
+    serie = Serie(kennung=uuid.uuid4())
+    for zeile in plan:
+        if zeile.ausgelassen:
+            serie.ausgelassen.append(zeile)
+            continue
+        try:
+            with transaction.atomic():
+                serie.schreiben.append(
+                    schreiben_erzeugen(
+                        vorlage, zeile.bezug, zeile.kontext, zeile.versandweg, serie=serie.kennung
+                    )
+                )
+        except (SchreibenFehler, PlatzhalterFehler, pdf.PdfNichtVerfuegbar) as fehler:
+            serie.ausgelassen.append(replace(zeile, versandweg=AUSLASSEN, hinweis=str(fehler)))
+            logger.warning(
+                "Serie %s: Bezug #%s ohne Schreiben (%s)",
+                serie.kennung,
+                zeile.bezug.pk,
+                type(fehler).__name__,
+            )
+    return serie
 
 
 # --- Senden --------------------------------------------------------------------------

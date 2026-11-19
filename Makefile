@@ -9,9 +9,9 @@ endif
 
 .PHONY: dev dienste test e2e klickmessung lint fmt migrate stopp
 
-## Postgres und Mailpit starten, migrieren, Django-Server starten
+## Postgres und Mailpit starten, migrieren, Django-Server starten (Mails an Mailpit)
 dev: dienste migrate
-	uv run python manage.py runserver
+	EMAIL_URL=$${EMAIL_URL:-smtp://localhost:1025} uv run python manage.py runserver
 
 ## Postgres und Mailpit im Hintergrund starten und auf Bereitschaft warten
 dienste:

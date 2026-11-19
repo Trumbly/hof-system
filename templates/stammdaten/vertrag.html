@@ -10,6 +10,7 @@
   <li>Einheiten: {% for e in einheiten %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</li>
   <li>Miete heute: <strong>{% if kondition_heute %}{{ kondition_heute.miete }} €{% if kondition_heute.pauschale %} + {{ kondition_heute.pauschale }} € Pauschale{% endif %}, {{ kondition_heute.get_zahlweise_display }}{% else %}nicht erfasst{% endif %}</strong></li>
   <li>{% offene_posten_link vertrag %}</li>
+  {% for a in buchungsanfragen %}<li>Aus {{ a.get_art_display }}sanfrage <a href="{% url 'anbindungen:anfrage' a.pk %}">#{{ a.pk }}</a> ({{ a.get_status_display }})</li>{% endfor %}
   <li>Kündigungsfrist: {{ kuendigungsregel.titel }}{% if not vertrag.kuendigungsregel %} <span class="leise">(Standard der Vertragsart, am Vertrag noch nicht geprüft)</span>{% endif %}</li>
 </ul>
 
@@ -79,8 +80,14 @@
 <section id="kuendigung">
   <h2>Kündigung</h2>
   {% for k in kuendigungen %}
-  <p>Zugang {{ k.zugang_am|date:"d.m.Y" }} ({{ k.get_von_display }}): Fristende <strong>{{ k.fristende|date:"d.m.Y" }}</strong>, Rückgabe am {{ k.rueckgabetermin|date:"d.m.Y" }}.</p>
+  <p>Zugang {{ k.zugang_am|date:"d.m.Y" }} ({{ k.get_von_display }}{% if k.zugangsweg %}, {{ k.get_zugangsweg_display }}{% endif %}): {% if k.aufhebung %}Aufhebung zum Wunschtermin <strong>{{ k.fristende|date:"d.m.Y" }}</strong>{% else %}Fristende <strong>{{ k.fristende|date:"d.m.Y" }}</strong>{% endif %}, Rückgabe am {{ k.rueckgabetermin|date:"d.m.Y" }}.</p>
   {% endfor %}
+  {% if kuendigung and kuendigung_anfrage %}
+  <div class="posten">
+    <p>Aus der Website-Anfrage <a href="{% url 'anbindungen:anfrage' kuendigung_anfrage.pk %}">#{{ kuendigung_anfrage.pk }}</a>, gemeldet am {{ kuendigung_anfrage.gemeldet_am|date:"d.m.Y H:i" }} von {{ kuendigung_anfrage.kontakt_name|default:"(ohne Namen)" }}{% if kuendigung_anfrage.kontakt_email %} · {{ kuendigung_anfrage.kontakt_email }}{% endif %}. Die Anfrage ist erst erledigt, wenn die Kündigung gespeichert ist.</p>
+    {% for satz in absender_abweichungen %}<p class="meldung meldung-warning" role="alert">Absender weicht ab: {{ satz }}</p>{% endfor %}
+  </div>
+  {% endif %}
   {% if kuendigung %}
   {% include "stammdaten/_formular.html" with form=kuendigung aktion="kuendigung" knopf="Kündigung erfassen" %}
   {% elif not kuendigungen %}<p class="leise">Eine Kündigung lässt sich bei einem aktiven Vertrag erfassen.</p>{% endif %}

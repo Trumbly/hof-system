@@ -11,12 +11,17 @@ from typing import Any
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
 from django.db.models import Prefetch
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import format_html, format_html_join
 from django.views.decorators.http import require_POST
 
+from apps.anbindungen import services as anbindungen
+from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
 from apps.stammdaten import datenstand, leerstand, schreiben, services
 from apps.stammdaten import forms as f
@@ -24,6 +29,7 @@ from apps.stammdaten.models import (
     Checkpunkt,
     Einheit,
     Kontaktweg,
+    Kuendigung,
     Partei,
     Schluessel,
     Uebergabe,
@@ -33,7 +39,9 @@ from apps.stammdaten.models import (
 )
 from apps.zaehler import services as zaehler_services
 
-Handler = Callable[[HttpRequest, Any, forms.Form], str]
+#: Ein Handler gibt den Anker zurück, oder (Anker, Meldung), wenn er selbst sagt, was
+#: passiert ist (Review 2, B: Rückmeldungen mit Link).
+Handler = Callable[[HttpRequest, Any, forms.Form], "str | tuple[str, str]"]
 
 
 def _heute() -> datetime.date:
@@ -64,11 +72,12 @@ def _formular_seite(
         form = formulare[aktion]
         if form.is_valid():
             try:
-                anker = handler[aktion](request, objekt, form)
+                ergebnis = handler[aktion](request, objekt, form)
             except services.StammdatenFehler as fehler:
                 messages.error(request, str(fehler))
             else:
-                messages.success(request, "Gespeichert.")
+                anker, meldung = ergebnis if isinstance(ergebnis, tuple) else (ergebnis, "")
+                messages.success(request, meldung or "Gespeichert.")
                 return _zurueck(request.path, anker)
         else:
             messages.error(request, "Bitte die markierten Felder prüfen.")
@@ -304,36 +313,112 @@ def _dokument_melden(request: HttpRequest, ergebnis: schreiben.Ergebnis) -> None
 
 @login_required
 def vertrag_neu(request: HttpRequest) -> HttpResponse:
-    initial = {}
-    if "einheit" in request.GET:
-        initial["einheit"] = request.GET["einheit"]
+    initial: dict[str, Any] = {}
+    if request.GET.get("einheit", "").isdigit():
+        initial["einheit"] = int(request.GET["einheit"])
     form = f.VertragNeuForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
         try:
-            vertrag = services.vertrag_anlegen(
-                einheiten=[d["einheit"]],
-                mieter=[d["mieter"]],
-                vertragsart=d["vertragsart"] or None,
-                mandant=d["mandant"],
-                beginn=d["beginn"],
-                ende=d["ende"],
-                miete=d["miete"],
-                pauschale=d["pauschale"] or Decimal("0.00"),
-                steuersatz=d["steuersatz"] or Decimal("0.00"),
-                zahlweise=d["zahlweise"],
-                kaution=d["kaution"],
-                kuendigungsregel=d["kuendigungsregel"] or None,
-            )
-            services.checkliste_anlegen("vertrag", vertrag=vertrag)
-            ergebnis = services.vertragsdokument_erzeugen(vertrag)
-        except services.StammdatenFehler as fehler:
+            with transaction.atomic():
+                vertrag = services.vertrag_anlegen(
+                    einheiten=[d["einheit"]],
+                    mieter=[d["mieter"]],
+                    vertragsart=d["vertragsart"] or None,
+                    mandant=d["mandant"],
+                    beginn=d["beginn"],
+                    ende=d["ende"],
+                    miete=d["miete"],
+                    pauschale=d["pauschale"] or Decimal("0.00"),
+                    steuersatz=d["steuersatz"] or Decimal("0.00"),
+                    zahlweise=d["zahlweise"],
+                    kaution=d["kaution"],
+                    kuendigungsregel=d["kuendigungsregel"] or None,
+                )
+                services.checkliste_anlegen("vertrag", vertrag=vertrag)
+                ergebnis = services.vertragsdokument_erzeugen(vertrag)
+                # Review 2, A11: Eine angenommene Buchungsanfrage der Einheit gehört zu diesem
+                # Vertrag, egal ob er von der Anfrage oder der Einheitenseite aus entsteht.
+                anfrage = anbindungen.vertrag_zur_anfrage(vertrag)
+        except (services.StammdatenFehler, anbindungen.AnbindungFehler) as fehler:
             messages.error(request, str(fehler))
         else:
-            messages.success(request, f"Vertrag {vertrag.nummer} als Entwurf angelegt.")
+            meldung = format_html("Vertrag {} als Entwurf angelegt.", vertrag.nummer)
+            if anfrage is not None:
+                meldung = format_html(
+                    '{} Mit der angenommenen Buchungsanfrage <a href="{}">#{}</a> verknüpft.',
+                    meldung,
+                    reverse("anbindungen:anfrage", args=[anfrage.pk]),
+                    anfrage.pk,
+                )
+            messages.success(request, meldung)
             _dokument_melden(request, ergebnis)
             return redirect("stammdaten:vertrag", vertrag.pk)
-    return render(request, "stammdaten/neu.html", {"form": form, "titel": "Neuer Vertrag"})
+    einheit = Einheit.objects.filter(pk=initial.get("einheit") or 0).first() if initial else None
+    return render(
+        request,
+        "stammdaten/neu.html",
+        {
+            "form": form,
+            "titel": "Neuer Vertrag",
+            "angenommene_anfrage": anbindungen.angenommene_anfrage(einheit) if einheit else None,
+        },
+    )
+
+
+def _kuendigung_anfrage(request: HttpRequest, vertrag: Vertrag) -> Buchungsanfrage | None:
+    """Die offene Website-Kündigung, aus der der Dialog vorausgefüllt wird (``?anfrage=`` oder
+    das versteckte Feld beim Speichern). Nur, wenn sie zu einer Einheit des Vertrags gehört."""
+    roh = request.POST.get("kuendigung-anfrage") or request.GET.get("anfrage") or ""
+    if not roh.isdigit():
+        return None
+    return (
+        Buchungsanfrage.objects.filter(
+            pk=int(roh),
+            art=Buchungsanfrage.Art.KUENDIGUNG,
+            status__in=anbindungen.NOCH_OFFEN,
+            einheit__in=vertrag.einheiten.all(),
+        )
+        .select_related("einheit")
+        .first()
+    )
+
+
+def _kuendigung_meldung(kuendigung: Kuendigung, anfrage: Buchungsanfrage | None) -> str:
+    """„Kündigung erfasst · Ende 28.02.2027 · Bestätigung #3 liegt bereit → ansehen“."""
+    brief = (
+        Schreiben.objects.filter(
+            bezug_typ=ContentType.objects.get_for_model(Kuendigung), bezug_id=kuendigung.pk
+        )
+        .order_by("-pk")
+        .first()
+    )
+    teile = [
+        format_html("Aufhebung zum {} erfasst", f"{kuendigung.fristende:%d.%m.%Y}")
+        if kuendigung.aufhebung
+        else format_html("Kündigung erfasst · Ende {}", f"{kuendigung.fristende:%d.%m.%Y}")
+    ]
+    art = "Aufhebungsvertrag" if kuendigung.aufhebung else "Bestätigung"
+    if brief is not None:
+        teile.append(
+            format_html(
+                '{} #{} liegt bereit → <a href="{}">ansehen</a>',
+                art,
+                brief.pk,
+                reverse("dokumente:schreiben", args=[brief.pk]),
+            )
+        )
+    else:
+        teile.append(format_html("{} nicht erzeugt (Arbeitsliste „Schreiben erstellen“)", art))
+    if anfrage is not None:
+        teile.append(
+            format_html(
+                'Anfrage <a href="{}">#{}</a> erledigt',
+                reverse("anbindungen:anfrage", args=[anfrage.pk]),
+                anfrage.pk,
+            )
+        )
+    return format_html_join(" · ", "{}", ((t,) for t in teile))
 
 
 @login_required
@@ -351,8 +436,17 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
         formulare["kaution_abrechnen"] = _gebunden(
             request, "kaution_abrechnen", f.KautionAbrechnenForm
         )
+    kuendigung_anfrage = _kuendigung_anfrage(request, vertrag)
     if vertrag.status == Vertrag.Status.AKTIV:
-        formulare["kuendigung"] = _gebunden(request, "kuendigung", f.KuendigungForm)
+        formulare["kuendigung"] = _gebunden(
+            request,
+            "kuendigung",
+            f.KuendigungForm,
+            vertrag=vertrag,
+            initial=(
+                anbindungen.kuendigung_vorschlag(kuendigung_anfrage) if kuendigung_anfrage else {}
+            ),
+        )
 
     def stammfelder(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
         services.vertrag_aendern(v, **form.cleaned_data)
@@ -391,16 +485,25 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
         services.kaution_abrechnen(v.kaution, d["datum"], d["einbehalt"], d["notiz"])
         return "kaution"
 
-    def kuendigung(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
+    def kuendigung(_: HttpRequest, v: Vertrag, form: forms.Form) -> tuple[str, str]:
         d = form.cleaned_data
-        services.kuendigung_erfassen(
-            v,
-            d["zugang_am"],
-            von=d["von"],
-            zum_wunsch=d["zum_wunsch"],
-            rueckgabetermin=d["rueckgabetermin"],
-        )
-        return "kuendigung"
+        felder: dict[str, Any] = {
+            "von": d["von"],
+            "zum_wunsch": d["zum_wunsch"],
+            "rueckgabetermin": d["rueckgabetermin"],
+            "zugangsweg": d["zugangsweg"] or "",
+            "aufhebung": d["wunsch_wahl"] == f.KuendigungForm.AUFHEBUNG,
+        }
+        if kuendigung_anfrage is not None:
+            try:
+                erfasst = anbindungen.kuendigung_aus_anfrage(
+                    kuendigung_anfrage, v, d["zugang_am"], **felder
+                )
+            except anbindungen.AnbindungFehler as fehler:
+                raise services.StammdatenFehler(str(fehler)) from fehler
+        else:
+            erfasst = services.kuendigung_erfassen(v, d["zugang_am"], **felder)
+        return "kuendigung", _kuendigung_meldung(erfasst, kuendigung_anfrage)
 
     def kontext() -> dict[str, Any]:
         heute = _heute()
@@ -413,6 +516,13 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
             "einheiten": vertrag.einheiten.select_related("objekt"),
             "vertragsparteien": vertrag.vertragsparteien.select_related("partei"),
             "kuendigungen": vertrag.kuendigungen.all(),
+            "kuendigung_anfrage": kuendigung_anfrage,
+            "absender_abweichungen": (
+                anbindungen.absender_abweichungen(kuendigung_anfrage, vertrag)
+                if kuendigung_anfrage
+                else []
+            ),
+            "buchungsanfragen": vertrag.buchungsanfragen.order_by("pk"),
             "kuendigungsregel": services.kuendigungsregel_fuer(vertrag),
             "uebergaben": vertrag.uebergaben.all(),
             "checklisten": vertrag.checklisten.prefetch_related("punkte").order_by("-pk"),

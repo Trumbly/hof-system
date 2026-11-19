@@ -672,6 +672,26 @@ def kuendigungsregel_fuer(vertrag: Vertrag) -> konfiguration.Kuendigungsregel:
     return konfiguration.kuendigungsregel(schluessel)
 
 
+def kuendigung_fristende(vertrag: Vertrag, zugang_am: datetime.date) -> datetime.date:
+    """Fristende einer ordentlichen Kündigung mit diesem Zugang (ohne Wunschtermin), höchstens
+    das vereinbarte Vertragsende."""
+    ende = fristrechnung.fristende(zugang_am, kuendigungsregel_fuer(vertrag))
+    if vertrag.ende is not None and vertrag.ende < ende:
+        return vertrag.ende
+    return ende
+
+
+def wunsch_vor_fristende(
+    vertrag: Vertrag, zugang_am: datetime.date, zum_wunsch: datetime.date | None
+) -> datetime.date | None:
+    """Das Fristende, wenn der Wunschtermin davor liegt (Review 2, A11), sonst ``None``. Dann
+    muss jemand wählen: Fristende oder Aufhebung zum Wunschtermin."""
+    if zum_wunsch is None:
+        return None
+    ende = kuendigung_fristende(vertrag, zugang_am)
+    return ende if zum_wunsch < ende else None
+
+
 @als_vorgang("Kündigung {vertrag.nummer} erfasst")
 def kuendigung_erfassen(
     vertrag: Vertrag,
@@ -680,23 +700,44 @@ def kuendigung_erfassen(
     von: str = Kuendigung.Von.MIETER,
     zum_wunsch: datetime.date | None = None,
     rueckgabetermin: datetime.date | None = None,
+    zugangsweg: str = Kuendigung.Zugangsweg.UNBEKANNT,
+    aufhebung: bool = False,
 ) -> Kuendigung:
     """Erfasst eine Kündigung (H2.8, Standardablauf 4).
 
     Das System rechnet das Fristende nach der Kündigungsfrist des Vertrags, setzt es als
     Vertragsende (damit endet das Soll), fordert die Bestätigung aus der Vorlage an und
-    meldet den Rückgabetermin als Frist. Ein späteres Wunschende gilt; ein früheres nicht.
+    meldet den Rückgabetermin als Frist. Ein späteres Wunschende gilt; ein früheres nur mit
+    ``aufhebung=True`` (Review 2, A11): Dann endet der Vertrag zum Wunschtermin, die
+    Kündigung ist als Aufhebung gekennzeichnet, und statt der Bestätigung entsteht der
+    Aufhebungsvertrag (Vorlagenart ``aufhebungsvertrag``). Ohne ``aufhebung`` gilt bei
+    einem früheren Wunsch das Fristende; die Oberfläche lässt dazu wählen
+    (``wunsch_vor_fristende``).
+
+    ``zugangsweg`` hält fest, wie die Kündigung zuging (Website, Mail, Brief …). Bei Textform
+    erkennt die Bestätigung die Form nicht ausdrücklich an (Platzhalter
+    ``kuendigung.textform``).
     """
     if vertrag.status != Vertrag.Status.AKTIV:
         raise StammdatenFehler(f"Vertrag {vertrag.nummer} ist nicht aktiv ({vertrag.status}).")
     if von not in Kuendigung.Von.values:
         raise StammdatenFehler(f"Unbekannt, wer kündigt: {von}")
+    if zugangsweg not in Kuendigung.Zugangsweg.values:
+        raise StammdatenFehler(f"Unbekannter Zugangsweg: {zugangsweg}")
     regel = kuendigungsregel_fuer(vertrag)
-    ende = fristrechnung.fristende(zugang_am, regel)
-    if zum_wunsch is not None and zum_wunsch > ende:
+    ende = kuendigung_fristende(vertrag, zugang_am)
+    if aufhebung:
+        if zum_wunsch is None or zum_wunsch >= ende:
+            raise StammdatenFehler(
+                "Eine Aufhebung zum Wunschtermin braucht einen Wunschtermin vor dem Fristende."
+            )
+        if zum_wunsch < zugang_am:
+            raise StammdatenFehler("Der Wunschtermin liegt vor dem Zugang der Kündigung.")
         ende = zum_wunsch
-    if vertrag.ende is not None and vertrag.ende < ende:
-        ende = vertrag.ende
+    elif zum_wunsch is not None and zum_wunsch > ende:
+        ende = zum_wunsch
+        if vertrag.ende is not None and vertrag.ende < ende:
+            ende = vertrag.ende
     rueckgabe = rueckgabetermin or ende
     if rueckgabe < zugang_am:
         raise StammdatenFehler("Der Rückgabetermin liegt vor dem Zugang der Kündigung.")
@@ -710,18 +751,27 @@ def kuendigung_erfassen(
             zum_wunsch=zum_wunsch,
             fristende=ende,
             rueckgabetermin=rueckgabe,
+            zugangsweg=zugangsweg,
+            aufhebung=aufhebung,
         )
         _speichern(kuendigung)
         vertrag.ende = ende
         vertrag.status = Vertrag.Status.GEKUENDIGT
         _speichern(vertrag)
-        schreiben.kuendigungsbestaetigung_erzeugen(kuendigung)
+        if aufhebung:
+            schreiben.aufhebungsvertrag_erzeugen(kuendigung)
+        else:
+            schreiben.kuendigungsbestaetigung_erzeugen(kuendigung)
         fristen.frist_anlegen(
             Frist.Art.KUENDIGUNG,
             ende,
             Frist.Quelle.VERTRAG,
             kuendigung,
-            hinweis=f"Fristende der Kündigung, Vertrag {vertrag.nummer}",
+            hinweis=(
+                f"Aufhebung zum Wunschtermin, Vertrag {vertrag.nummer}"
+                if aufhebung
+                else f"Fristende der Kündigung, Vertrag {vertrag.nummer}"
+            ),
         )
         # Rückgabetermin: Eine Frist Vertragsende je Vertrag (bei Befristung wandert sie mit).
         fristen.frist_anlegen(

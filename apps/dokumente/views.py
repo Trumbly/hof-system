@@ -7,6 +7,7 @@ angemeldeten Benutzers geht nichts hinaus (CLAUDE.md, Regel 8).
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from itertools import groupby
 from typing import Any
@@ -53,7 +54,8 @@ from apps.dokumente.models import (
     Vorlage,
 )
 from apps.dokumente.platzhalter import PlatzhalterFehler
-from apps.dokumente.versand import VersandFehler
+from apps.dokumente.versand import MailserverNichtErreichbar, VersandFehler
+from apps.dokumente.vorlagenarten import Versandweg
 from apps.fristen import services as fristen_services
 from apps.kassenbuch.models import Buchung
 from apps.kern.models import Benutzer
@@ -264,6 +266,8 @@ def schreiben_senden(request: HttpRequest, pk: int) -> HttpResponse:
             pruefsumme=request.POST.get("pruefsumme", ""),
             anwalt_gesehen=request.POST.get("anwalt_gesehen") == "1",
         )
+    except MailserverNichtErreichbar as fehler:
+        messages.error(request, str(fehler))
     except FEHLER as fehler:
         messages.error(request, f"Nicht gesendet: {fehler}")
     else:
@@ -323,6 +327,9 @@ def schreiben_versandstand(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 def serie_neu(request: HttpRequest) -> HttpResponse:
+    """Serienmitteilung in zwei Schritten (Review 2, A8): erst die Empfängervorschau mit
+    Einheit, Name und Versandweg (je Zeile umstellbar), dann „Schreiben erzeugen“. Wer
+    nichts bekommt, steht namentlich mit Grund daneben; die Serie bricht nicht ab."""
     arten = bezuege.alle()
     schluessel = request.GET.get("bezug") or (arten[0].schluessel if arten else "")
     try:
@@ -330,25 +337,94 @@ def serie_neu(request: HttpRequest) -> HttpResponse:
     except KeyError as fehler:
         raise Http404 from fehler
     objekte = {str(o.pk): o for o in bezugsart.auswahl()}
-    form = SerieForm(request.POST or None, wahl=[(pk, str(o)) for pk, o in objekte.items()])
+    form = SerieForm(
+        request.POST or None,
+        wahl=[(pk, bezugsart.bezeichnung(o)) for pk, o in objekte.items()],
+    )
+    plan: list[services.Serienempfaenger] | None = None
+    marke = ""
     if request.method == "POST" and form.is_valid():
-        gewaehlt = [objekte[pk] for pk in form.cleaned_data["auswahl"]]
+        daten = form.cleaned_data
+        vorlage = daten["vorlage"]
+        auswahl = sorted(daten["auswahl"], key=int)
+        marke = _serie_marke(vorlage.pk, auswahl, daten["versandweg"], daten["ohne_mail"])
         try:
-            serie = services.serie_erzeugen(
-                form.cleaned_data["vorlage"],
-                [(objekt, bezugsart.kontext(objekt)) for objekt in gewaehlt],
-                form.cleaned_data["versandweg"] or None,
+            plan = services.serie_planen(
+                vorlage,
+                [(objekte[pk], bezugsart.kontext(objekte[pk])) for pk in auswahl],
+                daten["versandweg"] or None,
+                ohne_mail=daten["ohne_mail"],
             )
         except FEHLER as fehler:
             form.add_error(None, str(fehler))
-        else:
-            messages.success(request, f"{len(serie)} Schreiben erzeugt; bitte prüfen und senden.")
-            return redirect("dokumente:serie", serie=serie[0].serie)
+        if plan is not None and request.POST.get("schritt") == "erzeugen":
+            if request.POST.get("marke") != marke:
+                messages.warning(
+                    request,
+                    "Die Auswahl hat sich seit der Vorschau geändert. "
+                    "Bitte die Empfänger noch einmal prüfen.",
+                )
+            else:
+                plan = [_serie_umstellen(request, z) for z in plan]
+                antwort = _serie_erzeugen(request, vorlage, plan)
+                if antwort is not None:
+                    return antwort
     return render(
         request,
         "dokumente/serie_neu.html",
-        {"form": form, "arten": arten, "bezugsart": bezugsart},
+        {
+            "form": form,
+            "arten": arten,
+            "bezugsart": bezugsart,
+            "plan": plan,
+            "marke": marke,
+            "wege": [*Versandweg.TITEL.items(), (services.AUSLASSEN, "auslassen")],
+            "erzeugt": sum(1 for z in plan or [] if not z.ausgelassen),
+        },
     )
+
+
+def _serie_marke(vorlage: int, auswahl: list[str], versandweg: str, ohne_mail: str) -> str:
+    """Kennung der gezeigten Vorschau: Erzeugt wird nur, was die Vorschau gezeigt hat."""
+    roh = f"{vorlage}|{','.join(auswahl)}|{versandweg}|{ohne_mail}"
+    return hashlib.sha256(roh.encode()).hexdigest()[:16]
+
+
+def _serie_umstellen(
+    request: HttpRequest, zeile: services.Serienempfaenger
+) -> services.Serienempfaenger:
+    """Übernimmt den in der Vorschau gewählten Versandweg einer Zeile. Fehlt dafür etwas,
+    wird die Zeile ausgelassen (mit Grund), statt still umgestellt."""
+    weg = request.POST.get(f"weg_{zeile.bezug.pk}", "")
+    if not weg or weg == zeile.versandweg:
+        return zeile
+    if weg != services.AUSLASSEN and weg not in Versandweg.TITEL:
+        return zeile
+    return services.serienempfaenger(zeile.bezug, zeile.kontext, weg, ohne_mail=services.AUSLASSEN)
+
+
+def _serie_erzeugen(
+    request: HttpRequest, vorlage: Vorlage, plan: list[services.Serienempfaenger]
+) -> HttpResponse | None:
+    try:
+        serie = services.serie_aus_plan(vorlage, plan)
+    except FEHLER as fehler:
+        messages.error(request, f"Keine Schreiben erzeugt: {fehler}")
+        return None
+    for zeile in serie.ausgelassen:
+        wer = " · ".join(t for t in (zeile.einheit, zeile.name) if t) or f"Bezug #{zeile.bezug.pk}"
+        messages.warning(request, f"Ausgelassen: {wer}. {zeile.hinweis}")
+    if not serie.schreiben:
+        messages.error(request, "Keine Schreiben erzeugt: Alle Empfänger sind ausgelassen.")
+        return None
+    briefe = sum(1 for s in serie.schreiben if s.versandweg != Versandweg.MAIL)
+    teile = [f"{len(serie.schreiben)} Schreiben erzeugt und bereit"]
+    if briefe:
+        teile.append(f"davon {briefe} nicht per Mail")
+    if serie.ausgelassen:
+        teile.append(f"{len(serie.ausgelassen)} ausgelassen")
+    messages.success(request, " · ".join(teile) + ". Bitte prüfen und senden.")
+    return redirect("dokumente:serie", serie=serie.kennung)
 
 
 @login_required

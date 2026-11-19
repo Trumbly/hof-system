@@ -64,8 +64,19 @@ class SerieForm(forms.Form):
         choices=[("", "wie in der Vorlagenart"), *Versandweg.TITEL.items()],
         required=False,
     )
+    ohne_mail = forms.ChoiceField(
+        label="Wer keine E-Mail-Adresse hat",
+        choices=[("brief", "bekommt einen Brief"), ("auslassen", "wird ausgelassen")],
+        initial="brief",
+        widget=forms.RadioSelect,
+        help_text="Gilt nur, wenn die Serie per Mail geht. In der Vorschau lässt sich jeder "
+        "Empfänger einzeln umstellen.",
+    )
     auswahl = forms.MultipleChoiceField(
-        label="Auswahl", widget=forms.CheckboxSelectMultiple, choices=()
+        label="Auswahl",
+        widget=forms.CheckboxSelectMultiple,
+        choices=(),
+        error_messages={"required": "Bitte mindestens einen Empfänger auswählen."},
     )
 
     def __init__(self, *args: Any, wahl: list[tuple[str, str]], **kwargs: Any) -> None:

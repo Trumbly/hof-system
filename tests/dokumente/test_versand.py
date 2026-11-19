@@ -8,6 +8,8 @@ import datetime
 import email
 import hashlib
 import json
+import smtplib
+import socket
 from typing import Any
 
 import pytest
@@ -183,15 +185,23 @@ def test_fehlt_die_kopie_ist_die_mail_trotzdem_gesendet_mit_arbeitsposten(
     assert posten.bezug == schreiben
 
 
+def _freier_port() -> int:
+    """Ein Port, auf dem niemand lauscht (Verbindung wird abgelehnt)."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
+
 def test_scheitert_smtp_bleibt_das_schreiben_bereit(
-    angemeldet: Client, mitteilung: Vorlage, objekt: Objekt, monkeypatch: pytest.MonkeyPatch
+    angemeldet: Client, mitteilung: Vorlage, objekt: Objekt, settings: Any
 ) -> None:
-    """Schritt 3c, Aufgabe 4: Scheitert der Versand, bleibt das Schreiben „bereit“."""
-
-    def scheitern(self: versand.DjangoMailClient, nachricht: Any) -> None:
-        raise versand.VersandFehler("SMTP: ConnectionRefusedError")
-
-    monkeypatch.setattr(versand.DjangoMailClient, "senden", scheitern)
+    """Review 2, A9: Ist der Mailserver nicht erreichbar (echte SMTP-Verbindung, abgelehnt),
+    sagt die Seite „Mailserver nicht erreichbar, Schreiben bleibt bereit“, und das Schreiben
+    bleibt „bereit“ (Schritt 3c, Aufgabe 4)."""
+    settings.EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    settings.EMAIL_HOST = "127.0.0.1"
+    settings.EMAIL_PORT = _freier_port()
+    settings.EMAIL_TIMEOUT = 2
     schreiben = services.schreiben_erzeugen(mitteilung, objekt, kontext(objekt), Versandweg.MAIL)
 
     antwort = angemeldet.post(
@@ -200,10 +210,39 @@ def test_scheitert_smtp_bleibt_das_schreiben_bereit(
         follow=True,
     )
 
-    assert "Nicht gesendet: SMTP: ConnectionRefusedError" in antwort.content.decode()
+    html = antwort.content.decode()
+    assert "Mailserver nicht erreichbar, Schreiben bleibt bereit." in html
+    assert "ConnectionRefusedError" not in html
     schreiben.refresh_from_db()
     assert schreiben.status == Schreiben.Status.BEREIT
     assert FakeImapClient.gesendet == []
+
+
+def test_lehnt_der_mailserver_ab_bleibt_das_schreiben_bereit(
+    angemeldet: Client, mitteilung: Vorlage, objekt: Objekt, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 2, A9: Lehnt ein erreichbarer Mailserver die Mail ab, sagt die Seite das in
+    einem Satz; das Schreiben bleibt „bereit“."""
+
+    class Ablehnend:
+        def __init__(self, **_: Any) -> None:
+            pass
+
+        def send_messages(self, _: Any) -> int:
+            raise smtplib.SMTPRecipientsRefused({})
+
+    monkeypatch.setattr(versand, "get_connection", lambda **kw: Ablehnend(**kw))
+    schreiben = services.schreiben_erzeugen(mitteilung, objekt, kontext(objekt), Versandweg.MAIL)
+
+    antwort = angemeldet.post(
+        reverse("dokumente:schreiben_senden", args=[schreiben.pk]),
+        {"pruefsumme": schreiben.pdf_sha256},
+        follow=True,
+    )
+
+    assert "Der Mailserver hat die Mail abgelehnt" in antwort.content.decode()
+    schreiben.refresh_from_db()
+    assert schreiben.status == Schreiben.Status.BEREIT
 
 
 def test_brief_als_einwurf_einschreiben_ueber_letterxpress_fake(

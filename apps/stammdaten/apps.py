@@ -21,3 +21,8 @@ class StammdatenConfig(AppConfig):
         from apps.stammdaten import protokoll
 
         protokoll.registrieren()
+
+        # Verträge als Bezug der Serienmitteilung (Mitteilung an Nutzer).
+        from apps.stammdaten import schreiben
+
+        schreiben.vertrag_anmelden()

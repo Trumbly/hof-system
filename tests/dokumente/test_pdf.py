@@ -83,11 +83,11 @@ def test_dateiname_aus_art_datum_und_id_nie_aus_namen(mitteilung: Vorlage, objek
 def test_brief_braucht_anschrift_mail_braucht_adresse(mitteilung: Vorlage, objekt: Objekt) -> None:
     """Schritt 3c, Aufgabe 2: Je Versandweg müssen die Empfängerangaben da sein."""
     ohne_mail = kontext(objekt, email="")
-    with pytest.raises(services.SchreibenFehler, match="email"):
+    with pytest.raises(services.SchreibenFehler, match="E-Mail-Adresse des Empfängers"):
         services.schreiben_erzeugen(mitteilung, objekt, ohne_mail, Versandweg.MAIL)
     ohne_anschrift = kontext(objekt)
     ohne_anschrift["empfaenger"]["anschrift"] = ""
-    with pytest.raises(services.SchreibenFehler, match="anschrift"):
+    with pytest.raises(services.SchreibenFehler, match="Anschrift des Empfängers"):
         services.schreiben_erzeugen(
             mitteilung, objekt, ohne_anschrift, Versandweg.EINWURF_EINSCHREIBEN
         )

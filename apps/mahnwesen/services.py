@@ -56,6 +56,7 @@ from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten, Lauf
 from apps.mahnwesen import startdaten
 from apps.mahnwesen.models import Mahnfall, Mahnschritt, Mahnsperre, Mahnstufe
+from apps.soll import services as soll
 from apps.soll.models import Sollposten
 from apps.stammdaten import fristrechnung, konfiguration
 from apps.stammdaten import schreiben as stammdaten_schreiben
@@ -548,46 +549,55 @@ def schritt_von_hand_belegen(schritt: Mahnschritt, *, am: datetime.date, vermerk
 # --- Schreiben -----------------------------------------------------------------------
 
 
-def _posten_kontext(p: Sollposten) -> dict[str, Any]:
-    return {
-        "art": p.get_art_display(),
-        "monat": f"{p.von:%m/%Y}"
-        if (p.von.year, p.von.month) == (p.bis.year, p.bis.month)
-        else p.zeitraum_text,
-        "zeitraum": p.zeitraum_text,
-        "faellig_am": p.faellig_am,
-        "betrag": p.betrag,
-        "bezahlt": p.bezahlt,
-        "offen": p.offen,
-    }
+def pruefstichtag(stichtag: datetime.date) -> datetime.date:
+    """Bis wohin das Mahnwesen prüfen kann: Posten, die vor dem Stichtag und spätestens am
+    Bankdatenstand fällig waren (wie ``lagen``). Als ``stichtag`` für ``soll.offen``."""
+    datenstand = abgleich.bank_datenstand()
+    if datenstand is None:
+        return stichtag
+    return min(stichtag, datenstand + datetime.timedelta(days=1))
+
+
+def forderung(vertrag: Vertrag, stichtag: datetime.date) -> soll.Offen:
+    """Die offenen Posten eines Mahnschreibens: allein aus ``soll.offen`` (Review 1, Punkt 1;
+    Review 2, A2). Text und Tabelle lesen beide diese Werte, deshalb stimmt die Summe der
+    Tabelle immer mit dem Betrag im Text überein."""
+    return soll.offen(vertrag, pruefstichtag(stichtag))
 
 
 def kontext_mahnung(
     fall: Mahnfall, stufe: Mahnstufe, lage: Lage, stichtag: datetime.date
 ) -> dict[str, Any]:
     """Platzhalter eines Schreibens im Mahnwesen: Vertrag (wie die Stammdaten), Betrag,
-    Aufstellung je Posten, Frist, Stufe; bei der Kündigung die Fristen."""
+    Aufstellung je Posten, Frist, Stufe; bei der Kündigung die Fristen.
+
+    Betrag, Aufstellung und Zahl der offenen Monatsmieten kommen allein aus
+    ``soll.offen`` (``forderung``): je Posten ``soll``, ``bezahlt`` und ``offen``, dazu
+    ``forderung.summe_soll``, ``forderung.summe_bezahlt`` und ``forderung.summe`` (offen,
+    gleich ``betrag.offen``). Aus der ``lage`` kommt nur die Monatsmiete."""
     vertrag = fall.vertrag
     kontext = stammdaten_schreiben.kontext_vertrag(vertrag, stichtag)
     frist_bis = stichtag + datetime.timedelta(days=stufe.frist_tage)
+    stand = forderung(vertrag, stichtag)
+    brief = Lage(
+        vertrag=vertrag,
+        posten=[p.sollposten for p in stand.posten],
+        monatsmiete=lage.monatsmiete,
+    )
     kontext["betrag"] = {
         **kontext["betrag"],
-        "offen": lage.rueckstand,
-        "miete_offen": lage.rueckstand_miete,
-        "monatsmiete": lage.monatsmiete,
+        "offen": stand.summe_offen,
+        "miete_offen": brief.rueckstand_miete,
+        "monatsmiete": brief.monatsmiete,
     }
-    kontext["forderung"] = {
-        "posten": [_posten_kontext(p) for p in lage.posten],
-        "summe": lage.rueckstand,
-        "stichtag": stichtag,
-    }
+    kontext["forderung"] = {**stand.kontext(), "stichtag": stichtag}
     kontext["frist"] = {"tage": stufe.frist_tage, "bis": frist_bis}
     kontext["mahnung"] = {
         "stufe": stufe.titel,
         "schluessel": stufe.schluessel,
         "stichtag": stichtag,
-        "offene_monatsmieten": lage.offene_monatsmieten,
-        "rueckstand_monatsmieten": lage.rueckstand_in_monatsmieten,
+        "offene_monatsmieten": brief.offene_monatsmieten,
+        "rueckstand_monatsmieten": brief.rueckstand_in_monatsmieten,
         "fall": fall.pk,
     }
     if stufe.vorlagenart == "kuendigung":

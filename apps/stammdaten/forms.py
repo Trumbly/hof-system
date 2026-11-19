@@ -168,15 +168,73 @@ class UnterschriftForm(forms.Form):
 
 
 class KuendigungForm(forms.Form):
+    """Kündigungsdialog des Vertrags. Liegt der Wunschtermin vor dem Fristende, fragt das
+    Formular nach: Fristende oder Aufhebung zum Wunschtermin (Review 2, A11)."""
+
+    FRISTENDE = "fristende"
+    AUFHEBUNG = "aufhebung"
+
     zugang_am = forms.DateField(label="Zugang am", widget=Datum())
     von = forms.ChoiceField(choices=Kuendigung.Von.choices, label="gekündigt von")
+    zugangsweg = forms.ChoiceField(
+        choices=Kuendigung.Zugangsweg.choices, label="Zugangsweg", required=False
+    )
     zum_wunsch = forms.DateField(label="gewünschtes Ende", required=False, widget=Datum())
+    wunsch_wahl = forms.ChoiceField(
+        label="Wunschtermin vor dem Fristende",
+        required=False,
+        choices=(),
+        widget=forms.HiddenInput,
+    )
     rueckgabetermin = forms.DateField(
         label="Rückgabetermin",
         required=False,
         widget=Datum(),
         help_text="Leer: am letzten Tag des Vertrags.",
     )
+    anfrage = forms.IntegerField(required=False, widget=forms.HiddenInput)
+
+    def __init__(self, *args: Any, vertrag: Vertrag | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.vertrag = vertrag
+        self.fristende: Any = None
+        self._wahl_setzen(None, None)
+
+    def _wahl_setzen(self, ende: Any, wunsch: Any) -> None:
+        feld = self.fields["wunsch_wahl"]
+        if ende is None:
+            feld.choices = [(self.FRISTENDE, "Fristende"), (self.AUFHEBUNG, "Aufhebung")]  # type: ignore[attr-defined]
+            return
+        feld.widget = forms.RadioSelect()
+        feld.choices = [  # type: ignore[attr-defined]
+            (self.FRISTENDE, f"Fristende {ende:%d.%m.%Y}"),
+            (
+                self.AUFHEBUNG,
+                f"Aufhebung zum Wunschtermin {wunsch:%d.%m.%Y} (Vorlage Aufhebungsvertrag)",
+            ),
+        ]
+
+    def clean(self) -> dict[str, Any]:
+        from apps.stammdaten import services
+
+        daten: dict[str, Any] = super().clean() or {}
+        zugang, wunsch = daten.get("zugang_am"), daten.get("zum_wunsch")
+        if self.vertrag is None or zugang is None:
+            return daten
+        ende = services.wunsch_vor_fristende(self.vertrag, zugang, wunsch)
+        if ende is None:
+            daten["wunsch_wahl"] = ""
+            return daten
+        self.fristende = ende
+        self._wahl_setzen(ende, wunsch)
+        if daten.get("wunsch_wahl") not in (self.FRISTENDE, self.AUFHEBUNG):
+            self.add_error(
+                "wunsch_wahl",
+                f"Der Wunschtermin {wunsch:%d.%m.%Y} liegt vor dem Fristende "
+                f"{ende:%d.%m.%Y}. Bitte wählen: Kündigung zum Fristende oder Aufhebung "
+                "zum Wunschtermin.",
+            )
+        return daten
 
 
 class VertragsparteiForm(forms.Form):

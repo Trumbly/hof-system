@@ -33,6 +33,24 @@ BRIEFKOPF = """\
 </div>
 """
 
+#: Aufstellung der offenen Posten in Zahlungserinnerung und Mahnstufen (Review 2, A2): je
+#: Posten Soll, bezahlt und offen, darunter die Summen. ``forderung.summe`` ist derselbe
+#: Betrag wie ``betrag.offen`` im Text (beides aus ``soll.services.offen``).
+FORDERUNG_TABELLE = """\
+<table class="forderung">
+<thead><tr><th>Posten</th><th>fällig am</th><th class="zahl">Soll</th>\
+<th class="zahl">bezahlt</th><th class="zahl">offen</th></tr></thead>
+<tbody>
+{% for p in forderung.posten %}<tr><td>{{ p.art }} {{ p.monat }}</td>\
+<td>{{ p.faellig_am|datum }}</td><td class="zahl">{{ p.soll|euro }}</td>\
+<td class="zahl">{{ p.bezahlt|euro }}</td><td class="zahl">{{ p.offen|euro }}</td></tr>
+{% endfor %}</tbody>
+<tfoot><tr><td colspan="2">Summe</td><td class="zahl">{{ forderung.summe_soll|euro }}</td>\
+<td class="zahl">{{ forderung.summe_bezahlt|euro }}</td>\
+<td class="zahl">{{ forderung.summe|euro }}</td></tr></tfoot>
+</table>
+"""
+
 #: (Name, Art, Betreff, Text)
 VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
     ("Briefkopf Hof", "briefkopf", "", BRIEFKOPF),
@@ -64,12 +82,10 @@ informieren.</p>
         """\
 <p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
 <p>für den Vertrag {{ vertrag.nummer }} ({{ einheit.bezeichnung }}) ist ein Betrag von
-{{ betrag.offen|euro }} offen.</p>
-{% if forderung.posten %}<table>
-{% for p in forderung.posten %}
-<tr><td>{{ p.monat }}</td><td>{{ p.betrag|euro }}</td></tr>
-{% endfor %}
-</table>{% endif %}
+{{ betrag.offen|euro }} offen:</p>
+"""
+        + FORDERUNG_TABELLE
+        + """\
 <p>Bitte überweisen Sie den Betrag in den nächsten Tagen.</p>
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
 """,
@@ -123,13 +139,38 @@ zahlbar {{ kondition.zahlweise }}.</p>{% endif %}
         "Bestätigung Ihrer Kündigung, Vertrag {{ vertrag.nummer }}",
         """\
 <p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
-<p>Ihre Kündigung des Vertrags {{ vertrag.nummer }} über {{ einheit.bezeichnung }}
-({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} bei uns eingegangen.</p>
-<p>Das Mietverhältnis endet nach der vereinbarten Frist ({{ kuendigung.kuendigungsfrist }})
-am {{ kuendigung.fristende|datum }}.</p>
+{% if kuendigung.textform %}<p>Ihre Kündigung des Vertrags {{ vertrag.nummer }} über
+{{ einheit.bezeichnung }} ({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} über
+{{ kuendigung.zugangsweg }} bei uns eingegangen.</p>
+{% else %}<p>Ihre schriftliche Kündigung des Vertrags {{ vertrag.nummer }} über
+{{ einheit.bezeichnung }} ({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} bei
+uns eingegangen.</p>
+{% endif %}<p>Das Mietverhältnis endet nach der vereinbarten Frist
+({{ kuendigung.kuendigungsfrist }}) am {{ kuendigung.fristende|datum }}.</p>
 <p>Als Termin für die Rückgabe mit Protokoll und allen Schlüsseln schlagen wir den
 {{ kuendigung.rueckgabetermin|datum }} vor.</p>
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
+""",
+    ),
+    # Review 2, A11: Aufhebung zum Wunschtermin vor dem Fristende.
+    (
+        "Aufhebungsvertrag",
+        "aufhebungsvertrag",
+        "Aufhebungsvertrag zum Vertrag {{ vertrag.nummer }}",
+        """\
+<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>Ihre Kündigung des Vertrags {{ vertrag.nummer }} über {{ einheit.bezeichnung }}
+({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} bei uns eingegangen. Nach der
+vereinbarten Frist ({{ kuendigung.kuendigungsfrist }}) endet der Vertrag am
+{{ aufhebung.fristende_ordentlich|datum }}.</p>
+<p>Sie wünschen ein Ende zum {{ kuendigung.zum_wunsch|datum }}. Dazu schlagen wir vor, den
+Vertrag einvernehmlich zum {{ aufhebung.zum|datum }} aufzuheben. Die Rückgabe mit Protokoll
+und allen Schlüsseln ist am {{ aufhebung.rueckgabetermin|datum }}.</p>
+<p>Die Aufhebung gilt, wenn beide Seiten diesen Aufhebungsvertrag unterschrieben haben.
+Bitte senden Sie uns ein unterschriebenes Exemplar zurück.</p>
+<p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
+<p>Einverstanden:</p>
+<p>________________________ (Vermieter) &nbsp; ________________________ (Mieter)</p>
 """,
     ),
     (

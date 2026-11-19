@@ -143,6 +143,12 @@ VORLAGENARTEN: tuple[Vorlagenart, ...] = (
         "Kündigungsbestätigung",
         platzhalter=(*_VERTRAG, *_STAMMDATEN, "kuendigung"),
     ),
+    # Review 2, A11: Wunschtermin vor dem Fristende, beide Seiten unterschreiben.
+    Vorlagenart(
+        "aufhebungsvertrag",
+        "Aufhebungsvertrag",
+        platzhalter=(*_VERTRAG, *_STAMMDATEN, "kuendigung", "aufhebung"),
+    ),
     # Stammdaten (Schritt 4): Kautionsabrechnung, Übergabe- und Rückgabeprotokoll
     Vorlagenart(
         "kautionsabrechnung",

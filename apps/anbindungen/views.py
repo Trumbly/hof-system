@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Abweichung, Buchungsanfrage, Einheitbild, Kennzahl
-from apps.stammdaten.models import Einheit, Vertrag
+from apps.stammdaten.models import Einheit, Kuendigung, Vertrag
 
 ANZAHL_BEHOBEN = 50
 
@@ -58,10 +58,37 @@ def anfragen(request: HttpRequest) -> HttpResponse:
 class EntscheidungFormular(forms.Form):
     status = forms.ChoiceField(choices=Buchungsanfrage.Status.choices)
     vertrag = forms.ModelChoiceField(queryset=Vertrag.objects.none(), required=False)
+    kuendigung = forms.ModelChoiceField(queryset=Kuendigung.objects.none(), required=False)
 
     def __init__(self, *args: object, anfrage: Buchungsanfrage, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self.fields["vertrag"].queryset = anfrage.einheit.vertraege.order_by("-beginn")  # type: ignore[attr-defined]
+        self.fields["kuendigung"].queryset = Kuendigung.objects.filter(  # type: ignore[attr-defined]
+            vertrag__einheiten=anfrage.einheit
+        )
+
+
+def _kuendigung_angebote(anfrage: Buchungsanfrage) -> dict[str, object]:
+    """Was die Seite einer Website-Kündigung anbietet (Review 2, A3): „Kündigung anlegen“ je
+    passendem Vertrag (mit Hinweisen, wenn der Absender abweicht), und bereits erfasste
+    Kündigungen dieser Einheit zum Verknüpfen."""
+    if anfrage.art != Buchungsanfrage.Art.KUENDIGUNG or anfrage.status not in services.NOCH_OFFEN:
+        return {}
+    vorschlag = services.kuendigung_vorschlag(anfrage)
+    anlegen = [
+        {
+            "vertrag": v,
+            "url": reverse("stammdaten:vertrag", args=[v.pk]) + f"?anfrage={anfrage.pk}#kuendigung",
+            "abweichungen": services.absender_abweichungen(anfrage, v),
+        }
+        for v in services.vertraege_zur_kuendigung(anfrage)
+    ]
+    erfasst = list(
+        Kuendigung.objects.filter(vertrag__einheiten=anfrage.einheit)
+        .select_related("vertrag")
+        .order_by("-zugang_am", "-pk")
+    )
+    return {"kuendigung_anlegen": anlegen, "kuendigungen_erfasst": erfasst, "vorschlag": vorschlag}
 
 
 @login_required
@@ -75,6 +102,7 @@ def anfrage(request: HttpRequest, pk: int) -> HttpResponse:
                     eintrag,
                     formular.cleaned_data["status"],
                     vertrag=formular.cleaned_data["vertrag"],
+                    kuendigung=formular.cleaned_data["kuendigung"],
                 )
             except services.AnbindungFehler as fehler:
                 messages.error(request, str(fehler))
@@ -83,20 +111,24 @@ def anfrage(request: HttpRequest, pk: int) -> HttpResponse:
                     request, f"Buchungsanfrage #{eintrag.pk}: {eintrag.get_status_display()}."
                 )
         else:
-            messages.error(request, "Entscheidung ungültig.")
+            messages.error(request, "Die Entscheidung ließ sich nicht lesen. Bitte erneut wählen.")
         return redirect("anbindungen:anfrage", pk=eintrag.pk)
     titel = dict(Buchungsanfrage.Status.choices)
+    entscheidungen = list(services.entscheidungen(eintrag))
     if eintrag.art == Buchungsanfrage.Art.KUENDIGUNG:
-        titel[Buchungsanfrage.Status.ERLEDIGT] = "Kündigung erfasst"
+        # „Erledigt“ gibt es nur über „Kündigung anlegen“ oder das Verknüpfen einer schon
+        # erfassten Kündigung (Review 2, A3).
+        entscheidungen = [s for s in entscheidungen if s != Buchungsanfrage.Status.ERLEDIGT]
     vertraege = list(eintrag.einheit.vertraege.order_by("-beginn"))
     return render(
         request,
         "anbindungen/anfrage.html",
         {
             "anfrage": eintrag,
-            "entscheidungen": [(s, titel[s]) for s in services.entscheidungen(eintrag)],
+            "entscheidungen": [(s, titel[s]) for s in entscheidungen],
             "vertraege": vertraege,
             "buchbar_ab": services.buchbar_ab(eintrag.einheit, timezone.localdate()),
+            **_kuendigung_angebote(eintrag),
         },
     )
 

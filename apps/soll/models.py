@@ -67,7 +67,7 @@ class Sollposten(ProtokolliertesModell):
         "Bezeichnung",
         max_length=200,
         blank=True,
-        help_text="Nur bei Posten von Hand, z. B. „Ersatz Handsender“. Keine Namen.",
+        help_text="Nur bei Posten von Hand, z. B. „Ersatz Handsender“.",
     )
     storniert_am = models.DateField("storniert am", null=True, blank=True)
     storno_grund = models.CharField("Grund des Stornos", max_length=200, blank=True)

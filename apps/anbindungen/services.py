@@ -47,7 +47,15 @@ from apps.anbindungen.verwaltio import VerwaltioClient, VerwaltioFehler
 from apps.anbindungen.website import WebsiteClient, WebsiteEinheit
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten, Lauf
-from apps.stammdaten.models import Einheit, EinheitStatus, Vertrag
+from apps.stammdaten import services as stammdaten
+from apps.stammdaten.models import (
+    Einheit,
+    EinheitStatus,
+    Kontaktweg,
+    Kuendigung,
+    Vertrag,
+    Vertragspartei,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -455,6 +463,7 @@ def buchungsanfrage_entscheiden(
     status: str,
     *,
     vertrag: Vertrag | None = None,
+    kuendigung: Kuendigung | None = None,
     am: datetime.datetime | None = None,
 ) -> Buchungsanfrage:
     """Entscheidet über eine Anfrage: angenommen, abgelehnt, Vertrag angelegt (Buchung) oder
@@ -464,12 +473,26 @@ def buchungsanfrage_entscheiden(
       Arbeitsposten bleibt offen.
     - Jede andere Entscheidung schließt den Arbeitsposten.
     - „Vertrag angelegt“ braucht den Vertrag; er muss die Einheit der Anfrage umfassen.
+    - „erledigt“ (Kündigung) braucht die erfasste Kündigung eines Vertrags dieser Einheit
+      (Review 2, A3): Ohne sie ginge die Kündigung verloren.
     """
     if status not in entscheidungen(anfrage):
         raise AnbindungFehler(
             f"Buchungsanfrage #{anfrage.pk}: „{status}“ ist im Status „{anfrage.status}“ "
             "nicht möglich."
         )
+    if anfrage.art == Buchungsanfrage.Art.KUENDIGUNG and status == Buchungsanfrage.Status.ERLEDIGT:
+        if kuendigung is None:
+            raise AnbindungFehler(
+                f"Buchungsanfrage #{anfrage.pk}: Erledigt ist die Kündigung erst, wenn sie am "
+                "Vertrag erfasst ist („Kündigung anlegen“)."
+            )
+        if not kuendigung.vertrag.vertragseinheiten.filter(einheit=anfrage.einheit).exists():
+            raise AnbindungFehler(
+                f"Kündigung #{kuendigung.pk} gehört nicht zu Einheit {anfrage.einheit.nw_id}."
+            )
+        anfrage.kuendigung = kuendigung
+        anfrage.vertrag = kuendigung.vertrag
     if status == Buchungsanfrage.Status.VERTRAG_ANGELEGT:
         if vertrag is None:
             raise AnbindungFehler(f"Buchungsanfrage #{anfrage.pk}: Vertrag fehlt.")
@@ -486,6 +509,129 @@ def buchungsanfrage_entscheiden(
             _posten_schliessen(ART_BUCHUNGSANFRAGE, anfrage)
     logger.info("Buchungsanfrage #%s: %s", anfrage.pk, status)
     return anfrage
+
+
+def kuendigung_aus_anfrage(
+    anfrage: Buchungsanfrage,
+    vertrag: Vertrag,
+    zugang_am: datetime.date,
+    *,
+    von: str = Kuendigung.Von.MIETER,
+    zum_wunsch: datetime.date | None = None,
+    rueckgabetermin: datetime.date | None = None,
+    zugangsweg: str = Kuendigung.Zugangsweg.WEBSITE,
+    aufhebung: bool = False,
+) -> Kuendigung:
+    """Erfasst die Kündigung einer Website-Anfrage am Vertrag und erledigt die Anfrage
+    (Review 2, A3). Beides in einer Transaktion: Scheitert die Kündigung, bleibt die Anfrage
+    offen. Fristen, Bestätigung und Soll entstehen wie bei jeder Kündigung
+    (``stammdaten.services.kuendigung_erfassen``)."""
+    if anfrage.art != Buchungsanfrage.Art.KUENDIGUNG:
+        raise AnbindungFehler(f"Buchungsanfrage #{anfrage.pk} ist keine Kündigung.")
+    if anfrage.status not in NOCH_OFFEN:
+        raise AnbindungFehler(f"Buchungsanfrage #{anfrage.pk} ist schon entschieden.")
+    if not vertrag.vertragseinheiten.filter(einheit=anfrage.einheit).exists():
+        raise AnbindungFehler(
+            f"Vertrag {vertrag.nummer} umfasst Einheit {anfrage.einheit.nw_id} nicht."
+        )
+    with transaction.atomic():
+        kuendigung = stammdaten.kuendigung_erfassen(
+            vertrag,
+            zugang_am,
+            von=von,
+            zum_wunsch=zum_wunsch,
+            rueckgabetermin=rueckgabetermin,
+            zugangsweg=zugangsweg,
+            aufhebung=aufhebung,
+        )
+        buchungsanfrage_entscheiden(anfrage, Buchungsanfrage.Status.ERLEDIGT, kuendigung=kuendigung)
+    return kuendigung
+
+
+def kuendigung_vorschlag(anfrage: Buchungsanfrage) -> dict[str, object]:
+    """Vorbelegung des Kündigungsdialogs aus einer Website-Anfrage (Review 2, A3): Zugang am
+    Meldedatum, gekündigt vom Mieter, Wunschtermin, Zugangsweg Website-Formular."""
+    return {
+        "zugang_am": timezone.localtime(anfrage.gemeldet_am).date(),
+        "von": Kuendigung.Von.MIETER,
+        "zum_wunsch": anfrage.wunsch_ab,
+        "zugangsweg": Kuendigung.Zugangsweg.WEBSITE,
+        "anfrage": anfrage.pk,
+    }
+
+
+def vertraege_zur_kuendigung(anfrage: Buchungsanfrage) -> list[Vertrag]:
+    """Welche Verträge eine Website-Kündigung meinen kann: der zur angegebenen Nummer, sonst
+    die aktiven Verträge der Einheit."""
+    if anfrage.vertrag is not None and anfrage.vertrag.status == Vertrag.Status.AKTIV:
+        return [anfrage.vertrag]
+    return list(anfrage.einheit.vertraege.filter(status=Vertrag.Status.AKTIV).order_by("nummer"))
+
+
+def _vergleichbar(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def absender_abweichungen(anfrage: Buchungsanfrage, vertrag: Vertrag) -> list[str]:
+    """Wo der Absender einer Website-Anfrage nicht zur Vertragspartei passt, als Sätze für
+    Max' Oberfläche (Review 2, A3). Nennt Namen und Adressen: nie in Logs, Lauf-Meldungen oder
+    Hinweise von Arbeitsposten schreiben."""
+    mieter = [
+        vp.partei
+        for vp in vertrag.vertragsparteien.select_related("partei")
+        if vp.rolle == Vertragspartei.Rolle.MIETER
+    ]
+    namen = [m.anzeigename for m in mieter]
+    mails = [
+        k.wert
+        for m in mieter
+        for k in m.kontaktwege.filter(art=Kontaktweg.Art.EMAIL).order_by("pk")
+    ]
+    saetze: list[str] = []
+    if anfrage.kontakt_name and _vergleichbar(anfrage.kontakt_name) not in {
+        _vergleichbar(n) for n in namen
+    }:
+        saetze.append(
+            f"Der Absender „{anfrage.kontakt_name}“ steht nicht als Mieter am Vertrag "
+            f"{vertrag.nummer} (Mieter: {', '.join(namen) or 'keiner'})."
+        )
+    if anfrage.kontakt_email and _vergleichbar(anfrage.kontakt_email) not in {
+        _vergleichbar(m) for m in mails
+    }:
+        saetze.append(
+            f"Die E-Mail-Adresse „{anfrage.kontakt_email}“ gehört zu keinem Mieter des "
+            f"Vertrags {vertrag.nummer} (bekannt: {', '.join(mails) or 'keine'})."
+        )
+    return saetze
+
+
+def angenommene_anfrage(einheit: Einheit) -> Buchungsanfrage | None:
+    """Die angenommene Buchungsanfrage einer Einheit, die noch auf ihren Vertrag wartet
+    (Review 2, A11)."""
+    return (
+        Buchungsanfrage.objects.filter(
+            einheit=einheit,
+            art=Buchungsanfrage.Art.BUCHUNG,
+            status=Buchungsanfrage.Status.ANGENOMMEN,
+        )
+        .order_by("entschieden_am", "pk")
+        .first()
+    )
+
+
+def vertrag_zur_anfrage(vertrag: Vertrag) -> Buchungsanfrage | None:
+    """Verknüpft einen neu angelegten Vertrag mit der angenommenen Buchungsanfrage seiner
+    Einheit (Status „Vertrag angelegt“, Arbeitsposten erledigt). Ohne solche Anfrage: nichts.
+
+    Review 2, A11: So finden Anfrage und Vertrag zusammen, egal von welcher Seite der Vertrag
+    angelegt wurde (Anfrage, Einheitenseite, „Neuer Vertrag“)."""
+    for einheit in vertrag.einheiten.order_by("nw_id"):
+        anfrage = angenommene_anfrage(einheit)
+        if anfrage is not None:
+            return buchungsanfrage_entscheiden(
+                anfrage, Buchungsanfrage.Status.VERTRAG_ANGELEGT, vertrag=vertrag
+            )
+    return None
 
 
 def buchungsanfrage_zum_posten(posten: Arbeitsposten) -> Buchungsanfrage:

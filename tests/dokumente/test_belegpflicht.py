@@ -79,7 +79,12 @@ def test_buchungen_ohne_beleg_sind_ein_hinweis_und_blockieren_nicht(
     assert posten.bezug == ergebnis.abschluss
     assert f"2 Buchungen ohne Beleg (#{ohne[0]}, #{ohne[1]})" in posten.hinweis
     assert "der Abschluss geht trotzdem" in posten.hinweis
-    assert "80" not in posten.hinweis.replace(f"#{ohne[0]}", "").replace(f"#{ohne[1]}", "")
+    # Kein Betrag im Hinweis (80,00 €). IDs ausblenden, auch die des Mandanten: Sonst hängt
+    # das Ergebnis davon ab, wie viele Mandanten frühere Tests angelegt haben (#280).
+    ohne_ids = posten.hinweis
+    for kennung in (*ohne, belegwelt.gbr.pk):
+        ohne_ids = ohne_ids.replace(f"#{kennung}", "")
+    assert "80" not in ohne_ids
     assert "ohne Beleg" in ergebnis.pruefung.hinweis()
 
 
