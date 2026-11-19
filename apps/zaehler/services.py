@@ -34,6 +34,7 @@ from django.utils import timezone
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
 from apps.kern import services as kern
+from apps.kern import zahlen
 from apps.kern.models import Arbeitsposten, Lauf, Objekt
 from apps.stammdaten.models import Einheit, Uebergabe
 from apps.zaehler import konfiguration
@@ -56,6 +57,11 @@ class ZaehlerFehler(Exception):
 
 class StandUnplausibel(ZaehlerFehler):
     """Der Stand passt nicht zu den Ständen davor oder danach (z. B. kleiner als der letzte)."""
+
+
+def _deutsch(stand: Decimal) -> str:
+    """Stand für Meldungen im deutschen Format: ``8787.900`` → „8.787,9“."""
+    return zahlen.zahl(stand_text(stand))
 
 
 def _heute() -> datetime.date:
@@ -446,14 +452,14 @@ def _pruefen(
     danach = staende.filter(datum__gt=datum).order_by("datum", "pk").first()
     if davor is not None and stand < davor.stand:
         raise StandUnplausibel(
-            f"Zähler {zaehler.nummer}: {stand_text(stand)} ist kleiner als der letzte Stand "
-            f"{davor.stand_text} vom {davor.datum:%d.%m.%Y}. Wurde der Zähler gewechselt? "
+            f"Zähler {zaehler.nummer}: {_deutsch(stand)} ist kleiner als der letzte Stand "
+            f"{_deutsch(davor.stand)} vom {davor.datum:%d.%m.%Y}. Wurde der Zähler gewechselt? "
             "Dann bitte den Zählerwechsel erfassen."
         )
     if danach is not None and stand > danach.stand:
         raise StandUnplausibel(
-            f"Zähler {zaehler.nummer}: {stand_text(stand)} ist größer als der spätere Stand "
-            f"{danach.stand_text} vom {danach.datum:%d.%m.%Y}."
+            f"Zähler {zaehler.nummer}: {_deutsch(stand)} ist größer als der spätere Stand "
+            f"{_deutsch(danach.stand)} vom {danach.datum:%d.%m.%Y}."
         )
     if art == Zaehlerstand.Art.EINBAU and davor is not None:
         raise ZaehlerFehler(f"Zähler {zaehler.nummer}: Der Einbaustand muss der erste sein.")

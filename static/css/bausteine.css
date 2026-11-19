@@ -2168,41 +2168,6 @@ dialog.dialog[open] {
 }
 
 .suche-eintrag-titel {
-
-/* --- Filterleiste (R2-9): Felder nebeneinander über einer Liste ----------------------------
-   <form class="filterleiste">{% feld f.suche %}…<div class="filterleiste-knoepfe">…</div></form>
-   Am Desktop eine Zeile, am Handy brechen die Felder um; der Knopf steht unten. */
-
-.filterleiste {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--a3);
-  margin: 0 0 var(--a4);
-}
-
-.filterleiste > .feld {
-  flex: 1 1 150px;
-}
-
-.filterleiste > .feld-breit {
-  flex: 3 1 260px;
-}
-
-.filterleiste-knoepfe {
-  display: flex;
-  gap: var(--a2);
-}
-
-/* Filter sind immer freiwillig: kein „optional“ an jedem Feld. Dasselbe für Formulare, in
-   denen jedes Feld freiwillig ist (z. B. die Ablesung: leere Felder bleiben unverändert). */
-.filterleiste .feld-optional,
-.ohne-optional .feld-optional {
-  display: none;
-}
-
-/* Aktiver Filter als Zeile über der Liste: „Nur Vorgänge zu V-0005 · alle zeigen“ */
-.filter-aktiv {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2328,6 +2293,44 @@ dialog.dialog[open] {
   box-shadow: none;
 }
 
+/* --- Filterleiste (R2-9): Felder nebeneinander über einer Liste ----------------------------
+   <form class="filterleiste">{% feld f.suche %}…<div class="filterleiste-knoepfe">…</div></form>
+   Am Desktop eine Zeile, am Handy brechen die Felder um; der Knopf steht unten. */
+
+.filterleiste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--a3);
+  margin: 0 0 var(--a4);
+}
+
+.filterleiste > .feld {
+  flex: 1 1 150px;
+}
+
+.filterleiste > .feld-breit {
+  flex: 3 1 260px;
+}
+
+.filterleiste-knoepfe {
+  display: flex;
+  gap: var(--a2);
+}
+
+/* Filter sind immer freiwillig: kein „optional“ an jedem Feld. Dasselbe für Formulare, in
+   denen jedes Feld freiwillig ist (z. B. die Ablesung: leere Felder bleiben unverändert). */
+.filterleiste .feld-optional,
+.ohne-optional .feld-optional {
+  display: none;
+}
+
+/* Aktiver Filter als Zeile über der Liste: „Nur Vorgänge zu V-0005 · alle zeigen“ */
+.filter-aktiv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
   margin: 0 0 var(--a4);
   color: var(--text-2);
 }
