@@ -33,7 +33,7 @@ from apps.dokumente.models import Beleg, Dokument, Eingangsrechnung, Lieferant
 from testhof import register
 from testhof.aufbau import Kontext
 from testhof.kassenbuch import AUSGABE_KATEGORIE
-from testhof.pdfs import einfaches_pdf
+from testhof.pdfs import einfaches_pdf, rechnung_pdf
 
 NAME = "belege"
 
@@ -65,16 +65,15 @@ def _art(umsatz: Bankumsatz) -> str | None:
 
 
 def _rechnung_pdf(lieferant: Lieferant, umsatz: Bankumsatz, datum: datetime.date) -> bytes:
-    nummer = umsatz.verwendungszweck.rsplit(" ", 1)[-1]
-    return einfaches_pdf(
-        [
-            lieferant.name,
-            "Rechnung (erfunden, Testhof)",
-            f"Rechnungsnummer {nummer}",
-            f"Datum {datum:%d.%m.%Y}",
-            f"Leistung: {umsatz.verwendungszweck.rsplit(' Rechnung', 1)[0]}",
-            f"Betrag {umsatz.betrag:.2f} EUR",
-        ]
+    """Rechnung mit Textschicht (Review 2, B9): Nummer, Datum, Leistung, Gesamtbetrag, IBAN."""
+    return rechnung_pdf(
+        lieferant=lieferant.name,
+        nummer=umsatz.verwendungszweck.rsplit(" ", 1)[-1],
+        datum=datum,
+        betrag=umsatz.betrag,
+        leistung=umsatz.verwendungszweck.rsplit(" Rechnung", 1)[0],
+        iban=lieferant.iban,
+        email=lieferant.email,
     )
 
 
@@ -201,13 +200,12 @@ def aufbauen(kontext: Kontext) -> BelegeDaten:
     datum = kontext.stichtag - datetime.timedelta(days=3)
     nummer = "TH-2026-0815"
     ablage = services.dokument_ablegen(
-        einfaches_pdf(
-            [
-                zahlen.name,
-                "Rechnung (erfunden, Testhof)",
-                f"Rechnungsnummer {nummer}",
-                f"Betrag {OFFENE_RECHNUNG_BETRAG:.2f} EUR",
-            ]
+        rechnung_pdf(
+            lieferant=zahlen.name,
+            nummer=nummer,
+            datum=datum,
+            betrag=OFFENE_RECHNUNG_BETRAG,
+            iban=zahlen.iban,
         ),
         art=dokumentarten.BELEG,
         datum=datum,

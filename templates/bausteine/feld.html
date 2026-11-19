@@ -8,7 +8,7 @@
 {% else %}
 <div class="feld{% if feld.errors %} feld-fehlerhaft{% endif %}{% if breit %} feld-breit{% endif %}">
   <label class="feld-label" for="{{ feld.id_for_label }}">{{ feld.label }}{% if not feld.field.required %} <span class="feld-optional">optional</span>{% endif %}</label>
-  {% if optionen %}<div class="feld-optionen">{{ eingabe }}</div>{% else %}{{ eingabe }}{% endif %}
+  {% if optionen %}<div class="feld-optionen">{{ eingabe }}</div>{% elif gruppe %}<div class="feld-mehrteilig">{{ eingabe }}</div>{% else %}{{ eingabe }}{% endif %}
   {% if feld.errors %}<p class="feld-fehler" id="{{ feld.auto_id }}-fehler">{{ feld.errors|join:" " }}</p>{% endif %}
   {% if feld.help_text %}<p class="feld-hilfe" id="{{ feld.auto_id }}-hilfe">{{ feld.help_text }}</p>{% endif %}
 </div>

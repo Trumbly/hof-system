@@ -1,51 +1,112 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Belegmappe{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Belegmappe</h1>
-<p class="leise">Je Objekt und Leistungsjahr: Inhaltsverzeichnis, Summen je Kostenart im Vergleich zum Kassenbuch, dahinter die Belege.</p>
-<form method="get" class="formular">
-  {{ form.as_p }}
-  <button type="submit">Prüfen</button>
+{% seitenkopf "Belegmappe" "Je Objekt und Leistungsjahr: Inhaltsverzeichnis, Summen je Kostenart im Vergleich zum Kassenbuch, dahinter die Belege" %}
+  {% if mappe %}<a class="knopf knopf-primaer" href="{% url 'dokumente:belegmappe_pdf' %}?objekt={{ mappe.objekt.pk }}&amp;jahr={{ mappe.jahr }}" target="_blank" rel="noopener">Belegmappe als PDF</a>{% endif %}
+{% endseitenkopf %}
+
+<form method="get" class="filterleiste">
+  {% feld form.objekt %}
+  {% feld form.jahr %}
+  <button type="submit" class="knopf knopf-zweit">Prüfen</button>
 </form>
 
 {% if mappe %}
-<section class="gruppe">
-  <h2>{{ mappe.objekt.kuerzel }} · {{ mappe.jahr }} <span class="zahl">{{ mappe.zeilen|length }}</span></h2>
+<div class="stapel" id="belegmappe">
   {% if hinweise %}
-  <div class="meldung meldung-warning" role="status">
-    <p>Abweichungen zum Kassenbuch (stehen auch vorn in der Mappe):</p>
-    <ul>{% for h in hinweise %}<li>{{ h }}</li>{% endfor %}</ul>
-  </div>
+  <p class="hinweis-band hinweis-warnung" role="status">Abweichungen zum Kassenbuch: {{ hinweise|length }}. Sie stehen auch vorn in der Mappe.</p>
   {% else %}
-  <p class="meldung" role="status">Die Summen stimmen mit dem Kassenbuch.</p>
+  <p class="hinweis-band" role="status">Die Summen stimmen mit dem Kassenbuch.</p>
   {% endif %}
-  <div class="tabelle-rahmen">
-  <table>
-    <thead><tr><th>Kostenart</th><th>Belege</th><th>Kassenbuch</th><th>umlagefähig</th></tr></thead>
-    <tbody>
-      {% for k in mappe.kostenarten %}
-      <tr>
-        <td data-titel="Kostenart">{{ k.name }}</td>
-        <td data-titel="Belege">{{ k.belege|floatformat:"2g" }} €</td>
-        <td data-titel="Kassenbuch">{{ k.kassenbuch|floatformat:"2g" }} €</td>
-        <td data-titel="umlagefähig">{{ k.umlagefaehig|floatformat:"2g" }} €</td>
-      </tr>
-      {% endfor %}
-      <tr>
-        <td data-titel="Kostenart"><strong>Summe</strong></td>
-        <td data-titel="Belege"><strong>{{ mappe.summe_belege|floatformat:"2g" }} €</strong></td>
-        <td data-titel="Kassenbuch"><strong>{{ mappe.summe_kassenbuch|floatformat:"2g" }} €</strong></td>
-        <td data-titel="umlagefähig"><strong>{{ mappe.summe_umlagefaehig|floatformat:"2g" }} €</strong></td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-  <div class="aktionen">
-    <a class="knopf" href="{% url 'dokumente:belegmappe_pdf' %}?objekt={{ mappe.objekt.pk }}&amp;jahr={{ mappe.jahr }}" target="_blank" rel="noopener">Belegmappe als PDF</a>
-  </div>
-</section>
+
+  {% karte "Summen je Kostenart" zahl=mappe.zeilen|length %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Kostenart</th><th class="zahl">Belege</th><th class="zahl">Kassenbuch</th><th class="zahl">Differenz</th><th class="zahl">umlagefähig</th></tr></thead>
+      <tbody>
+        {% for k in mappe.kostenarten %}
+        <tr{% if not k.stimmt %} class="zeile-markiert"{% endif %}>
+          <td data-titel="Kostenart">{{ k.name }}</td>
+          <td data-titel="Belege" class="zahl">{{ k.belege|euro }}</td>
+          <td data-titel="Kassenbuch" class="zahl">{{ k.kassenbuch|euro }}</td>
+          <td data-titel="Differenz" class="zahl">{% if k.stimmt %}–{% else %}{{ k.differenz|euro }}{% endif %}</td>
+          <td data-titel="umlagefähig" class="zahl">{{ k.umlagefaehig|euro }}</td>
+        </tr>
+        {% empty %}{% include "bausteine/leer.html" with spalten=5 text="Keine Belege und Buchungen für dieses Objekt und Jahr." %}{% endfor %}
+      </tbody>
+      {% if mappe.kostenarten %}
+      <tfoot><tr><td>Summe</td><td class="zahl">{{ mappe.summe_belege|euro }}</td><td class="zahl">{{ mappe.summe_kassenbuch|euro }}</td><td></td><td class="zahl">{{ mappe.summe_umlagefaehig|euro }}</td></tr></tfoot>
+      {% endif %}
+    </table>
+    </div>
+  {% endkarte %}
+
+  {% if ohne_beleg %}
+  {% karte "Buchungen ohne Beleg" zahl=ohne_beleg|length id="ohne-beleg" %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Datum</th><th>Gegenpartei</th><th>Kostenart</th><th class="zahl">Betrag</th><th class="eng"><span class="nur-leser">Aktion</span></th></tr></thead>
+      <tbody>
+        {% for b in ohne_beleg %}
+        <tr id="buchung-{{ b.pk }}">
+          <td data-titel="Datum"><a href="{% url 'kassenbuch:umsatz' b.umsatz_id %}">{{ b.datum|date:"d.m.Y" }}</a> <span class="text-3 klein">Buchung #{{ b.pk }}</span></td>
+          <td data-titel="Gegenpartei">{{ b.umsatz.gegenpartei|default:"–" }}</td>
+          <td data-titel="Kostenart">{{ b.kategorie.bezeichnung }}</td>
+          <td data-titel="Betrag" class="zahl">{{ b.betrag|euro }}</td>
+          <td class="eng"><a class="knopf knopf-zweit knopf-klein" href="?{{ parameter }}&amp;dialog=zuordnen&amp;buchung={{ b.pk }}" hx-get="?{{ parameter }}&amp;dialog=zuordnen&amp;buchung={{ b.pk }}" hx-target="#dialog-inhalt">Beleg zuordnen</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endkarte %}
+  {% endif %}
+
+  {% if ohne_buchung %}
+  {% karte "Belege ohne Buchung im Kassenbuch" zahl=ohne_buchung|length id="ohne-buchung" %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Beleg</th><th>Lieferant</th><th>Kostenart</th><th class="zahl">Betrag</th></tr></thead>
+      <tbody>
+        {% for b in ohne_buchung %}
+        <tr>
+          <td data-titel="Beleg"><a href="{% url 'dokumente:beleg' b.pk %}">Beleg #{{ b.pk }}</a> · {{ b.dokument.datum|date:"d.m.Y" }}</td>
+          <td data-titel="Lieferant">{{ b.lieferant.name|default:"–" }}</td>
+          <td data-titel="Kostenart">{{ b.kategorie.bezeichnung }}</td>
+          <td data-titel="Betrag" class="zahl">{{ b.betrag|euro }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endkarte %}
+  {% endif %}
+
+  {% if mappe.zeilen %}
+  {% aufklapper "Inhalt der Mappe" zahl=mappe.zeilen|length %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Nr.</th><th>Beleg</th><th>Lieferant</th><th>Kostenart</th><th>Buchung</th><th class="zahl">Betrag</th></tr></thead>
+      <tbody>
+        {% for z in mappe.zeilen %}
+        <tr>
+          <td data-titel="Nr." class="eng">{{ z.nummer }}</td>
+          <td data-titel="Beleg"><a href="{% url 'dokumente:beleg' z.beleg.pk %}">#{{ z.beleg.pk }}</a> · {{ z.beleg.dokument.datum|date:"d.m.Y" }}</td>
+          <td data-titel="Lieferant">{{ z.beleg.lieferant.name|default:"–" }}</td>
+          <td data-titel="Kostenart">{{ z.beleg.kategorie.bezeichnung }}</td>
+          <td data-titel="Buchung">{% if z.beleg.buchung %}<a href="{% url 'kassenbuch:umsatz' z.beleg.buchung.umsatz_id %}">#{{ z.beleg.buchung_id }}</a>{% else %}–{% endif %}</td>
+          <td data-titel="Betrag" class="zahl">{{ z.beleg.betrag|euro }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endaufklapper %}
+  {% endif %}
+</div>
 {% endif %}
 {% endblock %}

@@ -1,31 +1,70 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Fristen{% endblock %}
 
 {% block inhalt %}
-<h1>Fristen</h1>
-<form method="get" class="filter filter-fristen">
-  <label for="zeitraum">Zeitraum</label>
-  <select name="zeitraum" id="zeitraum">
-    {% for wert, titel in zeitraeume %}<option value="{{ wert }}"{% if wert == gewaehlt.zeitraum %} selected{% endif %}>{{ titel }}</option>{% endfor %}
-  </select>
-  <label for="art">Art</label>
-  <select name="art" id="art">
-    <option value="">alle</option>
-    {% for wert, titel in arten %}<option value="{{ wert }}"{% if wert == gewaehlt.art %} selected{% endif %}>{{ titel }}</option>{% endfor %}
-  </select>
-  <label for="quelle">Quelle</label>
-  <select name="quelle" id="quelle">
-    <option value="">alle</option>
-    {% for wert, titel in quellen %}<option value="{{ wert }}"{% if wert == gewaehlt.quelle %} selected{% endif %}>{{ titel }}</option>{% endfor %}
-  </select>
-  <button type="submit" class="zweitrangig">Filtern</button>
+{% seitenkopf "Fristen" meta %}{% endseitenkopf %}
+
+<form method="get" class="filterleiste">
+  {% aufklapper "Filter" offen=gefiltert %}
+    <div class="felder felder-2">
+      <div class="feld">
+        <label class="feld-label" for="zeitraum">Zeitraum</label>
+        <select class="feld-auswahl" name="zeitraum" id="zeitraum">
+          {% for wert, titel in zeitraeume %}<option value="{{ wert }}"{% if wert == gewaehlt.zeitraum %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="feld">
+        <label class="feld-label" for="art">Art</label>
+        <select class="feld-auswahl" name="art" id="art">
+          <option value="">alle</option>
+          {% for wert, titel in arten %}<option value="{{ wert }}"{% if wert == gewaehlt.art %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="feld">
+        <label class="feld-label" for="quelle">Quelle</label>
+        <select class="feld-auswahl" name="quelle" id="quelle">
+          <option value="">alle</option>
+          {% for wert, titel in quellen %}<option value="{{ wert }}"{% if wert == gewaehlt.quelle %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="formular-fuss">
+      {% if gefiltert %}<a class="knopf knopf-text" href="{% url 'fristen:liste' %}">Filter zurücksetzen</a>{% endif %}
+      <button type="submit" class="knopf knopf-zweit">Filtern</button>
+    </div>
+  {% endaufklapper %}
 </form>
 
-<p class="leise">{{ fristen|length }} Frist{{ fristen|length|pluralize:"en" }}</p>
-<ul class="posten-liste" id="fristen">
-  {% for frist in fristen %}{% include "fristen/_frist.html" %}{% empty %}
-  <li>Keine Fristen für diese Auswahl.</li>
-  {% endfor %}
-</ul>
+<div class="stapel" id="fristen">
+{% for gruppe in fristgruppen %}
+  {% karte gruppe.titel zahl=gruppe.anzahl id=gruppe.schluessel %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Datum</th><th>Art</th><th>Bezug</th><th>Quelle</th><th class="eng"><span class="nur-leser">Aktionen</span></th></tr></thead>
+      <tbody>
+      {% for zeile in gruppe.zeilen %}
+        {% if zeile.fristen %}
+        <tr class="buendel-zeile">
+          <td colspan="5" class="buendel">
+            {% aufklapper zeile.titel zahl=zeile.fristen|length %}
+              <table class="tab tab-karten">
+                <tbody>{% for frist in zeile.fristen %}{% include "fristen/_frist.html" %}{% endfor %}</tbody>
+              </table>
+            {% endaufklapper %}
+          </td>
+        </tr>
+        {% else %}
+        {% with frist=zeile %}{% include "fristen/_frist.html" %}{% endwith %}
+        {% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endkarte %}
+{% empty %}
+  <div class="tabelle-box">{% include "bausteine/leer.html" with text="Keine Fristen für diese Auswahl." hilfe="Fristen entstehen aus Verträgen, Kautionen, Bankfreigaben, Eingangsrechnungen und Zählern." %}</div>
+{% endfor %}
+</div>
 {% endblock %}

@@ -8,9 +8,9 @@ angemeldeten Benutzers geht nichts hinaus (CLAUDE.md, Regel 8).
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
@@ -22,28 +22,30 @@ from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpRe
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from apps.bank.models import Bankumsatz
 from apps.dokumente import (
+    anzeige,
     belegmappe,
+    belegseite,
     bezuege,
     dokumentarten,
     pdf,
     services,
-    umwandeln,
     vorlagenarten,
 )
 from apps.dokumente.forms import (
     AbschlussForm,
-    BelegBestaetigenForm,
     BelegFelder,
     BelegHochladenForm,
     BelegmappeForm,
     BelegteilFormset,
     BelegUmwidmenForm,
     LieferantForm,
+    SerieEingrenzen,
     SerieForm,
     VorlageForm,
 )
@@ -60,6 +62,7 @@ from apps.dokumente.versand import MailserverNichtErreichbar, VersandFehler
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.fristen import services as fristen_services
 from apps.kassenbuch.models import Buchung
+from apps.kern import htmx
 from apps.kern.models import Benutzer
 
 FEHLER = (services.SchreibenFehler, PlatzhalterFehler, VersandFehler, pdf.PdfNichtVerfuegbar)
@@ -208,16 +211,23 @@ def vorlage_neue_version(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 def schreiben_liste(request: HttpRequest) -> HttpResponse:
-    alle = Schreiben.objects.select_related("bezug_typ")
+    alle = Schreiben.objects.select_related("bezug_typ").prefetch_related("bezug")
+    lesbar = anzeige.vorbereiten
     return render(
         request,
         "dokumente/schreiben_liste.html",
         {
-            "bereit": alle.filter(status=Schreiben.Status.BEREIT).order_by("serie", "pk"),
-            "unterwegs": alle.filter(status=Schreiben.Status.GESENDET),
-            "erledigt": alle.filter(
-                status__in=[Schreiben.Status.ZUGESTELLT, Schreiben.Status.VERWORFEN]
-            )[:50],
+            "bereit": lesbar(
+                list(alle.filter(status=Schreiben.Status.BEREIT).order_by("serie", "pk"))
+            ),
+            "unterwegs": lesbar(list(alle.filter(status=Schreiben.Status.GESENDET))),
+            "erledigt": lesbar(
+                list(
+                    alle.filter(
+                        status__in=[Schreiben.Status.ZUGESTELLT, Schreiben.Status.VERWORFEN]
+                    ).order_by("-pk")[:50]
+                )
+            ),
         },
     )
 
@@ -227,11 +237,15 @@ def schreiben(request: HttpRequest, pk: int) -> HttpResponse:
     eintrag = get_object_or_404(
         Schreiben.objects.select_related("vorlage", "bezug_typ", "gesendet_von"), pk=pk
     )
+    zu = anzeige.bezug(eintrag)
     return render(
         request,
         "dokumente/schreiben.html",
         {
             "schreiben": eintrag,
+            "titel": anzeige.titel(eintrag, zu),
+            "bezug": zu,
+            "mail_text": services.mail_text(eintrag) if eintrag.inhalt_html else "",
             "versandweg": vorlagenarten.Versandweg.TITEL.get(eintrag.versandweg),
             "abschluss": AbschlussForm(),
             "anwalt": services.braucht_anwalt(eintrag),
@@ -343,31 +357,50 @@ def schreiben_versandstand(request: HttpRequest, pk: int) -> HttpResponse:
 def serie_neu(request: HttpRequest) -> HttpResponse:
     """Serienmitteilung in zwei Schritten (Review 2, A8): erst die Empfängervorschau mit
     Einheit, Name und Versandweg (je Zeile umstellbar), dann „Schreiben erzeugen“. Wer
-    nichts bekommt, steht namentlich mit Grund daneben; die Serie bricht nicht ab."""
+    nichts bekommt, steht namentlich mit Grund daneben; die Serie bricht nicht ab.
+
+    Review 2, B13: Auswahl nach Objekt und Typ (was passt, ist vorgewählt) und einzelnen
+    Einheiten; ein Freitext „Mitteilung an Nutzer“ (``mitteilung.text``); zur Wahl stehen nur
+    seriengeeignete Vorlagen."""
     arten = bezuege.alle()
     schluessel = request.GET.get("bezug") or (arten[0].schluessel if arten else "")
     try:
         bezugsart = bezuege.holen(schluessel)
     except KeyError as fehler:
         raise Http404 from fehler
-    objekte = {str(o.pk): o for o in bezugsart.auswahl()}
+    grenzen = {k: request.POST.get(k) or request.GET.get(k) or "" for k in ("objekt", "typ")}
+    eingrenzen = SerieEingrenzen(grenzen)
+    objekt, typ = None, ""
+    if eingrenzen.is_valid():
+        objekt, typ = eingrenzen.cleaned_data["objekt"], eingrenzen.cleaned_data["typ"] or ""
+    if not bezugsart.nach_typ:
+        typ = ""
+    objekte = {str(o.pk): o for o in bezugsart.eingrenzen(bezugsart.auswahl(), objekt, typ)}
+    eingegrenzt = objekt is not None or bool(typ)
+    initial: dict[str, Any] = {"auswahl": list(objekte) if eingegrenzt else []}
     form = SerieForm(
         request.POST or None,
         wahl=[(pk, bezugsart.bezeichnung(o)) for pk, o in objekte.items()],
+        initial=initial,
     )
+    vorlagen = form.fields["vorlage"].queryset  # type: ignore[attr-defined]
+    if request.method == "GET" and vorlagen.count() == 1:
+        form.initial["vorlage"] = vorlagen.first()
     plan: list[services.Serienempfaenger] | None = None
     marke = ""
     if request.method == "POST" and form.is_valid():
         daten = form.cleaned_data
         vorlage = daten["vorlage"]
         auswahl = sorted(daten["auswahl"], key=int)
-        marke = _serie_marke(vorlage.pk, auswahl, daten["versandweg"], daten["ohne_mail"])
+        freitext = (daten["freitext"] or "").strip()
+        marke = _serie_marke(vorlage.pk, auswahl, daten["versandweg"], daten["ohne_mail"], freitext)
+        empfaenger = [
+            (objekte[pk], _serie_kontext(bezugsart, objekte[pk], vorlage, freitext))
+            for pk in auswahl
+        ]
         try:
             plan = services.serie_planen(
-                vorlage,
-                [(objekte[pk], bezugsart.kontext(objekte[pk])) for pk in auswahl],
-                daten["versandweg"] or None,
-                ohne_mail=daten["ohne_mail"],
+                vorlage, empfaenger, daten["versandweg"] or None, ohne_mail=daten["ohne_mail"]
             )
         except FEHLER as fehler:
             form.add_error(None, str(fehler))
@@ -388,6 +421,9 @@ def serie_neu(request: HttpRequest) -> HttpResponse:
         "dokumente/serie_neu.html",
         {
             "form": form,
+            "eingrenzen": eingrenzen,
+            "grenzen": grenzen,
+            "eingegrenzt": eingegrenzt,
             "arten": arten,
             "bezugsart": bezugsart,
             "plan": plan,
@@ -398,9 +434,22 @@ def serie_neu(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _serie_marke(vorlage: int, auswahl: list[str], versandweg: str, ohne_mail: str) -> str:
+def _serie_kontext(
+    bezugsart: bezuege.Bezugsart, objekt: Any, vorlage: Vorlage, freitext: str
+) -> dict[str, Any]:
+    """Kontext eines Empfängers; bei Arten mit Freitext steht er unter ``mitteilung.text``."""
+    kontext = dict(bezugsart.kontext(objekt))
+    if vorlage.vorlagenart.freitext:
+        kontext["mitteilung"] = {"text": freitext}
+    return kontext
+
+
+def _serie_marke(
+    vorlage: int, auswahl: list[str], versandweg: str, ohne_mail: str, freitext: str = ""
+) -> str:
     """Kennung der gezeigten Vorschau: Erzeugt wird nur, was die Vorschau gezeigt hat."""
-    roh = f"{vorlage}|{','.join(auswahl)}|{versandweg}|{ohne_mail}"
+    text = hashlib.sha256(freitext.encode()).hexdigest()[:8]
+    roh = f"{vorlage}|{','.join(auswahl)}|{versandweg}|{ohne_mail}|{text}"
     return hashlib.sha256(roh.encode()).hexdigest()[:16]
 
 
@@ -452,7 +501,7 @@ def serie(request: HttpRequest, serie: uuid.UUID) -> HttpResponse:
         "dokumente/serie.html",
         {
             "serie": serie,
-            "schreiben": alle,
+            "schreiben": anzeige.vorbereiten(alle),
             "bereit": bereit,
             "pruefsumme": services.serie_pruefsumme(bereit) if bereit else "",
             # Review 1, Punkt 4: gesperrt, solange der Briefkopf unvollständig ist.
@@ -479,74 +528,19 @@ def serie_senden(request: HttpRequest, serie: uuid.UUID) -> HttpResponse:
 
 # --- Ablage und Belege (Schritt 3a) --------------------------------------------------
 
-ABLAGE_FEHLER = (services.AblageFehler, umwandeln.DateiUngueltig)
-#: Felder des Belegs in der Reihenfolge der Seite (auch für den Vorschlag per HTMX).
-BELEG_FELDER = (
-    "lieferant",
-    "lieferant_neu",
-    "datum",
-    "betrag",
-    "objekt",
-    "kategorie",
-    "leistungsjahr",
-    "umlagefaehiger_anteil",
-    "faellig_am",
-    "rechnungsnummer",
-)
+ABLAGE_FEHLER = belegseite.ABLAGE_FEHLER
+BELEG_FELDER = belegseite.BELEG_FELDER
+VORSCHLAG_FELDER = belegseite.VORSCHLAG_FELDER
+vorschlag_text = belegseite.vorschlag_text
+_vorschlag_per_htmx = belegseite.vorschlag_per_htmx
+_lieferant_aus = belegseite._lieferant_aus
 ABLAGE_ANZAHL = 100
-
-
-def _vorschlag_per_htmx(form: forms.Form, beleg: Beleg | None = None) -> None:
-    """Die Wahl des Lieferanten holt den Vorschlag aus früheren Belegen (HTMX).
-
-    Auf der Seite eines Belegs fragt sie mit dessen ID: Ein Beleg schlägt sich nie selbst vor.
-    """
-    attrs = {
-        "hx-get": reverse("dokumente:beleg_vorschlag"),
-        "hx-trigger": "change",
-        "hx-target": "#beleg-felder",
-        "hx-include": "closest form",
-        "hx-swap": "outerHTML",
-    }
-    if beleg is not None:
-        attrs["hx-vals"] = json.dumps({"beleg": beleg.pk})
-    form.fields["lieferant"].widget.attrs.update(attrs)
-
-
-#: Felder, die ein Vorschlag füllen kann, mit ihrem Titel im Hinweis.
-VORSCHLAG_FELDER = ("objekt", "kategorie", "leistungsjahr", "umlagefaehiger_anteil")
-
-
-def vorschlag_text(aus_beleg: Beleg | None, werte: dict[str, Any], gefuellt: Iterable[str]) -> str:
-    """Hinweis über dem Formular: welche Felder der Vorschlag gefüllt hat, mit genau den
-    Werten, die im Formular stehen (Review 2, A6). Leer, wenn er nichts gefüllt hat."""
-    gefuellt = [f for f in VORSCHLAG_FELDER if f in set(gefuellt)]
-    if aus_beleg is None or not gefuellt:
-        return ""
-    teile = []
-    if "objekt" in gefuellt and werte.get("objekt") is not None:
-        teile.append(str(werte["objekt"].kuerzel))
-    if "kategorie" in gefuellt and werte.get("kategorie") is not None:
-        teile.append(str(werte["kategorie"].bezeichnung))
-    if "leistungsjahr" in gefuellt and werte.get("leistungsjahr"):
-        teile.append(f"Leistungsjahr {werte['leistungsjahr']}")
-    if not teile:
-        return ""
-    return f"Vorschlag aus Beleg #{aus_beleg.pk} desselben Lieferanten: {', '.join(teile)}."
-
-
-def _lieferant_aus(daten: dict[str, Any]) -> Lieferant | None:
-    """Gewählter Lieferant oder ein neuer aus „oder neuer Lieferant“."""
-    neu = (daten.get("lieferant_neu") or "").strip()
-    if neu:
-        return services.lieferant_anlegen(neu)
-    lieferant: Lieferant | None = daten.get("lieferant")
-    return lieferant
 
 
 @login_required
 def ablage(request: HttpRequest) -> HttpResponse:
-    """Offene Belege und die zuletzt abgelegten Dokumente."""
+    """Offene Belege und die zuletzt abgelegten Dokumente mit Absender, Betreff und Betrag
+    (Review 2, B11). Hauptaktion: „Beleg hochladen“ (Foto oder PDF wählen genügt, B9)."""
     art = request.GET.get("art", "")
     dokumente = Dokument.objects.order_by("-eingegangen_am", "-pk")
     if art in dokumentarten.DOKUMENTARTEN:
@@ -561,11 +555,87 @@ def ablage(request: HttpRequest) -> HttpResponse:
         "dokumente/ablage.html",
         {
             "offen": offen,
-            "dokumente": dokumente[:ABLAGE_ANZAHL],
+            "dokumente": ablage_zeilen(dokumente[:ABLAGE_ANZAHL]),
             "arten": dokumentarten.auswahl(),
             "art": art,
+            "hochladen": BelegNeuForm(),
         },
     )
+
+
+class BelegNeuForm(forms.Form):
+    """„Beleg hochladen“ auf der Ablage: nur die Datei (Review 2, B9)."""
+
+    datei = forms.FileField(
+        label="Foto oder PDF",
+        help_text="Foto oder PDF. Datum, Betrag, Rechnungsnummer und Lieferant liest das "
+        "System aus dem PDF; danach nur prüfen und bestätigen.",
+        widget=forms.ClearableFileInput(attrs={"accept": "image/*,application/pdf"}),
+    )
+
+
+@dataclass(frozen=True)
+class AblageZeile:
+    dokument: Dokument
+    absender: str
+    betreff: str
+    betrag: Any
+    #: Seite, auf der man weiterarbeitet (Beleg, sonst Dokument)
+    url: str
+
+
+def _bezug_titel(bezug: Any) -> str:
+    """Absender bzw. Bezug eines Dokuments, so wie Max ihn kennt (Name, V-Nummer, NW-ID)."""
+    if bezug is None:
+        return ""
+    for feld in ("name", "nummer", "nw_id", "kuerzel"):
+        wert = getattr(bezug, feld, "")
+        if wert:
+            return str(wert)
+    anzeigename = getattr(bezug, "anzeigename", "")
+    return str(anzeigename) if anzeigename else ""
+
+
+def ablage_zeilen(dokumente: Iterable[Dokument]) -> list[AblageZeile]:
+    """Je Dokument: Lieferant oder Absender, Betreff und Betrag statt nur „#26“."""
+    liste = list(
+        Dokument.objects.filter(pk__in=[d.pk for d in dokumente])
+        .prefetch_related("belege__lieferant", "belege__kategorie", "bezuege__bezug")
+        .order_by("-eingegangen_am", "-pk")
+    )
+    zeilen = []
+    for dok in liste:
+        belege = [b for b in dok.belege.all() if b.status != Beleg.Status.VERWORFEN]
+        lieferant = next((b.lieferant for b in belege if b.lieferant is not None), None)
+        bezuege = [b.bezug for b in dok.bezuege.all() if b.bezug is not None]
+        absender = (
+            lieferant.name
+            if lieferant is not None
+            else next((t for t in map(_bezug_titel, bezuege) if t), "")
+        )
+        nummer = next((b.rechnungsnummer for b in belege if b.rechnungsnummer), "")
+        kostenart = next((b.kategorie.bezeichnung for b in belege if b.kategorie), "")
+        teile = [f"Rechnung {nummer}" if nummer else dok.dokumentart.titel]
+        if kostenart:
+            teile.append(kostenart)
+        if dok.bemerkung:
+            teile.append(dok.bemerkung.splitlines()[0][:80])
+        betraege = [b.betrag for b in belege if b.betrag is not None]
+        url = (
+            reverse("dokumente:beleg", args=[belege[0].pk])
+            if len(belege) == 1
+            else reverse("dokumente:dokument", args=[dok.pk])
+        )
+        zeilen.append(
+            AblageZeile(
+                dokument=dok,
+                absender=absender,
+                betreff=" · ".join(teile),
+                betrag=sum(betraege) if betraege else None,
+                url=url,
+            )
+        )
+    return zeilen
 
 
 @login_required
@@ -706,96 +776,6 @@ def beleg_vorschlag(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _rechnung_zu(eintrag: Beleg) -> Eingangsrechnung | None:
-    return Eingangsrechnung.objects.filter(beleg__dokument=eintrag.dokument_id).first()
-
-
-def _beleg_initial(eintrag: Beleg) -> dict[str, Any]:
-    rechnung = _rechnung_zu(eintrag)
-    return {
-        "lieferant": eintrag.lieferant,
-        "datum": eintrag.dokument.datum,
-        "betrag": eintrag.betrag,
-        "objekt": eintrag.objekt,
-        "kategorie": eintrag.kategorie,
-        "leistungsjahr": eintrag.leistungsjahr,
-        "umlagefaehiger_anteil": eintrag.umlagefaehiger_anteil,
-        "faellig_am": rechnung.faellig_am if rechnung else None,
-        "rechnungsnummer": eintrag.rechnungsnummer
-        or (rechnung.rechnungsnummer if rechnung else ""),
-    }
-
-
-def _beleg_vorschlag_text(eintrag: Beleg) -> str:
-    """Nur ein offener Beleg zeigt seinen Vorschlag, mit den Werten der Vorbelegung."""
-    if eintrag.status != Beleg.Status.OFFEN or eintrag.vorschlag_aus_id is None:
-        return ""
-    quelle = eintrag.vorschlag_aus
-    if quelle is None or quelle.pk == eintrag.pk:
-        return ""
-    werte = {f: getattr(eintrag, f) for f in VORSCHLAG_FELDER}
-    gleich = [f for f in VORSCHLAG_FELDER if getattr(quelle, f, None) is not None]
-    return vorschlag_text(quelle, werte, gleich)
-
-
-@login_required
-def beleg(request: HttpRequest, pk: int) -> HttpResponse:
-    """Seite eines Belegs: Felder bestätigen, Buchung zuordnen, aufteilen, umwidmen."""
-    eintrag = get_object_or_404(
-        Beleg.objects.select_related("dokument", "lieferant", "objekt", "kategorie", "buchung"),
-        pk=pk,
-    )
-    form = BelegBestaetigenForm(request.POST or None, initial=_beleg_initial(eintrag))
-    _vorschlag_per_htmx(form, eintrag)
-    if request.method == "POST" and form.is_valid():
-        daten = form.cleaned_data
-        try:
-            with transaction.atomic():
-                services.beleg_bestaetigen(
-                    eintrag,
-                    lieferant=_lieferant_aus(daten),
-                    betrag=daten["betrag"],
-                    objekt=daten["objekt"],
-                    kategorie=daten["kategorie"],
-                    leistungsjahr=daten["leistungsjahr"],
-                    umlagefaehiger_anteil=daten["umlagefaehiger_anteil"],
-                    datum=daten["datum"],
-                    faellig_am=daten["faellig_am"],
-                    rechnungsnummer=daten["rechnungsnummer"],
-                )
-        except ABLAGE_FEHLER as fehler:
-            form.add_error(None, str(fehler))
-        else:
-            messages.success(request, f"Beleg #{eintrag.pk} bestätigt.")
-            if services.offene_abweichungen(eintrag):
-                messages.warning(
-                    request,
-                    "Eine passende Abbuchung hat einen anderen Betrag. Bitte unten prüfen; "
-                    "in der Arbeitsliste steht „Beleg und Abbuchung weichen ab“.",
-                )
-            return redirect("dokumente:beleg", pk=eintrag.pk)
-    kandidaten = (
-        services.buchung_kandidaten(eintrag)
-        if eintrag.status == Beleg.Status.BESTAETIGT and eintrag.buchung_id is None
-        else []
-    )
-    return render(
-        request,
-        "dokumente/beleg.html",
-        {
-            "beleg": eintrag,
-            "form": form,
-            "felder": BELEG_FELDER,
-            "kandidaten": kandidaten,
-            "geschwister": eintrag.dokument.belege.exclude(pk=eintrag.pk).order_by("pk"),
-            "umwidmen": BelegUmwidmenForm(initial={"lieferant": eintrag.lieferant}),
-            "vorschlag_text": _beleg_vorschlag_text(eintrag),
-            "abweichungen": services.offene_abweichungen(eintrag),
-            "rechnung": _rechnung_zu(eintrag),
-        },
-    )
-
-
 @login_required
 @require_POST
 def beleg_buchung(request: HttpRequest, pk: int) -> HttpResponse:
@@ -806,7 +786,18 @@ def beleg_buchung(request: HttpRequest, pk: int) -> HttpResponse:
     except ABLAGE_FEHLER as fehler:
         messages.error(request, str(fehler))
     else:
-        messages.success(request, f"Beleg #{eintrag.pk} hängt an Buchung #{buchung.pk}.")
+        messages.success(
+            request,
+            format_html(
+                'Beleg #{} hängt an Buchung #{} · <a href="{}">Umsatz ansehen</a>',
+                eintrag.pk,
+                buchung.pk,
+                reverse("kassenbuch:umsatz", args=[buchung.umsatz_id]),
+            ),
+        )
+    zurueck = request.POST.get("zurueck", "")
+    if zurueck.startswith("/") and not zurueck.startswith("//"):
+        return redirect(zurueck)
     return redirect("dokumente:beleg", pk=pk)
 
 
@@ -830,6 +821,8 @@ def beleg_umwidmen(request: HttpRequest, pk: int) -> HttpResponse:
     eintrag = get_object_or_404(Beleg, pk=pk)
     form = BelegUmwidmenForm(request.POST)
     if not form.is_valid():
+        if htmx.ist_htmx(request):
+            return belegseite._umwidmen_dialog(request, eintrag, form)
         messages.error(request, "Bitte Art und Lieferant wählen.")
         return redirect("dokumente:beleg", pk=pk)
     try:
@@ -837,10 +830,26 @@ def beleg_umwidmen(request: HttpRequest, pk: int) -> HttpResponse:
             eintrag, art=form.cleaned_data["art"], lieferant=form.cleaned_data["lieferant"]
         )
     except ABLAGE_FEHLER as fehler:
+        if htmx.ist_htmx(request):
+            form.add_error(None, str(fehler))
+            return belegseite._umwidmen_dialog(request, eintrag, form)
         messages.error(request, str(fehler))
         return redirect("dokumente:beleg", pk=pk)
-    messages.success(request, f"Dokument #{ergebnis.pk} liegt jetzt am Lieferanten.")
-    return redirect("dokumente:dokument", pk=ergebnis.pk)
+    naechster = belegseite.naechster_offener()
+    messages.success(
+        request,
+        format_html(
+            'Dokument #{} liegt jetzt am Lieferanten · <a href="{}">ansehen</a>',
+            ergebnis.pk,
+            reverse("dokumente:dokument", args=[ergebnis.pk]),
+        ),
+    )
+    ziel = (
+        reverse("dokumente:beleg", args=[naechster.pk])
+        if naechster is not None
+        else reverse("dokumente:dokument", args=[ergebnis.pk])
+    )
+    return belegseite.weiter(request, ziel)
 
 
 @login_required
@@ -939,15 +948,52 @@ def lieferant(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 def belegmappe_seite(request: HttpRequest) -> HttpResponse:
-    """Belegmappe je Objekt und Jahr (H6.9): Summen prüfen, dann das PDF auf Knopfdruck."""
-    form = BelegmappeForm(request.GET or None)
+    """Belegmappe je Objekt und Jahr (H6.9): Summen prüfen, dann das PDF auf Knopfdruck.
+
+    Review 2, B11: Objekt und aktuelles Jahr sind vorbelegt (die Seite zeigt sofort die
+    Mappe), Buchungs- und Beleg-IDs sind Links, „Buchungen ohne Beleg“ ist eine Tabelle mit
+    „Beleg zuordnen“ je Zeile (Dialog mit passenden Belegen ohne Buchung)."""
+    daten = request.GET.copy()
+    daten.pop("dialog", None)
+    daten.pop("buchung", None)
+    if not daten.get("jahr"):
+        daten["jahr"] = str(timezone.localdate().year)
+    if not daten.get("objekt"):
+        jahr = daten["jahr"]
+        vorgabe = belegmappe.vorgabe(int(jahr) if jahr.isdigit() else timezone.localdate().year)
+        if vorgabe is not None:
+            daten["objekt"] = str(vorgabe.pk)
+    form = BelegmappeForm(daten)
     mappe = None
     if form.is_valid():
         mappe = belegmappe.daten(form.cleaned_data["objekt"], form.cleaned_data["jahr"])
+    if request.GET.get("dialog") == "zuordnen" and mappe is not None:
+        buchung = get_object_or_404(
+            Buchung.objects.select_related("umsatz", "kategorie"),
+            pk=request.GET.get("buchung") or 0,
+        )
+        return render(
+            request,
+            "dokumente/_belegmappe_zuordnen.html",
+            {
+                "buchung": buchung,
+                "belege": belegmappe.belege_fuer(buchung, mappe),
+                "zurueck": f"{reverse('dokumente:belegmappe')}?{daten.urlencode()}",
+            },
+        )
     return render(
         request,
         "dokumente/belegmappe.html",
-        {"form": form, "mappe": mappe, "hinweise": mappe.hinweise() if mappe else []},
+        {
+            "form": form,
+            "mappe": mappe,
+            "hinweise": mappe.hinweise() if mappe else [],
+            "ohne_beleg": belegmappe.buchungen(mappe.buchungen_ohne_beleg) if mappe else [],
+            "ohne_buchung": [z.beleg for z in mappe.zeilen if z.beleg.buchung_id is None]
+            if mappe
+            else [],
+            "parameter": daten.urlencode(),
+        },
     )
 
 

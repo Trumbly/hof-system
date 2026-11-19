@@ -1,88 +1,103 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Beleg #{{ beleg.pk }}{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Beleg #{{ beleg.pk }} <span class="leise status status-{{ beleg.status }}">{{ beleg.get_status_display }}</span></h1>
-<dl class="angaben">
-  <div><dt>Dokument</dt><dd><a href="{% url 'dokumente:dokument' beleg.dokument_id %}">#{{ beleg.dokument_id }}</a>, {{ beleg.dokument.get_herkunft_display }}, aufbewahren bis {{ beleg.dokument.loeschfrist|date:"d.m.Y" }}</dd></div>
-  <div><dt>Buchung</dt><dd>{% if beleg.buchung %}<a href="{% url 'kassenbuch:umsatz' beleg.buchung.umsatz_id %}">#{{ beleg.buchung_id }}</a> vom {{ beleg.buchung.datum|date:"d.m.Y" }}{% else %}noch keine{% endif %}</dd></div>
-  {% if rechnung %}<div><dt>Eingangsrechnung</dt><dd><a href="{% url 'dokumente:rechnung' rechnung.pk %}">#{{ rechnung.pk }}</a> · {{ rechnung.get_status_display }} · fällig {{ rechnung.faellig_am|date:"d.m.Y" }}</dd></div>{% endif %}
-  {% if geschwister %}<div><dt>Sammelrechnung</dt><dd>weitere Teile: {% for g in geschwister %}<a href="{% url 'dokumente:beleg' g.pk %}">#{{ g.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
-</dl>
+{% seitenkopf kopf_titel kopf_meta %}
+  {% if naechster %}<a class="knopf knopf-zweit" href="{% url 'dokumente:beleg' naechster.pk %}">Nächster offener Beleg →</a>{% endif %}
+  {% if beleg.status != "verworfen" %}
+  <details class="menue">
+    <summary class="knopf knopf-zweit">mehr ▾</summary>
+    <ul class="menue-liste">
+      <li><a href="{% url 'dokumente:beleg_aufteilen' beleg.pk %}">Sammelrechnung aufteilen</a></li>
+      {% if beleg.status == "offen" %}
+      <li><a href="?dialog=umwidmen" hx-get="?dialog=umwidmen" hx-target="#dialog-inhalt">Kein Beleg: am Lieferanten ablegen …</a></li>
+      <li class="menue-trenner" role="separator"></li>
+      <li><form method="post" action="{% url 'dokumente:beleg_verwerfen' beleg.pk %}">{% csrf_token %}<button type="submit">Verwerfen (Dokument bleibt)</button></form></li>
+      {% endif %}
+    </ul>
+  </details>
+  {% endif %}
+{% endseitenkopf %}
 
-{% if abweichungen %}
-<section class="gruppe meldung meldung-warning" id="abweichung" aria-labelledby="abweichung-titel">
-  <h2 id="abweichung-titel">Beleg und Abbuchung weichen ab</h2>
-  <div class="tabelle-rahmen">
-  <table>
-    <thead><tr><th>Abbuchung</th><th>passt nach</th><th class="zahl">Beleg</th><th class="zahl">Abbuchung</th><th class="zahl">Differenz</th></tr></thead>
-    <tbody>
-      {% for a in abweichungen %}
-      <tr>
-        <td data-titel="Abbuchung"><a href="{% url 'kassenbuch:umsatz' a.umsatz.pk %}">Umsatz #{{ a.umsatz.pk }}</a> vom {{ a.umsatz.buchungsdatum|date:"d.m.Y" }}</td>
-        <td data-titel="passt nach">{{ a.grund }}</td>
-        <td data-titel="Beleg" class="zahl">{{ a.beleg_betrag|floatformat:"2g" }} €</td>
-        <td data-titel="Abbuchung" class="zahl">{{ a.umsatz.betrag|floatformat:"2g" }} €</td>
-        <td data-titel="Differenz" class="zahl">{{ a.differenz|floatformat:"2g" }} €</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="geteilt">
+  <div class="geteilt-vorschau">
+    {% url 'dokumente:dokument_pdf' beleg.dokument_id as pdf_url %}
+    {% pdf_vorschau pdf_url "PDF des Belegs" %}
   </div>
-  <p class="leise">Stimmt der Betrag des Belegs nicht, ihn unten im Formular korrigieren und speichern. Ist die Abbuchung falsch (etwa eine Teilzahlung), den Posten in der Arbeitsliste erledigen.</p>
-</section>
-{% endif %}
 
-{% if beleg.status != "verworfen" %}
-<form method="post" class="formular">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<p class="formfehler">{{ form.non_field_errors|join:" " }}</p>{% endif %}
-  {% include "dokumente/_beleg_felder.html" %}
-  <div class="aktionen">
-    <button type="submit">{% if beleg.status == "bestaetigt" %}Speichern{% else %}Bestätigen{% endif %}</button>
-    <a class="knopf zweitrangig" href="{% url 'dokumente:beleg_aufteilen' beleg.pk %}">Sammelrechnung aufteilen</a>
+  <div class="stapel">
+    {% if abweichungen %}
+    {% karte "Beleg und Abbuchung weichen ab" id="abweichung" %}
+      <div class="tabelle-box">
+      <table class="tab tab-karten">
+        <thead><tr><th>Abbuchung</th><th>passt nach</th><th class="zahl">Beleg</th><th class="zahl">Abbuchung</th><th class="zahl">Differenz</th></tr></thead>
+        <tbody>
+          {% for a in abweichungen %}
+          <tr>
+            <td data-titel="Abbuchung"><a href="{% url 'kassenbuch:umsatz' a.umsatz.pk %}">{{ a.umsatz.buchungsdatum|date:"d.m.Y" }}</a> · {{ a.umsatz.gegenpartei }}</td>
+            <td data-titel="passt nach">{{ a.grund }}</td>
+            <td data-titel="Beleg" class="zahl">{{ a.beleg_betrag|euro }}</td>
+            <td data-titel="Abbuchung" class="zahl">{{ a.umsatz.betrag|euro }}</td>
+            <td data-titel="Differenz" class="zahl">{{ a.differenz|euro }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <p class="text-2">Stimmt der Betrag des Belegs nicht, ihn im Formular korrigieren und speichern. Ist die Abbuchung falsch (etwa eine Teilzahlung), den Posten in der Arbeitsliste erledigen.</p>
+    {% endkarte %}
+    {% endif %}
+
+    {% if beleg.status != "verworfen" %}
+    <form method="post" class="karte" id="beleg-formular">
+      <div class="karte-rumpf">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+        {% if gelesen %}<p class="text-2">Aus dem PDF gelesen: {{ gelesen|join:", " }}. Bitte prüfen.</p>{% endif %}
+        {% include "dokumente/_beleg_felder.html" %}
+        {% if kandidaten and beleg.status == "offen" %}
+        <fieldset class="feld">
+          <legend class="feld-label">Passende Abbuchung</legend>
+          {% for b in kandidaten %}
+          <label class="wahl-zeile"><input type="radio" name="buchung" value="{{ b.pk }}"{% if gewaehlt == b.pk|stringformat:"s" %} checked{% endif %}>
+            <span>verknüpfen mit {{ b.datum|date:"d.m.Y" }} · {{ b.umsatz.gegenpartei|default:"ohne Gegenpartei" }} · {{ b.betrag|euro }}<br><span class="text-3 klein">Buchung #{{ b.pk }} · {{ b.objekt.kuerzel }} · {{ b.kategorie.bezeichnung }}</span></span></label>
+          {% endfor %}
+          <label class="wahl-zeile"><input type="radio" name="buchung" value=""{% if not gewaehlt %} checked{% endif %}><span>nicht verknüpfen</span></label>
+        </fieldset>
+        {% endif %}
+        <div class="formular-fuss">
+          <button type="submit" class="knopf knopf-primaer">{% if beleg.status == "bestaetigt" %}Speichern{% elif kandidaten %}Bestätigen und verknüpfen{% else %}Bestätigen{% endif %}</button>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+
+    {% if kandidaten and beleg.status == "bestaetigt" %}
+    {% karte "Passende Abbuchungen" zahl=kandidaten|length %}
+      <ul class="liste">
+        {% for b in kandidaten %}
+        <li>
+          <span class="liste-haupt">{{ b.datum|date:"d.m.Y" }} · {{ b.umsatz.gegenpartei|default:"ohne Gegenpartei" }}<br><span class="text-3 klein">Buchung #{{ b.pk }} · {{ b.objekt.kuerzel }} · {{ b.kategorie.bezeichnung }}</span></span>
+          <span class="liste-neben"><span class="zahl">{{ b.betrag|euro }}</span>
+            <form method="post" action="{% url 'dokumente:beleg_buchung' beleg.pk %}">{% csrf_token %}<input type="hidden" name="buchung" value="{{ b.pk }}"><button type="submit" class="knopf knopf-zweit knopf-klein">verknüpfen</button></form>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% endkarte %}
+    {% endif %}
+
+    {% karte "Angaben" %}
+      <dl class="angaben-neu">
+        <dt>Dokument</dt><dd><a href="{% url 'dokumente:dokument' beleg.dokument_id %}">#{{ beleg.dokument_id }}</a> · {{ beleg.dokument.get_herkunft_display }} · aufbewahren bis {{ beleg.dokument.loeschfrist|date:"d.m.Y" }}</dd>
+        <dt>Buchung</dt><dd>{% if beleg.buchung %}<a href="{% url 'kassenbuch:umsatz' beleg.buchung.umsatz_id %}">#{{ beleg.buchung_id }}</a> vom {{ beleg.buchung.datum|date:"d.m.Y" }}{% else %}noch keine{% endif %}</dd>
+        {% if rechnung %}<dt>Eingangsrechnung</dt><dd><a href="{% url 'dokumente:rechnung' rechnung.pk %}">#{{ rechnung.pk }}</a> · {{ rechnung.get_status_display }} · fällig {{ rechnung.faellig_am|date:"d.m.Y" }}</dd>{% endif %}
+        {% if geschwister %}<dt>Sammelrechnung</dt><dd>weitere Teile: {% for g in geschwister %}<a href="{% url 'dokumente:beleg' g.pk %}">#{{ g.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+      </dl>
+    {% endkarte %}
   </div>
-</form>
-{% endif %}
-
-{% if kandidaten %}
-<section class="gruppe">
-  <h2>Passende Buchungen</h2>
-  <p class="leise">Ausgaben mit gleichem Betrag um das Belegdatum, noch ohne Beleg.</p>
-  <ul class="posten-liste">
-    {% for b in kandidaten %}
-    <li class="posten">
-      <div class="posten-kopf"><span class="posten-titel">Buchung #{{ b.pk }}</span><span class="faellig">{{ b.datum|date:"d.m.Y" }}</span></div>
-      <p class="leise posten-meta">{{ b.objekt.kuerzel }} · {{ b.kategorie.bezeichnung }} · {{ b.betrag|floatformat:"2g" }} €</p>
-      <form method="post" action="{% url 'dokumente:beleg_buchung' beleg.pk %}">
-        {% csrf_token %}<input type="hidden" name="buchung" value="{{ b.pk }}">
-        <button type="submit">An diese Buchung hängen</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
-
-{% if beleg.status == "offen" %}
-<details class="gruppe">
-  <summary>Kein Beleg?</summary>
-  <form method="post" action="{% url 'dokumente:beleg_umwidmen' beleg.pk %}" class="formular">
-    {% csrf_token %}
-    <p class="leise">Mahnungen, Rücklastschriften und Vollstreckungen liegen am Lieferanten, ohne Buchung.</p>
-    {{ umwidmen.as_p }}
-    <button type="submit" class="zweitrangig">Am Lieferanten ablegen</button>
-  </form>
-  <form method="post" action="{% url 'dokumente:beleg_verwerfen' beleg.pk %}">
-    {% csrf_token %}<button type="submit" class="zweitrangig">Verwerfen (kein Beleg, Dokument bleibt)</button>
-  </form>
-</details>
-{% endif %}
-
-<section class="vorschau" aria-label="Vorschau">
-  <iframe class="pdf-vorschau" src="{% url 'dokumente:dokument_pdf' beleg.dokument_id %}" title="PDF von Dokument #{{ beleg.dokument_id }}"></iframe>
-  <p><a href="{% url 'dokumente:dokument_pdf' beleg.dokument_id %}" target="_blank" rel="noopener">PDF in neuem Fenster öffnen</a></p>
-</section>
+</div>
 {% endblock %}

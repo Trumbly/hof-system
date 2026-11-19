@@ -65,15 +65,15 @@ def _beleg_angaben(dokument: Dokument) -> dict[str, str]:
         text = "\n".join(
             seite.extract_text() for seite in PdfReader(io.BytesIO(datei.read())).pages
         )
-    datum = re.search(r"Datum (\d\d)\.(\d\d)\.(\d{4})", text)
-    betrag = re.search(r"Betrag ([\d.]+) EUR", text)
-    nummer = re.search(r"Rechnungsnummer (\S+)", text)
+    datum = re.search(r"Rechnungsdatum: (\d\d)\.(\d\d)\.(\d{4})", text)
+    betrag = re.search(r"Gesamtbetrag: ([\d.]+,\d\d) EUR", text)
+    nummer = re.search(r"Rechnungs-Nr\.: (\S+)", text)
     leistung = re.search(r"Leistung: (.+)", text)
     if not (datum and betrag and nummer and leistung):
         raise LookupError(f"PDF von Dokument #{dokument.pk} ohne erwartete Angaben.")
     return {
         "datum": f"{datum[3]}-{datum[2]}-{datum[1]}",
-        "betrag": betrag[1].replace(".", ","),
+        "betrag": betrag[1].replace(".", ""),
         "rechnungsnummer": nummer[1],
         # Kostenart zur Leistung, wie der Testhof sie bucht (testhof/kassenbuch.py)
         "kostenart": next(
@@ -126,6 +126,8 @@ def sammeln() -> dict[str, Any]:
             "anbindungen": reverse("anbindungen:uebersicht"),
             "abschluesse": reverse("kassenbuch:abschluesse"),
         },
+        # Weitere Seiten aus R2-8 (Belege, Fristen, Listen, Datenstand, Schreiben)
+        "seiten_r2_8": _seiten_r2_8(beleg),
         "login": reverse("account_login"),
         "gesund": reverse("kern:gesund"),
         "arbeitslisten": reverse("kern:arbeitslisten"),
@@ -144,6 +146,28 @@ def sammeln() -> dict[str, Any]:
         # Was Max für den Vertrag aus der Anfrage nachschlagen müsste (Zielmiete der Einheit)
         "zielmiete_anfrage": _zielmiete(anfrage_buchung.einheit),
     }
+
+
+def _seiten_r2_8(beleg: Beleg) -> dict[str, str]:
+    from apps.dokumente.models import Schreiben
+
+    schreiben = Schreiben.objects.order_by("pk").first()
+    seiten = {
+        "beleg": reverse("dokumente:beleg", args=[beleg.pk]),
+        "ablage": reverse("dokumente:ablage"),
+        "belegmappe": reverse("dokumente:belegmappe"),
+        "fristen": reverse("fristen:liste"),
+        "kassenbuch": reverse("kassenbuch:buchungen"),
+        "monatsbericht": reverse("kassenbuch:bericht"),
+        "katalog": reverse("anbindungen:vermarktung"),
+        "datenstand": reverse("stammdaten:datenstand"),
+        "schreiben_liste": reverse("dokumente:schreiben_liste"),
+        "serie_neu": reverse("dokumente:serie_neu"),
+        "stil": reverse("kern:stil"),
+    }
+    if schreiben is not None:
+        seiten["schreiben"] = reverse("dokumente:schreiben", args=[schreiben.pk])
+    return seiten
 
 
 def _zielmiete(einheit: Einheit) -> str:

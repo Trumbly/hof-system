@@ -696,6 +696,18 @@ def vertrag_unterschrieben(
     return vertrag
 
 
+def vertrag_scan_anhaengen(vertrag: Vertrag, scan: File[Any]) -> Vertrag:
+    """Hängt den unterschriebenen Scan an, ohne das Datum der Unterschrift zu ändern
+    (Datenstand, Sammelaktion „Scans hochladen“, Review 2, B12). Einen vorhandenen Scan
+    ersetzt sie nicht."""
+    if vertrag.unterschriebener_scan:
+        raise StammdatenFehler(f"Vertrag {vertrag.nummer} hat schon einen Scan.")
+    vertrag.unterschriebener_scan.save(scan.name or "scan.pdf", scan, save=False)
+    _speichern(vertrag)
+    logger.info("Vertrag #%s: Scan angehängt", vertrag.pk)
+    return vertrag
+
+
 def vertragsdokument_erzeugen(vertrag: Vertrag) -> schreiben.Ergebnis:
     """Vertrag und Anlagen als PDF aus der Vorlage der Vertragsart (H2.3).
 

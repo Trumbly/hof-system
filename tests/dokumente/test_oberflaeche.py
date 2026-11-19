@@ -79,9 +79,11 @@ def test_schreiben_seite_zeigt_pdf_und_senden(
     )
 
     liste = angemeldet.get(reverse("dokumente:schreiben_liste")).content.decode()
-    assert f"Schreiben #{schreiben.pk}" in liste
+    # Review 2, B13: lesbarer Titel statt „Schreiben #5 · mitteilung“
+    assert reverse("dokumente:schreiben", args=[schreiben.pk]) in liste
+    assert f"Mitteilung · Objekt {objekt.kuerzel}" in liste
     seite = angemeldet.get(reverse("dokumente:schreiben", args=[schreiben.pk])).content.decode()
-    assert '<iframe class="pdf-vorschau"' in seite
+    assert '<iframe class="pdf-rahmen"' in seite
     assert "Senden (Einwurf-Einschreiben)" in seite
 
     pdf = angemeldet.get(reverse("dokumente:schreiben_pdf", args=[schreiben.pk]))

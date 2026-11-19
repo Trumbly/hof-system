@@ -1,0 +1,26 @@
+{# Dialog „Beleg zuordnen“ aus der Belegmappe (Review 2, B11): passende Belege ohne Buchung. #}
+<header class="dialog-kopf">
+  <h2 class="dialog-titel" id="dialog-titel">Beleg zu Buchung #{{ buchung.pk }}</h2>
+  <button type="button" class="knopf knopf-text knopf-symbol" data-dialog-schliessen aria-label="Schließen">×</button>
+</header>
+<div class="dialog-rumpf">
+  <p class="dialog-hinweis">{{ buchung.datum|date:"d.m.Y" }} · {{ buchung.umsatz.gegenpartei|default:"ohne Gegenpartei" }} · {{ buchung.kategorie.bezeichnung }} · {{ buchung.betrag|euro }}</p>
+  {% if belege %}
+  <ul class="liste">
+    {% for b in belege %}
+    <li>
+      <span class="liste-haupt"><a href="{% url 'dokumente:beleg' b.pk %}">Beleg #{{ b.pk }}</a> · {{ b.dokument.datum|date:"d.m.Y" }} · {{ b.lieferant.name|default:"–" }}<br><span class="text-3 klein">{{ b.objekt.kuerzel }} · {{ b.kategorie.bezeichnung }}{% if b.rechnungsnummer %} · Rechnung {{ b.rechnungsnummer }}{% endif %}</span></span>
+      <span class="liste-neben"><span class="zahl">{{ b.betrag|euro }}</span>
+        <form method="post" action="{% url 'dokumente:beleg_buchung' b.pk %}">{% csrf_token %}<input type="hidden" name="buchung" value="{{ buchung.pk }}"><input type="hidden" name="zurueck" value="{{ zurueck }}"><button type="submit" class="knopf knopf-zweit knopf-klein">verknüpfen</button></form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  {% include "bausteine/leer.html" with text="Kein bestätigter Beleg ohne Buchung." hilfe="Den Beleg zuerst in der Ablage hochladen und bestätigen." %}
+  {% endif %}
+</div>
+<footer class="dialog-fuss">
+  <a class="knopf knopf-zweit" href="{% url 'dokumente:ablage' %}">Beleg hochladen</a>
+  <button type="button" class="knopf knopf-zweit" data-dialog-schliessen>Schließen</button>
+</footer>

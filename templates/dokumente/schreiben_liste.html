@@ -1,32 +1,42 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Schreiben{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_reiter.html" %}
-<h1>Schreiben</h1>
+{% seitenkopf "Schreiben" "Nichts geht ohne Klick hinaus: Schreiben öffnen, PDF prüfen, dann senden." %}
+  <a class="knopf knopf-zweit" href="{% url 'dokumente:serie_neu' %}">Serienmitteilung</a>
+{% endseitenkopf %}
 
-<section class="gruppe">
-  <h2>Bereit zum Senden <span class="zahl">{{ bereit|length }}</span></h2>
-  <p class="leise">Nichts geht ohne Klick hinaus: Schreiben öffnen, PDF prüfen, dann senden.</p>
-  <ul class="posten-liste">
-    {% for s in bereit %}{% include "dokumente/_schreiben.html" %}{% empty %}<li class="leise">Keine.</li>{% endfor %}
-  </ul>
-</section>
+<div class="stapel">
+{% karte "Bereit zum Senden" zahl=bereit|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Schreiben</th><th>Versandweg</th><th>Status</th><th>erzeugt</th></tr></thead>
+    <tbody>{% for s in bereit %}{% include "dokumente/_schreiben.html" %}{% empty %}{% include "bausteine/leer.html" with spalten=4 text="Nichts bereit." %}{% endfor %}</tbody>
+  </table>
+  </div>
+{% endkarte %}
 
-<section class="gruppe">
-  <h2>Unterwegs <span class="zahl">{{ unterwegs|length }}</span></h2>
-  <ul class="posten-liste">
-    {% for s in unterwegs %}{% include "dokumente/_schreiben.html" %}{% empty %}<li class="leise">Keine.</li>{% endfor %}
-  </ul>
-</section>
+{% karte "Unterwegs" zahl=unterwegs|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Schreiben</th><th>Versandweg</th><th>Status</th><th>erzeugt</th></tr></thead>
+    <tbody>{% for s in unterwegs %}{% include "dokumente/_schreiben.html" %}{% empty %}{% include "bausteine/leer.html" with spalten=4 text="Nichts unterwegs." %}{% endfor %}</tbody>
+  </table>
+  </div>
+{% endkarte %}
 
 {% if erledigt %}
-<details class="gruppe">
-  <summary>Erledigt und verworfen</summary>
-  <ul class="posten-liste">
-    {% for s in erledigt %}{% include "dokumente/_schreiben.html" %}{% endfor %}
-  </ul>
-</details>
+{% aufklapper "Erledigt und verworfen" zahl=erledigt|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Schreiben</th><th>Versandweg</th><th>Status</th><th>erzeugt</th></tr></thead>
+    <tbody>{% for s in erledigt %}{% include "dokumente/_schreiben.html" %}{% endfor %}</tbody>
+  </table>
+  </div>
+{% endaufklapper %}
 {% endif %}
+</div>
 {% endblock %}

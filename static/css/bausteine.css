@@ -2669,3 +2669,151 @@ dialog.dialog[open] {
     flex: 1 1 100%;
   }
 }
+
+/* --- R2-8: geteilte Ansicht, PDF groß, Zeilenaktionen, Filterleiste -------------------- */
+
+/* Geteilte Ansicht (Review 2, B9 und B13): links das PDF (mindestens die halbe Breite,
+   läuft beim Scrollen mit), rechts Formular oder Text. Am Handy untereinander. */
+.geteilt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--a6);
+}
+
+@media (min-width: 1024px) {
+  .geteilt {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .geteilt-vorschau {
+    position: sticky;
+    top: var(--a4);
+  }
+
+  .geteilt-vorschau .pdf-rahmen {
+    height: calc(100vh - 120px);
+    min-height: 480px;
+    aspect-ratio: auto;
+  }
+}
+
+.pdf-vorschau-gross {
+  margin: 0;
+}
+
+.pdf-rahmen {
+  display: block;
+  width: 100%;
+  aspect-ratio: 210 / 297;
+  background: var(--flaeche-2);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.pdf-vorschau-gross figcaption {
+  margin-top: var(--a2);
+  font-size: var(--text-13);
+}
+
+/* Mailtext neben dem PDF (B13) */
+.mailtext {
+  margin: 0;
+  padding: var(--a4);
+  font: inherit;
+  font-size: var(--text-15);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+/* Filterleiste (R2-7) mit beschrifteten Feldern: Suche und Monat sichtbar, alles Weitere
+   im Aufklapper (B11) */
+.filterleiste:has(> .feld) {
+  gap: var(--a3);
+  align-items: end;
+  margin-bottom: var(--a4);
+}
+
+.filterleiste > .feld {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+.filterleiste > .aufklapper {
+  flex: 1 1 100%;
+}
+
+.filterleiste .felder {
+  margin-bottom: var(--a3);
+}
+
+/* Aktionen in einer Tabellenzeile (Fristen: erledigt, verschieben) */
+.zeilen-aktionen {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--a2);
+  justify-content: flex-end;
+}
+
+.zeilen-aktionen form {
+  margin: 0;
+}
+
+/* Datum im Menü (Frist verschieben): Feld und Knopf in einer Zeile */
+.menue-liste .menue-datum > span {
+  display: flex;
+  gap: var(--a2);
+  padding: var(--a2) var(--a3);
+}
+
+.menue-liste .menue-datum input {
+  min-width: 0;
+}
+
+/* Auswahl in einer Zeile (Abbuchung verknüpfen, Empfänger einer Serie) */
+.wahl-zeile {
+  display: flex;
+  align-items: center;
+  gap: var(--a3);
+  min-height: var(--ziel);
+  cursor: pointer;
+}
+
+/* „mehr laden“ unter einer Tabelle (B11) */
+.mehr-laden td {
+  text-align: center;
+}
+
+/* Bündel in einer Tabelle (z. B. 14 Eichfristen): der Aufklapper füllt die Zeile */
+.tab td.buendel {
+  padding: 0;
+}
+
+.tab td.buendel > .aufklapper {
+  border: 0;
+  border-radius: 0;
+}
+
+.tab td.buendel .tab {
+  font-size: var(--text-15);
+}
+
+form.sendet .datei-knoepfe {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Mehrteiliges Feld (Monat und Jahr) in einer Zeile */
+.feld-mehrteilig {
+  display: flex;
+  gap: var(--a2);
+}
+
+.feld-mehrteilig > * {
+  flex: 1 1 0;
+  min-width: 0;
+}

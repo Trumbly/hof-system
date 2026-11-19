@@ -1,25 +1,36 @@
-<li class="posten frist{% if frist.ist_erledigt %} frist-erledigt{% elif frist.datum < heute %} frist-ueberfaellig{% endif %}" id="frist-{{ frist.pk }}">
-  <div class="posten-kopf">
-    <span class="posten-titel">{{ frist.get_art_display }} <span class="leise">#{{ frist.pk }}</span></span>
-    <span class="faellig">{{ frist.datum|date:"d.m.Y" }}{% if not frist.ist_erledigt and frist.datum < heute %} · überfällig{% endif %}</span>
-  </div>
-  <p class="leise posten-meta">
-    Quelle: <strong class="frist-quelle">{{ frist.get_quelle_display }}</strong>
-    · Bezug: {{ frist.bezug_typ.name }} #{{ frist.bezug_id }}
-    {% if frist.vorlauf_tage %}· Vorlauf {{ frist.vorlauf_tage }} Tage{% endif %}
-    {% if frist.anzahl_verschoben %}· {{ frist.anzahl_verschoben }}× verschoben{% endif %}
-  </p>
-  {% if frist.hinweis %}<p class="posten-hinweis">{{ frist.hinweis }}</p>{% endif %}
-  {% if frist.ist_erledigt %}
-  <p class="posten-ergebnis"{% if gerade_erledigt %} role="status"{% endif %}>Erledigt am {{ frist.erledigt_am|date:"d.m.Y" }}.</p>
-  {% else %}
-  <div class="aktionen">
-    {% url 'fristen:erledigt' frist.pk as erledigt_url %}
-    <form method="post" action="{{ erledigt_url }}" hx-post="{{ erledigt_url }}" hx-target="#frist-{{ frist.pk }}" hx-swap="outerHTML">
-      {% csrf_token %}
-      <input type="hidden" name="zurueck" value="{{ request.get_full_path }}">
-      <button type="submit">Erledigt</button>
-    </form>
-  </div>
-  {% endif %}
-</li>
+{% load bausteine %}<tr class="frist{% if frist.ist_erledigt %} zeile-leise frist-erledigt{% elif frist.datum < heute %} zeile-markiert frist-ueberfaellig{% endif %}" id="frist-{{ frist.pk }}">
+  <td data-titel="Datum" class="eng"><time datetime="{{ frist.datum|date:'Y-m-d' }}">{{ frist.datum|date:"d.m.Y" }}</time>{% if not frist.ist_erledigt and frist.datum < heute %} {% badge "ueberfaellig" %}{% endif %}</td>
+  <td data-titel="Art">{{ frist.get_art_display }}{% if frist.hinweis %}<br><span class="text-3 klein">{{ frist.hinweis|truncatechars:120 }}</span>{% endif %}</td>
+  <td data-titel="Bezug">{% if frist.bezug_url %}<a href="{{ frist.bezug_url }}">{{ frist.bezug_text }}</a>{% else %}{{ frist.bezug_text }}{% endif %}</td>
+  <td data-titel="Quelle"><strong class="frist-quelle">{{ frist.get_quelle_display }}</strong>{% if frist.vorlauf_tage %}<br><span class="text-3 klein">Vorlauf {{ frist.vorlauf_tage }} Tage</span>{% endif %}{% if frist.anzahl_verschoben %}<br><span class="text-3 klein">{{ frist.anzahl_verschoben }}× verschoben</span>{% endif %}</td>
+  <td data-titel="" class="eng">
+    {% if frist.ist_erledigt %}
+    <span{% if gerade_erledigt %} role="status"{% endif %}>Erledigt am {{ frist.erledigt_am|date:"d.m.Y" }}.</span>
+    {% else %}
+    <div class="zeilen-aktionen">
+      {% url 'fristen:erledigt' frist.pk as erledigt_url %}
+      {% url 'fristen:verschieben' frist.pk as verschieben_url %}
+      <form method="post" action="{{ erledigt_url }}" hx-post="{{ erledigt_url }}" hx-target="#frist-{{ frist.pk }}" hx-swap="outerHTML">
+        {% csrf_token %}<input type="hidden" name="zurueck" value="{{ request.get_full_path }}">
+        <button type="submit" class="knopf knopf-zweit knopf-klein">Erledigt</button>
+      </form>
+      <details class="menue">
+        <summary class="knopf knopf-text knopf-klein">verschieben ▾</summary>
+        <ul class="menue-liste">
+          {% for um, titel in verschiebungen %}
+          <li><form method="post" action="{{ verschieben_url }}" hx-post="{{ verschieben_url }}" hx-target="#frist-{{ frist.pk }}" hx-swap="outerHTML">
+            {% csrf_token %}<input type="hidden" name="zurueck" value="{{ request.get_full_path }}"><input type="hidden" name="um" value="{{ um }}">
+            <button type="submit">{{ titel }}</button>
+          </form></li>
+          {% endfor %}
+          <li class="menue-trenner" role="separator"></li>
+          <li><form class="menue-datum" method="post" action="{{ verschieben_url }}" hx-post="{{ verschieben_url }}" hx-target="#frist-{{ frist.pk }}" hx-swap="outerHTML">
+            {% csrf_token %}<input type="hidden" name="zurueck" value="{{ request.get_full_path }}">
+            <span><input class="feld-eingabe" type="date" name="datum" required aria-label="Neues Datum für Frist #{{ frist.pk }}" value="{{ frist.datum|date:'Y-m-d' }}"><button type="submit" class="knopf knopf-zweit knopf-klein">Datum setzen</button></span>
+          </form></li>
+        </ul>
+      </details>
+    </div>
+    {% endif %}
+  </td>
+</tr>

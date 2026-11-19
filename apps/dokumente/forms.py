@@ -6,7 +6,7 @@ Gespeichert wird nie über das Formular, sondern über die Services.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar
 
 from django import forms
 from django.utils import timezone
@@ -72,6 +72,14 @@ class SerieForm(forms.Form):
         help_text="Gilt nur, wenn die Serie per Mail geht. In der Vorschau lässt sich jeder "
         "Empfänger einzeln umstellen.",
     )
+    freitext = forms.CharField(
+        label="Mitteilung an Nutzer",
+        required=False,
+        max_length=4000,
+        widget=forms.Textarea(attrs={"rows": 5}),
+        help_text="Steht im Schreiben an der Stelle {{ mitteilung.text }} der Vorlage. "
+        "Namen, Anschrift und Beträge setzt das System selbst ein.",
+    )
     auswahl = forms.MultipleChoiceField(
         label="Auswahl",
         widget=forms.CheckboxSelectMultiple,
@@ -81,12 +89,40 @@ class SerieForm(forms.Form):
 
     def __init__(self, *args: Any, wahl: list[tuple[str, str]], **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        # Review 2, B13: nur Arten, die als „seriengeeignet“ markiert sind (keine Verträge,
+        # Übergabeprotokolle oder Mahnungen).
         self.fields["vorlage"].queryset = (  # type: ignore[attr-defined]
-            Vorlage.objects.filter(status=Vorlage.Status.FREIGEGEBEN)
-            .exclude(art="briefkopf")
-            .order_by("art", "name")
+            Vorlage.objects.filter(
+                status=Vorlage.Status.FREIGEGEBEN, art__in=vorlagenarten.seriengeeignet()
+            ).order_by("art", "name")
+        )
+        self.fields["vorlage"].label_from_instance = (  # type: ignore[attr-defined]
+            lambda v: f"{v.name} ({v.vorlagenart.titel})"
         )
         self.fields["auswahl"].choices = wahl  # type: ignore[attr-defined]
+
+
+class SerieEingrenzen(forms.Form):
+    """Auswahl der Serie nach Objekt und Typ der Einheit (Review 2, B13). Was passt, ist
+    vorgewählt; einzelne Einheiten lassen sich danach abwählen."""
+
+    objekt = forms.ModelChoiceField(
+        label="Objekt", queryset=Objekt.objects.none(), required=False, empty_label="alle"
+    )
+    typ = forms.ChoiceField(label="Typ der Einheit", required=False)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        from apps.stammdaten.models import Einheit
+
+        self.fields["objekt"].queryset = Objekt.objects.filter(aktiv=True).order_by("kuerzel")  # type: ignore[attr-defined]
+        self.fields["objekt"].label_from_instance = (  # type: ignore[attr-defined]
+            lambda o: f"{o.kuerzel} · {o.bezeichnung}"
+        )
+        self.fields["typ"].choices = [  # type: ignore[attr-defined]
+            ("", "alle"),
+            *[(w, t) for w, t in Einheit.Typ.choices if w != Einheit.Typ.WOHNUNG],
+        ]
 
 
 # --- Ablage und Belege (Schritt 3a) --------------------------------------------------
@@ -236,13 +272,25 @@ class BelegHochladenForm(BelegFelder):
 class BelegBestaetigenForm(BelegFelder):
     """Seite des Belegs: alle Felder sind Pflicht."""
 
+    #: Pflichtfelder mit ihrem Fehlersatz (Review 2: Fehler als deutsche Sätze am Feld)
+    PFLICHT: ClassVar[dict[str, str]] = {
+        "betrag": "Bitte den Betrag angeben.",
+        "objekt": "Bitte das Objekt wählen.",
+        "kategorie": "Bitte die Kostenart wählen.",
+        "leistungsjahr": "Bitte das Leistungsjahr angeben.",
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        for name, satz in self.PFLICHT.items():
+            self.fields[name].required = True
+            self.fields[name].error_messages["required"] = satz
+        self.fields["lieferant"].help_text = "Neu? Dann rechts den Namen eintragen."
+
     def clean(self) -> dict[str, Any]:
         daten = super().clean()
         if not (daten.get("lieferant") or (daten.get("lieferant_neu") or "").strip()):
-            self.add_error("lieferant", "Der Lieferant fehlt.")
-        for feld in ("betrag", "objekt", "kategorie", "leistungsjahr"):
-            if daten.get(feld) is None and feld not in self.errors:
-                self.add_error(feld, "Pflichtfeld.")
+            self.add_error("lieferant", "Bitte den Lieferanten wählen oder einen neuen eintragen.")
         return daten
 
 
@@ -314,4 +362,4 @@ class BelegmappeForm(forms.Form):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["objekt"].queryset = Objekt.objects.order_by("kuerzel")  # type: ignore[attr-defined]
-        self.fields["jahr"].initial = timezone.localdate().year - 1
+        self.fields["jahr"].initial = timezone.localdate().year

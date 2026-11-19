@@ -1,0 +1,47 @@
+{% load bausteine %}<div id="datenstand-inhalt" class="stapel"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="tabelle-box">
+  <table class="tab tab-karten" id="datenstand-uebersicht">
+    <thead><tr><th>Bereich</th><th class="zahl">geprüft</th><th class="zahl">mit Lücken</th><th class="zahl">fehlende Angaben</th></tr></thead>
+    <tbody>
+      {% for bereich in bereiche %}
+      <tr{% if not bereich.luecken %} class="zeile-leise"{% endif %}>
+        <td data-titel="Bereich"><a href="#bereich-{{ bereich.schluessel }}">{{ bereich.titel }}</a></td>
+        <td data-titel="geprüft" class="zahl">{{ bereich.geprueft|zahl }}</td>
+        <td data-titel="mit Lücken" class="zahl">{{ bereich.luecken|length|zahl }}</td>
+        <td data-titel="fehlende Angaben" class="zahl">{% if bereich.anzahl_luecken %}{{ bereich.anzahl_luecken|zahl }}{% else %}vollständig{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot><tr><td colspan="3">Summe</td><td class="zahl">{{ luecken_gesamt|zahl }}</td></tr></tfoot>
+  </table>
+  </div>
+
+  {% for bereich, gruppen_feld in bereiche_gruppen %}
+  {% karte bereich.titel zahl=bereich.anzahl_luecken id="bereich-"|add:bereich.schluessel %}
+    {% for g in gruppen_feld %}
+    {% aufklapper g.titel zahl=g.anzahl offen=g.offen %}
+      {% if g.sammelaktion == "scans" %}
+      <p><a class="knopf knopf-zweit knopf-klein" href="?dialog=scans" hx-get="?dialog=scans" hx-target="#dialog-inhalt">Scans hochladen und per V-Nummer zuordnen</a></p>
+      {% endif %}
+      <div class="tabelle-box">
+      <table class="tab tab-karten">
+        <thead><tr><th>Kennung</th>{% if g.mit_namen %}<th>{% if bereich.schluessel == "vertrag" %}Mieter{% else %}Name{% endif %}</th>{% endif %}<th>fehlt</th></tr></thead>
+        <tbody>
+          {% for luecke in g.luecken %}
+          <tr class="luecke">
+            <td data-titel="Kennung"><a href="{{ luecke.url }}"><strong>{{ luecke.kennung }}</strong></a></td>
+            {% if g.mit_namen %}<td data-titel="Name">{{ luecke.name|default:"–" }}</td>{% endif %}
+            <td data-titel="fehlt">fehlt {{ luecke.felder_titel }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% endaufklapper %}
+    {% empty %}
+    <p class="text-2">Vollständig.</p>
+    {% endfor %}
+    {% if bereich.schluessel == "zaehler" %}<p><a class="knopf knopf-zweit" href="{% url 'zaehler:besuch' %}">Liste für deinen nächsten Besuch</a> <span class="text-3 klein">sortiert nach Objekt, druckbar</span></p>{% endif %}
+  {% endkarte %}
+  {% endfor %}
+</div>
