@@ -7,7 +7,7 @@ ifeq ($(shell uname -s),Darwin)
 export DYLD_FALLBACK_LIBRARY_PATH ?= $(shell brew --prefix 2>/dev/null || echo /opt/homebrew)/lib
 endif
 
-.PHONY: dev dienste test lint fmt migrate stopp
+.PHONY: dev dienste test e2e klickmessung lint fmt migrate stopp
 
 ## Postgres und Mailpit starten, migrieren, Django-Server starten
 dev: dienste migrate
@@ -21,6 +21,18 @@ dienste:
 test:
 	$(COMPOSE) up -d --wait db
 	uv run pytest
+
+## Oberflächentests (Playwright): Smoke-Test der 15 wichtigsten Seiten bei 1440 und 390 px.
+## Eigene Datenbank (HOF_E2E_DATABASE_URL, Standard hof_e2e) mit frischem Testhof;
+## Screenshots unter tests/e2e/artefakte/. Einmal vorher: uv run playwright install chromium
+e2e:
+	$(COMPOSE) up -d --wait db
+	uv run pytest -m "e2e and not klickmessung" tests/e2e
+
+## Klickmessung der Abläufe aus Review 2, B (Ergebnis: tests/e2e/artefakte/klickmessung.md)
+klickmessung:
+	$(COMPOSE) up -d --wait db
+	uv run pytest -m klickmessung tests/e2e
 
 ## ruff (Lint und Format) und mypy für die services-Module
 lint:

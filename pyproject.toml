@@ -35,6 +35,7 @@ dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
     "pytest-django>=4.14.0",
+    "pytest-playwright>=0.10.0",
     "ruff>=0.17.5",
     "types-markdown>=3.11.3.20261108",
 ]
@@ -44,7 +45,12 @@ DJANGO_SETTINGS_MODULE = "hof.settings.test"
 pythonpath = ["."]
 testpaths = ["tests", "apps"]
 python_files = ["test_*.py"]
-addopts = "--strict-markers"
+# Oberflächentests (Playwright) laufen nur mit `make e2e` bzw. `make klickmessung`.
+addopts = "--strict-markers -m 'not e2e'"
+markers = [
+    "e2e: Oberflächentest mit Playwright gegen einen eigenen Server (make e2e)",
+    "klickmessung: Klickmessung der Abläufe aus Review 2, B (make klickmessung)",
+]
 
 [tool.ruff]
 line-length = 100

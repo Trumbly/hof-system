@@ -29,3 +29,6 @@ staticfiles/
 
 # Arbeitsbäume von Claude Code
 .claude/worktrees/
+
+# Screenshots, Server-Log und Ergebnisse der Oberflächentests (make e2e, make klickmessung)
+tests/e2e/artefakte/

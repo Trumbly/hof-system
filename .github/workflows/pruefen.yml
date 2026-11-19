@@ -65,6 +65,58 @@ jobs:
           zweite=$(grep '^Prüfsumme:' zweiter-lauf.txt)
           test -n "$erste" && test "$erste" = "$zweite"
 
+  e2e:
+    name: Oberfläche (Playwright, Smoke-Test)
+    runs-on: ubuntu-24.04
+    # Vorerst nicht blockierend: Die heutigen Seiten scheitern noch (Review 2, C5:
+    # Scrollleiste der Kopfnavigation, englische Dateifelder). Wird blockierend
+    # (continue-on-error entfernen), sobald R2-5 (Grundgerüst) gemergt ist.
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hof
+          POSTGRES_USER: hof
+          POSTGRES_PASSWORD: hof
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hof -d hof"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # Eigene Datenbank für den Server der Oberflächentests (tests/e2e/server.py)
+      HOF_E2E_DATABASE_URL: postgres://hof:hof@localhost:5432/hof_e2e
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - name: Systembibliotheken für WeasyPrint (Schreiben und Verträge als PDF)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libharfbuzz-subset0 \
+            fontconfig fonts-dejavu-core
+      - name: Abhängigkeiten
+        run: uv sync --locked
+      - name: Chromium für Playwright
+        run: uv run playwright install --with-deps chromium
+      - name: Smoke-Test (15 Seiten bei 1440 und 390 px)
+        run: uv run pytest -m "e2e and not klickmessung" tests/e2e
+      - name: Screenshots und Server-Log
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: e2e-screenshots
+          path: |
+            tests/e2e/artefakte/smoke/
+            tests/e2e/artefakte/server.log
+          if-no-files-found: warn
+          retention-days: 14
+
   betrieb:
     name: Skripte, Compose, Produktions-Image
     runs-on: ubuntu-24.04
