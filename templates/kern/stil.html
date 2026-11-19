@@ -242,6 +242,82 @@
   </div>
 </section>
 
+<section class="stil-abschnitt" id="posteingang-beispiel">
+  <h2>Posteingang</h2>
+  <p class="stil-zweck">Arbeitslisten (R2-6): links die Arten mit Zahl, rechts die Posten. Jede Zeile hat eine Wahl, den Inhalt mit Arbeitsfläche (<code>.posten-arbeit</code>, Felder in einer Zeile mit <code>.zeile-formular</code>) und die Knöpfe rechts. Die gewählte Zeile (j/k) trägt den Streifen; ihr „Übernehmen“ ist die Hauptaktion. Posten gleicher Ursache stehen als Gruppe mit „für alle anwenden“. Am Handy erst die Arten, dann die Liste.</p>
+  <div class="posteingang posteingang-gewaehlt">
+    <nav class="posteingang-arten" aria-label="Beispiel-Arten">
+      <ul class="arten-liste">
+        <li><a href="#posteingang-beispiel"><span>Alle offenen</span><span class="zaehler">5</span></a></li>
+        <li><a href="#posteingang-beispiel" aria-current="page"><span>Umsätze einordnen</span><span class="zaehler">3</span></a></li>
+        <li><a href="#posteingang-beispiel"><span>Zahlungen klären</span><span class="zaehler">2</span></a></li>
+        <li class="arten-trenner"><a href="#posteingang-beispiel"><span>Zurückgestellt</span><span class="zaehler">0</span></a></li>
+      </ul>
+    </nav>
+    <div class="posteingang-liste">
+      <header class="posteingang-kopf"><h2>Umsätze einordnen <span class="zaehler">3</span></h2>
+        <div class="posteingang-sammel"><label class="haken-label"><input type="checkbox" class="feld-haken"><span>alle wählen</span></label><button type="button" class="knopf knopf-zweit knopf-klein">Für alle übernehmen</button><button type="button" class="knopf knopf-text knopf-klein">Zurückstellen</button></div>
+      </header>
+      <ul class="posten-liste">
+        <li class="posten-zeile posten-aktiv">
+          <label class="posten-wahl"><input type="checkbox" class="feld-haken" aria-label="Posten wählen"></label>
+          <div class="posten-inhalt">
+            <p class="posten-titel"><strong>Baumarkt Beispiel</strong></p>
+            <p class="posten-meta"><span>#12</span><span>fällig {{ stichtag_beispiel|date:"d.m.Y" }}</span><a href="#posteingang-beispiel">Umsatz ansehen</a></p>
+            <div class="posten-arbeit">
+              <p class="posten-umsatz"><time>{{ stichtag_beispiel|date:"d.m.Y" }}</time><strong class="zahl">−{{ beispiel_betrag|euro }}</strong><span class="posten-zweck">Material Baumarkt 10/2026</span><span class="leise">Geschäftskonto</span></p>
+              <div class="zeile-formular">
+                <select class="feld-auswahl" aria-label="Kategorie"><option>Material</option></select>
+                <select class="feld-auswahl" aria-label="Objekt"><option>HOF · Hofanlage</option></select>
+                <label class="haken-label"><input type="checkbox" class="feld-haken" checked><span>Als Regel merken</span></label>
+              </div>
+              <p class="posten-vorschlag">Vorschlag: Kategorie aus dem Zweck, Objekt wie meist auf diesem Konto</p>
+            </div>
+          </div>
+          <div class="posten-knoepfe"><button type="button" class="knopf knopf-zweit knopf-klein knopf-uebernehmen">Übernehmen</button><button type="button" class="knopf knopf-text knopf-klein">Aufteilen</button></div>
+        </li>
+        <li class="posten-gruppe">
+          <details class="aufklapper" open>
+            <summary>2 Umsätze von Stadtwerke Beispiel ohne Regel <span class="zaehler">2</span></summary>
+            <div class="posten-gruppe-kopf">
+              <div class="zeile-formular">
+                <select class="feld-auswahl" aria-label="Kategorie für alle"><option>Strom</option></select>
+                <select class="feld-auswahl" aria-label="Objekt für alle"><option>HOF · Hofanlage</option></select>
+                <label class="haken-label"><input type="checkbox" class="feld-haken" checked><span>Als Regel merken</span></label>
+                <button type="button" class="knopf knopf-zweit knopf-klein">Für alle 2 anwenden</button>
+              </div>
+            </div>
+          </details>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="wahl-karten">
+  <h2>Wahl-Karten</h2>
+  <p class="stil-zweck">Klärfall (R2-6): Vorschlag und bis zu zwei Alternativen als Karten mit Vertrag, Einheit, Mieter und offenen Posten. Ein Klick auf „Zuordnen“ wählt. Der Vorschlag ist grün umrandet.</p>
+  <div class="wahl-karten">
+    <article class="wahl-karte wahl-karte-vorschlag">
+      <header class="wahl-karte-kopf"><strong>V-0010</strong>{% badge "aktiv" %}<span class="wahl-karte-marke">Vorschlag</span></header>
+      <p class="wahl-karte-name">Mieter A</p>
+      <p class="wahl-karte-einheit">NW-S-0001</p>
+      <ul class="wahl-karte-posten"><li><span>Miete 10/2026</span><span class="zahl">{{ beispiel_betrag|euro }}</span></li></ul>
+      <p class="wahl-karte-summe"><span>offen</span><strong class="zahl">{{ beispiel_betrag|euro }}</strong></p>
+      <button type="button" class="knopf knopf-zweit knopf-klein knopf-voll">Zuordnen</button>
+    </article>
+    <article class="wahl-karte">
+      <header class="wahl-karte-kopf"><strong>V-0011</strong>{% badge "gekuendigt" %}</header>
+      <p class="wahl-karte-name">Mieter B</p>
+      <p class="wahl-karte-einheit">NW-S-0006</p>
+      <ul class="wahl-karte-posten"><li class="leise">keine offenen Posten</li></ul>
+      <p class="wahl-karte-summe"><span>offen</span><strong class="zahl">{{ 0|euro }}</strong></p>
+      <p class="wahl-karte-hinweis">Mit Haken zeigt die Zahlerregel danach hierhin.</p>
+      <button type="button" class="knopf knopf-zweit knopf-klein knopf-voll">Zuordnen</button>
+    </article>
+  </div>
+</section>
+
 <section class="stil-abschnitt" id="band">
   <h2>Stichtag-Band</h2>
   <p class="stil-zweck">Steht über jeder Seite, wenn ein fester Stichtag gesetzt ist (nur dev und test, <code>HOF_STICHTAG</code>). In prod gibt es keinen.</p>

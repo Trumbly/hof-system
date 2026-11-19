@@ -91,3 +91,22 @@ registrieren(
     "zurueckstellen", "Zurückstellen", lambda p, b: services.arbeitsposten_zurueckstellen(p)
 )
 registrieren(WIEDER_OEFFNEN, "Wieder öffnen", lambda p, b: services.arbeitsposten_wieder_oeffnen(p))
+
+
+def _verweise_des_kerns() -> None:
+    """Review 1, Punkt 8: Ein Posten mit einem Lauf als Bezug (etwa der Selbsttest) verlinkt
+    auf den Lauf."""
+    from django.urls import reverse
+
+    from apps.kern import verweise
+    from apps.kern.models import Lauf
+
+    verweise.registrieren(
+        Lauf,
+        "Lauf ansehen",
+        lambda lauf: f"{reverse('kern:laeufe')}#lauf-{lauf.pk}",
+        beschreibung=lambda lauf: f"Lauf #{lauf.pk} {lauf.name}",
+    )
+
+
+_verweise_des_kerns()

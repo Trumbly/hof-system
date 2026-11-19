@@ -190,11 +190,11 @@ def test_klaerfall_bietet_an_die_zahlerregel_zu_korrigieren(
     url = reverse("abgleich:zuordnen", args=[fall.pk])
 
     seite = angemeldet.get(url).content.decode()
-    assert "Zahlerregel auf diesen Vertrag ändern" in seite
+    # Review 2, B4: Der Haken steht unter den Karten und ist vorangehakt; die Regel ändert
+    # sich nur, wenn der gewählte Vertrag von ihr abweicht.
+    assert "auf den gewählten Vertrag ändern" in seite
     assert falsch.nummer in seite
-    vorschlag = (fall.vorschlag or {}).get("vertrag")
-    if vorschlag and int(vorschlag) != falsch.pk:
-        assert 'name="zahlerregel_aendern" id="id_zahlerregel_aendern" checked' in seite
+    assert 'name="zahlerregel_aendern" value="1" checked' in seite
 
     antwort = angemeldet.post(url, {"vertrag": richtig.pk, "zahlerregel_aendern": "on"})
     assert antwort.status_code == 302, antwort.content.decode()[:800]

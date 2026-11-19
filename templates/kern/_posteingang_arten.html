@@ -1,0 +1,9 @@
+<nav class="posteingang-arten" id="posteingang-arten" aria-label="Arten"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <ul class="arten-liste">
+    <li><a href="{{ alle_url }}" hx-get="{{ alle_url }}" hx-target="#posteingang" hx-swap="outerHTML" hx-push-url="true"{% if alle_aktiv %} aria-current="page"{% endif %}><span>Alle offenen</span><span class="zaehler">{{ gesamt }}</span></a></li>
+    {% for a in arten %}
+    <li><a href="{{ a.url }}" hx-get="{{ a.url }}" hx-target="#posteingang" hx-swap="outerHTML" hx-push-url="true"{% if a.aktiv %} aria-current="page"{% endif %}><span>{{ a.titel }}</span><span class="zaehler">{{ a.anzahl }}</span></a></li>
+    {% endfor %}
+    <li class="arten-trenner"><a href="{{ zurueck_url }}" hx-get="{{ zurueck_url }}" hx-target="#posteingang" hx-swap="outerHTML" hx-push-url="true"{% if ansicht.zurueckgestellt %} aria-current="page"{% endif %}><span>Zurückgestellt</span><span class="zaehler">{{ zurueck }}</span></a></li>
+  </ul>
+</nav>

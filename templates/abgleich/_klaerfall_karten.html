@@ -1,0 +1,23 @@
+{% comment %} Rechte Seite eines Klärfalls (Review 2, B4): Karten, Haken für die Zahlerregel, Suche.
+  Variablen: k (Kontext aus apps.abgleich.posteingang), p und posten (Arbeitsliste) oder seite. {% endcomment %}
+{% if k.karten %}
+<div class="wahl-karten">
+  {% for karte in k.karten %}{% include "abgleich/_vertrag_karte.html" with zahlerregel=k.zahlerregel %}{% endfor %}
+</div>
+{% elif k.kann_suchen %}
+<p class="posten-vorschlag">Kein Vorschlag: Bitte den Vertrag suchen.</p>
+{% endif %}
+{% if k.zahlerregel and k.kann_suchen %}
+<label class="haken-label"><input type="checkbox" class="feld-haken" name="{% if seite %}zahlerregel_aendern{% else %}{{ p }}-zahlerregel{% endif %}" value="1"{% if k.regel_haken %} checked{% endif %}><span>Zahlerregel #{{ k.zahlerregel.pk }} (zeigt auf {{ k.zahlerregel.vertrag.nummer }}) auf den gewählten Vertrag ändern</span></label>
+{% endif %}
+{% if k.kann_suchen %}
+{% with feld=p|default:"klaerfall"|add:"-suche" %}
+<div class="vertrag-suche">
+  <label class="feld-label" for="{{ feld }}">Anderen Vertrag suchen</label>
+  <input type="search" class="feld-eingabe" id="{{ feld }}" name="{{ feld }}" autocomplete="off" placeholder="Name, V-Nummer oder NW-ID"
+         hx-get="{% url 'abgleich:vertrag_suche' k.klaerfall.pk %}{% if seite %}?seite=1{% else %}?posten={{ posten.pk }}{% endif %}"
+         hx-trigger="input changed delay:300ms, search" hx-target="#{{ feld }}-treffer" hx-include="this">
+  <div class="wahl-karten" id="{{ feld }}-treffer" aria-live="polite"></div>
+</div>
+{% endwith %}
+{% endif %}

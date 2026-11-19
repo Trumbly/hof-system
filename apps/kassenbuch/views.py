@@ -19,17 +19,18 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from apps.bank.models import Bankkonto, Bankumsatz
-from apps.kassenbuch import auswertung, pdf, services
+from apps.kassenbuch import auswertung, einordnen, pdf, services
+from apps.kassenbuch import posteingang as kassenbuch_posteingang
 from apps.kassenbuch.forms import (
     BerichtForm,
     BuchungFilter,
+    EinordnenForm,
     RegelForm,
     TeilFormSet,
-    ZuordnenForm,
     monat_aus_text,
 )
 from apps.kassenbuch.models import Buchung, Monatsabschluss, Monatsbericht, Zuordnungsregel
-from apps.kern import htmx
+from apps.kern import arbeitslisten, htmx, zahlen
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
 
 BUCHUNGEN_JE_SEITE = 50
@@ -144,21 +145,14 @@ def _offener_posten(umsatz: Bankumsatz) -> Arbeitsposten | None:
 
 
 def _vorschlag(umsatz: Bankumsatz) -> dict[str, Any]:
-    """Startwerte für Zuordnen: die beste passende Regel oder die Buchung des Eingangs, den
-    ein Ausgang zurückbucht; sonst nur das Leistungsjahr."""
+    """Startwerte für Zuordnen und Aufteilen aus dem Vorschlag (``einordnen``): Regel,
+    Rückbuchung, Verlauf der Gegenpartei oder Zweck; dazu das Leistungsjahr."""
     initial: dict[str, Any] = {"leistungsjahr": umsatz.buchungsdatum.year}
-    einordnung = services.einordnen(umsatz, services.aktive_regeln())
-    regel = einordnung.regel or (einordnung.gleichauf[0] if einordnung.gleichauf else None)
-    if regel is not None:
-        initial.update(kategorie=regel.kategorie, objekt=regel.objekt, mandant=regel.mandant)
-        return initial
-    zurueck = services.rueckbuchung_zu(umsatz)
-    if zurueck is not None:
-        vorlage = services.gueltige_buchungen().filter(umsatz=zurueck).first()
-        if vorlage is not None:
-            initial.update(
-                kategorie=vorlage.kategorie, objekt=vorlage.objekt, mandant=vorlage.mandant
-            )
+    vorschlag = einordnen.vorschlag(umsatz)
+    for name in ("kategorie", "objekt", "mandant"):
+        if getattr(vorschlag, name) is not None:
+            initial[name] = getattr(vorschlag, name)
+    initial["regel_merken"] = vorschlag.regel_merken
     return initial
 
 
@@ -197,27 +191,72 @@ def umsatz(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @require_http_methods(["GET", "POST"])
 def zuordnen(request: HttpRequest, pk: int) -> HttpResponse:
-    """Aktion „Zuordnen“: ganzer Umsatz auf eine Kategorie, ein Objekt, einen Mandanten."""
+    """Aktion „Zuordnen“: ganzer Umsatz auf eine Kategorie, ein Objekt, einen Mandanten.
+
+    Vorausgefüllt aus dem Vorschlag, Kategorien nach Richtung gefiltert, „Als Regel merken“
+    angehakt, wenn die Gegenpartei schon vorkam (Review 2, B3). Per HTMX ein Dialog (Taste e
+    in der Arbeitsliste): Nach dem Buchen verschwindet der Posten aus der Liste.
+    """
     eintrag = get_object_or_404(Bankumsatz.objects.select_related("konto"), pk=pk)
-    form = ZuordnenForm(request.POST or None, initial=_vorschlag(eintrag))
+    vorschlag = einordnen.vorschlag(eintrag)
+    form = EinordnenForm(
+        request.POST or None,
+        initial=_vorschlag(eintrag),
+        richtung=eintrag.richtung,
+        dazu=vorschlag.kategorie,
+    )
+    dialog = htmx.ist_htmx(request)
     if request.method == "POST" and form.is_valid():
         werte = form.cleaned_data
-        hatte_posten = _offener_posten(eintrag) is not None
-        teil = services.Teil(
-            betrag=eintrag.betrag,
-            kategorie=werte["kategorie"],
-            objekt=werte["objekt"],
-            mandant=werte["mandant"],
-            leistungsjahr=werte["leistungsjahr"],
-            umlagefaehiger_anteil=werte["umlagefaehiger_anteil"],
-        )
+        posten = _offener_posten(eintrag)
         try:
-            services.umsatz_umbuchen(eintrag, [teil])
+            uebernahme = services.einordnen_uebernehmen(
+                [eintrag],
+                kategorie=werte["kategorie"],
+                objekt=werte["objekt"],
+                mandant=werte["mandant"],
+                regel_merken=werte["regel_merken"],
+                regel=vorschlag.regel,
+                leistungsjahr=werte["leistungsjahr"],
+                umlagefaehiger_anteil=werte["umlagefaehiger_anteil"],
+            )
         except services.KassenbuchFehler as fehler:
             form.add_error(None, str(fehler))
         else:
-            return _nach_dem_buchen(request, eintrag, hatte_posten)
-    return render(request, "kassenbuch/zuordnen.html", {**_umsatz_kontext(eintrag), "form": form})
+            meldung = kassenbuch_posteingang.meldung(
+                uebernahme, eintrag, werte["kategorie"], werte["objekt"]
+            )
+            if dialog:
+                teile = arbeitslisten.teile_nach_dialog(request, [posten.pk] if posten else [])
+                return htmx.erfolg(
+                    request, teile, meldung.text, link=meldung.link, link_text=meldung.link_text
+                )
+            messages.success(request, meldung.text)
+            if posten is not None:
+                return redirect("kern:arbeitslisten")
+            return redirect("kassenbuch:umsatz", pk=eintrag.pk)
+    if dialog:
+        richtung = "−" if eintrag.richtung == Bankumsatz.Richtung.AUSGANG else ""
+        return render(
+            request,
+            "bausteine/dialog_formular.html",
+            {
+                "titel": f"Umsatz #{eintrag.pk} einordnen",
+                "form": form,
+                "url": reverse("kassenbuch:zuordnen", args=[eintrag.pk]),
+                "knopf": "Buchen",
+                "hinweis": (
+                    f"{eintrag.buchungsdatum:%d.%m.%Y} · {richtung}{zahlen.euro(eintrag.betrag)}"
+                    f" · {eintrag.gegenpartei or 'ohne Gegenpartei'}"
+                    + (f" · Vorschlag: {vorschlag.quelle}" if vorschlag.quelle else "")
+                ),
+            },
+        )
+    return render(
+        request,
+        "kassenbuch/zuordnen.html",
+        {**_umsatz_kontext(eintrag), "form": form, "vorschlag": vorschlag},
+    )
 
 
 def _teile_daten(daten: QueryDict, mehr: bool) -> QueryDict:

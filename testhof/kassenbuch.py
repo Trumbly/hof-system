@@ -6,8 +6,10 @@ dem Lauf ``kassenbuch_einordnen`` ist jeder Umsatz gebucht oder steht in der Arb
 - Mieten (45 Garagen und Lager, Regel je Gegen-IBAN), Wohnraummiete, Pachten (eine Regel mit
   Regex), Entnahmen und fast alle Ausgaben werden eindeutig gebucht.
 - „Material Baumarkt“ auf Vivid hat keine Regel: Arbeitsposten (je Monat einer).
-- „Versicherungsbeitrag“ auf VR passt auf zwei Regeln mit gleicher Priorität (allgemeine
-  Versicherungsregel und Sammelregel des VR-Kontos): mehrdeutig, Arbeitsposten.
+- „Versicherungsbeitrag“ auf VR hat keine Regel (ein wiederkehrender Umsatz derselben
+  Gegenpartei): Arbeitsposten, im Posteingang als eine Gruppe. Zwei Regeln mit gleicher
+  Priorität und überlappenden Bedingungen legt der Testhof nicht mehr an; sie lassen sich
+  nicht speichern (Review 1, Punkt 5).
 - Die Rückbuchung einer Miete (Ausgang von der IBAN eines Mieters) passt auf keine Regel:
   Arbeitsposten mit dem Hinweis auf den zurückgebuchten Eingang.
 
@@ -229,11 +231,14 @@ def _regeln(
                 prioritaet=PRIO_GEGENPARTEI,
             )
         )
-    # Allgemeine Regel nach Zweck und Sammelregel für VR: Bei der VR-Versicherung passen
-    # beide mit gleicher Priorität (mehrdeutig, Arbeitsposten).
+    # Früher passten hier eine allgemeine Versicherungsregel und die Sammelregel des
+    # VR-Kontos mit gleicher Priorität (Review 1, Punkt 5: #118/#119). Solche Regeln lassen
+    # sich nicht mehr speichern. Jetzt gilt die Versicherungsregel nur für Vivid, und die
+    # Sammelregel nimmt die Versicherung aus: Die VR-Versicherung hat keine Regel.
     regeln.append(
         services.regel_anlegen(
             "Versicherung (Zweck)",
+            konto=vivid,
             zweck="Versicherung",
             richtung=ausgang,
             kategorie=kategorien["Versicherungen"],
@@ -243,10 +248,12 @@ def _regeln(
     )
     regeln.append(
         services.regel_anlegen(
-            "VR Ausgaben bis 600 Euro",
+            "VR Ausgaben bis 600 Euro außer Versicherung",
             konto=vr,
             richtung=ausgang,
             betrag_bis=Decimal("600.00"),
+            zweck=r"^(?!Versicherung)",
+            zweck_regex=True,
             kategorie=kategorien["Sonstige Ausgaben"],
             objekt=objekte["FELD"],
             prioritaet=PRIO_ALLGEMEIN,

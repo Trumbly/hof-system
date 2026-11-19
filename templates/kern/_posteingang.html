@@ -1,0 +1,39 @@
+{# Posteingang (Review 2, B2): links die Arten, rechts die Posten. Lädt neu auf „posteingangNeu“. #}
+<div class="posteingang{% if ansicht.gewaehlt %} posteingang-gewaehlt{% endif %}" id="posteingang">
+  {# Eigenes Element zum Neuladen: hx-target/hx-swap am Rahmen würden alle Kinder erben. #}
+  <span hidden hx-get="{{ ansicht.url }}" hx-trigger="posteingangNeu from:body" hx-target="#posteingang" hx-swap="outerHTML"></span>
+  {% include "kern/_posteingang_arten.html" %}
+  <section class="posteingang-liste" aria-labelledby="posteingang-titel">
+    <form id="posteingang-form" method="post" action="{% url 'kern:posten_sammel' %}">
+      {% csrf_token %}
+      {# Enter in einem Feld schickt nichts ab: Der erste Knopf des Formulars ist gesperrt. #}
+      <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+      {% if ansicht.art %}<input type="hidden" name="art" value="{{ ansicht.art }}">{% endif %}
+      {% if ansicht.zurueckgestellt %}<input type="hidden" name="status" value="zurueckgestellt">{% endif %}
+      <header class="posteingang-kopf">
+        <a class="posteingang-zurueck knopf knopf-text knopf-klein" href="{% url 'kern:arbeitslisten' %}">← Arten</a>
+        <h2 id="posteingang-titel">{{ titel }} <span class="zaehler">{{ anzahl }}</span></h2>
+        {% if eintraege and sammel %}
+        <div class="posteingang-sammel">
+          <label class="haken-label"><input type="checkbox" class="feld-haken" data-alle-waehlen><span>alle wählen</span></label>
+          {% for k in sammel %}
+          <button type="submit" class="knopf {% if forloop.first %}knopf-zweit{% else %}knopf-text{% endif %} knopf-klein" name="aktion" value="{{ k.schluessel }}"
+                  hx-post="{% url 'kern:posten_sammel' %}" hx-vals='{"aktion": "{{ k.schluessel }}"}' hx-target="#posteingang" hx-swap="outerHTML" data-sammel>{{ k.titel }}</button>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </header>
+      {% if eintraege %}
+      <ul class="posten-liste">
+        {% for e in eintraege %}
+        {% if e.ist_gruppe %}{% include "kern/_posten_gruppe.html" with g=e %}{% else %}{% include "kern/_posten.html" with z=e %}{% endif %}
+        {% endfor %}
+      </ul>
+      {% elif ansicht.zurueckgestellt %}
+      {% include "bausteine/leer.html" with text="Nichts zurückgestellt." %}
+      {% else %}
+      {% include "bausteine/leer.html" with text="Keine offenen Posten." hilfe="Neue Posten legen die Läufe an, etwa der Bankabruf am Morgen." %}
+      {% endif %}
+    </form>
+  </section>
+</div>

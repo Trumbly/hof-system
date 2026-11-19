@@ -1,0 +1,33 @@
+{% load bausteine kern %}{% with posten=z.posten %}
+<li class="posten-zeile{% if z.fehler %} posten-fehlerhaft{% endif %}" id="posten-{{ posten.pk }}" data-posten tabindex="-1" aria-labelledby="posten-{{ posten.pk }}-titel">
+  <label class="posten-wahl"><input type="checkbox" class="feld-haken" name="posten" value="{{ posten.pk }}" aria-label="Posten #{{ posten.pk }} wählen"></label>
+  <div class="posten-inhalt">
+    <p class="posten-titel" id="posten-{{ posten.pk }}-titel">{% if zeige_art %}<span class="posten-art">{{ posten.art }}</span> {% endif %}<strong>{{ z.titel }}</strong></p>
+    <p class="posten-meta">
+      <span>#{{ posten.pk }}</span>
+      {% if posten.status == "zurueckgestellt" %}{% badge "neutral" "zurückgestellt" %}{% endif %}
+      {% if posten.faellig_am %}<span>fällig {{ posten.faellig_am|date:"d.m.Y" }}</span>{% endif %}
+      {% if z.verweis %}<a href="{{ z.verweis.url }}">{{ z.verweis.titel }}</a>{% endif %}
+      {% if posten.lauf %}<a href="{% url 'kern:laeufe' %}#lauf-{{ posten.lauf.pk }}">aus Lauf #{{ posten.lauf.pk }}</a>{% endif %}
+    </p>
+    {% if posten.hinweis %}<p class="posten-hinweis">{{ posten.hinweis|pfade_verlinken }}</p>{% endif %}
+    {% if z.vorlage %}{% include z.vorlage with p=z.p k=z.kontext %}{% endif %}
+    {% if z.fehler %}<p class="feld-fehler" role="alert">{{ z.fehler }}</p>{% endif %}
+  </div>
+  <div class="posten-knoepfe">
+    {% if z.kann_uebernehmen and not z.kontext.uebernehmen_in_flaeche %}
+    <button type="submit" class="knopf knopf-zweit knopf-klein knopf-uebernehmen" data-uebernehmen
+            formaction="{% url 'kern:posten_uebernehmen' posten.pk %}"
+            hx-post="{% url 'kern:posten_uebernehmen' posten.pk %}" hx-target="#posten-{{ posten.pk }}" hx-swap="outerHTML">Übernehmen</button>
+    {% endif %}
+    {% for k in z.knoepfe|slice:":2" %}{% include "kern/_posten_knopf.html" %}{% endfor %}
+    {% if z.knoepfe|length > 2 %}
+    <details class="menue">
+      <summary class="knopf knopf-text knopf-klein" aria-label="Weitere Aktionen zu Posten #{{ posten.pk }}">mehr ▾</summary>
+      <ul class="menue-liste">{% for k in z.knoepfe|slice:"2:" %}<li>{% include "kern/_posten_knopf.html" %}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+    {% if z.bearbeiten_url %}<a class="nur-leser" data-bearbeiten href="{{ z.bearbeiten_url }}"{% if z.bearbeiten_dialog %} hx-get="{{ z.bearbeiten_url }}" hx-target="#dialog-inhalt"{% endif %}>Posten #{{ posten.pk }} bearbeiten</a>{% endif %}
+  </div>
+</li>
+{% endwith %}

@@ -221,6 +221,131 @@ def _regel_pruefen(regel: Zuordnungsregel) -> None:
             f"Kategorie #{kategorie.pk} ist eine Entnahme von Mandant #{kategorie.mandant_id}; "
             "die Regel muss denselben Mandanten nennen."
         )
+    _ueberschneidung_pruefen(regel)
+
+
+# --- Überschneidung gleichrangiger Regeln (Review 1, Punkt 5) -------------------------
+
+
+def _getrennt(a: Zuordnungsregel, b: Zuordnungsregel) -> bool:
+    """Schließt eine Bedingung, die beide Regeln setzen, gemeinsame Treffer sicher aus?
+
+    Verschiedenes Konto, verschiedene Richtung, verschiedene IBAN oder Betragsbereiche ohne
+    Schnitt trennen immer. Bei Texten trennt eine Gegenpartei (bzw. ein Zweck ohne Regex), wenn
+    keiner der beiden Texte den anderen enthält; ein Regex trennt von einem festen Zweck, auf
+    den er nicht passt. Das ist eine Annahme aus der Praxis (zwei Namen stehen selten zugleich
+    im Feld); vorhandene Umsätze, die auf beide passen, prüft ``_gemeinsamer_umsatz``.
+    """
+    if a.konto_id and b.konto_id and a.konto_id != b.konto_id:
+        return True
+    if a.richtung and b.richtung and a.richtung != b.richtung:
+        return True
+    if a.gegen_iban and b.gegen_iban and a.gegen_iban != b.gegen_iban:
+        return True
+    unten = max((w for w in (a.betrag_von, b.betrag_von) if w is not None), default=None)
+    oben = min((w for w in (a.betrag_bis, b.betrag_bis) if w is not None), default=None)
+    if unten is not None and oben is not None and unten > oben:
+        return True
+    if a.gegenpartei and b.gegenpartei:
+        x, y = a.gegenpartei.casefold(), b.gegenpartei.casefold()
+        if x not in y and y not in x:
+            return True
+    if a.zweck and b.zweck:
+        if not a.zweck_regex and not b.zweck_regex:
+            x, y = a.zweck.casefold(), b.zweck.casefold()
+            return x not in y and y not in x
+        if a.zweck_regex != b.zweck_regex:
+            muster, text = (a.zweck, b.zweck) if a.zweck_regex else (b.zweck, a.zweck)
+            return re.search(muster, text, flags=re.IGNORECASE) is None
+        return a.zweck != b.zweck
+    return False
+
+
+def _umfasst(weit: Zuordnungsregel, eng: Zuordnungsregel) -> bool:
+    """Passt ``weit`` auf jeden Umsatz, auf den ``eng`` passt? (Jede Bedingung von ``weit``
+    steht auch in ``eng``, gleich oder strenger.)"""
+    if weit.konto_id and weit.konto_id != eng.konto_id:
+        return False
+    if weit.richtung and weit.richtung != eng.richtung:
+        return False
+    if weit.gegen_iban and weit.gegen_iban != eng.gegen_iban:
+        return False
+    if weit.gegenpartei and weit.gegenpartei.casefold() not in eng.gegenpartei.casefold():
+        return False
+    if weit.zweck:
+        if weit.zweck_regex:
+            if not (eng.zweck_regex and eng.zweck == weit.zweck):
+                return False
+        elif eng.zweck_regex or weit.zweck.casefold() not in eng.zweck.casefold():
+            return False
+    if weit.betrag_von is not None and (eng.betrag_von is None or eng.betrag_von < weit.betrag_von):
+        return False
+    return weit.betrag_bis is None or (
+        eng.betrag_bis is not None and eng.betrag_bis <= weit.betrag_bis
+    )
+
+
+def _gemeinsamer_umsatz(a: Zuordnungsregel, b: Zuordnungsregel) -> Bankumsatz | None:
+    """Ein vorhandener Umsatz, auf den beide Regeln passen (der älteste), sonst None."""
+    umsaetze = Bankumsatz.objects.all()
+    for regel in (a, b):
+        if regel.konto_id:
+            umsaetze = umsaetze.filter(konto_id=regel.konto_id)
+        if regel.richtung:
+            umsaetze = umsaetze.filter(richtung=regel.richtung)
+        if regel.betrag_von is not None:
+            umsaetze = umsaetze.filter(betrag__gte=regel.betrag_von)
+        if regel.betrag_bis is not None:
+            umsaetze = umsaetze.filter(betrag__lte=regel.betrag_bis)
+        if regel.gegenpartei:
+            umsaetze = umsaetze.filter(gegenpartei__icontains=regel.gegenpartei)
+        if regel.zweck and not regel.zweck_regex:
+            umsaetze = umsaetze.filter(verwendungszweck__icontains=regel.zweck)
+    for umsatz in umsaetze.order_by("buchungsdatum", "pk").iterator(chunk_size=500):
+        if regel_passt(a, umsatz) and regel_passt(b, umsatz):
+            return umsatz
+    return None
+
+
+def ueberschneidungen(regel: Zuordnungsregel) -> list[tuple[Zuordnungsregel, Bankumsatz | None]]:
+    """Aktive Regeln mit derselben Priorität, die sich mit ``regel`` überschneiden.
+
+    Überschneiden heißt: Keine Bedingung trennt die beiden (``_getrennt``), und entweder
+    umfasst eine Regel die andere ganz (gleiche oder strengere Bedingungen), oder ein
+    vorhandener Umsatz passt auf beide. Zu jeder Regel steht der gemeinsame Umsatz, falls es
+    einen gibt.
+    """
+    if not regel.aktiv:
+        return []
+    andere = Zuordnungsregel.objects.filter(aktiv=True, prioritaet=regel.prioritaet)
+    if regel.pk is not None:
+        andere = andere.exclude(pk=regel.pk)
+    treffer: list[tuple[Zuordnungsregel, Bankumsatz | None]] = []
+    for andere_regel in andere.order_by("pk"):
+        if _getrennt(regel, andere_regel):
+            continue
+        if _umfasst(regel, andere_regel) or _umfasst(andere_regel, regel):
+            treffer.append((andere_regel, _gemeinsamer_umsatz(regel, andere_regel)))
+            continue
+        gemeinsam = _gemeinsamer_umsatz(regel, andere_regel)
+        if gemeinsam is not None:
+            treffer.append((andere_regel, gemeinsam))
+    return treffer
+
+
+def _ueberschneidung_pruefen(regel: Zuordnungsregel) -> None:
+    """Zwei Regeln mit gleicher Priorität und überlappenden Bedingungen lassen sich nicht
+    speichern (Review 1, Punkt 5): Sonst wäre jeder gemeinsame Umsatz mehrdeutig."""
+    treffer = ueberschneidungen(regel)
+    if not treffer:
+        return
+    andere, umsatz = treffer[0]
+    beleg = f" Umsatz #{umsatz.pk} passt auf beide." if umsatz is not None else ""
+    raise KassenbuchFehler(
+        f"Die Regel überschneidet sich mit Regel #{andere.pk}, die dieselbe Priorität "
+        f"({regel.prioritaet}) hat.{beleg} Bitte eine andere Priorität wählen oder die "
+        "Bedingungen enger fassen."
+    )
 
 
 def regel_anlegen(
@@ -594,6 +719,102 @@ def umsatz_umbuchen(
     if gueltige_buchungen().filter(umsatz=umsatz).exists():
         umsatz_stornieren(umsatz, neu_einordnen=False)
     return umsatz_buchen(umsatz, teile, datum=datum)
+
+
+# --- Vorschlag übernehmen (Review 2, B3) ---------------------------------------------
+
+
+def regel_aus_umsatz_anlegen(
+    umsatz: Bankumsatz,
+    *,
+    kategorie: Kategorie,
+    objekt: Objekt,
+    mandant: Mandant | None = None,
+    prioritaet: int = 10,
+) -> Zuordnungsregel:
+    """„Als Regel merken“: Regel mit der Gegen-IBAN (ohne IBAN: der Gegenpartei) und der
+    Richtung des Umsatzes. Überschneidet sie sich mit einer gleichrangigen Regel, lehnt
+    ``regel_anlegen`` sie ab (Review 1, Punkt 5)."""
+    return regel_anlegen(
+        (umsatz.gegenpartei or f"Regel aus Umsatz #{umsatz.pk}")[:200],
+        kategorie=kategorie,
+        objekt=objekt,
+        mandant=mandant,
+        gegen_iban=umsatz.gegen_iban,
+        gegenpartei="" if umsatz.gegen_iban else umsatz.gegenpartei[:200],
+        richtung=umsatz.richtung,
+        prioritaet=prioritaet,
+    )
+
+
+@dataclass
+class Uebernahme:
+    """Ergebnis von ``einordnen_uebernehmen``: die neuen Buchungen und, mit „Als Regel
+    merken“, die neue Regel oder der Grund, warum es keine gibt."""
+
+    buchungen: list[Buchung] = field(default_factory=list)
+    regel: Zuordnungsregel | None = None
+    regel_fehler: str = ""
+
+    @property
+    def umsaetze(self) -> int:
+        return len({b.umsatz_id for b in self.buchungen})
+
+
+@transaction.atomic
+def einordnen_uebernehmen(
+    umsaetze: Sequence[Bankumsatz],
+    *,
+    kategorie: Kategorie,
+    objekt: Objekt,
+    mandant: Mandant | None = None,
+    regel_merken: bool = False,
+    regel: Zuordnungsregel | None = None,
+    leistungsjahr: int | None = None,
+    umlagefaehiger_anteil: Decimal | None = None,
+) -> Uebernahme:
+    """Bucht Umsätze ganz auf eine Kategorie und ein Objekt (Arbeitsliste: „Übernehmen“,
+    „für alle anwenden“). Schon gebuchte Teile werden vorher storniert.
+
+    Mit ``regel_merken`` entsteht zuerst eine Regel aus dem ersten Umsatz; jeder Umsatz, auf
+    den sie passt, trägt sie in seiner Buchung. Lässt sich die Regel nicht anlegen, wird
+    trotzdem gebucht, und ``regel_fehler`` nennt den Grund. ``regel`` ist die Regel, aus der
+    der Vorschlag stammt (bei gleichem Ergebnis steht sie an der Buchung).
+    """
+    ergebnis = Uebernahme()
+    if not umsaetze:
+        return ergebnis
+    if regel_merken:
+        try:
+            with transaction.atomic():
+                ergebnis.regel = regel_aus_umsatz_anlegen(
+                    umsaetze[0], kategorie=kategorie, objekt=objekt, mandant=mandant
+                )
+        except KassenbuchFehler as fehler:
+            ergebnis.regel_fehler = str(fehler)
+    for umsatz in umsaetze:
+        nach: Zuordnungsregel | None = None
+        if ergebnis.regel is not None and regel_passt(ergebnis.regel, umsatz):
+            nach = ergebnis.regel
+        elif (
+            regel is not None
+            and regel.kategorie_id == kategorie.pk
+            and regel.objekt_id == objekt.pk
+            and regel_passt(regel, umsatz)
+        ):
+            nach = regel
+        if gueltige_buchungen().filter(umsatz=umsatz).exists():
+            umsatz_stornieren(umsatz, neu_einordnen=False)
+        teil = Teil(
+            betrag=umsatz.betrag,
+            kategorie=kategorie,
+            objekt=objekt,
+            mandant=mandant,
+            leistungsjahr=leistungsjahr,
+            umlagefaehiger_anteil=umlagefaehiger_anteil,
+        )
+        ergebnis.buchungen += umsatz_buchen(umsatz, [teil], regel=nach)
+    return ergebnis
 
 
 # --- Protokoll: Rücknahme als Storno -------------------------------------------------

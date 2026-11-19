@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import itertools
 from decimal import Decimal
 
 import pytest
@@ -49,7 +50,13 @@ def test_kategorie_aendern_und_deaktivieren(klein: KleinerHof) -> None:
 # --- Regeln --------------------------------------------------------------------------
 
 
+_PRIORITAET = itertools.count(100)
+
+
 def _regel(klein: KleinerHof, **bedingungen: object) -> Zuordnungsregel:
+    # Ohne Angabe eine eigene Priorität: Gleichrangige Regeln, die sich überschneiden,
+    # lassen sich nicht speichern (Review 1, Punkt 5).
+    bedingungen.setdefault("prioritaet", next(_PRIORITAET))
     return services.regel_anlegen(
         "Regel",
         kategorie=klein.miete,
@@ -98,15 +105,17 @@ def test_regel_bedingungen(klein: KleinerHof) -> None:
 def test_eindeutig_heisst_genau_eine_regel_mit_hoechster_prioritaet(klein: KleinerHof) -> None:
     """Aufgabe 3: Eindeutig ist ein Treffer, wenn genau eine Regel mit der höchsten
     Priorität passt; zwei gleichrangige sind mehrdeutig, keine ist kein Treffer."""
-    eintrag = umsatz(klein.konto, JAN, "250.00")
     allgemein = _regel(klein, zweck="Miete", prioritaet=10)
     genau = _regel(klein, gegenpartei="Erika", prioritaet=20)
+    # Gleichrang entsteht nur, wenn der Umsatz erst nach beiden Regeln kommt (sonst lehnt
+    # regel_anlegen die zweite ab, Review 1, Punkt 5).
+    zweite = _regel(klein, gegen_iban="DE40012345670000000001", prioritaet=20)
+    eintrag = umsatz(klein.konto, JAN, "250.00")
 
-    einordnung = services.einordnen(eintrag, services.aktive_regeln())
+    einordnung = services.einordnen(eintrag, [allgemein, genau])
     assert einordnung.regel == genau
     assert set(einordnung.treffer) == {allgemein, genau}
 
-    zweite = _regel(klein, gegen_iban=eintrag.gegen_iban, prioritaet=20)
     einordnung = services.einordnen(eintrag, services.aktive_regeln())
     assert einordnung.regel is None and einordnung.mehrdeutig
     assert set(einordnung.gleichauf) == {genau, zweite}
@@ -287,12 +296,12 @@ def test_rueckbuchung_wird_erkannt(klein: KleinerHof) -> None:
 def test_einordnen_bucht_eindeutige_und_legt_posten_fuer_den_rest(klein: KleinerHof) -> None:
     """Aufgabe 3: Eindeutige Treffer werden gebucht, mehrdeutige und fehlende werden ein
     Arbeitsposten „Umsätze einordnen“ mit den Aktionen; ein zweiter Lauf ändert nichts."""
-    eindeutig = umsatz(klein.konto, JAN, "250.00", iban="DE40012345670000000001")
-    mehrdeutig = umsatz(klein.konto, JAN, "80.00", eingang=False, zweck="Strom Januar")
-    fehlt = umsatz(klein.konto, JAN, "12.00", eingang=False, zweck="Unbekannt")
     regel = _regel(klein, gegen_iban="DE40012345670000000001", richtung="eingang")
     services.regel_anlegen("Strom A", kategorie=klein.strom, objekt=klein.hof, zweck="Strom")
     services.regel_anlegen("Strom B", kategorie=klein.strom, objekt=klein.halle, zweck="Januar")
+    eindeutig = umsatz(klein.konto, JAN, "250.00", iban="DE40012345670000000001")
+    mehrdeutig = umsatz(klein.konto, JAN, "80.00", eingang=False, zweck="Strom Januar")
+    fehlt = umsatz(klein.konto, JAN, "12.00", eingang=False, zweck="Unbekannt")
 
     ergebnis = services.umsaetze_einordnen()
 
@@ -347,13 +356,13 @@ def test_regel_rueckwirkend_mit_vorschau(klein: KleinerHof) -> None:
 
 
 def test_vorschau_zaehlt_mehrdeutige_und_hoeherrangige(klein: KleinerHof) -> None:
-    umsatz(klein.konto, JAN, "40.00", eingang=False, zweck="Strom Halle")
-    umsatz(klein.konto, JAN, "41.00", eingang=False, zweck="Strom Hof")
     services.regel_anlegen(
         "Halle", kategorie=klein.strom, objekt=klein.halle, zweck="Halle", prioritaet=30
     )
     services.regel_anlegen("Hof", kategorie=klein.strom, objekt=klein.hof, zweck="Hof")
     neu = services.regel_anlegen("Strom", kategorie=klein.strom, objekt=klein.hof, zweck="Strom")
+    umsatz(klein.konto, JAN, "40.00", eingang=False, zweck="Strom Halle")
+    umsatz(klein.konto, JAN, "41.00", eingang=False, zweck="Strom Hof")
 
     vorschau = services.regel_vorschau(neu)
 

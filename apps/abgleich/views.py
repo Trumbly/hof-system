@@ -16,7 +16,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from apps.abgleich import services
+from apps.abgleich import posteingang, services
 from apps.abgleich.forms import (
     AnteilFormSet,
     GuthabenForm,
@@ -29,6 +29,9 @@ from apps.abgleich.forms import (
 from apps.abgleich.models import Klaerfall, Zahlerregel, Zuordnung
 from apps.kassenbuch import services as kassenbuch
 from apps.kassenbuch.models import Zuordnungsregel
+from apps.kern import posteingang as kern_posteingang
+from apps.kern.models import Arbeitsposten
+from apps.kern.posteingang import PostenFehler
 from apps.soll.models import Sollposten
 from apps.stammdaten.models import Vertrag
 
@@ -136,51 +139,79 @@ def _fertig(request: HttpRequest, text: str) -> HttpResponse:
     return redirect("kern:arbeitslisten")
 
 
+def _seite_kontext(fall: Klaerfall, form: ZuordnenForm | None = None) -> dict[str, Any]:
+    """Seite des Klärfalls (Review 2, B4): links der Umsatz, rechts Karten und Suche."""
+    kontext = _klaerfall_kontext(fall)
+    k = posteingang.klaerfall_kontext(fall)
+    umsatz = kontext["umsatz"]
+    return {
+        **kontext,
+        "k": k,
+        "form": form,
+        "offen_betrag": k["offen_betrag"],
+        "art_klaeren": services.ART_KLAEREN,
+        "meta": (
+            f"Klärfall #{fall.pk} · {umsatz.buchungsdatum:%d.%m.%Y} · {fall.get_art_display()}"
+        ),
+    }
+
+
 @login_required
 @require_GET
 def klaerfall(request: HttpRequest, pk: int) -> HttpResponse:
     fall = _klaerfall(pk)
-    return render(request, "abgleich/klaerfall.html", _klaerfall_kontext(fall))
+    return render(request, "abgleich/klaerfall.html", _seite_kontext(fall))
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def zuordnen(request: HttpRequest, pk: int) -> HttpResponse:
-    """Aktion „Zuordnen“: offener Betrag auf einen Vertrag, älteste Posten zuerst."""
+    """Aktion „Zuordnen“: offener Betrag auf einen Vertrag, älteste Posten zuerst.
+
+    Die Seite zeigt Karten statt einer Auswahlliste (Review 2, B4); ein Klick auf „Zuordnen“
+    einer Karte schickt ``vertrag``. Zeigt die Zahlerregel auf einen anderen Vertrag als den
+    gewählten, ändert der vorangehakte Haken sie (A11).
+    """
     fall = _klaerfall(pk)
-    vorschlag = Vertrag.objects.filter(pk=(fall.vorschlag or {}).get("vertrag")).first()
-    # Zeigt die Zahlerregel auf einen anderen Vertrag, ist „ändern“ vorangehakt (A11).
-    zahlerregel = services.zahlerregel_zu(fall.buchung)
-    abweichend = services.zahlerregel_weicht_ab(fall, vorschlag)
-    initial = {
-        "vertrag": vorschlag.pk if vorschlag else None,
-        "zahlerregel_aendern": abweichend is not None,
-    }
-    form = ZuordnenForm(request.POST or None, initial=initial)
-    if zahlerregel is None or zahlerregel.vertrag_id is None:
-        del form.fields["zahlerregel_aendern"]
-    if request.method == "POST" and form.is_valid():
-        vertrag = form.cleaned_data["vertrag"]
-        aendern = bool(form.cleaned_data.get("zahlerregel_aendern"))
-        geaendert = aendern and services.zahlerregel_weicht_ab(fall, vertrag) is not None
+    if request.method == "GET":
+        return render(request, "abgleich/klaerfall.html", _seite_kontext(fall))
+    form = ZuordnenForm(request.POST)
+    if form.is_valid():
         try:
-            services.klaerfall_zuordnen(
+            ergebnis = posteingang.zuordnen(
                 fall,
-                vertrag,
-                rest_als_guthaben=form.cleaned_data["rest_als_guthaben"],
-                zahlerregel_aendern=aendern,
+                form.cleaned_data["vertrag"],
+                zahlerregel_aendern=bool(form.cleaned_data.get("zahlerregel_aendern")),
             )
-        except services.AbgleichFehler as fehler:
+        except PostenFehler as fehler:
             form.add_error(None, str(fehler))
         else:
-            text = f"Klärfall #{fall.pk}: Zahlung Vertrag {vertrag.nummer} zugeordnet."
-            if geaendert and zahlerregel is not None:
-                text += f" Zahlerregel #{zahlerregel.pk} zeigt jetzt auf {vertrag.nummer}."
-            return _fertig(request, text)
+            return _fertig(request, ergebnis.text)
+    return render(request, "abgleich/klaerfall.html", _seite_kontext(fall, form))
+
+
+@login_required
+@require_GET
+def vertrag_suche(request: HttpRequest, pk: int) -> HttpResponse:
+    """HTMX: „anderen Vertrag suchen“ (Review 2, B4). Treffer als Karten mit Namen."""
+    fall = _klaerfall(pk)
+    text = next((w for s, w in request.GET.items() if s == "q" or s.endswith("-suche")), "")
+    posten = None
+    if not request.GET.get("seite"):
+        posten = get_object_or_404(Arbeitsposten, pk=request.GET.get("posten") or 0)
+    k = posteingang.klaerfall_kontext(fall)
+    karten = posteingang.karten_zu(posteingang.suchen(text), regel=k["zahlerregel"])
     return render(
         request,
-        "abgleich/zuordnen.html",
-        {**_klaerfall_kontext(fall), "form": form, "zahlerregel": zahlerregel},
+        "abgleich/_vertrag_treffer.html",
+        {
+            "karten": karten,
+            "text": text.strip(),
+            "seite": posten is None,
+            "posten": posten,
+            "p": kern_posteingang.praefix(posten) if posten else "",
+            "zahlerregel": k["zahlerregel"],
+        },
     )
 
 

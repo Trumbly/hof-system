@@ -13,7 +13,10 @@ class StammdatenConfig(AppConfig):
 
         konfiguration.laden()
 
-        from apps.stammdaten import kacheln  # Kacheln „Leerstand“ und „Datenstand“
+        from apps.stammdaten import (
+            kacheln,  # Kacheln „Leerstand“ und „Datenstand“
+            verweise,  # noqa: F401  (Links an Arbeitsposten)
+        )
 
         kacheln.anmelden()
 

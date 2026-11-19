@@ -1,0 +1,26 @@
+{# Umsatz einordnen in der Zeile (Review 2, B3): Umsatz, Vorschlag und Felder; Knöpfe rechts. #}
+{% with u=k.umsatz %}
+<div class="posten-arbeit">
+  <input type="hidden" name="{{ p }}-da" value="1">
+  <p class="posten-umsatz">
+    <time datetime="{{ u.buchungsdatum|date:'Y-m-d' }}">{{ u.buchungsdatum|date:"d.m.Y" }}</time>
+    <strong class="zahl betrag-{{ u.richtung }}">{% if u.richtung == "ausgang" %}−{% endif %}{{ u.betrag|euro }}</strong>
+    <span class="posten-zweck">{{ u.verwendungszweck|default:"ohne Zweck" }}</span>
+    <span class="leise">{{ u.konto.bezeichnung }}</span>
+  </p>
+  <div class="zeile-formular">
+    <label class="nur-leser" for="{{ p }}-kategorie">Kategorie</label>
+    <select class="feld-auswahl" id="{{ p }}-kategorie" name="{{ p }}-kategorie">
+      <option value="">Kategorie wählen</option>
+      {% for kat in k.kategorien %}<option value="{{ kat.pk }}"{% if kat.pk == k.vorschlag.kategorie.pk %} selected{% endif %}>{{ kat.bezeichnung }}</option>{% endfor %}
+    </select>
+    <label class="nur-leser" for="{{ p }}-objekt">Objekt</label>
+    <select class="feld-auswahl" id="{{ p }}-objekt" name="{{ p }}-objekt">
+      <option value="">Objekt wählen</option>
+      {% for o in k.objekte %}<option value="{{ o.pk }}"{% if o.pk == k.vorschlag.objekt.pk %} selected{% endif %}>{{ o.kuerzel }} · {{ o.bezeichnung }}</option>{% endfor %}
+    </select>
+    <label class="haken-label"><input type="checkbox" class="feld-haken" name="{{ p }}-regel" value="1"{% if k.vorschlag.regel_merken %} checked{% endif %}><span>Als Regel merken</span></label>
+  </div>
+  {% if k.vorschlag.quelle %}<p class="posten-vorschlag">Vorschlag: {{ k.vorschlag.quelle }}{% if not k.vorschlag.vollstaendig %} (unvollständig){% endif %}</p>{% elif not k.vorschlag.vollstaendig %}<p class="posten-vorschlag">Kein Vorschlag: Kategorie und Objekt wählen.</p>{% endif %}
+</div>
+{% endwith %}
