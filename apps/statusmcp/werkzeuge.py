@@ -28,6 +28,9 @@ FRISTEN_STANDARD_TAGE = 90
 LAUF_SICHERUNG = "sicherung_pruefen"
 LAUF_KENNZAHLEN = "statusmcp_aktualisieren"
 PROBLEM = ("abgebrochen", "mit_fehlern")
+#: Läufe ohne Arbeit (etwa ``benachrichtigen`` ohne Kanal außerhalb der Produktion): kein
+#: Problem, aber auch kein Erfolg.
+UEBERSPRUNGEN = "uebersprungen"
 
 KEINE_KENNZAHLEN = (
     "Noch keine Kennzahlen: Der Lauf statusmcp_aktualisieren ist noch nicht gelaufen "
@@ -132,6 +135,7 @@ def ueberblick(leser: Leser, heute: datetime.date) -> dict[str, Any]:
         },
         "laeufe": {
             "mit_problem": sorted(n for n, z in laeufe.items() if z["status"] in PROBLEM),
+            "uebersprungen": sorted(n for n, z in laeufe.items() if z["status"] == UEBERSPRUNGEN),
             "letzte": [_lauf(z) for z in laeufe.values()],
         },
         "sicherung": {

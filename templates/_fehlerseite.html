@@ -1,0 +1,34 @@
+{% comment %}
+Grundgerüst der Fehlerseiten (400, 403, 404, 500). Eigenständig: kein static, keine
+Navigation, keine Datenbank. Die Seite 500 bekommt keinen Kontext; sie muss auch dann
+erscheinen, wenn sonst nichts mehr geht.
+{% endcomment %}<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block titel %}Fehler{% endblock %} · Hof-System</title>
+  <style>
+    :root { --text: #1d2321; --leise: #5a645f; --grund: #fbfaf7; --akzent: #2f5d46; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --text: #e8ebe9; --leise: #a3aca7; --grund: #161a18; --akzent: #7fbf9d; } }
+    body { margin: 0; padding: 2rem 1rem; background: var(--grund); color: var(--text);
+           font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 36rem; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+    code { overflow-wrap: anywhere; }
+    .code { color: var(--leise); margin: 0 0 0.25rem; }
+    a { color: var(--akzent); }
+    .knopf { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 1rem;
+             border: 1px solid var(--akzent); border-radius: 6px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="code">Hof-System · Fehler {% block code %}{% endblock %}</p>
+    <h1>{% block ueberschrift %}{% endblock %}</h1>
+    {% block text %}{% endblock %}
+    <p><a class="knopf" href="/">Zur Startseite</a></p>
+  </main>
+</body>
+</html>

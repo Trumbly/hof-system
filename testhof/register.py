@@ -6,9 +6,12 @@ Jedes Modul unter ``testhof/`` meldet sich beim Import an::
         "bank",
         abhaengig_von=("kern",),
         aufbauen=aufbauen,      # (Kontext) -> Daten für die Ablage
-        leeren=leeren,          # () -> None
         sonderfaelle=("doppelter_umsatz",),
     )
+
+Geleert wird generisch (``aufbau.leeren``: ein ``TRUNCATE`` über alle Tabellen der Apps).
+``leeren`` ist nur nötig für Aufräumarbeit außerhalb der Datenbank, die ``aufbau.leeren``
+nicht schon erledigt (Dateien löscht es selbst); es läuft vor dem ``TRUNCATE``.
 
 ``reihenfolge()`` sortiert die Module topologisch nach ihren Abhängigkeiten. Bei
 gleichrangigen Modulen entscheidet der Name, damit die Reihenfolge und damit die Daten
@@ -37,7 +40,8 @@ class Modul:
     name: str
     abhaengig_von: tuple[str, ...]
     aufbauen: Callable[[Kontext], Any]
-    leeren: Callable[[], None]
+    #: Aufräumen außerhalb der Datenbank vor dem generischen Leeren; meist ``None``.
+    leeren: Callable[[], None] | None = None
     #: Schlüssel aus ``testhof.sonderfaelle.SONDERFAELLE``, die dieses Modul erzeugt.
     sonderfaelle: tuple[str, ...] = ()
 
@@ -49,7 +53,7 @@ def registrieren(
     name: str,
     *,
     aufbauen: Callable[[Kontext], Any],
-    leeren: Callable[[], None],
+    leeren: Callable[[], None] | None = None,
     abhaengig_von: tuple[str, ...] = (),
     sonderfaelle: tuple[str, ...] = (),
 ) -> Modul:

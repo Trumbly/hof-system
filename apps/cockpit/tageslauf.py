@@ -57,6 +57,7 @@ ABGLEICH = 40  # 4. Zahlungen abgleichen (Schritt 6, meldet sich selbst an)
 MAHNWESEN = 50  # 5. Mahnfälle fortschreiben, montags (Schritt 7, meldet sich selbst an)
 FRISTEN = 60  # 6. Fristen prüfen (fristen)
 VERWALTIO = 70  # 7. Kennzahlen aus Verwaltio holen (verwaltio_kennzahlen; 75 id_abgleich)
+PFLEGE = 78  # Arbeitsposten ohne Bezug schließen (arbeitsposten_pflege), vor dem Hof-Backlog
 COCKPIT = 80  # 8. Hof-Cockpit aktualisieren: Aufgaben im Hof-Backlog (aufgaben_abgleich)
 SICHERUNG = 90  # 9. Sicherung prüfen (sicherung_pruefen; die Sicherung selbst: 3:30)
 BENACHRICHTIGEN = 100  # zum Schluss: Benachrichtigung (benachrichtigen)

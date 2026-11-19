@@ -17,6 +17,7 @@ import datetime
 import hashlib
 import json
 import logging
+import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -88,8 +89,9 @@ class Ergebnis:
     """Ergebnis von ``benachrichtigen``.
 
     ``status``: ``still`` (nichts zu melden), ``schon_gemeldet`` (heute schon gemeldet,
-    nichts Neues), ``gemeldet`` (mindestens ein Kanal hat gesendet) oder
-    ``fehlgeschlagen`` (kein Kanal hat gesendet).
+    nichts Neues), ``gemeldet`` (mindestens ein Kanal hat gesendet), ``uebersprungen``
+    (kein Kanal eingerichtet, außerhalb der Produktion) oder ``fehlgeschlagen`` (kein
+    Kanal hat gesendet; ohne Kanal in der Produktion).
     """
 
     status: str
@@ -176,6 +178,11 @@ def nachricht_bauen(lage: Lage) -> Nachricht:
 # --- Melden --------------------------------------------------------------------------
 
 
+def ist_produktion() -> bool:
+    """``DJANGO_ENV=prod`` (setzt ``hof/settings/prod.py`` als Standard)."""
+    return os.environ.get("DJANGO_ENV", "").strip().lower() == "prod"
+
+
 def _heute_gemeldet(jetzt: datetime.datetime) -> Lage:
     lokal = timezone.localtime(jetzt)
     tagesbeginn = lokal.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -219,6 +226,11 @@ def benachrichtigen(
             fehler.append(kanal.name)
         else:
             gesendet.append(kanal.name)
+    if not kanaele and not ist_produktion():
+        # In Entwicklung und Tests ist ohne Kanal nichts kaputt: übersprungen (Review 1,
+        # Punkt 9). In der Produktion bleibt es ein Fehler, damit es auffällt.
+        logger.info("Benachrichtigung: kein Kanal eingerichtet, übersprungen")
+        return Ergebnis(status="uebersprungen", lage=lage, nachricht=nachricht)
     if not gesendet:
         if not kanaele:
             logger.warning("Benachrichtigung: kein Kanal eingerichtet")

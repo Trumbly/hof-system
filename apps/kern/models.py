@@ -90,6 +90,9 @@ class Lauf(models.Model):
         ERFOLGREICH = "erfolgreich", "erfolgreich"
         MIT_FEHLERN = "mit_fehlern", "mit Fehlern"
         ABGEBROCHEN = "abgebrochen", "abgebrochen"
+        #: Der Lauf hatte nichts zu tun, weil etwas außerhalb der Produktion bewusst fehlt
+        #: (etwa kein Kanal für ``benachrichtigen`` in dev). Kein Fehler, kein Erfolg.
+        UEBERSPRUNGEN = "uebersprungen", "übersprungen"
 
     name = models.CharField("Name", max_length=100, db_index=True)
     gestartet_am = models.DateTimeField("gestartet am")

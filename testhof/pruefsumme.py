@@ -18,8 +18,8 @@ weil sie sich bei gleichem Inhalt von Lauf zu Lauf unterscheiden müssen:
    zufällig, damit sie keine Teile des Originalnamens tragen.
 3. **Protokoll-Tabellen.** Ereignisse von django-pghistory, deren Kontexte, das
    Laufprotokoll (``kern.Lauf``), das Protokoll der Verwaltungsseiten und die Sitzungen
-   halten fest, was *wann* passiert ist. ``--leeren`` schreibt dort Löschungen hinein,
-   die der erste Lauf nicht hatte; das ist gewollt (Protokolle sind unveränderlich).
+   halten fest, was *wann* passiert ist, und hängen an Uhrzeit und Reihenfolge der
+   Läufe. ``--leeren`` leert sie mit (``aufbau.leeren``), Sitzungen ausgenommen.
 """
 
 from __future__ import annotations

@@ -82,12 +82,4 @@ def aufbauen(kontext: Kontext) -> KernDaten:
     return KernDaten(mandanten=mandanten, objekte=objekte, benutzer=benutzer)
 
 
-def leeren() -> None:
-    """Löscht Objekte, Mandanten und den Testbenutzer (nur erfundene Daten)."""
-    Objekt.objects.all().delete()
-    Mandant.objects.all().delete()
-    # Anmeldedaten von allauth (E-Mail, TOTP) hängen am Benutzer und gehen mit.
-    Benutzer.objects.filter(email=EMAIL).delete()
-
-
-register.registrieren(NAME, aufbauen=aufbauen, leeren=leeren)
+register.registrieren(NAME, aufbauen=aufbauen)

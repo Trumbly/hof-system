@@ -1,0 +1,7 @@
+{% extends "_fehlerseite.html" %}
+{% block titel %}Seite nicht gefunden{% endblock %}
+{% block code %}404{% endblock %}
+{% block ueberschrift %}Diese Seite gibt es nicht.{% endblock %}
+{% block text %}
+<p>Unter der Adresse <code>{{ request_path }}</code> steht nichts. Vielleicht ist der Link veraltet, oder der Eintrag hat nach einem Neuaufbau des Testhofs eine andere Nummer.</p>
+{% endblock %}

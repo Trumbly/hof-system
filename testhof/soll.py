@@ -17,11 +17,8 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass, field
 
-from django.contrib.contenttypes.models import ContentType
-
-from apps.kern.models import Arbeitsposten
 from apps.soll import services
-from apps.soll.models import Sollposten, Sollregel
+from apps.soll.models import Sollposten
 from apps.stammdaten.models import Kondition, Vertrag
 from testhof import register
 from testhof.aufbau import Kontext
@@ -71,20 +68,9 @@ def aufbauen(kontext: Kontext) -> SollDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht Sollposten, Regeln und ihre Arbeitsposten (nur erfundene Daten)."""
-    typen = ContentType.objects.filter(app_label="soll")
-    Arbeitsposten.objects.filter(bezug_typ__in=typen).delete()
-    # Ersatzposten zeigen auf stornierte Posten: erst die Verweise lösen.
-    Sollposten.objects.update(ersetzt=None)
-    Sollposten.objects.all().delete()
-    Sollregel.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("stammdaten",),
     aufbauen=aufbauen,
-    leeren=leeren,
     sonderfaelle=SONDERFAELLE,
 )

@@ -144,15 +144,19 @@ def lauf_beenden(
     fehler: int,
     meldung: str = "",
     abgebrochen: bool = False,
+    uebersprungen: bool = False,
 ) -> Lauf:
     """Schließt einen Lauf mit den Zählern der drei Körbe.
 
-    Die Meldung nennt nur IDs und Zähler, keine Personendaten.
+    Die Meldung nennt nur IDs und Zähler, keine Personendaten. ``uebersprungen``: Der
+    Lauf hatte nichts zu tun (Status „übersprungen“); Abbruch und Fehler gehen vor.
     """
     if abgebrochen:
         status = Lauf.Status.ABGEBROCHEN
     elif fehler:
         status = Lauf.Status.MIT_FEHLERN
+    elif uebersprungen:
+        status = Lauf.Status.UEBERSPRUNGEN
     else:
         status = Lauf.Status.ERFOLGREICH
     lauf.beendet_am = timezone.now()
@@ -228,6 +232,50 @@ def arbeitsposten_wieder_oeffnen(posten: Arbeitsposten) -> Arbeitsposten:
     posten.save(update_fields=["status", "erledigt_am"])
     aufgaben.melden(posten)
     return posten
+
+
+def verwaiste_arbeitsposten() -> list[Arbeitsposten]:
+    """Offene und zurückgestellte Posten, deren Bezug es nicht mehr gibt.
+
+    Ein Posten ohne Bezug (``bezug_typ`` leer) ist nicht verwaist. Fehlt das Modell des
+    Bezugs (``ContentType`` ohne Klasse), gilt der Bezug als fehlend.
+    """
+    offen = Arbeitsposten.objects.filter(
+        status__in=[Arbeitsposten.Status.OFFEN, Arbeitsposten.Status.ZURUECKGESTELLT],
+        bezug_typ__isnull=False,
+    )
+    verwaist: list[Arbeitsposten] = []
+    for typ_id in offen.values_list("bezug_typ", flat=True).distinct().order_by():
+        modell = ContentType.objects.get_for_id(typ_id).model_class()
+        posten = offen.filter(bezug_typ_id=typ_id)
+        if modell is None:
+            verwaist += list(posten)
+            continue
+        ids = set(posten.values_list("bezug_id", flat=True))
+        vorhanden = set(modell._default_manager.filter(pk__in=ids).values_list("pk", flat=True))
+        verwaist += [p for p in posten if p.bezug_id not in vorhanden]
+    return sorted(verwaist, key=lambda p: p.pk)
+
+
+def verwaiste_arbeitsposten_schliessen(*, lauf: Lauf | None = None) -> list[Arbeitsposten]:
+    """Erledigt Posten, deren Bezug fehlt (Review 1, Punkt 3), und protokolliert das.
+
+    Der Hinweis bekommt einen Vermerk mit Bezug und Lauf (nur IDs); die Änderung steht im
+    Protokoll, mit dem Lauf als Kontext, und im Log.
+    """
+    geschlossen = []
+    for posten in verwaiste_arbeitsposten():
+        typ = ContentType.objects.get_for_id(posten.bezug_typ_id) if posten.bezug_typ_id else None
+        bezug = f"{typ.app_label}.{typ.model} #{posten.bezug_id}" if typ else f"#{posten.bezug_id}"
+        vermerk = f"Geschlossen: Bezug {bezug} fehlt" + (f" (Lauf #{lauf.pk})." if lauf else ".")
+        posten.hinweis = f"{posten.hinweis}\n{vermerk}".strip()
+        posten.status = Arbeitsposten.Status.ERLEDIGT
+        posten.erledigt_am = timezone.now()
+        posten.save(update_fields=["hinweis", "status", "erledigt_am"])
+        aufgaben.melden(posten)
+        logger.info("Arbeitsposten #%s geschlossen: Bezug %s fehlt", posten.pk, bezug)
+        geschlossen.append(posten)
+    return geschlossen
 
 
 # --- Protokoll und Rücknahme (H11.6; Review 2, A4) -----------------------------------

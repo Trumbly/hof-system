@@ -24,11 +24,9 @@ import datetime
 from dataclasses import dataclass
 from decimal import Decimal
 
-from django.contrib.contenttypes.models import ContentType
 from django.core.files.base import ContentFile
 
-from apps.fristen.models import Frist, Fristverschiebung
-from apps.kern.models import Arbeitsposten, Objekt
+from apps.kern.models import Objekt
 from apps.stammdaten.models import Einheit, Uebergabe, Vertrag
 from apps.zaehler import services
 from apps.zaehler.models import Zaehler, Zaehlerstand
@@ -297,19 +295,4 @@ def aufbauen(kontext: Kontext) -> ZaehlerDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht Zähler und Stände des Testhofs samt Fristen und Posten (nur erfundene Daten)."""
-    typen = ContentType.objects.filter(app_label="zaehler")
-    Arbeitsposten.objects.filter(bezug_typ__in=typen).delete()
-    fristen = Frist.objects.filter(bezug_typ__in=typen)
-    Arbeitsposten.objects.filter(
-        bezug_typ=ContentType.objects.get_for_model(Frist), bezug_id__in=fristen.values("pk")
-    ).delete()
-    Fristverschiebung.objects.filter(frist__in=fristen).delete()
-    fristen.delete()
-    Zaehlerstand.objects.all().delete()
-    Zaehler.objects.update(nachfolger=None)
-    Zaehler.objects.all().delete()
-
-
-register.registrieren(NAME, abhaengig_von=("kern", "stammdaten"), aufbauen=aufbauen, leeren=leeren)
+register.registrieren(NAME, abhaengig_von=("kern", "stammdaten"), aufbauen=aufbauen)
