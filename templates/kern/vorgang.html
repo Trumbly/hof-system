@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ v.titel }} · Protokoll{% endblock %}
+
+{% block inhalt %}
+<p><a href="{% url 'kern:protokoll' %}">← Protokoll</a></p>
+<h1>{{ v.titel }}</h1>
+<p class="leise">{{ v.zeit|date:"d.m.Y H:i" }} · {{ v.wer }} · {{ v.anzahl }} Änderung{{ v.anzahl|pluralize:"en" }}</p>
+
+{% if v.ruecknahme_von %}
+<p>Diese Rücknahme nimmt den Vorgang <a href="{% url 'kern:vorgang' v.ruecknahme_von %}">„{{ ruecknahme_von_titel }}“</a> zurück.</p>
+{% endif %}
+
+<section class="eintrag vorgang">
+  <h2>Änderungen</h2>
+  {% include "kern/_vorgang_eintraege.html" %}
+</section>
+
+<section class="eintrag" id="ruecknahme">
+  <h2>Zurücknehmen</h2>
+  {% if sperren %}
+  <p><strong>Dieser Vorgang lässt sich nicht zurücknehmen.</strong></p>
+  <ul class="sperren">
+    {% for s in sperren %}<li>{{ s.grund }}{% if s.url %} <a href="{{ s.url }}">{{ s.link_titel|default:"ansehen" }}</a>{% endif %}</li>{% endfor %}
+  </ul>
+  {% elif vorschau %}
+  <p>Beim Zurücknehmen passiert Folgendes, als neuer Vorgang im Protokoll:</p>
+  <ul>
+    {% for s in vorschau.schritte %}<li>{{ s.text }}{% if s.url %} <a href="{{ s.url }}">ansehen</a>{% endif %}</li>{% empty %}<li>Nichts mehr zu tun: Der Stand ist schon wie vor dem Vorgang.</li>{% endfor %}
+  </ul>
+  <form method="post" action="{% url 'kern:vorgang_zuruecknehmen' v.id %}">
+    {% csrf_token %}
+    <button type="submit">Ganzen Vorgang zurücknehmen</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

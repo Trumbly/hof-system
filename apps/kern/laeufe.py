@@ -3,7 +3,8 @@
 Ein Lauf ist ein Management-Befehl, der von ``LaufBefehl`` erbt und ``ausfuehren()``
 schreibt. Die Basisklasse
 - öffnet einen ``kern.Lauf`` und schließt ihn mit Ergebnis und Zählern,
-- führt die Arbeit in einer Transaktion aus, mit dem Lauf als Kontext im Protokoll,
+- führt die Arbeit in einer Transaktion aus, als eigener Vorgang im Protokoll
+  (``apps.kern.vorgaenge``; auch ein Lauf, den ein anderer Lauf aufruft, ist ein eigener),
 - hält eine Ausnahme als Fehler fest (der Lauf gilt dann als abgebrochen, seine
   Änderungen werden zurückgerollt) und meldet sie mit Exit-Code ungleich 0,
 - zählt die drei Körbe: gebucht, Arbeitsposten, Fehler.
@@ -31,12 +32,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-import pghistory
 from django.core.management.base import BaseCommand, CommandError
 from django.db import models, transaction
 
 from apps.kern import services
 from apps.kern.models import Arbeitsposten, Lauf
+from apps.kern.vorgaenge import Art, vorgang
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,16 @@ class LaufBefehl(BaseCommand):
         self.lauf = services.lauf_starten(name)
         try:
             klammer = transaction.atomic() if self.in_transaktion else contextlib.nullcontext()
-            with klammer, pghistory.context(lauf=self.lauf.pk, lauf_name=name):
+            with (
+                klammer,
+                vorgang(
+                    f"Lauf {name} #{self.lauf.pk}",
+                    art=Art.LAUF,
+                    neu=True,
+                    lauf=self.lauf.pk,
+                    lauf_name=name,
+                ),
+            ):
                 meldung = self.ausfuehren(**optionen) or ""
         except Exception as fehler:
             logger.exception("Lauf #%s (%s) abgebrochen", self.lauf.pk, name)

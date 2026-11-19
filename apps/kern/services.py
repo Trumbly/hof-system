@@ -10,11 +10,11 @@ import base64
 import binascii
 import datetime
 import logging
-from collections.abc import Callable, Iterable
+import uuid
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-import pghistory
 from allauth.account.models import EmailAddress
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp.internal.auth import TOTP
@@ -22,12 +22,15 @@ from django.apps import apps
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, models, transaction
-from django.db.models.deletion import ProtectedError, RestrictedError
+from django.db.models.deletion import Collector, ProtectedError, RestrictedError
+from django.urls import reverse
 from django.utils import timezone
+from pghistory.models import Context, Events
 
-from apps.kern import aufgaben
+from apps.kern import aufgaben, vorgaenge
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Mandant, Objekt
 from apps.kern.protokoll import ist_protokolliert
+from apps.kern.vorgaenge import vorgang
 
 logger = logging.getLogger(__name__)
 
@@ -227,11 +230,34 @@ def arbeitsposten_wieder_oeffnen(posten: Arbeitsposten) -> Arbeitsposten:
     return posten
 
 
-# --- Protokoll und Rücknahme (H11.6) -------------------------------------------------
+# --- Protokoll und Rücknahme (H11.6; Review 2, A4) -----------------------------------
+#
+# Das Protokoll zeigt Vorgänge (``apps.kern.vorgaenge``): alle Änderungen einer Nutzer-
+# aktion oder eines Laufs. Zurückgenommen wird nur ein ganzer Vorgang
+# (``vorgang_zuruecknehmen``). Die Rücknahme eines einzelnen Ereignisses
+# (``zuruecknehmen``) bleibt als Baustein und für Tests; die Oberfläche bietet sie nicht an.
 
 
 class RuecknahmeNichtMoeglich(Exception):
-    """Die Änderung lässt sich nicht (mehr) zurücknehmen. Die Meldung nennt nur IDs."""
+    """Die Änderung lässt sich nicht (mehr) zurücknehmen. Die Meldung ist ein ganzer Satz
+    und nennt nur Nummern und IDs."""
+
+
+@dataclass(frozen=True)
+class Sperre:
+    """Warum sich ein Vorgang nicht zurücknehmen lässt, mit Link zur Ursache."""
+
+    grund: str
+    url: str = ""
+    link_titel: str = ""
+
+
+class RuecknahmeGesperrt(RuecknahmeNichtMoeglich):
+    """Der Vorgang lässt sich grundsätzlich nicht zurücknehmen (etwa: Schreiben versandt)."""
+
+    def __init__(self, sperren: Sequence[Sperre]) -> None:
+        self.sperren = list(sperren)
+        super().__init__(" ".join(s.grund for s in self.sperren))
 
 
 @dataclass(frozen=True)
@@ -248,11 +274,94 @@ class Ereignis:
     objekt_id: Any
     daten: dict[str, Any]
     vorher: dict[str, Any] | None = field(default=None)
+    zeit: datetime.datetime | None = field(default=None)
+    vorgang_id: uuid.UUID | None = field(default=None)
+
+
+@dataclass(frozen=True)
+class Schritt:
+    """Ein Schritt einer Rücknahme, lesbar und mit optionalem Link."""
+
+    text: str
+    url: str = ""
+    #: Das Objekt ist entfernt (danach räumen die Apps ab, was daran hängt).
+    entfernt: bool = False
+
+
+@dataclass
+class Objektaenderung:
+    """Was ein Vorgang an einem Objekt geändert hat: alle seine Ereignisse dazu, der Reihe
+    nach."""
+
+    modell: type[models.Model]
+    objekt_id: Any
+    ereignisse: list[Ereignis]
+
+    @property
+    def erstes(self) -> Ereignis:
+        return self.ereignisse[0]
+
+    @property
+    def letztes(self) -> Ereignis:
+        return self.ereignisse[-1]
+
+    @property
+    def angelegt(self) -> bool:
+        return self.erstes.art == "insert"
+
+    @property
+    def geloescht(self) -> bool:
+        return self.letztes.art == "delete"
+
+    @property
+    def vorher(self) -> dict[str, Any] | None:
+        """Der Stand vor dem Vorgang (``None``: Der Vorgang hat das Objekt angelegt)."""
+        if self.erstes.art == "insert":
+            return None
+        if self.erstes.art == "delete":
+            return self.erstes.daten
+        return self.erstes.vorher
+
+    @property
+    def nachher(self) -> dict[str, Any] | None:
+        """Der Stand nach dem Vorgang (``None``: Der Vorgang hat das Objekt gelöscht)."""
+        return None if self.geloescht else self.letztes.daten
+
+    @property
+    def titel(self) -> str:
+        return vorgaenge.objekt_titel(self.modell, self.letztes.daten)
+
+
+@dataclass
+class Ruecknahmeplan:
+    """Ein Vorgang, bereit zur Rücknahme: seine Änderungen je Objekt, nach erster Änderung."""
+
+    vorgang_id: uuid.UUID
+    titel: str
+    aenderungen: list[Objektaenderung]
+
+    def von(self, modell: type[models.Model]) -> list[Objektaenderung]:
+        return [a for a in self.aenderungen if a.modell is modell]
+
+    @property
+    def anzahl_ereignisse(self) -> int:
+        return sum(len(a.ereignisse) for a in self.aenderungen)
+
+
+@dataclass
+class Ruecknahmebericht:
+    """Was eine Rücknahme getan hat (oder in der Vorschau täte)."""
+
+    vorgang_id: uuid.UUID
+    titel: str
+    ereignisse: int
+    ruecknahme_id: uuid.UUID | None = None
+    schritte: list[Schritt] = field(default_factory=list)
 
 
 # Erweiterungsstelle: Gebuchte Werte (ab Schritt 2) werden storniert, nicht
-# zurückgedreht. Eine App meldet dafür je Modell eine Funktion an; ``zuruecknehmen``
-# ruft dann diese statt der allgemeinen Rücknahme auf.
+# zurückgedreht. Eine App meldet dafür je Modell eine Funktion an; die Rücknahme
+# ruft dann diese statt der allgemeinen auf.
 StornoWeg = Callable[[Ereignis], None]
 _STORNOWEGE: dict[type[models.Model], StornoWeg] = {}
 
@@ -264,6 +373,61 @@ def stornoweg_registrieren(modell: type[models.Model], funktion: StornoWeg) -> N
 
 def stornoweg(modell: type[models.Model]) -> StornoWeg | None:
     return _STORNOWEGE.get(modell)
+
+
+@dataclass(frozen=True)
+class Ruecknahmeweg:
+    """Wie die Rücknahme eines Vorgangs mit einem Modell umgeht (statt der allgemeinen).
+
+    - ``anlage``: Hat der Vorgang das Objekt angelegt, ersetzt diese Funktion das Löschen
+      (Schreiben: verwerfen; Arbeitsposten: erledigen). Rückgabe: der Schritt oder ``None``.
+    - ``danach``: läuft nach der allgemeinen Rücknahme einer Änderung (etwa „melden“).
+    - ``abgeleitet``: ``True`` für Ereignisse, die nicht zurückgedreht, sondern danach neu
+      abgeleitet werden (Sollposten aus dem Vertrag: der Soll-Haken im Nachlauf).
+    """
+
+    anlage: Callable[[Any], Schritt | None] | None = None
+    danach: Callable[[Any], None] | None = None
+    abgeleitet: Callable[[dict[str, Any]], bool] | None = None
+
+
+Pruefung = Callable[["Ruecknahmeplan"], list[Sperre]]
+Aufraeumen = Callable[[type[models.Model], Any], list[Schritt]]
+Nachlauf = Callable[["Ruecknahmeplan"], list[Schritt]]
+
+_RUECKNAHMEWEGE: dict[type[models.Model], Ruecknahmeweg] = {}
+_PRUEFUNGEN: list[Pruefung] = []
+_AUFRAEUMEN: list[Aufraeumen] = []
+_NACHLAEUFE: list[Nachlauf] = []
+
+
+def ruecknahmeweg_registrieren(
+    modell: type[models.Model],
+    *,
+    anlage: Callable[[Any], Schritt | None] | None = None,
+    danach: Callable[[Any], None] | None = None,
+    abgeleitet: Callable[[dict[str, Any]], bool] | None = None,
+) -> None:
+    """Meldet an, wie die Rücknahme eines Vorgangs mit ``modell`` umgeht."""
+    _RUECKNAHMEWEGE[modell] = Ruecknahmeweg(anlage=anlage, danach=danach, abgeleitet=abgeleitet)
+
+
+def ruecknahme_pruefung_registrieren(funktion: Pruefung) -> None:
+    """Eine Prüfung vor jeder Rücknahme; liefert sie Sperren, ist die Rücknahme gesperrt."""
+    if funktion not in _PRUEFUNGEN:
+        _PRUEFUNGEN.append(funktion)
+
+
+def ruecknahme_aufraeumen_registrieren(funktion: Aufraeumen) -> None:
+    """Läuft für jedes Objekt, das eine Rücknahme entfernt hat (Abhängige schließen)."""
+    if funktion not in _AUFRAEUMEN:
+        _AUFRAEUMEN.append(funktion)
+
+
+def ruecknahme_nachlauf_registrieren(funktion: Nachlauf) -> None:
+    """Läuft am Ende jeder Rücknahme, im selben Vorgang (z. B. der Soll-Haken)."""
+    if funktion not in _NACHLAEUFE:
+        _NACHLAEUFE.append(funktion)
 
 
 def _ereignismodell(ereignis_id: str) -> tuple[type[models.Model], int]:
@@ -328,14 +492,17 @@ def ereignis_laden(ereignis_id: str) -> Ereignis:
         objekt_id=daten[pk_attname],
         daten=daten,
         vorher=vorher,
+        zeit=getattr(zeile, "pgh_created_at", None),
+        vorgang_id=getattr(zeile, "pgh_context_id", None),
     )
 
 
 def zuruecknehmen(ereignis_id: str) -> Ereignis:
-    """Stellt den Stand vor einer protokollierten Änderung wieder her.
+    """Stellt den Stand vor einem einzelnen protokollierten Ereignis wieder her.
 
-    Die Rücknahme ist selbst eine neue Änderung und steht mit dem Kontext
-    ``ruecknahme_von=<ereignis_id>`` im Protokoll.
+    Baustein und für Tests: Die Oberfläche nimmt nur ganze Vorgänge zurück
+    (``vorgang_zuruecknehmen``). Die Rücknahme ist ein eigener Vorgang mit dem Kontext
+    ``ruecknahme_ereignis=<ereignis_id>``.
 
     - Änderung: Die Felder, die das Ereignis geändert hat, bekommen ihren alten Wert.
       Wurde eines davon seither erneut geändert, bricht die Rücknahme ab.
@@ -344,7 +511,15 @@ def zuruecknehmen(ereignis_id: str) -> Ereignis:
     - Modelle mit Stornoweg (gebuchte Werte): Die angemeldete Funktion storniert.
     """
     ereignis = ereignis_laden(ereignis_id)
-    with transaction.atomic(), pghistory.context(ruecknahme_von=ereignis_id):
+    with (
+        transaction.atomic(),
+        vorgang(
+            f"Rücknahme von {ereignis_id}",
+            art=vorgaenge.Art.RUECKNAHME,
+            neu=True,
+            ruecknahme_ereignis=ereignis_id,
+        ),
+    ):
         storno = stornoweg(ereignis.modell)
         if storno is not None:
             storno(ereignis)
@@ -406,12 +581,12 @@ def _anlage_zuruecknehmen(ereignis: Ereignis) -> None:
         ) from fehler
 
 
-def _loeschung_zuruecknehmen(ereignis: Ereignis) -> None:
+def _loeschung_zuruecknehmen(ereignis: Ereignis, daten: dict[str, Any] | None = None) -> None:
     if ereignis.modell._default_manager.filter(pk=ereignis.objekt_id).exists():
         raise RuecknahmeNichtMoeglich(
             f"{ereignis.modell._meta.label} #{ereignis.objekt_id} gibt es bereits wieder."
         )
-    objekt = ereignis.modell(**ereignis.daten)
+    objekt = ereignis.modell(**(daten or ereignis.daten))
     try:
         with transaction.atomic():
             objekt.save(force_insert=True)
@@ -420,3 +595,345 @@ def _loeschung_zuruecknehmen(ereignis: Ereignis) -> None:
             f"{ereignis.modell._meta.label} #{ereignis.objekt_id} lässt sich nicht "
             "wiederherstellen (Bezug fehlt oder Wert doppelt)."
         ) from fehler
+
+
+# --- Vorgang zurücknehmen ------------------------------------------------------------
+
+
+def _vorgang_id(wert: uuid.UUID | str) -> uuid.UUID:
+    try:
+        return wert if isinstance(wert, uuid.UUID) else uuid.UUID(str(wert))
+    except ValueError as fehler:
+        raise RuecknahmeNichtMoeglich("Diesen Vorgang gibt es nicht.") from fehler
+
+
+def ruecknahme_planen(vorgang_id: uuid.UUID | str) -> Ruecknahmeplan:
+    """Liest einen Vorgang und prüft, ob er sich zurücknehmen lässt.
+
+    Raises:
+        RuecknahmeGesperrt: grundsätzlich nicht (Rücknahme einer Rücknahme, schon
+            zurückgenommen, Aufbau des Testhofs, versandtes Schreiben …), mit Gründen.
+        RuecknahmeNichtMoeglich: Den Vorgang gibt es nicht, oder er hat nichts geändert.
+    """
+    vid = _vorgang_id(vorgang_id)
+    kontext = Context.objects.filter(pk=vid).first()
+    if kontext is None:
+        raise RuecknahmeNichtMoeglich("Diesen Vorgang gibt es nicht.")
+    meta: dict[str, Any] = kontext.metadata or {}
+    if meta.get("ruecknahme_von") or meta.get("ruecknahme_ereignis"):
+        raise RuecknahmeGesperrt(
+            [
+                Sperre(
+                    "Eine Rücknahme lässt sich nicht zurücknehmen. Bitte die ursprüngliche "
+                    "Aktion neu ausführen, etwa die Kündigung neu erfassen."
+                )
+            ]
+        )
+    if "testhof_seed" in meta or "testhof_leeren" in meta:
+        raise RuecknahmeGesperrt(
+            [
+                Sperre(
+                    "Den Aufbau des Testhofs nimmt man nicht zurück; „hof testhof“ baut ihn "
+                    "neu auf."
+                )
+            ]
+        )
+    schon = Context.objects.filter(metadata__ruecknahme_von=str(vid)).first()
+    if schon is not None:
+        raise RuecknahmeGesperrt(
+            [
+                Sperre(
+                    "Dieser Vorgang ist schon zurückgenommen.",
+                    url=reverse("kern:vorgang", args=[schon.pk]),
+                    link_titel="Rücknahme ansehen",
+                )
+            ]
+        )
+    slugs = list(
+        Events.objects.filter(pgh_context_id=vid)
+        .order_by("pgh_created_at", "pgh_model", "pgh_id")
+        .values_list("pgh_slug", flat=True)
+    )
+    if not slugs:
+        raise RuecknahmeNichtMoeglich("Dieser Vorgang hat nichts geändert.")
+
+    je_objekt: dict[tuple[type[models.Model], Any], Objektaenderung] = {}
+    for slug in slugs:
+        ereignis = ereignis_laden(slug)
+        schluessel = (ereignis.modell, ereignis.objekt_id)
+        if schluessel in je_objekt:
+            je_objekt[schluessel].ereignisse.append(ereignis)
+        else:
+            je_objekt[schluessel] = Objektaenderung(ereignis.modell, ereignis.objekt_id, [ereignis])
+    plan = Ruecknahmeplan(
+        vorgang_id=vid, titel=vorgaenge.titel_von(vid), aenderungen=list(je_objekt.values())
+    )
+    sperren = [sperre for pruefung in _PRUEFUNGEN for sperre in pruefung(plan)]
+    if sperren:
+        raise RuecknahmeGesperrt(sperren)
+    return plan
+
+
+def vorgang_zuruecknehmen(vorgang_id: uuid.UUID | str) -> Ruecknahmebericht:
+    """Nimmt einen ganzen Vorgang zurück (Review 2, A4).
+
+    Die Änderungen des Vorgangs werden je Objekt in umgekehrter Reihenfolge zurückgenommen,
+    als ein neuer, protokollierter Vorgang „Rücknahme von …“ (Kontext ``ruecknahme_von``).
+
+    - Angelegtes wird entfernt, wenn es seither unverändert ist und nichts daran hängt.
+      Ausnahmen über ``ruecknahmeweg_registrieren``: Schreiben im Status „bereit“ werden
+      verworfen, Arbeitsposten erledigt (damit schließt auch die Aufgabe im Hof-Backlog).
+    - Gebuchtes läuft über die Stornowege (``stornoweg_registrieren``).
+    - Geändertes bekommt seinen Stand vor dem Vorgang. Wurde ein Feld seither in einem
+      anderen Vorgang geändert, bricht die Rücknahme mit einer Meldung ab, die sagt, wann.
+    - Für jedes entfernte Objekt räumen die Apps ab, was daran hängt (offene Arbeitsposten,
+      Fristen, bereite Schreiben). Zum Schluss laufen die Nachläufe, etwa der Soll-Haken.
+
+    Alles in einer Transaktion: Scheitert ein Schritt, bleibt alles, wie es war.
+    """
+    plan = ruecknahme_planen(vorgang_id)
+    with (
+        transaction.atomic(),
+        vorgang(
+            f"Rücknahme von „{plan.titel}“",
+            art=vorgaenge.Art.RUECKNAHME,
+            neu=True,
+            ruecknahme_von=str(plan.vorgang_id),
+        ) as neu,
+    ):
+        bericht = _plan_ausfuehren(plan)
+        bericht.ruecknahme_id = neu.id
+        # Auch eine Rücknahme ohne eigene Änderung steht im Protokoll (sonst ließe sich der
+        # Vorgang ein zweites Mal „zurücknehmen“).
+        Context.objects.get_or_create(pk=neu.id, defaults={"metadata": vorgaenge.metadaten()})
+    logger.info(
+        "Vorgang %s zurückgenommen als Vorgang %s (%s Ereignisse)",
+        plan.vorgang_id,
+        bericht.ruecknahme_id,
+        bericht.ereignisse,
+    )
+    return bericht
+
+
+class _Probelauf(Exception):
+    def __init__(self, bericht: Ruecknahmebericht) -> None:
+        super().__init__("Probelauf")
+        self.bericht = bericht
+
+
+def ruecknahme_vorschau(vorgang_id: uuid.UUID | str) -> Ruecknahmebericht:
+    """Was ``vorgang_zuruecknehmen`` täte, ohne etwas zu ändern (Probelauf, zurückgerollt).
+
+    Raises wie ``vorgang_zuruecknehmen``.
+    """
+    try:
+        with transaction.atomic():
+            bericht = vorgang_zuruecknehmen(vorgang_id)
+            bericht.ruecknahme_id = None
+            raise _Probelauf(bericht)
+    except _Probelauf as probe:
+        return probe.bericht
+
+
+def _plan_ausfuehren(plan: Ruecknahmeplan) -> Ruecknahmebericht:
+    bericht = Ruecknahmebericht(
+        vorgang_id=plan.vorgang_id, titel=plan.titel, ereignisse=plan.anzahl_ereignisse
+    )
+    entfernt: list[tuple[type[models.Model], Any]] = []
+    for aenderung in reversed(plan.aenderungen):
+        weg = _RUECKNAHMEWEGE.get(aenderung.modell, Ruecknahmeweg())
+        if weg.abgeleitet is not None and all(
+            weg.abgeleitet(e.daten) for e in aenderung.ereignisse
+        ):
+            continue  # wird im Nachlauf neu abgeleitet
+        if aenderung.angelegt and aenderung.geloescht:
+            continue  # im Vorgang angelegt und wieder gelöscht
+        if aenderung.angelegt:
+            schritt = _angelegtes_zuruecknehmen(plan, aenderung, weg)
+        elif aenderung.geloescht:
+            schritt = _geloeschtes_zuruecknehmen(aenderung)
+        else:
+            schritt = _geaendertes_zuruecknehmen(plan, aenderung, weg)
+        if schritt is not None:
+            bericht.schritte.append(schritt)
+            if schritt.entfernt:
+                entfernt.append((aenderung.modell, aenderung.objekt_id))
+    # Im Bericht in der Reihenfolge des Vorgangs: Kündigung, Vertrag, Schreiben, Fristen …
+    bericht.schritte.reverse()
+    for aufraeumen in _AUFRAEUMEN:
+        for modell, objekt_id in entfernt:
+            bericht.schritte += aufraeumen(modell, objekt_id)
+    for nachlauf in _NACHLAEUFE:
+        bericht.schritte += nachlauf(plan)
+    return bericht
+
+
+def _objekt_holen(aenderung: Objektaenderung) -> models.Model | None:
+    objekt: models.Model | None = (
+        aenderung.modell._default_manager.select_for_update().filter(pk=aenderung.objekt_id).first()
+    )
+    return objekt
+
+
+def _spaeter_geaendert(
+    plan: Ruecknahmeplan, aenderung: Objektaenderung, felder: Sequence[models.Field[Any, Any]]
+) -> str:
+    """Meldung, wenn ein Objekt nach dem Vorgang in einem anderen Vorgang geändert wurde."""
+    namen = ", ".join(vorgaenge.feld_titel(aenderung.modell, f.attname) for f in felder)
+    spaeter = (
+        Events.objects.filter(
+            pgh_obj_model=aenderung.modell._meta.label,
+            pgh_obj_id=str(aenderung.objekt_id),
+        )
+        .exclude(pgh_context_id=plan.vorgang_id)
+        .order_by("-pgh_created_at")
+        .first()
+    )
+    if spaeter is None or (
+        aenderung.letztes.zeit is not None and spaeter.pgh_created_at <= aenderung.letztes.zeit
+    ):
+        return (
+            f"{aenderung.titel} wurde nach diesem Vorgang erneut geändert ({namen}). "
+            "Zuerst die spätere Änderung zurücknehmen."
+        )
+    wann = timezone.localtime(spaeter.pgh_created_at).strftime("%d.%m.%Y um %H:%M")
+    zusatz = ""
+    if spaeter.pgh_context_id is not None:
+        zusatz = f" im Vorgang „{vorgaenge.titel_von(spaeter.pgh_context_id)}“"
+    return (
+        f"{aenderung.titel} wurde danach am {wann}{zusatz} erneut geändert ({namen}). "
+        "Zuerst diesen späteren Vorgang zurücknehmen."
+    )
+
+
+def _abhaengiges(objekt: models.Model) -> models.Model | None:
+    """Ein Objekt, das mit ``objekt`` gelöscht würde oder es schützt (sonst ``None``)."""
+    sammler = Collector(using=objekt._state.db or "default")
+    try:
+        sammler.collect([objekt])
+    except (ProtectedError, RestrictedError) as fehler:
+        geschuetzt = getattr(fehler, "protected_objects", None) or getattr(
+            fehler, "restricted_objects", None
+        )
+        erstes: models.Model = next(iter(geschuetzt or []), objekt)
+        return erstes
+    for modell, objekte in sammler.data.items():
+        for anderes in objekte:
+            if not (modell is type(objekt) and anderes.pk == objekt.pk):
+                return anderes
+    for abfrage in sammler.fast_deletes:
+        zeile: models.Model | None = abfrage.first()
+        if zeile is not None:
+            return zeile
+    return None
+
+
+def _titel_von_objekt(objekt: models.Model) -> str:
+    return vorgaenge.objekt_titel(type(objekt), _werte(objekt, type(objekt)._meta.concrete_fields))
+
+
+def _angelegtes_zuruecknehmen(
+    plan: Ruecknahmeplan, aenderung: Objektaenderung, weg: Ruecknahmeweg
+) -> Schritt | None:
+    objekt = _objekt_holen(aenderung)
+    if objekt is None:
+        return None  # schon entfernt (etwa mit einem anderen Objekt)
+    if weg.anlage is not None:
+        return weg.anlage(objekt)
+    storno = stornoweg(aenderung.modell)
+    if storno is not None:
+        storno(aenderung.erstes)
+        return Schritt(f"{aenderung.titel} storniert")
+    nachher = aenderung.nachher or {}
+    abweichend = [
+        f
+        for f in _rueckgaengig_felder(aenderung.modell)
+        if getattr(objekt, f.attname) != nachher.get(f.attname)
+    ]
+    if abweichend:
+        raise RuecknahmeNichtMoeglich(_spaeter_geaendert(plan, aenderung, abweichend))
+    abhaengig = _abhaengiges(objekt)
+    if abhaengig is not None:
+        raise RuecknahmeNichtMoeglich(
+            f"{aenderung.titel} wird noch verwendet ({_titel_von_objekt(abhaengig)}). "
+            "Zuerst den Vorgang zurücknehmen, der das angelegt hat."
+        )
+    objekt.delete()
+    return Schritt(f"{aenderung.titel} entfernt", entfernt=True)
+
+
+def _geloeschtes_zuruecknehmen(aenderung: Objektaenderung) -> Schritt:
+    storno = stornoweg(aenderung.modell)
+    if storno is not None:
+        storno(aenderung.letztes)
+        return Schritt(f"{aenderung.titel} storniert")
+    _loeschung_zuruecknehmen(aenderung.letztes, aenderung.vorher)
+    return Schritt(f"{aenderung.titel} wiederhergestellt")
+
+
+def _geaendertes_zuruecknehmen(
+    plan: Ruecknahmeplan, aenderung: Objektaenderung, weg: Ruecknahmeweg
+) -> Schritt | None:
+    vorher, nachher = aenderung.vorher, aenderung.nachher
+    if vorher is None or nachher is None:
+        raise RuecknahmeNichtMoeglich(f"Zu {aenderung.titel} fehlt der Stand vor dem Vorgang.")
+    objekt = _objekt_holen(aenderung)
+    if objekt is None:
+        raise RuecknahmeNichtMoeglich(f"{aenderung.titel} gibt es nicht mehr.")
+    geaendert = [
+        f for f in _rueckgaengig_felder(aenderung.modell) if vorher[f.attname] != nachher[f.attname]
+    ]
+    # Was schon wieder auf dem alten Stand ist (etwa durch einen Storno davor), bleibt.
+    offen = [f for f in geaendert if getattr(objekt, f.attname) != vorher[f.attname]]
+    if not offen:
+        return None
+    storno = stornoweg(aenderung.modell)
+    if storno is not None:
+        storno(aenderung.letztes)
+        return Schritt(f"{aenderung.titel} storniert")
+    spaeter = [f for f in offen if getattr(objekt, f.attname) != nachher[f.attname]]
+    if spaeter:
+        raise RuecknahmeNichtMoeglich(_spaeter_geaendert(plan, aenderung, spaeter))
+    for f in offen:
+        setattr(objekt, f.attname, vorher[f.attname])
+    objekt.save(update_fields=[f.name for f in offen])
+    if weg.danach is not None:
+        weg.danach(objekt)
+    teile = [
+        f"{vorgaenge.feld_titel(aenderung.modell, f.attname)} "
+        f"{vorgaenge.wert_text(aenderung.modell, f.attname, nachher[f.attname])} → "
+        f"{vorgaenge.wert_text(aenderung.modell, f.attname, vorher[f.attname])}"
+        for f in offen
+        if not vorgaenge.ist_technisch(f.attname)
+    ]
+    return Schritt(f"{aenderung.titel}: {', '.join(teile)}" if teile else aenderung.titel)
+
+
+# --- Rücknahme: Arbeitsposten --------------------------------------------------------
+
+
+def _arbeitsposten_aus_vorgang(posten: Arbeitsposten) -> Schritt | None:
+    """Ein Arbeitsposten, den der Vorgang angelegt hat, wird erledigt statt gelöscht: So
+    schließt auch die Aufgabe im Hof-Backlog, und der Posten bleibt nachvollziehbar."""
+    if posten.status == Arbeitsposten.Status.ERLEDIGT:
+        return None
+    arbeitsposten_erledigen(posten)
+    return Schritt(f"Arbeitsposten #{posten.pk} ({posten.art}) erledigt")
+
+
+def _arbeitsposten_zu_entferntem(modell: type[models.Model], objekt_id: Any) -> list[Schritt]:
+    """Offene Arbeitsposten zu einem entfernten Objekt sind gegenstandslos: erledigen."""
+    posten = Arbeitsposten.objects.filter(
+        bezug_typ=ContentType.objects.get_for_model(modell),
+        bezug_id=objekt_id,
+        status__in=(Arbeitsposten.Status.OFFEN, Arbeitsposten.Status.ZURUECKGESTELLT),
+    )
+    schritte = []
+    for p in posten:
+        arbeitsposten_erledigen(p)
+        schritte.append(Schritt(f"Arbeitsposten #{p.pk} ({p.art}) erledigt"))
+    return schritte
+
+
+ruecknahmeweg_registrieren(Arbeitsposten, anlage=_arbeitsposten_aus_vorgang, danach=aufgaben.melden)
+ruecknahme_aufraeumen_registrieren(_arbeitsposten_zu_entferntem)

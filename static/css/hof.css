@@ -451,6 +451,22 @@ button.zweitrangig,
   font-style: italic;
 }
 
+/* Protokoll: Vorgänge mit aufklappbaren Einzelheiten (Review 2, A4) */
+
+.vorgang summary {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.vorgang-ruecknahme {
+  border-left: 4px solid var(--warnung);
+}
+
+.technik summary {
+  min-height: 0;
+  font-size: 0.85em;
+}
+
 /* Läufe: am Handy wird jede Zeile zur Karte. */
 
 .status {

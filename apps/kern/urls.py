@@ -16,7 +16,12 @@ urlpatterns = [
         name="arbeitsposten_aktion",
     ),
     path("protokoll/", views.protokoll, name="protokoll"),
-    path("protokoll/zuruecknehmen/", views.zuruecknehmen, name="zuruecknehmen"),
+    path("protokoll/vorgang/<uuid:pk>/", views.vorgang, name="vorgang"),
+    path(
+        "protokoll/vorgang/<uuid:pk>/zuruecknehmen/",
+        views.vorgang_zuruecknehmen,
+        name="vorgang_zuruecknehmen",
+    ),
     path("laeufe/", views.laeufe, name="laeufe"),
     # Gesundheits-Endpunkt ohne Anmeldung: nur „ok“ und Version, keine Daten.
     path("gesund", views.gesund, name="gesund"),

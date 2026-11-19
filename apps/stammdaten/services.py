@@ -27,6 +27,7 @@ from apps.fristen import services as fristen
 from apps.fristen.models import Frist
 from apps.kern import services as kern
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
+from apps.kern.vorgaenge import als_vorgang
 from apps.stammdaten import fristrechnung, konfiguration, schreiben
 from apps.stammdaten.models import (
     Checkliste,
@@ -445,6 +446,7 @@ def _einheiten_frei(
             )
 
 
+@als_vorgang("Vertrag {ergebnis.nummer} angelegt")
 def vertrag_anlegen(
     *,
     einheiten: Sequence[Einheit],
@@ -560,6 +562,7 @@ VERTRAG_FELDER = (
 )
 
 
+@als_vorgang("Vertrag {vertrag.nummer} geändert")
 def vertrag_aendern(vertrag: Vertrag, **felder: Any) -> Vertrag:
     """Ändert Stammfelder eines Vertrags. Die Miete ändert ``kondition_ab``."""
     if "kuendigungsregel" in felder:
@@ -592,6 +595,7 @@ def vertragspartei_entfernen(vertragspartei: Vertragspartei) -> None:
     vertragspartei.delete()
 
 
+@als_vorgang("Miete {vertrag.nummer} ab {gueltig_ab:%d.%m.%Y} geändert")
 def kondition_ab(
     vertrag: Vertrag,
     gueltig_ab: datetime.date,
@@ -668,6 +672,7 @@ def kuendigungsregel_fuer(vertrag: Vertrag) -> konfiguration.Kuendigungsregel:
     return konfiguration.kuendigungsregel(schluessel)
 
 
+@als_vorgang("Kündigung {vertrag.nummer} erfasst")
 def kuendigung_erfassen(
     vertrag: Vertrag,
     zugang_am: datetime.date,
