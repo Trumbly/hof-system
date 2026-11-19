@@ -79,10 +79,19 @@ def test_eichfrist_aendern_verschiebt_die_frist(stromzaehler: Zaehler) -> None:
         services.zaehler_aendern(stromzaehler, einbaudatum=D(2022, 1, 1))
 
 
+def test_meldung_nennt_staende_im_deutschen_format(stromzaehler: Zaehler) -> None:
+    """R2-9: Fehlermeldungen der Zähler nennen Stände wie die Oberfläche: „8.787,9“."""
+    services.stand_erfassen(stromzaehler, D(2024, 12, 31), "8787.9")
+    with pytest.raises(services.StandUnplausibel) as fehler:
+        services.stand_erfassen(stromzaehler, D(2025, 12, 31), "1234.5")
+    assert "1.234,5 ist kleiner als der letzte Stand 8.787,9 vom 31.12.2024" in str(fehler.value)
+
+
 def test_kleinerer_stand_wird_abgelehnt(stromzaehler: Zaehler) -> None:
-    """Abnahme Schritt 8: Ein kleinerer Stand als der letzte wird abgelehnt."""
+    """Abnahme Schritt 8: Ein kleinerer Stand als der letzte wird abgelehnt. Die Meldung nennt
+    die Stände im deutschen Format (R2-9: „812,4“ statt „812.4“)."""
     services.stand_erfassen(stromzaehler, D(2024, 12, 31), "812,4")
-    with pytest.raises(services.StandUnplausibel, match=r"kleiner als der letzte Stand 812\.4"):
+    with pytest.raises(services.StandUnplausibel, match=r"kleiner als der letzte Stand 812,4 vom"):
         services.stand_erfassen(stromzaehler, D(2025, 12, 31), "800")
     # Ein späterer Stand begrenzt auch nach oben, wenn ein älterer nachgetragen wird.
     services.stand_erfassen(stromzaehler, D(2025, 12, 31), "1020.7")

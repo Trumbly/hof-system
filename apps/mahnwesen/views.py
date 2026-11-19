@@ -45,8 +45,10 @@ from apps.stammdaten.models import Vertrag
 @require_GET
 def faelle(request: HttpRequest) -> HttpResponse:
     """Mahnfälle: offene und gesperrte, darunter die zuletzt erledigten."""
+    # Mit Mieter-Namen: Max' eigene Oberfläche (CLAUDE.md, Abschnitt 1). Lauf-Meldungen,
+    # Notion und der Status-MCP bleiben ohne Namen.
     alle = Mahnfall.objects.select_related("vertrag", "stufe").prefetch_related(
-        "vertrag__einheiten"
+        "vertrag__einheiten", "vertrag__vertragsparteien__partei"
     )
     return render(
         request,

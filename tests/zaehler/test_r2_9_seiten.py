@@ -98,3 +98,16 @@ def test_besuchsliste_druckbar(angemeldet: Client, stromzaehler: Zaehler) -> Non
     html = angemeldet.get(reverse("zaehler:besuch")).content.decode()
     assert "window.print()" in html and 'class="nur-druck">neuer Stand' in html
     assert 'class="knopf knopf-primaer nur-bildschirm"' in html
+
+
+def test_suche_findet_zaehlernummer(stromzaehler: Zaehler) -> None:
+    """R2-9 (Review 2, B1): Die Suche in der Kopfzeile findet Zähler über die Nummer; der
+    Treffer führt zur Seite des Zählers und nennt Ort und letzten Stand."""
+    from apps.kern import suche
+
+    services.stand_erfassen(stromzaehler, D(2024, 12, 31), "1234.5")
+    gruppen = {g.schluessel: g for g in suche.suchen("TZ-S")}
+    (treffer,) = gruppen["zaehler"].treffer
+    assert treffer.titel == "Strom TZ-S-1"
+    assert treffer.url == reverse("zaehler:zaehler", args=[stromzaehler.pk])
+    assert "Stand 1.234,5 am 31.12.2024" in treffer.unter
