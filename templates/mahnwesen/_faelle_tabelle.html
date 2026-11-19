@@ -1,18 +1,18 @@
-<div class="tabelle-rahmen">
-<table class="tabelle">
+{% load bausteine %}<div class="tabelle-box">
+<table class="tab tab-karten">
   <thead><tr><th>Fall</th><th>Vertrag</th><th>Einheit</th><th>Stufe</th><th>belegt am</th><th>nächste frühestens</th><th>Status</th></tr></thead>
   <tbody>
   {% for f in liste %}
   <tr id="fall-{{ f.pk }}">
-    <td><a href="{% url 'mahnwesen:fall' f.pk %}">#{{ f.pk }}</a></td>
-    <td>{{ f.vertrag.nummer }}</td>
-    <td>{% for e in f.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-    <td>{{ f.stufe.titel|default:"–" }}</td>
-    <td>{{ f.stufe_belegt_am|date:"d.m.Y"|default:"–" }}</td>
-    <td>{{ f.naechste_stufe_fruehestens|date:"d.m.Y"|default:"–" }}</td>
-    <td><span class="status">{{ f.get_status_display }}</span>{% if f.sperrgrund %} <span class="leise">{{ f.sperrgrund }}</span>{% endif %}{% if f.geschlossen_am %} <span class="leise">{{ f.geschlossen_am|date:"d.m.Y" }}</span>{% endif %}</td>
+    <td data-titel="Fall"><a href="{% url 'mahnwesen:fall' f.pk %}">Mahnfall #{{ f.pk }}</a></td>
+    <td data-titel="Vertrag"><a href="{% url 'stammdaten:vertrag' f.vertrag_id %}">{{ f.vertrag.nummer }}</a></td>
+    <td data-titel="Einheit">{% for e in f.vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+    <td data-titel="Stufe">{{ f.stufe.titel|default:"–" }}</td>
+    <td data-titel="belegt am">{{ f.stufe_belegt_am|date:"d.m.Y"|default:"–" }}</td>
+    <td data-titel="nächste frühestens">{{ f.naechste_stufe_fruehestens|date:"d.m.Y"|default:"–" }}</td>
+    <td data-titel="Status"><span>{% badge f.status f.get_status_display %}{% if f.sperrgrund %} <span class="text-3 klein">{{ f.sperrgrund }}</span>{% endif %}{% if f.geschlossen_am %} <span class="text-3 klein">{{ f.geschlossen_am|date:"d.m.Y" }}</span>{% endif %}</span></td>
   </tr>
-  {% empty %}<tr><td colspan="7">{{ leer }}</td></tr>{% endfor %}
+  {% empty %}{% include "bausteine/leer.html" with spalten=7 text=leer %}{% endfor %}
   </tbody>
 </table>
 </div>

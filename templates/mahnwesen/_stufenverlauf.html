@@ -1,0 +1,24 @@
+{% load bausteine %}{% comment %} Stufenverlauf eines Mahnfalls. Wird nach „Von Hand belegen“ ersetzt (oob). {% endcomment %}
+<div id="stufenverlauf"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% url 'mahnwesen:fall' fall.pk as basis %}
+{% karte "Stufenverlauf" zahl=schritte|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Stichtag</th><th>Stufe</th><th>Schreiben</th><th>belegt</th><th>Hinweis</th></tr></thead>
+    <tbody>
+    {% for s in schritte %}
+    <tr id="schritt-{{ s.pk }}">
+      <td data-titel="Stichtag">{{ s.stichtag|date:"d.m.Y" }}</td>
+      <td data-titel="Stufe"><div>{{ s.stufe.titel }}{% if s.stufe.anwalt_bestaetigung %}<br><span class="text-fehler klein">{{ anwalt_hinweis }}</span>{% endif %}</div></td>
+      <td data-titel="Schreiben">{% if s.schreiben %}<span><a href="{% url 'dokumente:schreiben' s.schreiben.pk %}">Schreiben #{{ s.schreiben.pk }}</a> {% badge s.schreiben.status s.schreiben.get_status_display %}</span>{% elif s.probebetrieb %}{% badge "neutral" "Probebetrieb" %}{% else %}–{% endif %}</td>
+      <td data-titel="belegt">{% if s.belegt_am %}{{ s.belegt_am|date:"d.m.Y" }}{% elif s.abgebrochen_am %}<span class="text-3">abgebrochen {{ s.abgebrochen_am|date:"d.m.Y" }}</span>{% else %}<span>{% badge "offen" %}{% if s.stufe.einseitige_erklaerung %} <span class="text-3 klein">(mit Zustellnachweis)</span>{% endif %}</span>{% endif %}</td>
+      <td data-titel="Hinweis"><div>{{ s.hinweis }}{% if s.vermerk %}<br><span class="text-3 klein">{{ s.vermerk }}</span>{% endif %}
+        {% if s.offen and not s.schreiben %}<br><a class="knopf knopf-zweit knopf-klein" href="{{ basis }}?dialog=belegen&amp;schritt={{ s.pk }}" hx-get="{{ basis }}?dialog=belegen&amp;schritt={{ s.pk }}" hx-target="#dialog-inhalt" aria-haspopup="dialog">Von Hand belegen</a>{% endif %}
+      </div></td>
+    </tr>
+    {% empty %}{% include "bausteine/leer.html" with spalten=5 text="Noch keine Stufe." %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+</div>

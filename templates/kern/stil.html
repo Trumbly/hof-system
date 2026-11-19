@@ -157,6 +157,30 @@
   <p class="text-2">Inhalt des Reiters „{{ reiter_aktiv }}“.</p>
 </section>
 
+<section class="stil-abschnitt" id="unternavigation">
+  <h2>Unternavigation</h2>
+  <p class="stil-zweck">Die Seiten eines Bereichs (Bank, Kassenbuch, Mahnwesen, Anbindungen) als eine Zeile Reiter unter dem Seitenkopf, statt loser Links mit „·“. Am Handy waagrecht scrollbar. <code>{% templatetag openblock %} unternavigation "Bank" "bank:konten=Konten" … {% templatetag closeblock %}</code></p>
+  {% unternavigation "Beispiel" "kern:stil=Stil" "kern:laeufe=Läufe" "kern:protokoll=Protokoll" %}
+</section>
+
+<section class="stil-abschnitt" id="filterleiste">
+  <h2>Filterleiste</h2>
+  <p class="stil-zweck">Filter einer Liste in einer Zeile über der Tabelle; am Handy brechen die Felder um. Filter sind freiwillig, darum ohne „optional“. Ein aktiver Filter steht als Zeile darunter, mit „alle zeigen“.</p>
+  <form class="filterleiste" onsubmit="return false">
+    {% feld filter.suche breit=True %}{% feld filter.status %}{% feld filter.von %}
+    <div class="filterleiste-knoepfe"><button type="submit" class="knopf knopf-zweit">Filtern</button><a class="knopf knopf-text" href="#filterleiste">zurücksetzen</a></div>
+  </form>
+  <p class="filter-aktiv"><span>Nur Vorgänge zu Vertrag V-0003</span> <a class="knopf knopf-text knopf-klein" href="#filterleiste">alle zeigen</a></p>
+</section>
+
+<section class="stil-abschnitt" id="formular-seite">
+  <h2>Formular auf der Seite</h2>
+  <p class="stil-zweck">Für reine Formularseiten (720 px) und als Rückfall der Dialoge ohne JavaScript: gleich aufgebaut wie der Dialog, unten Abbrechen und ein Hauptknopf. <code>{% templatetag openblock %} include "bausteine/formular.html" with form=… knopf=… abbrechen=… {% templatetag closeblock %}</code></p>
+  <div class="karte" style="max-width: var(--breite-formular)"><div class="karte-rumpf">
+    {% include "bausteine/formular.html" with form=filter knopf="Speichern" abbrechen="#formular-seite" methode="get" %}
+  </div></div>
+</section>
+
 <section class="stil-abschnitt" id="aufklapper">
   <h2>Aufklapper</h2>
   <p class="stil-zweck">Für Einzelheiten, die man selten braucht. Zugeklappt zeigt er, was drinsteht.</p>

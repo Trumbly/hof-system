@@ -1,0 +1,19 @@
+{% load bausteine %}{% comment %} Formular auf der Seite (R2-9), gleich aufgebaut wie der Dialog: Felder mit Label,
+   Hilfe und Fehler am Feld, unten Abbrechen und ein Hauptknopf. Für Seiten ohne JavaScript, als
+   Rückfall der Dialoge und für reine Formularseiten ({% block breite %} schmal{% endblock %}).
+   Variablen: form, aktion (verstecktes Feld), url (Ziel, sonst dieselbe Seite), knopf,
+   abbrechen (URL), kamera (Dateifelder mit „Foto aufnehmen“), gefahr, zweit (Knopf nur sekundär,
+   wenn die Seite eine andere Hauptaktion hat), methode ("get") {% endcomment %}
+<form class="formular-neu" method="{{ methode|default:'post' }}"{% if url %} action="{{ url }}"{% endif %}{% if form.is_multipart %} enctype="multipart/form-data"{% endif %}>
+  {% if methode != "get" %}{% csrf_token %}{% endif %}
+  {% if aktion %}<input type="hidden" name="aktion" value="{{ aktion }}">{% endif %}
+  {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+  {% for verborgen in form.hidden_fields %}{{ verborgen }}{% endfor %}
+  <div class="felder">
+  {% for f in form.visible_fields %}{% if f.field.widget.input_type == "file" %}{% if kamera %}{% dateiknoepfe f kamera=True %}{% else %}{% dateiknoepfe f kamera=False %}{% endif %}{% else %}{% feld f %}{% endif %}{% endfor %}
+  </div>
+  <div class="formular-fuss">
+    {% if abbrechen %}<a class="knopf knopf-zweit" href="{{ abbrechen }}">Abbrechen</a>{% endif %}
+    <button type="submit" class="knopf {% if gefahr %}knopf-gefahr{% elif zweit %}knopf-zweit{% else %}knopf-primaer{% endif %}">{{ knopf|default:"Speichern" }}</button>
+  </div>
+</form>

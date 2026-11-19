@@ -236,10 +236,11 @@ def test_protokoll_zeigt_vorgaenge_mit_anzahl_und_aufklappbaren_einzelheiten(
 
     html = angemeldet.get(reverse("kern:protokoll")).content.decode()
 
-    assert "<strong>Halle umgebaut</strong> · 2 Änderungen" in html
+    # R2-9: Titel als Link, die Zahl der Änderungen ist der Titel des Aufklappers.
+    assert "<strong>Halle umgebaut</strong>" in html and "2 Änderungen</summary>" in html
     assert "Bezeichnung: Halle Nord → Halle Süd" in html
     assert "Aktiv: ja → nein" in html
-    vorne, technik = html.split('<details class="technik">', 1)
+    vorne, technik = html.split("<summary>technische Angaben</summary>", 1)
     assert "kern.ObjektEvent:" not in vorne
     assert "kern.ObjektEvent:" in technik
 

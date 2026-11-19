@@ -1,56 +1,61 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Monatsabschlüsse{% endblock %}
 
 {% block inhalt %}
-<h1>Monatsabschlüsse</h1>
+{% seitenkopf "Monatsabschlüsse" "Der Lauf kassenbuch_monatsabschluss schließt am 3. jedes Monats den Vormonat ab: alle Umsätze eingeordnet, Saldo im Buch gleich Saldo der Bank. Danach ist der Monat gesperrt. Abgeschlossen wird der Reihe nach." %}{% endseitenkopf %}
 {% include "kassenbuch/_unternavigation.html" %}
-<p class="leise">Der Lauf <code>kassenbuch_monatsabschluss</code> schließt am 3. jedes Monats den Vormonat ab: alle Umsätze eingeordnet, Saldo im Buch gleich Saldo der Bank. Danach ist der Monat gesperrt; geändert wird nur noch per Stornobuchung im offenen Monat. Abgeschlossen wird der Reihe nach: Solange ein Monat eine Lücke hat, bleiben auch die späteren offen.</p>
-{% for g in gruppen %}
-<section class="gruppe" aria-labelledby="mandant-{{ g.mandant.pk }}">
-  <h2 id="mandant-{{ g.mandant.pk }}">{{ g.mandant.bezeichnung|default:g.mandant.kuerzel }} <span class="leise">{{ g.mandant.kuerzel }}</span></h2>
-  {% with p=g.pruefung %}
-  {% if p %}
+
+<div class="stapel">
+{% for g in abschlussgruppen %}
+<section aria-labelledby="mandant-{{ g.mandant.pk }}" id="mandant-{{ g.mandant.pk }}-bereich" class="stapel">
+  <h2 id="mandant-{{ g.mandant.pk }}">{{ g.mandant.bezeichnung|default:g.mandant.kuerzel }} <span class="text-3">{{ g.mandant.kuerzel }}</span></h2>
+  {% with p=g.pruefung %}{% if p %}
   {% if p.ok %}
-  <div class="meldung meldung-success">
-    <p>Nächster Monat {{ p.monat|date:"m/Y" }}: bereit zum Abschluss.</p>
-    <form method="post" action="{% url 'kassenbuch:abschluss_jetzt' g.mandant.pk p.monat.year p.monat.month %}" data-bestaetigen="Monat {{ p.monat|date:'m/Y' }} für {{ g.mandant.kuerzel }} jetzt abschließen? Danach ist er gesperrt; Änderungen nur noch per Stornobuchung." onsubmit="return confirm(this.dataset.bestaetigen);">
-      {% csrf_token %}<button type="submit">Monat {{ p.monat|date:"m/Y" }} jetzt abschließen</button>
-    </form>
-  </div>
+  {% url 'kassenbuch:abschluss_jetzt' g.mandant.pk p.monat.year p.monat.month as abschluss_url %}
+  {% with monat_text=p.monat|date:"m/Y" %}{% karte "Nächster Monat "|add:monat_text %}
+    <p>{% badge "ok" "bereit" %} Alle Umsätze eingeordnet, Saldo im Buch gleich Saldo der Bank.</p>
+    <div class="formular-fuss">
+      <a class="knopf knopf-primaer" href="{{ abschluss_url }}" hx-get="{{ abschluss_url }}" hx-target="#dialog-inhalt" aria-haspopup="dialog">Monat {{ p.monat|date:"m/Y" }} jetzt abschließen</a>
+    </div>
+  {% endkarte %}{% endwith %}
   {% else %}
-  <div class="meldung meldung-warning">
-    <p>Nächster Monat {{ p.monat|date:"m/Y" }} ist noch nicht bereit:</p>
-    <ul>
+  {% karte "Nächster Monat noch nicht bereit" %}
+    <p>{% badge "warnung" "nicht bereit" %} Monat {{ p.monat|date:"m/Y" }}:</p>
+    <ul class="liste">
       {% if p.vormonat_offen %}<li>Der Vormonat ist noch offen.</li>{% endif %}
-      {% if p.offene_umsaetze %}<li>{{ p.offene_umsaetze|length }} Umsätze sind nicht vollständig eingeordnet: {% for i in p.offene_umsaetze|slice:":20" %}<a href="{% url 'kassenbuch:umsatz' i %}">#{{ i }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if p.offene_umsaetze|length > 20 %} … <a href="{% url 'kassenbuch:buchungen' %}">alle im Kassenbuch</a>{% endif %}.</li>{% endif %}
-      {% if p.konten_ohne_saldo %}<li>Für {% for i in p.konten_ohne_saldo %}Konto <a href="{% url 'bank:konten' %}#konto-{{ i }}">#{{ i }}</a>{% if not forloop.last %}, {% endif %}{% endfor %} gibt es keinen Kontostand der Bank.</li>
-      {% elif not p.saldo_stimmt %}<li>Der Saldo im Buch ({{ p.saldo_buch|floatformat:"2g" }} €) passt nicht zum Saldo der Bank ({{ p.saldo_bank|floatformat:"2g" }} €).</li>{% endif %}
-      {% if p.ohne_beleg %}<li>Hinweis: {{ p.ohne_beleg|length }} Buchungen ohne Beleg; der Abschluss geht trotzdem.</li>{% endif %}
+      {% if p.offene_umsaetze %}<li><span class="liste-haupt">{{ p.offene_umsaetze|length }} Umsätze sind nicht vollständig eingeordnet: {% for i in p.offene_umsaetze|slice:":20" %}<a href="{% url 'kassenbuch:umsatz' i %}">Umsatz #{{ i }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if p.offene_umsaetze|length > 20 %} … <a href="{% url 'kassenbuch:buchungen' %}">alle im Kassenbuch</a>{% endif %}.</span></li>{% endif %}
+      {% if p.konten_ohne_saldo %}<li><span class="liste-haupt">Kein Kontostand der Bank für {% for i in p.konten_ohne_saldo %}<a href="{% url 'bank:konten' %}#konto-{{ i }}">{% for pk, name in kontonamen.items %}{% if pk == i %}{{ name }}{% endif %}{% endfor %}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</span></li>
+      {% elif not p.saldo_stimmt %}<li><span class="liste-haupt">Der Saldo im Buch ({{ p.saldo_buch|euro }}) passt nicht zum Saldo der Bank ({{ p.saldo_bank|euro }}).</span></li>{% endif %}
+      {% if p.ohne_beleg %}<li class="text-3">Hinweis: {{ p.ohne_beleg|length }} Buchungen ohne Beleg; der Abschluss geht trotzdem.</li>{% endif %}
     </ul>
-  </div>
+  {% endkarte %}
   {% endif %}
-  {% endif %}
-  {% endwith %}
-  <div class="tabelle-rahmen">
-  <table>
-    <thead><tr><th>Monat</th><th>Stand</th><th>Saldo Bank</th><th>Saldo Buch</th></tr></thead>
-    <tbody>
-      {% for a in g.abschluesse %}
-      <tr id="abschluss-{{ a.pk }}">
-        <td data-titel="Monat">{{ a.monat|date:"m/Y" }}</td>
-        <td data-titel="Stand">{% if a.abgeschlossen %}abgeschlossen am {{ a.abgeschlossen_am|date:"d.m.Y H:i" }}{% else %}<strong>offen</strong>{% endif %}</td>
-        <td data-titel="Saldo Bank">{{ a.saldo_bank|floatformat:"2g"|default:"–" }}</td>
-        <td data-titel="Saldo Buch">{{ a.saldo_buch|floatformat:"2g"|default:"–" }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4">Noch kein Abschluss.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  </div>
+  {% endif %}{% endwith %}
+
+  {% karte "Abschlüsse" zahl=g.abschluesse|length %}
+    <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Monat</th><th>Stand</th><th class="zahl">Saldo Bank</th><th class="zahl">Saldo Buch</th></tr></thead>
+      <tbody>
+        {% for a in g.abschluesse %}
+        <tr id="abschluss-{{ a.pk }}">
+          <td data-titel="Monat">{{ a.monat|date:"m/Y" }}</td>
+          <td data-titel="Stand">{% if a.abgeschlossen %}<span>{% badge "abgeschlossen" %} <span class="text-3 klein">{{ a.abgeschlossen_am|date:"d.m.Y H:i" }}</span></span>{% else %}{% badge "offen" %}{% endif %}</td>
+          <td data-titel="Saldo Bank" class="zahl">{{ a.saldo_bank|euro|default:"–" }}</td>
+          <td data-titel="Saldo Buch" class="zahl">{{ a.saldo_buch|euro|default:"–" }}</td>
+        </tr>
+        {% empty %}
+        {% include "bausteine/leer.html" with spalten=4 text="Noch kein Abschluss." %}
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endkarte %}
 </section>
 {% empty %}
-<p>Kein Mandant mit Bankkonto.</p>
+{% include "bausteine/leer.html" with text="Kein Mandant mit Bankkonto." %}
 {% endfor %}
+</div>
 {% endblock %}

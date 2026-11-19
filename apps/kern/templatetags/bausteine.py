@@ -19,6 +19,7 @@ from typing import Any
 from django import forms, template
 from django.forms.boundfield import BoundField
 from django.template.base import FilterExpression, Parser, Token, token_kwargs
+from django.urls import reverse
 from django.utils.html import format_html_join
 from django.utils.safestring import SafeString, mark_safe
 
@@ -53,6 +54,15 @@ BADGES: dict[str, Badge] = {
     "erledigt": Badge("erledigt", "ok"),
     "begonnen": Badge("begonnen", "hinweis"),
     "abgeschlossen": Badge("abgeschlossen", "ok"),
+    # Läufe (kern.Lauf.Status, Review 2, B16)
+    "laeuft": Badge("läuft", "hinweis"),
+    "erfolgreich": Badge("erfolgreich", "ok"),
+    "mit_fehlern": Badge("mit Fehlern", "warnung"),
+    "abgebrochen": Badge("abgebrochen", "fehler"),
+    "uebersprungen": Badge("übersprungen", "neutral"),
+    "gescheitert": Badge("gescheitert", "fehler"),  # Bankabruf
+    # Zählerstand (zaehler.Zaehlerstand, Schätzwert statt Ablesung)
+    "geschaetzt": Badge("geschätzt", "warnung"),
 }
 
 ARTEN = ("ok", "hinweis", "warnung", "fehler", "neutral")
@@ -212,6 +222,32 @@ _rahmen("seitenkopf", "bausteine/seitenkopf.html", ("titel", "meta"), ("id",))
 _rahmen("karte", "bausteine/karte.html", ("titel",), ("link", "link_text", "zahl", "id"))
 #: {% aufklapper "Zusammenfassung" offen=True %}<Inhalt>{% endaufklapper %}
 _rahmen("aufklapper", "bausteine/aufklapper.html", ("titel",), ("offen", "zahl"))
+
+
+# --- Unternavigation eines Bereichs (Bank, Kassenbuch, Mahnwesen, Anbindungen) --------
+
+
+@register.inclusion_tag("bausteine/unternavigation.html", takes_context=True)
+def unternavigation(
+    context: template.Context, beschriftung: str, *eintraege: str
+) -> dict[str, Any]:
+    """Unternavigation als Reiter (Review 2, B11): eine Zeile, am Handy waagrecht scrollbar,
+    statt loser Links mit „·“, die im Raster umbrechen.
+
+    Jeder Eintrag ist ``"url-name=Titel"``; mehrere URL-Namen mit Komma, der erste ist das
+    Ziel, alle zählen als aktiv (``"mahnwesen:faelle,mahnwesen:fall=Mahnfälle"``)::
+
+        {% unternavigation "Bank" "bank:konten,bank:freigabe=Konten" "bank:umsaetze=Umsätze" %}
+    """
+    request = context.get("request")
+    treffer = getattr(request, "resolver_match", None)
+    aktuell = treffer.view_name if treffer is not None else ""
+    reiter = []
+    for eintrag in eintraege:
+        namen, titel = str(eintrag).split("=", 1)
+        liste = [n.strip() for n in namen.split(",")]
+        reiter.append({"titel": titel, "url": reverse(liste[0]), "aktiv": aktuell in liste})
+    return {"reiter": reiter, "beschriftung": beschriftung}
 
 
 # --- Navigation (Seitenleiste, Leiste unten am Handy) ---------------------------------

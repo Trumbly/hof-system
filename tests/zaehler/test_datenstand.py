@@ -87,14 +87,14 @@ def test_besuchsliste_zeigt_zaehler_ohne_stand_foto_oder_eichfrist_nach_objekt(
     # Sortiert nach Objekt: FELD vor HOF, darin nach Ort und Nummer.
     positionen = [seite.index(n) for n in ("TZ-4", "TZ-2", "TZ-3")]
     assert positionen == sorted(positionen)
-    assert seite.index("<h2>FELD") < seite.index("<h2>HOF")
+    assert seite.index('karte-titel">FELD') < seite.index('karte-titel">HOF')
     assert "Stand zum letzten Stichtag" in seite
     assert "Foto zum Stand am Stichtag" in seite
     assert "Eichfrist" in seite
     assert f"Stichtag {STICHTAG:%d.%m.%Y}" in seite
     assert 'class="druckseite"' in seite and "window.print()" in seite
-    css = (settings.BASE_DIR / "static" / "css" / "hof.css").read_text()
-    assert "@media print" in css
+    css = (settings.BASE_DIR / "static" / "css" / "bausteine.css").read_text()
+    assert "@media print" in css and ".neu .nur-bildschirm" in css
 
 
 def test_halle_ohne_zaehler_ist_eine_luecke_der_einheit(objekt: Objekt) -> None:

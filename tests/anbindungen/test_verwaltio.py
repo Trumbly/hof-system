@@ -202,7 +202,7 @@ def test_cockpit_kachel_wohnraum_ohne_namen(
         assert name not in kachel
 
     seite = angemeldet.get(reverse("anbindungen:kennzahlen")).content.decode()
-    assert wohnungen[1].nw_id in seite and "640,00 €" in seite
+    assert wohnungen[1].nw_id in seite and "640,00\u00a0€" in seite
     assert "Wohnung 1" not in seite
 
 

@@ -1,23 +1,24 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Mahnfälle{% endblock %}
 
 {% block inhalt %}
+{% seitenkopf "Mahnwesen" "Der Mahnlauf schreibt die Fälle montags nach dem Abgleich fort. Nur Verträge im Hof-System; den Wohnraum mahnt Verwaltio." %}
+  {% if kachel.senden %}<a class="knopf knopf-primaer" href="{% url 'kern:arbeitslisten' %}">Mahnungen senden ({{ kachel.senden }})</a>{% endif %}
+{% endseitenkopf %}
 {% include "mahnwesen/_reiter.html" %}
-<h1>Mahnfälle</h1>
-<p class="leise">Der Mahnlauf schreibt die Fälle montags nach dem Abgleich fort. Nur Verträge im Hof-System; den Wohnraum mahnt Verwaltio.</p>
-<ul class="kennzahlen">
-  {% for s in kachel.je_stufe %}<li>{{ s.titel }}: <strong>{{ s.anzahl }}</strong></li>{% endfor %}
-  <li>gesperrt: <strong>{{ kachel.gesperrt }}</strong></li>
-  <li>Mahnungen senden: <a href="{% url 'kern:arbeitslisten' %}">{{ kachel.senden }}</a></li>
-</ul>
 
-<h2>Offen</h2>
-{% include "mahnwesen/_faelle_tabelle.html" with liste=offen leer="Keine offenen Mahnfälle." %}
-<h2>Gesperrt</h2>
-{% include "mahnwesen/_faelle_tabelle.html" with liste=gesperrt leer="Keine gesperrten Mahnfälle." %}
-<details class="gruppe">
-  <summary>Zuletzt erledigt</summary>
-  {% include "mahnwesen/_faelle_tabelle.html" with liste=erledigt leer="Noch keiner." %}
-</details>
+{% url 'kern:arbeitslisten' as arbeitslisten %}
+<div class="kennzahlen-reihe">
+  {% for s in kachel.je_stufe %}{% kennzahl s.titel s.anzahl %}{% endfor %}
+  {% if kachel.gesperrt %}{% kennzahl "gesperrt" kachel.gesperrt art="warnung" %}{% else %}{% kennzahl "gesperrt" 0 %}{% endif %}
+  {% if kachel.senden %}{% kennzahl "Mahnungen senden" kachel.senden art="hinweis" link=arbeitslisten unter="in den Arbeitslisten" %}{% else %}{% kennzahl "Mahnungen senden" 0 unter="nichts bereit" %}{% endif %}
+</div>
+
+<div class="stapel">
+{% karte "Offen" zahl=offen|length %}{% include "mahnwesen/_faelle_tabelle.html" with liste=offen leer="Keine offenen Mahnfälle." %}{% endkarte %}
+{% karte "Gesperrt" zahl=gesperrt|length %}{% include "mahnwesen/_faelle_tabelle.html" with liste=gesperrt leer="Keine gesperrten Mahnfälle." %}{% endkarte %}
+{% aufklapper "Zuletzt erledigt" zahl=erledigt|length %}{% include "mahnwesen/_faelle_tabelle.html" with liste=erledigt leer="Noch keiner." %}{% endaufklapper %}
+</div>
 {% endblock %}

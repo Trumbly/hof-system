@@ -1,40 +1,20 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Zähler{% endblock %}
 
 {% block inhalt %}
-<h1>Zähler</h1>
-<ul class="kacheln">
-  {% for g in gruppen %}
-  <li><a class="kachel" href="{% url 'zaehler:ablesung' g.objekt.pk %}">Ablesen {{ g.objekt.kuerzel }}: <strong>{{ g.eingebaut|length }}</strong> Zähler</a></li>
-  {% endfor %}
-  <li><a class="kachel" href="{% url 'zaehler:besuch' %}">Liste für deinen nächsten Besuch</a></li>
-  <li><a class="kachel" href="{% url 'zaehler:neu' %}">Neuer Zähler</a></li>
-</ul>
-<p class="leise">Letzter Stichtag: {{ stichtag|date:"d.m.Y" }}. Geschätzte Stände tragen das Kennzeichen <span class="kennzeichen-geschaetzt">geschätzt</span>.</p>
+{% seitenkopf "Zähler" "Je Objekt ablesen; geschätzte Stände tragen das Kennzeichen „geschätzt“." %}
+  <a class="knopf knopf-zweit" href="{% url 'zaehler:neu' %}" hx-get="{% url 'zaehler:neu' %}" hx-target="#dialog-inhalt" aria-haspopup="dialog">Neuer Zähler</a>
+  <a class="knopf knopf-primaer" href="{% url 'zaehler:besuch' %}">Liste für den nächsten Besuch</a>
+{% endseitenkopf %}
 
-{% for g in gruppen %}
-<details class="gruppe"{% if g.eingebaut %} open{% endif %}>
-  <summary>{{ g.objekt.kuerzel }} <span class="zahl">{{ g.eingebaut|length }}</span></summary>
-  <div class="tabelle-rahmen"><table>
-    <thead><tr><th>Nummer</th><th>Art</th><th>Ort</th><th>letzter Stand</th><th>Eichfrist bis</th></tr></thead>
-    <tbody>
-      {% for z in g.eingebaut %}
-      <tr>
-        <td><a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.nummer }}</a></td>
-        <td>{{ z.get_art_display }}</td>
-        <td>{{ z.ort }}{% if z.bezeichnung %} · {{ z.bezeichnung }}{% endif %}</td>
-        <td>{% if z.letzter %}{{ z.letzter.stand_text }} am {{ z.letzter.datum|date:"d.m.Y" }}{% if z.letzter.ist_geschaetzt %} <span class="kennzeichen-geschaetzt">geschätzt</span>{% endif %}{% else %}–{% endif %}</td>
-        <td>{{ z.eichfrist_bis|date:"d.m.Y"|default:"fehlt" }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5">Keine Zähler.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table></div>
-  {% if g.ausgebaut %}
-  <p class="leise">Ausgebaut: {% for z in g.ausgebaut %}<a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.nummer }}</a> ({{ z.ausgebaut_am|date:"d.m.Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>
-  {% endif %}
-</details>
-{% endfor %}
+<div class="kennzahlen-reihe">
+  {% for g in objektgruppen %}{% if g.eingebaut %}
+  {% url 'zaehler:ablesung' g.objekt.pk as ablesen %}
+  {% if g.ohne_stand %}{% kennzahl "Ablesen "|add:g.objekt.kuerzel g.eingebaut|length art="warnung" unter=g.ohne_stand|stringformat:"d"|add:" ohne Stand zum Stichtag" link=ablesen %}{% else %}{% kennzahl "Ablesen "|add:g.objekt.kuerzel g.eingebaut|length unter="alle mit Stand zum Stichtag" link=ablesen %}{% endif %}
+  {% endif %}{% endfor %}
+</div>
+
+{% include "zaehler/_liste.html" %}
 {% endblock %}

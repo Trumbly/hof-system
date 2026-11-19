@@ -1,0 +1,35 @@
+{% load bausteine %}{% comment %} Konten (Bank). Wird nach „Erneut abrufen“ ersetzt (oob). {% endcomment %}
+<div id="konten-liste"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% karte "Konten" zahl=zeilen|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten konten">
+    <thead>
+      <tr><th>Konto</th><th>Mandant</th><th class="zahl">Saldo</th><th>Letzter Abruf</th><th>Bankfreigabe</th><th class="zahl">Umsätze</th><th class="eng" aria-label="Aktion"></th></tr>
+    </thead>
+    <tbody>
+      {% for z in zeilen %}{% with konto=z.konto %}
+      <tr id="konto-{{ konto.pk }}"{% if not konto.aktiv %} class="zeile-leise"{% endif %}>
+        <td data-titel="Konto"><div><strong>{{ konto.bezeichnung }}</strong>{% if not konto.aktiv %} {% badge "neutral" "inaktiv" %}{% endif %}<br><span class="text-3 klein">{{ konto.bank }} · {{ konto.get_zugang_display }}</span><br><code class="klein">{{ konto.iban }}</code></div></td>
+        <td data-titel="Mandant">{{ konto.mandant.kuerzel }}</td>
+        <td data-titel="Saldo" class="zahl">{% if z.saldo %}<div>{{ z.saldo.saldo|euro }}<br><span class="text-3 klein">Stand {{ z.saldo.stand|date:"d.m.Y" }}{% if z.saldo.abgerufen_am %}, abgerufen {{ z.saldo.abgerufen_am|date:"d.m.Y H:i" }}{% endif %}</span></div>{% else %}<span class="text-3">–</span>{% endif %}</td>
+        <td data-titel="Letzter Abruf">{% if z.letzter_abruf %}<div>{% badge z.letzter_abruf.status %} {{ z.letzter_abruf.gestartet_am|date:"d.m.Y H:i" }}{% if z.letzter_abruf.status == 'erfolgreich' %}<br><span class="text-3 klein">{{ z.letzter_abruf.neu|zahl }} neu</span>{% elif z.letzter_abruf.meldung %}<br><span class="text-fehler klein">{{ z.letzter_abruf.meldung }}</span>{% endif %}</div>{% else %}<span class="text-3">noch keiner</span>{% endif %}</td>
+        <td data-titel="Bankfreigabe">
+          {% if konto.zugang == 'nur_import' %}<span class="text-3">nur Import</span>{% else %}
+          <div>{% if z.freigabe %}bis {{ z.freigabe.gueltig_bis|date:"d.m.Y" }}{% if z.freigabe_bald %} {% badge "warnung" "läuft ab" %}{% endif %}{% else %}{% badge "fehler" "keine" %}{% endif %}
+          <br><a class="klein" href="{% url 'bank:freigabe' konto.pk %}">Freigabe erneuern</a></div>
+          {% endif %}
+        </td>
+        <td data-titel="Umsätze" class="zahl"><a href="{% url 'bank:umsaetze' %}?konto={{ konto.pk }}">{{ z.umsaetze|zahl }}</a></td>
+        <td class="eng">{% if z.abrufbar %}
+          <form method="post" action="{% url 'bank:abrufen' konto.pk %}" hx-post="{% url 'bank:abrufen' konto.pk %}" hx-swap="none" hx-disabled-elt="find button">
+            {% csrf_token %}<button type="submit" class="knopf knopf-zweit knopf-klein">Erneut abrufen</button>
+          </form>{% endif %}</td>
+      </tr>
+      {% endwith %}{% empty %}
+      {% include "bausteine/leer.html" with spalten=7 text="Noch keine Konten." hilfe="Konten legt der Testhof an oder die Verwaltung (manage.py bank_konto_anlegen)." %}
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+</div>

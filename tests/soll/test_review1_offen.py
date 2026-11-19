@@ -137,4 +137,4 @@ def test_summe_zaehlt_alle_treffer(
     assert seite.context["anzahl"] == 10
     assert seite.context["summe_offen"] == E("625.00")  # 5 × 85 + 5 × 40
     assert "10 Posten (angezeigt die ersten 3" in seite.content.decode()
-    assert "625,00 €" in seite.content.decode()
+    assert "625,00\u00a0€" in seite.content.decode()

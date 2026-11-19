@@ -1,29 +1,19 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Läufe{% endblock %}
 
 {% block inhalt %}
-<h1>Läufe</h1>
-<div class="tabelle-rahmen">
-<table class="laeufe">
-  <thead>
-    <tr><th>Lauf</th><th>Start</th><th>Status</th><th>gebucht</th><th>Arbeitsposten</th><th>Fehler</th><th>Meldung</th></tr>
-  </thead>
-  <tbody>
-    {% for lauf in laeufe %}
-    <tr id="lauf-{{ lauf.pk }}">
-      <td data-titel="Lauf">#{{ lauf.pk }} {{ lauf.name }}</td>
-      <td data-titel="Start">{{ lauf.gestartet_am|date:"d.m.Y H:i" }}{% if lauf.dauer_sekunden is not None %} <span class="leise">({{ lauf.dauer_sekunden|floatformat:1 }} s)</span>{% endif %}</td>
-      <td data-titel="Status"><span class="status status-{{ lauf.status }}">{{ lauf.get_status_display }}</span></td>
-      <td data-titel="gebucht">{{ lauf.gebucht }}</td>
-      <td data-titel="Arbeitsposten">{{ lauf.arbeitsposten }}</td>
-      <td data-titel="Fehler">{{ lauf.fehler }}</td>
-      <td data-titel="Meldung">{{ lauf.meldung|default:"–" }}</td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="7">Noch keine Läufe.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% seitenkopf "Läufe" "Was nachts und zwischendurch läuft, mit Ergebnis. Meldungen nennen nur Nummern; jede Nummer führt zum betroffenen Posten." %}
+  {% include "kern/_lauf_knopf.html" with name="tageslauf" titel="Tageslauf jetzt ausführen" primaer=True %}
+{% endseitenkopf %}
+
+{% if name_filter %}
+<p class="filter-aktiv">Nur Läufe {% badge "neutral" name_filter %} <a class="knopf knopf-text knopf-klein" href="{% url 'kern:laeufe' %}">alle zeigen</a></p>
+{% endif %}
+
+<div class="stapel">
+  {% include "kern/_laeufe_start.html" %}
+  {% include "kern/_laeufe_liste.html" %}
 </div>
 {% endblock %}

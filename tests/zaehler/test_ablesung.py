@@ -39,10 +39,9 @@ def test_ablesung_am_handy_speichert_stand_datum_und_foto(
     assert "Strom TZ-S-1" in seite and "Wasser TZ-W-1" in seite
     assert seite.index("TZ-W-1") < seite.index("TZ-S-1")  # erst die Hauptzähler
     for z in (stromzaehler, hauptzaehler):
-        assert (
-            f'type="file" id="foto_{z.pk}" name="foto_{z.pk}" accept="image/*" '
-            'capture="environment"' in seite
-        )
+        # R2-9: eigener Kameraknopf (Baustein dateiknoepfe), Stand mit Zahlentastatur
+        assert f'type="file" name="foto_{z.pk}" accept="image/*" capture="environment"' in seite
+        assert f'name="stand_{z.pk}"' in seite and 'inputmode="decimal"' in seite
 
     antwort = angemeldet.post(
         _ablesung(objekt),
@@ -126,7 +125,8 @@ def test_schaetzwert_am_handy_mit_kennzeichen(
         reverse("zaehler:zaehler", args=[stromzaehler.pk]),
         reverse("zaehler:uebersicht"),
     ):
-        assert 'class="kennzeichen-geschaetzt">geschätzt' in angemeldet.get(url).content.decode()
+        seite = angemeldet.get(url).content.decode()
+        assert '<span class="badge badge-warnung">geschätzt</span>' in seite
 
 
 def test_ablesung_lehnt_zukunft_und_andere_dateien_ab(

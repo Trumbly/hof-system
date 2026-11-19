@@ -200,11 +200,11 @@ def test_protokoll_zeigt_den_kuendigungsvorgang_mit_deutschen_feldnamen(
 
     html = angemeldet.get(reverse("kern:protokoll")).content.decode()
 
-    assert f"<strong>Kündigung {vertrag.nummer} erfasst</strong> · " in html
+    assert f"<strong>Kündigung {vertrag.nummer} erfasst</strong>" in html
     assert "Status: aktiv → gekündigt" in html
     assert "Ende: – → 31.08.2026" in html
     assert "gekuendigt" not in html and "inhalt_html" not in html and "pdf_sha256" not in html
-    vorne, _technik = html.split('<details class="technik">', 1)
+    vorne, _technik = html.split("<summary>technische Angaben</summary>", 1)
     assert "Prüfsumme des PDFs" not in vorne and "Inhalt (gerendert)" not in vorne
     assert "Prüfsumme des PDFs" in html
 
