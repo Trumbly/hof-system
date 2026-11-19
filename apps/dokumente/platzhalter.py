@@ -34,10 +34,73 @@ class PlatzhalterFehler(ValueError):
     """Eine Vorlage oder ihr Kontext passt nicht. Die Meldung nennt nur Platzhalter."""
 
 
+#: Was ein Platzhalter bedeutet, für Fehlermeldungen in ganzen Sätzen (Review 2, A8):
+#: „Für den Versand per Mail fehlt die E-Mail-Adresse des Empfängers.“ statt
+#: „fehlt empfaenger.email“. Ein Pfad ohne Eintrag nimmt den des nächsten Oberbegriffs.
+BEDEUTUNG: dict[str, str] = {
+    "empfaenger": "der Empfänger",
+    "empfaenger.name": "der Name des Empfängers",
+    "empfaenger.anrede": "die Anrede des Empfängers",
+    "empfaenger.anschrift": "die Anschrift des Empfängers",
+    "empfaenger.email": "die E-Mail-Adresse des Empfängers",
+    "absender": "der Absender",
+    "absender.name": "der Name des Absenders",
+    "absender.anschrift": "die Anschrift des Absenders",
+    "absender.email": "die E-Mail-Adresse des Absenders",
+    "absender.telefon": "die Telefonnummer des Absenders",
+    "absender.bank": "die Bankverbindung des Absenders",
+    "absender.steuernummer": "die Steuernummer des Absenders",
+    "datum": "das Datum des Schreibens",
+    "zeichen": "das Zeichen des Schreibens",
+    "vertrag": "die Angaben zum Vertrag",
+    "vertrag.nummer": "die Vertragsnummer",
+    "vertrag.beginn": "der Vertragsbeginn",
+    "vertrag.ende": "das Vertragsende",
+    "vertrag.kuendigungsfrist": "die Kündigungsfrist",
+    "einheit": "die Angaben zur Einheit",
+    "einheiten": "die Einheiten des Vertrags",
+    "objekt": "die Angaben zum Objekt",
+    "objekt.anschrift": "die Anschrift des Objekts",
+    "mandant": "der Vermieter",
+    "mieter": "die Mieter",
+    "zahler": "die Zahler",
+    "buergen": "die Bürgen",
+    "kondition": "die Miete und Zahlweise",
+    "staffel": "die Mietstaffel",
+    "kaution": "die Kaution",
+    "betrag": "die Beträge",
+    "betrag.offen": "der offene Betrag",
+    "forderung": "die Aufstellung der offenen Posten",
+    "frist": "die Zahlungsfrist",
+    "mahnung": "die Angaben zur Mahnstufe",
+    "kuendigung": "die Angaben zur Kündigung",
+    "aufhebung": "die Angaben zur Aufhebung",
+    "abrechnung": "die Kautionsabrechnung",
+    "uebergabe": "die Angaben zur Übergabe",
+}
+
+
+def bedeutung(pfad: str) -> str:
+    """Was ein Platzhalter bedeutet, als Satzteil („die E-Mail-Adresse des Empfängers“).
+
+    Ohne eigenen Eintrag gilt der nächste Oberbegriff; ganz Unbekanntes heißt
+    „der Platzhalter „…““."""
+    teile = pfad.split(".")
+    while teile:
+        treffer = BEDEUTUNG.get(".".join(teile))
+        if treffer:
+            return treffer
+        teile.pop()
+    return f"der Platzhalter „{pfad}“"
+
+
 class UnbekannterPlatzhalter(PlatzhalterFehler):
     def __init__(self, pfad: str) -> None:
         self.pfad = pfad
-        super().__init__(f"Unbekannter Platzhalter: {pfad}")
+        super().__init__(
+            f"Die Vorlage nutzt den Platzhalter „{pfad}“ ({bedeutung(pfad)}), "
+            "für dieses Schreiben gibt es dazu aber keinen Wert."
+        )
 
 
 # --- Bibliothek der Engine -----------------------------------------------------------
@@ -223,7 +286,10 @@ def pruefen(text: str, erlaubt: Iterable[str]) -> None:
     """Wirft ``PlatzhalterFehler``, wenn die Vorlage unlesbar ist oder Unbekanntes nutzt."""
     unbekannt = unerlaubte_platzhalter(text, erlaubt)
     if unbekannt:
-        raise PlatzhalterFehler(f"Unbekannte Platzhalter: {', '.join(unbekannt)}")
+        liste = ", ".join(f"„{p}“" for p in unbekannt)
+        raise PlatzhalterFehler(
+            f"Die Vorlage nutzt Platzhalter, die es für diese Vorlagenart nicht gibt: {liste}."
+        )
 
 
 # --- Kontext und Rendern -------------------------------------------------------------
@@ -235,7 +301,9 @@ def kontext_pruefen(kontext: Mapping[str, Any], pfad: str = "") -> None:
     """Nur einfache Werte: Modell-Objekte und andere Objekte sind nicht erlaubt."""
     for schluessel, wert in kontext.items():
         if not isinstance(schluessel, str) or not schluessel.isidentifier():
-            raise PlatzhalterFehler(f"Ungültiger Schlüssel im Kontext unter {pfad or 'oben'}.")
+            raise PlatzhalterFehler(
+                f"Im Kontext steht ein ungültiger Schlüssel unter „{pfad or 'oben'}“."
+            )
         _wert_pruefen(wert, f"{pfad}{schluessel}")
 
 
@@ -250,8 +318,8 @@ def _wert_pruefen(wert: Any, pfad: str) -> None:
             _wert_pruefen(eintrag, pfad)
         return
     raise PlatzhalterFehler(
-        f"Kontext {pfad}: nur einfache Werte, kein {type(wert).__name__}. "
-        "Der Aufrufer gibt die Werte frei, die eine Vorlage lesen darf."
+        f"Im Kontext steht unter „{pfad}“ ein {type(wert).__name__}; erlaubt sind nur "
+        "einfache Werte. Der Aufrufer gibt die Werte frei, die eine Vorlage lesen darf."
     )
 
 

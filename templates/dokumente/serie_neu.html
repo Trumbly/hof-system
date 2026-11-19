@@ -5,7 +5,7 @@
 {% block inhalt %}
 {% include "dokumente/_reiter.html" %}
 <h1>Serienmitteilung</h1>
-<p class="leise">Eine Vorlage, viele Empfänger: Jedes Schreiben entsteht einzeln und wird einzeln abgelegt. Gesendet wird danach mit einem Klick, nach der Vorschau.</p>
+<p class="leise">Eine Vorlage, viele Empfänger: Erst zeigt die Vorschau, wer was auf welchem Weg bekommt. Jedes Schreiben entsteht einzeln und wird einzeln abgelegt. Gesendet wird danach mit einem Klick, nach der Vorschau der PDFs.</p>
 
 {% if arten|length > 1 %}
 <nav class="reiter" aria-label="Bezug">
@@ -18,11 +18,44 @@
   {{ form.non_field_errors }}
   <p>{{ form.vorlage.label_tag }} {{ form.vorlage }} {{ form.vorlage.errors }}</p>
   <p>{{ form.versandweg.label_tag }} {{ form.versandweg }}</p>
+  <fieldset>
+    <legend>{{ form.ohne_mail.label }}</legend>
+    {% for feld in form.ohne_mail %}<div class="auswahl-zeile">{{ feld }}</div>{% endfor %}
+    <p class="leise">{{ form.ohne_mail.help_text }}</p>
+  </fieldset>
   <fieldset class="auswahl">
     <legend>{{ bezugsart.titel }}</legend>
     {{ form.auswahl.errors }}
     {% for feld in form.auswahl %}<div class="auswahl-zeile">{{ feld }}</div>{% empty %}<p class="leise">Nichts zur Auswahl.</p>{% endfor %}
   </fieldset>
-  <button type="submit">Schreiben erzeugen</button>
+  <button type="submit" name="schritt" value="vorschau"{% if plan %} class="zweitrangig"{% endif %}>Empfänger prüfen</button>
+
+  {% if plan %}
+  <section aria-labelledby="vorschau-titel">
+    <h2 id="vorschau-titel">Empfänger <span class="leise">{{ erzeugt }} von {{ plan|length }} bekommen ein Schreiben</span></h2>
+    <input type="hidden" name="marke" value="{{ marke }}">
+    <div class="tabelle-rahmen">
+    <table class="empfaenger-vorschau">
+      <thead><tr><th>Einheit</th><th>Name</th><th>Versandweg</th><th>Hinweis</th></tr></thead>
+      <tbody>
+        {% for z in plan %}
+        <tr{% if z.ausgelassen %} class="ausgelassen"{% endif %}>
+          <td data-titel="Einheit">{{ z.einheit|default:"–" }}</td>
+          <td data-titel="Name">{{ z.name|default:"–" }}</td>
+          <td data-titel="Versandweg">
+            <select name="weg_{{ z.bezug.pk }}" aria-label="Versandweg für {{ z.name|default:z.einheit }}">
+              {% for wert, titel in wege %}<option value="{{ wert }}"{% if wert == z.versandweg %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+            </select>
+          </td>
+          <td data-titel="Hinweis">{% if z.ausgelassen %}<strong>Ausgelassen.</strong> {% endif %}{{ z.hinweis }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="leise">Wählt man einen Weg, für den Angaben fehlen, wird der Empfänger ausgelassen und mit Grund genannt.</p>
+    <button type="submit" name="schritt" value="erzeugen">{{ erzeugt }} Schreiben erzeugen</button>
+  </section>
+  {% endif %}
 </form>
 {% endblock %}

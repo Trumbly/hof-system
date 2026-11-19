@@ -11,6 +11,9 @@
   Posten nicht mehr, entsteht ein Arbeitsposten „Sollposten prüfen“.
 - Erweiterungsstelle für Schritt 6: ``zahlungsstand_setzen`` hält fest, was auf einen Posten
   gezahlt ist; der Abgleich ruft es auf.
+- ``offen(vertrag, stichtag)`` ist die eine Wahrheit für „offen“ (Review 1, Punkt 1): offene
+  Posten mit Soll, bezahlt und offen und die Summen. Wer einen offenen Betrag nennt, liest
+  ihn dort.
 
 Meldungen nennen Vertragsnummer, NW-ID und Posten-ID, keine Namen und keine Beträge.
 """
@@ -28,7 +31,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models import Max, QuerySet
+from django.db.models import Max, QuerySet, Sum
 from django.utils import timezone
 
 from apps.kern import services as kern
@@ -474,6 +477,152 @@ def offene_posten(vertrag: Vertrag | None = None) -> QuerySet[Sollposten]:
 
 def summe_offen(posten: QuerySet[Sollposten]) -> Decimal:
     return sum((p.offen for p in posten), Decimal("0.00"))
+
+
+# --- Eine Wahrheit für „offen“ (Review 1, Punkt 1) -----------------------------------
+
+NULL = Decimal("0.00")
+
+
+@dataclass(frozen=True)
+class OffenerPosten:
+    """Ein offener oder teilweise bezahlter Sollposten mit Soll, bezahlt und offen.
+
+    ``soll`` ist der Zahlbetrag des Postens (``Sollposten.betrag``), ``bezahlt`` die Summe
+    der gültigen Zuordnungen aus dem Abgleich (``Sollposten.bezahlt``, gepflegt von
+    ``zahlungsstand_setzen``), ``offen`` die Differenz. Immer gilt
+    ``soll == bezahlt + offen`` und ``offen > 0``.
+    """
+
+    sollposten: Sollposten
+    soll: Decimal
+    bezahlt: Decimal
+    offen: Decimal
+
+    @property
+    def vertrag(self) -> Vertrag:
+        return self.sollposten.vertrag
+
+    @property
+    def monat(self) -> str:
+        """„10/2026“ bei einem Posten innerhalb eines Monats, sonst der Zeitraum."""
+        p = self.sollposten
+        if (p.von.year, p.von.month) == (p.bis.year, p.bis.month):
+            return f"{p.von:%m/%Y}"
+        return p.zeitraum_text
+
+    def kontext(self) -> dict[str, object]:
+        """Einfache Werte für Vorlagen (``forderung.posten`` im Mahnwesen)."""
+        p = self.sollposten
+        return {
+            "art": p.get_art_display(),
+            "monat": self.monat,
+            "zeitraum": p.zeitraum_text,
+            "faellig_am": p.faellig_am,
+            "soll": self.soll,
+            "bezahlt": self.bezahlt,
+            "offen": self.offen,
+        }
+
+
+@dataclass(frozen=True)
+class Offen:
+    """Ergebnis von ``offen()``: die offenen Posten (älteste Fälligkeit zuerst) und Summen.
+
+    ``summe_offen`` ist die Summe von ``posten[i].offen``, ``summe_soll`` und
+    ``summe_bezahlt`` entsprechend. ``guthaben`` ist das offene, noch nicht verrechnete
+    Guthaben aus dem Abgleich (nur Information, es mindert ``summe_offen`` nicht: Der Abgleich
+    verrechnet es selbst, sobald der Zeitraum des nächsten Postens begonnen hat).
+    """
+
+    posten: list[OffenerPosten]
+    guthaben: Decimal = NULL
+    stichtag: datetime.date | None = None
+
+    @property
+    def summe_soll(self) -> Decimal:
+        return sum((p.soll for p in self.posten), NULL)
+
+    @property
+    def summe_bezahlt(self) -> Decimal:
+        return sum((p.bezahlt for p in self.posten), NULL)
+
+    @property
+    def summe_offen(self) -> Decimal:
+        return sum((p.offen for p in self.posten), NULL)
+
+    @property
+    def anzahl(self) -> int:
+        return len(self.posten)
+
+    @property
+    def vertraege(self) -> int:
+        return len({p.sollposten.vertrag_id for p in self.posten})
+
+    def je_vertrag(self) -> dict[int, list[OffenerPosten]]:
+        """Die Posten nach Vertrag-ID, in der Reihenfolge von ``posten``."""
+        ergebnis: dict[int, list[OffenerPosten]] = {}
+        for p in self.posten:
+            ergebnis.setdefault(p.sollposten.vertrag_id, []).append(p)
+        return ergebnis
+
+    def kontext(self) -> dict[str, object]:
+        """Einfache Werte für Vorlagen: Posten je Zeile und die drei Summen."""
+        return {
+            "posten": [p.kontext() for p in self.posten],
+            "summe": self.summe_offen,
+            "summe_offen": self.summe_offen,
+            "summe_soll": self.summe_soll,
+            "summe_bezahlt": self.summe_bezahlt,
+            "stichtag": self.stichtag,
+        }
+
+
+def offen(vertrag: Vertrag | None = None, stichtag: datetime.date | None = None) -> Offen:
+    """Die eine Wahrheit für „offen“ (Review 1, Punkt 1): offene Posten und Summen.
+
+    Gemeinsame Schnittstelle für alles, was einen offenen Betrag nennt (heute die Schreiben
+    des Mahnwesens; Cockpit, Offene Posten, Rückstände, Mahnlauf und Status-MCP folgen).
+
+    - ``vertrag``: nur dieser Vertrag; ``None`` alle Verträge.
+    - ``stichtag``: nur Posten, die **vor** dem Stichtag fällig waren (Rückstand am
+      Stichtag; ein am Stichtag fälliger Posten ist noch nicht überfällig). ``None``: alle
+      offenen Posten, auch künftig fällige.
+    - Gezählt werden Posten im Status „offen“ und „teilweise bezahlt“, deren Zeitraum nicht
+      vor dem Beginn des Abgleichs endet (``abgleich.services.beginn()``): Davor führt das
+      alte System die Zahlungen.
+    - ``bezahlt`` je Posten kommt aus ``Sollposten.bezahlt``, das der Abgleich über
+      ``zahlungsstand_setzen`` aus den gültigen Zuordnungen pflegt. ``soll`` hängt deshalb
+      nicht von ``abgleich`` ab, außer beim Beginn und beim Guthaben (spät importiert, weil
+      ``abgleich`` seinerseits ``soll`` importiert).
+    - ``bezahlt`` ist der heutige Stand, nicht der am Stichtag.
+
+    Reihenfolge: Fälligkeit, Vertragsnummer, Zeitraum, Art, ID.
+    """
+    # Spät importiert: ``abgleich`` importiert ``soll`` (Ring beim Laden).
+    from apps.abgleich import services as abgleich
+    from apps.abgleich.models import Guthaben
+
+    qs = Sollposten.objects.filter(
+        status__in=(Sollposten.Status.OFFEN, Sollposten.Status.TEILWEISE)
+    ).select_related("vertrag")
+    anfang = abgleich.beginn()
+    if anfang is not None:
+        qs = qs.filter(bis__gte=anfang)
+    if vertrag is not None:
+        qs = qs.filter(vertrag=vertrag)
+    if stichtag is not None:
+        qs = qs.filter(faellig_am__lt=stichtag)
+    posten = [
+        OffenerPosten(sollposten=p, soll=p.betrag, bezahlt=p.bezahlt, offen=p.offen)
+        for p in qs.order_by("faellig_am", "vertrag__nummer", "von", "art", "pk")
+        if p.offen > 0
+    ]
+    guthaben_qs = Guthaben.objects.filter(storniert_am__isnull=True, aufgeloest_am__isnull=True)
+    if vertrag is not None:
+        guthaben_qs = guthaben_qs.filter(vertrag=vertrag)
+    guthaben = guthaben_qs.aggregate(s=Sum("betrag"))["s"] or NULL
+    return Offen(posten=posten, guthaben=guthaben, stichtag=stichtag)
 
 
 # --- Rücknahme im Protokoll ----------------------------------------------------------

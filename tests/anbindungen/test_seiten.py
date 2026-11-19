@@ -116,18 +116,22 @@ def test_ablehnen_ueber_den_arbeitsposten(freie_garage: Einheit, angemeldet: Cli
     assert (anfrage.status, pruefen.status) == ("abgelehnt", "erledigt")
 
 
-def test_kuendigung_erfassen(objekt: Objekt, angemeldet: Client) -> None:
+def test_kuendigung_anlegen_statt_nur_erledigen(objekt: Objekt, angemeldet: Client) -> None:
+    """Review 2, A3: Der Knopf heißt „Kündigung anlegen“ und führt zum Kündigungsdialog des
+    Vertrags. „Erledigt“ ohne Kündigung geht nicht mehr: Die Seite sagt es in einem Satz,
+    die Anfrage und ihr Arbeitsposten bleiben offen."""
     einheit = vermarktete_einheit(objekt)
-    aktiver_vertrag(einheit)
+    vertrag = aktiver_vertrag(einheit)
     anfrage = _anfrage(einheit, "kuendigung")
     url = reverse("anbindungen:anfrage", args=[anfrage.pk])
-    assert "Kündigung erfasst" in angemeldet.get(url).content.decode()
-    angemeldet.post(url, {"status": "erledigt"})
+    seite = angemeldet.get(url).content.decode()
+    assert "Kündigung anlegen" in seite and "Kündigung erfasst" not in seite
+    assert reverse("stammdaten:vertrag", args=[vertrag.pk]) + f"?anfrage={anfrage.pk}" in seite
+    antwort = angemeldet.post(url, {"status": "erledigt"}, follow=True)
+    assert "erst, wenn sie am Vertrag erfasst ist" in antwort.content.decode()
     anfrage.refresh_from_db()
-    assert anfrage.status == "erledigt"
-    assert not Arbeitsposten.objects.filter(
-        art=services.ART_BUCHUNGSANFRAGE, status="offen"
-    ).exists()
+    assert anfrage.status == "offen"
+    assert Arbeitsposten.objects.filter(art=services.ART_BUCHUNGSANFRAGE, status="offen").exists()
 
 
 def test_liste_filtert_offen(freie_garage: Einheit, angemeldet: Client) -> None:

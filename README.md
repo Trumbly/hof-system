@@ -23,7 +23,7 @@ make dev                       # Postgres + Mailpit starten, migrieren, Server a
 
 - Testhof: `uv run python manage.py testhof --seed 42` legt den erfundenen Hof an (`--leeren` leert vorher alle Tabellen der Apps, auch Läufe, Arbeitsposten und Protokoll, und baut ihn neu auf); Anmeldung mit `test@testhof.invalid`, Passwort und TOTP-Geheimnis nennt der Befehl.
 - `DJANGO_ENV` nennt die Umgebung. `hof/settings/prod.py` setzt sie auf `prod`, wenn sie nicht gesetzt ist; dann verweigert sich der Testhof-Generator. Am eigenen Rechner und in Tests bleibt sie leer.
-- Mailpit zeigt lokal versendete Mails unter http://localhost:8025.
+- Mailpit zeigt lokal versendete Mails unter http://localhost:8025 (`make dev` setzt `EMAIL_URL=smtp://localhost:1025`). Ohne `EMAIL_URL`, etwa bei `uv run python manage.py runserver` ohne Mailpit, legt dev jede Mail als Datei in `tmp/mails/` ab (gitignored).
 - Ein Benutzer für die Anmeldung: `uv run python manage.py benutzer_anlegen --email <adresse>` (fragt das Passwort ab). Bei der ersten Anmeldung richtet er den zweiten Faktor (TOTP) mit einer Authenticator-App ein; ohne ihn ist keine Seite erreichbar.
 - Selbsttest der Läufe: `uv run python manage.py kern_selbsttest` legt einen Lauf und einen Arbeitsposten an (Seiten „Läufe“ und „Arbeitslisten“).
 - Fristen (seit Schritt 9a): Seite „Fristen“; der Lauf `uv run python manage.py fristen [--stichtag JJJJ-MM-TT]` macht fällige Fristen zu Arbeitsposten. `uv run python manage.py benachrichtigen` meldet gescheiterte Läufe und wartende Freigaben per Mail (lokal in Mailpit, wenn `HOF_BENACHRICHTIGUNG_MAIL` gesetzt ist) und ntfy (siehe `docs/betrieb.md`).

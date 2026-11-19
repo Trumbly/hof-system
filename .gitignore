@@ -24,6 +24,7 @@ media/
 !testhof/**/*.csv
 
 # Sonstiges
+tmp/
 .DS_Store
 staticfiles/
 

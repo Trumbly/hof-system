@@ -63,9 +63,7 @@ class PostenForm(forms.Form):
             (Sollposten.Art.KAUTION, Sollposten.Art.KAUTION.label),
         ],
     )
-    bezeichnung = forms.CharField(
-        label="Bezeichnung", max_length=200, required=False, help_text="Keine Namen."
-    )
+    bezeichnung = forms.CharField(label="Bezeichnung", max_length=200, required=False)
     von = forms.DateField(label="Datum", widget=Datum())
     netto = forms.DecimalField(label="Betrag netto", min_value=0, decimal_places=2)
     steuersatz = forms.DecimalField(
@@ -75,4 +73,4 @@ class PostenForm(forms.Form):
 
 
 class StornoForm(forms.Form):
-    grund = forms.CharField(label="Grund", max_length=200, help_text="Keine Namen.")
+    grund = forms.CharField(label="Grund", max_length=200)

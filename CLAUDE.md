@@ -22,6 +22,14 @@ Das System arbeitet mit Daten von Mietern, Pächtern und Zahlern. Claude arbeite
 
 Wenn Max dir trotzdem Echtdaten zeigt oder in eine Aufgabe kopiert, weise ihn darauf hin und arbeite ohne sie weiter.
 
+**Klarstellung von Max (19.11.2026): Wo die Grenze gilt.**
+
+- Die Grenze gilt für Claude, den Status-MCP, Notion, Lauf-Meldungen und Logs.
+- Sie gilt nicht für Max' eigene Oberfläche. Die UI zeigt Namen, Kontaktdaten und Adressen überall dort, wo er sie zum Arbeiten braucht: in Auswahllisten, Klärfällen, Arbeitslisten, Vertragsköpfen und Vorschauen.
+- Hinweistexte wie „kurz und ohne Namen“ stehen nur an Feldern, deren Inhalt nach Notion, in den Status-MCP oder öffentlich auf die Website geht.
+- Arbeitsposten-Hinweise und Lauf-Meldungen gehen nach Notion bzw. in Logs und enthalten deshalb weiter keine Personendaten. Die UI zeigt Personendaten, indem sie sie beim Rendern aus dem Bezug liest, nicht indem sie sie in den Hinweistext schreibt.
+- Für Claude selbst gilt weiter: nur Code und der erfundene Testhof.
+
 ## 2. Stack
 
 - Python 3.12, Django 5.x, Postgres 16 (PostGIS kommt in v2), Abhängigkeiten mit `uv`

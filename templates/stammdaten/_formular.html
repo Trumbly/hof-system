@@ -1,6 +1,7 @@
 <form method="post" class="formular"{% if form.is_multipart %} enctype="multipart/form-data"{% endif %}>
   {% csrf_token %}
   <input type="hidden" name="aktion" value="{{ aktion }}">
+  {% for feld in form.hidden_fields %}{{ feld }}{{ feld.errors }}{% endfor %}
   {% if form.non_field_errors %}<ul class="errorlist">{% for fehler in form.non_field_errors %}<li>{{ fehler }}</li>{% endfor %}</ul>{% endif %}
   {% for feld in form.visible_fields %}
   <p>{{ feld.label_tag }} {{ feld }}{% if feld.help_text %} <span class="leise">{{ feld.help_text }}</span>{% endif %}{{ feld.errors }}</p>

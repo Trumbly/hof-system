@@ -4,7 +4,10 @@ import os
 
 os.environ.setdefault("DJANGO_SECRET_KEY", "nur-fuer-die-entwicklung-nicht-geheim")
 os.environ.setdefault("DATABASE_URL", "postgres://hof:hof@localhost:5432/hof")
-os.environ.setdefault("EMAIL_URL", "smtp://localhost:1025")
+# Mail (Review 2, A9): Ohne EMAIL_URL landen Mails als Dateien in tmp/mails/ (gitignored),
+# damit Senden auch ohne Mailpit geht. ``make dev`` startet Mailpit und setzt
+# EMAIL_URL=smtp://localhost:1025; die Mails stehen dann unter http://localhost:8025.
+os.environ.setdefault("EMAIL_URL", "filemail:///tmp/mails")
 # Kein Aufruf ins Netz: Enable Banking als Fake.
 os.environ.setdefault("HOF_BANK_CLIENT", "apps.bank.enablebanking.FakeEnableBanking")
 # Der Testhof gleicht ab Juli 2026 ab (testhof/abgleich.py); davor führt das alte System.
@@ -18,4 +21,8 @@ os.environ.setdefault("HOF_NOTION_CLIENT", "apps.cockpit.notion.FakeNotion")
 from .base import *  # noqa: F403
 
 DEBUG = True
+
+if EMAIL_BACKEND == "django.core.mail.backends.filebased.EmailBackend":  # noqa: F405
+    # Relativ zum Projekt, nicht zum Arbeitsverzeichnis (``filemail:///tmp/mails``).
+    EMAIL_FILE_PATH = str(BASE_DIR / EMAIL_FILE_PATH)  # noqa: F405
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]

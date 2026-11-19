@@ -23,7 +23,7 @@ from django.db.models import Q
 
 from apps.kern import personenfelder
 from apps.kern.protokoll import ProtokolliertesModell
-from apps.stammdaten.models import Einheit, Vertrag
+from apps.stammdaten.models import Einheit, Kuendigung, Vertrag
 
 
 def _bild_pfad(instanz: Any, dateiname: str) -> str:
@@ -37,7 +37,7 @@ class Websitezugang(ProtokolliertesModell):
     """Ein Token der Website. Der Token selbst steht nirgends im System, nur sein Hash."""
 
     bezeichnung = models.CharField(
-        "Bezeichnung", max_length=100, help_text="z. B. „Website-Server“. Keine Namen."
+        "Bezeichnung", max_length=100, help_text="z. B. „Website-Server“."
     )
     token_hash = models.CharField(
         "Hash des Tokens",
@@ -141,6 +141,15 @@ class Buchungsanfrage(ProtokolliertesModell):
         null=True,
         blank=True,
         related_name="buchungsanfragen",
+    )
+    kuendigung = models.ForeignKey(
+        Kuendigung,
+        verbose_name="Kündigung",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="buchungsanfragen",
+        help_text="Bei einer Kündigung von der Website: die daraus erfasste Kündigung.",
     )
     entschieden_am = models.DateTimeField("entschieden am", null=True, blank=True)
     empfangen_am = models.DateTimeField("empfangen am", auto_now_add=True)

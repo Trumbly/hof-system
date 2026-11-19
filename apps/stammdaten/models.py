@@ -150,7 +150,7 @@ class EinheitStatus(Zeitraum, ProtokolliertesModell):
     )
     status = models.CharField("Status", max_length=20, choices=Status.choices)
     grund = models.CharField(
-        "Grund", max_length=200, blank=True, help_text="Anlass, z. B. „Rückgabe“. Keine Namen."
+        "Grund", max_length=200, blank=True, help_text="Anlass, z. B. „Rückgabe“."
     )
 
     class Meta:
@@ -178,9 +178,7 @@ class Zielmiete(Zeitraum, ProtokolliertesModell):
         Einheit, verbose_name="Einheit", on_delete=models.PROTECT, related_name="zielmieten"
     )
     betrag = models.DecimalField("Zielmiete je Monat", max_digits=12, decimal_places=2)
-    begruendung = models.TextField(
-        "Begründung", blank=True, help_text="z. B. Marktvergleich. Keine Namen."
-    )
+    begruendung = models.TextField("Begründung", blank=True, help_text="z. B. Marktvergleich.")
 
     class Meta:
         verbose_name = "Zielmiete"
@@ -441,9 +439,7 @@ class Kondition(Zeitraum, ProtokolliertesModell):
     zahlweise = models.CharField(
         "Zahlweise", max_length=20, choices=Zahlweise.choices, blank=True, default=""
     )
-    grund = models.CharField(
-        "Grund", max_length=200, blank=True, help_text="z. B. „Staffel 2“. Keine Namen."
-    )
+    grund = models.CharField("Grund", max_length=200, blank=True, help_text="z. B. „Staffel 2“.")
 
     class Meta:
         verbose_name = "Kondition"
@@ -529,7 +525,7 @@ class Schluessel(ProtokolliertesModell):
     )
     art = models.CharField("Art", max_length=20, choices=Art.choices, default=Art.SCHLUESSEL)
     bezeichnung = models.CharField(
-        "Bezeichnung", max_length=100, blank=True, help_text="z. B. „Tor“. Keine Namen."
+        "Bezeichnung", max_length=100, blank=True, help_text="z. B. „Tor“."
     )
     anzahl = models.PositiveSmallIntegerField("Anzahl", default=1)
     inhaber = models.CharField(
@@ -698,11 +694,35 @@ class Kuendigung(ProtokolliertesModell):
         MIETER = "mieter", "Mieter"
         VERMIETER = "vermieter", "Vermieter"
 
+    class Zugangsweg(models.TextChoices):
+        """Wie die Kündigung zuging (Review 2, A3). Website und Mail sind Textform: Die
+        Bestätigung erkennt die Form dann nicht ausdrücklich an (offene Frage an den
+        Anwalt)."""
+
+        UNBEKANNT = "", "nicht angegeben"
+        BRIEF = "brief", "Brief"
+        EINSCHREIBEN = "einschreiben", "Einschreiben"
+        PERSOENLICH = "persoenlich", "persönlich übergeben"
+        MAIL = "mail", "E-Mail"
+        WEBSITE = "website", "Website-Formular"
+
+    #: Zugangswege in Textform (ohne eigenhändige Unterschrift).
+    TEXTFORM = (Zugangsweg.MAIL, Zugangsweg.WEBSITE)
+
     vertrag = models.ForeignKey(
         Vertrag, verbose_name="Vertrag", on_delete=models.PROTECT, related_name="kuendigungen"
     )
     von = models.CharField("gekündigt von", max_length=20, choices=Von.choices, default=Von.MIETER)
     zugang_am = models.DateField("Zugang am")
+    zugangsweg = models.CharField(
+        "Zugangsweg", max_length=20, choices=Zugangsweg.choices, blank=True, default=""
+    )
+    aufhebung = models.BooleanField(
+        "Aufhebung zum Wunschtermin",
+        default=False,
+        help_text="Das Vertragsende ist der Wunschtermin vor dem Fristende; wirksam erst mit "
+        "dem unterschriebenen Aufhebungsvertrag (Vorlage „Aufhebungsvertrag“).",
+    )
     kuendigungsregel = models.CharField("angewandte Kündigungsfrist", max_length=50)
     zum_wunsch = models.DateField("gewünschtes Ende", null=True, blank=True)
     fristende = models.DateField("Fristende")
@@ -716,6 +736,18 @@ class Kuendigung(ProtokolliertesModell):
 
     def __str__(self) -> str:
         return f"Kündigung #{self.pk}"
+
+    @property
+    def in_textform(self) -> bool:
+        return self.zugangsweg in self.TEXTFORM
+
+    @property
+    def vorgang_text(self) -> str:
+        """Für Titel im Protokoll, nur Nummern und Daten: „Kündigung V-0001“ oder
+        „Aufhebung V-0001 zum 31.12.2026“."""
+        if self.aufhebung:
+            return f"Aufhebung {self.vertrag.nummer} zum {self.fristende:%d.%m.%Y}"
+        return f"Kündigung {self.vertrag.nummer}"
 
 
 # --- Personenfelder (CLAUDE.md, Regel 4.6) ------------------------------------------
@@ -746,4 +778,4 @@ personenfelder.unbedenklich(Checkpunkt, ["text"])
 personenfelder.register(Uebergabe, ["zustand", "zurueckgelassen"])
 personenfelder.unbedenklich(Uebergabe, ["art", "status"])
 personenfelder.register(UebergabeFoto, ["beschreibung"])
-personenfelder.unbedenklich(Kuendigung, ["von", "kuendigungsregel"])
+personenfelder.unbedenklich(Kuendigung, ["von", "kuendigungsregel", "zugangsweg"])

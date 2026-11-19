@@ -43,7 +43,21 @@ def test_mit_den_testhof_vorlagen_entstehen_schreiben(testhof: Testhof) -> None:
         "einheit": {"kuerzel": "HOF-G03", "bezeichnung": "Garage 3"},
         "objekt": {"kuerzel": objekt.kuerzel, "bezeichnung": objekt.bezeichnung},
         "betrag": {"offen": "85.00"},
-        "forderung": {"posten": [{"monat": "Oktober 2026", "betrag": "85.00"}]},
+        "forderung": {
+            "posten": [
+                {
+                    "art": "Miete",
+                    "monat": "Oktober 2026",
+                    "faellig_am": datetime.date(2026, 10, 5),
+                    "soll": "85.00",
+                    "bezahlt": "0.00",
+                    "offen": "85.00",
+                }
+            ],
+            "summe": "85.00",
+            "summe_soll": "85.00",
+            "summe_bezahlt": "0.00",
+        },
     }
     for art in ("mitteilung", "zahlungserinnerung", "kuendigung"):
         schreiben = services.schreiben_erzeugen(

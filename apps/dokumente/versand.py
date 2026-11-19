@@ -17,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import imaplib
 import os
+import smtplib
 import time
 import urllib.parse
 from collections.abc import Iterator
@@ -35,6 +36,16 @@ class VersandFehler(RuntimeError):
 
 class VersandNichtEingerichtet(VersandFehler):
     pass
+
+
+class MailserverNichtErreichbar(VersandFehler):
+    """Der Mailserver antwortet nicht (Verbindung abgelehnt, Zeitüberschreitung, Name
+    unbekannt). Das Schreiben bleibt „bereit“ und lässt sich später erneut senden."""
+
+    MELDUNG = "Mailserver nicht erreichbar, Schreiben bleibt bereit."
+
+    def __init__(self) -> None:
+        super().__init__(self.MELDUNG)
 
 
 def einstellung(schluessel: str) -> Any:
@@ -62,8 +73,15 @@ class DjangoMailClient:
         verbindung = get_connection(fail_silently=False)
         try:
             anzahl = verbindung.send_messages([nachricht])
+        except smtplib.SMTPException as fehler:
+            # Der Server ist erreichbar, nimmt die Mail aber nicht an.
+            raise VersandFehler(
+                f"Der Mailserver hat die Mail abgelehnt ({type(fehler).__name__}), "
+                "Schreiben bleibt bereit."
+            ) from fehler
         except OSError as fehler:
-            raise VersandFehler(f"SMTP: {type(fehler).__name__}") from fehler
+            # Verbindung abgelehnt, Zeitüberschreitung, Name unbekannt (Review 2, A9).
+            raise MailserverNichtErreichbar() from fehler
         if anzahl != 1:
             raise VersandFehler("SMTP hat die Mail nicht angenommen.")
 

@@ -88,9 +88,17 @@ def test_serie_ueber_die_seite_mit_objekten_als_bezug(
 
     seite = angemeldet.get(reverse("dokumente:serie_neu") + "?bezug=kern.objekt")
     assert seite.status_code == 200
+    url = reverse("dokumente:serie_neu") + "?bezug=kern.objekt"
+    daten = {
+        "vorlage": aushang.pk,
+        "versandweg": "",
+        "ohne_mail": "brief",
+        "auswahl": [objekte[0].pk, objekte[2].pk],
+    }
+    vorschau = angemeldet.post(url, {**daten, "schritt": "vorschau"})
+    assert not Schreiben.objects.exists()  # erst die Empfängervorschau (Review 2, A8)
     antwort = angemeldet.post(
-        reverse("dokumente:serie_neu") + "?bezug=kern.objekt",
-        {"vorlage": aushang.pk, "versandweg": "", "auswahl": [objekte[0].pk, objekte[2].pk]},
+        url, {**daten, "schritt": "erzeugen", "marke": vorschau.context["marke"]}
     )
 
     assert antwort.status_code == 302

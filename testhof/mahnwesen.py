@@ -41,6 +41,7 @@ from apps.stammdaten.models import Vertrag
 from testhof import abgleich as testhof_abgleich
 from testhof import register
 from testhof.aufbau import Kontext
+from testhof.dokumente import FORDERUNG_TABELLE
 
 NAME = "mahnwesen"
 SONDERFAELLE = ("rechtsfall_mahnsperre",)
@@ -65,12 +66,9 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
 <p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
 <p>trotz unserer Zahlungserinnerung ist für den Vertrag {{ vertrag.nummer }}
 ({{ einheit.bezeichnung }}) ein Betrag von {{ betrag.offen|euro }} offen:</p>
-<table>
-{% for p in forderung.posten %}
-<tr><td>{{ p.art }} {{ p.zeitraum }}</td><td>fällig {{ p.faellig_am|datum }}</td>
-<td>{{ p.offen|euro }}</td></tr>
-{% endfor %}
-</table>
+"""
+        + FORDERUNG_TABELLE
+        + """\
 <p>Bitte zahlen Sie den Betrag bis zum {{ frist.bis|datum }} ({{ frist.tage }} Tage).</p>
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
 """,
@@ -84,11 +82,9 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
 <p>für den Vertrag {{ vertrag.nummer }} ({{ einheit.bezeichnung }}) sind
 {{ mahnung.offene_monatsmieten }} Monatsmieten ganz oder teilweise offen, zusammen
 {{ betrag.offen|euro }}:</p>
-<table>
-{% for p in forderung.posten %}
-<tr><td>{{ p.art }} {{ p.zeitraum }}</td><td>{{ p.offen|euro }}</td></tr>
-{% endfor %}
-</table>
+"""
+        + FORDERUNG_TABELLE
+        + """\
 <p>Wir mahnen den Zahlungsverzug ab. Zahlen Sie den Betrag nicht bis zum
 {{ frist.bis|datum }}, behalten wir uns die Kündigung des Vertrags vor.</p>
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>

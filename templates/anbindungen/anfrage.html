@@ -13,6 +13,7 @@
   {% if anfrage.art == "buchung" %}<li>Im Katalog buchbar ab: {{ buchbar_ab|date:"d.m.Y"|default:"derzeit nicht buchbar" }}</li>{% endif %}
   {% if anfrage.vertragsnummer %}<li>Angegebene Vertragsnummer: {{ anfrage.vertragsnummer }}</li>{% endif %}
   {% if anfrage.vertrag %}<li>Vertrag: <a href="{% url 'stammdaten:vertrag' anfrage.vertrag.pk %}">{{ anfrage.vertrag.nummer }}</a> · {{ anfrage.vertrag.get_status_display }}</li>{% endif %}
+  {% if anfrage.kuendigung %}<li>Kündigung: #{{ anfrage.kuendigung.pk }}, Zugang {{ anfrage.kuendigung.zugang_am|date:"d.m.Y" }}, Ende <strong>{{ anfrage.kuendigung.fristende|date:"d.m.Y" }}</strong> (<a href="{% url 'stammdaten:vertrag' anfrage.kuendigung.vertrag_id %}#kuendigung">am Vertrag</a>)</li>{% endif %}
 </ul>
 
 <section id="kontakt">
@@ -24,6 +25,34 @@
   </ul>
   {% if anfrage.nachricht %}<h3>Nachricht</h3><p>{{ anfrage.nachricht|linebreaksbr }}</p>{% endif %}
 </section>
+
+{% if vorschlag %}
+<section id="kuendigung-anlegen">
+  <h2>Kündigung übernehmen</h2>
+  <p class="leise">„Kündigung anlegen“ öffnet den Kündigungsdialog des Vertrags, vorausgefüllt mit Zugang am {{ vorschlag.zugang_am|date:"d.m.Y" }}, gekündigt vom Mieter{% if vorschlag.zum_wunsch %}, Wunschtermin {{ vorschlag.zum_wunsch|date:"d.m.Y" }}{% endif %} und Zugangsweg Website-Formular. Erledigt ist die Anfrage erst, wenn die Kündigung gespeichert ist.</p>
+  {% for k in kuendigung_anlegen %}
+  <div class="posten">
+    <p><strong>{{ k.vertrag.nummer }}</strong> · {{ k.vertrag.get_status_display }} · ab {{ k.vertrag.beginn|date:"d.m.Y" }}</p>
+    {% for satz in k.abweichungen %}<p class="meldung meldung-warning" role="alert">Absender weicht ab: {{ satz }}</p>{% endfor %}
+    <a class="knopf" href="{{ k.url }}">Kündigung anlegen</a>
+  </div>
+  {% empty %}
+  <p>Zur Einheit {{ anfrage.einheit.nw_id }} gibt es keinen aktiven Vertrag, an dem sich die Kündigung anlegen lässt.</p>
+  {% endfor %}
+  {% if kuendigungen_erfasst %}
+  <h3>Schon erfasst?</h3>
+  {% for k in kuendigungen_erfasst %}
+  <form method="post" class="formular">
+    {% csrf_token %}
+    <input type="hidden" name="status" value="erledigt">
+    <input type="hidden" name="kuendigung" value="{{ k.pk }}">
+    <p>Kündigung #{{ k.pk }} zu {{ k.vertrag.nummer }}, Zugang {{ k.zugang_am|date:"d.m.Y" }}, Ende {{ k.fristende|date:"d.m.Y" }}</p>
+    <button type="submit" class="zweitrangig">Mit Kündigung #{{ k.pk }} verknüpfen und erledigen</button>
+  </form>
+  {% endfor %}
+  {% endif %}
+</section>
+{% endif %}
 
 {% if entscheidungen %}
 <section id="entscheiden">

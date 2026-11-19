@@ -12,7 +12,7 @@ der Auswahl, die die Seite „Serienmitteilung“ anbietet::
     )
 
 Der Dokumente-Teil meldet ``kern.Objekt`` an (Aushang je Objekt); die Stammdaten melden
-später Verträge an.
+Verträge an (``apps.stammdaten.schreiben.vertrag_anmelden``, Mitteilung an Nutzer).
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from django.db import models
 
 Kontextfunktion = Callable[[Any], Mapping[str, Any]]
 Auswahlfunktion = Callable[[], "models.QuerySet[Any]"]
+Bezeichnungsfunktion = Callable[[Any], str]
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,8 @@ class Bezugsart:
     titel: str
     kontext: Kontextfunktion
     auswahl: Auswahlfunktion
+    #: Text in der Auswahlliste (Max' Oberfläche: mit Namen, Review 2, Klarstellung).
+    bezeichnung: Bezeichnungsfunktion = str
 
     @property
     def schluessel(self) -> str:
@@ -48,8 +51,11 @@ def registrieren(
     titel: str,
     kontext: Kontextfunktion,
     auswahl: Auswahlfunktion,
+    bezeichnung: Bezeichnungsfunktion = str,
 ) -> Bezugsart:
-    art = Bezugsart(modell=modell, titel=titel, kontext=kontext, auswahl=auswahl)
+    art = Bezugsart(
+        modell=modell, titel=titel, kontext=kontext, auswahl=auswahl, bezeichnung=bezeichnung
+    )
     _BEZUGSARTEN[art.schluessel] = art
     return art
 
@@ -93,4 +99,5 @@ def objekt_anmelden() -> None:
         titel="Objekte",
         kontext=_objekt_kontext,
         auswahl=lambda: Objekt.objects.filter(aktiv=True).order_by("kuerzel"),
+        bezeichnung=lambda o: f"{o.kuerzel} · {o.bezeichnung}",
     )

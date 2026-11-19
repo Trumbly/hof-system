@@ -35,7 +35,7 @@ def test_vorlage_anlegen_bearbeiten_freigeben_ueber_die_seiten(angemeldet: Clien
         reverse("dokumente:vorlage_neu"),
         {"name": "Hinweis", "art": "mitteilung", "betreff": "", "text": "{{ partei.name }}"},
     )
-    assert "Unbekannte Platzhalter: partei.name" in antwort.content.decode()
+    assert "für diese Vorlagenart nicht gibt: „partei.name“" in antwort.content.decode()
     assert not Vorlage.objects.exists()
 
     antwort = angemeldet.post(
