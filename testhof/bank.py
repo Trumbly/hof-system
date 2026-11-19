@@ -52,7 +52,6 @@ from apps.bank.models import (
     Bankfreigabe,
     Bankkonto,
     Bankumsatz,
-    Kontostand,
 )
 from testhof import erfunden, register
 from testhof.aufbau import Kontext
@@ -422,19 +421,9 @@ def _gleicher_erster(zweiter: Bankumsatz) -> Bankumsatz:
     )
 
 
-def leeren() -> None:
-    """Löscht alle Daten der Bank (nur erfundene Daten, siehe ``aufbau.leeren``)."""
-    Kontostand.objects.all().delete()
-    Bankumsatz.objects.all().delete()
-    Bankabruf.objects.all().delete()
-    Bankfreigabe.objects.all().delete()
-    Bankkonto.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("kern", "soll"),
     aufbauen=aufbauen,
-    leeren=leeren,
     sonderfaelle=("doppelter_umsatz", "rueckbuchung"),
 )

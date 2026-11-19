@@ -208,8 +208,11 @@ def test_ein_kanal_faellt_aus_der_andere_sendet() -> None:
     assert Benachrichtigung.objects.get().kanaele == ["ntfy"]
 
 
-def test_kein_kanal_sendet_dann_beim_naechsten_mal_wieder() -> None:
-    """Hat kein Kanal gesendet, gilt die Lage nicht als gemeldet; der Lauf hat Fehler."""
+def test_kein_kanal_sendet_dann_beim_naechsten_mal_wieder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hat kein Kanal gesendet, gilt die Lage nicht als gemeldet; der Lauf hat Fehler.
+    Ohne Kanal gilt das nur in der Produktion, sonst „übersprungen“ (test_ohne_kanal.py)."""
     _frist_faellig()
 
     ergebnis = services.benachrichtigen(kanaele=[FakeKanal("mail", scheitern=True)])
@@ -217,7 +220,9 @@ def test_kein_kanal_sendet_dann_beim_naechsten_mal_wieder() -> None:
     assert not Benachrichtigung.objects.exists()
 
     with override_settings(HOF_BENACHRICHTIGUNG_MAIL="", HOF_NTFY_URL=""):
+        monkeypatch.setenv("DJANGO_ENV", "prod")
         call_command("benachrichtigen")
+        monkeypatch.delenv("DJANGO_ENV")
     lauf = Lauf.objects.get(name="benachrichtigen")
     assert lauf.status == Lauf.Status.MIT_FEHLERN
     assert "nicht gemeldet" in lauf.meldung

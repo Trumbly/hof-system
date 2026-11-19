@@ -21,7 +21,7 @@ make dev                       # Postgres + Mailpit starten, migrieren, Server a
 | `make migrate` | Migrationen anwenden |
 | `make stopp` | Postgres und Mailpit anhalten |
 
-- Testhof: `uv run python manage.py testhof --seed 42` legt den erfundenen Hof an (`--leeren` baut ihn neu auf); Anmeldung mit `test@testhof.invalid`, Passwort und TOTP-Geheimnis nennt der Befehl.
+- Testhof: `uv run python manage.py testhof --seed 42` legt den erfundenen Hof an (`--leeren` leert vorher alle Tabellen der Apps, auch Läufe, Arbeitsposten und Protokoll, und baut ihn neu auf); Anmeldung mit `test@testhof.invalid`, Passwort und TOTP-Geheimnis nennt der Befehl.
 - `DJANGO_ENV` nennt die Umgebung. `hof/settings/prod.py` setzt sie auf `prod`, wenn sie nicht gesetzt ist; dann verweigert sich der Testhof-Generator. Am eigenen Rechner und in Tests bleibt sie leer.
 - Mailpit zeigt lokal versendete Mails unter http://localhost:8025.
 - Ein Benutzer für die Anmeldung: `uv run python manage.py benutzer_anlegen --email <adresse>` (fragt das Passwort ab). Bei der ersten Anmeldung richtet er den zweiten Faktor (TOTP) mit einer Authenticator-App ein; ohne ihn ist keine Seite erreichbar.

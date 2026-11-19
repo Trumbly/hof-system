@@ -33,13 +33,10 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass, field
 
-from django.contrib.contenttypes.models import ContentType
-
 from apps.dokumente import services as dokumente
 from apps.dokumente.models import Vorlage
-from apps.kern.models import Arbeitsposten
 from apps.mahnwesen import services
-from apps.mahnwesen.models import Mahnfall, Mahnschritt, Mahnsperre
+from apps.mahnwesen.models import Mahnsperre
 from apps.stammdaten.models import Vertrag
 from testhof import abgleich as testhof_abgleich
 from testhof import register
@@ -136,20 +133,9 @@ def aufbauen(kontext: Kontext) -> MahnwesenDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht Fälle, Schritte und Sperren (nur erfundene Daten, siehe ``aufbau.leeren``).
-    Die Stufen bleiben: Sie sind Konfiguration aus der Datenmigration. Die Vorlagen löscht
-    das Modul ``dokumente``."""
-    Mahnschritt.objects.all().delete()
-    Arbeitsposten.objects.filter(bezug_typ=ContentType.objects.get_for_model(Mahnfall)).delete()
-    Mahnfall.objects.all().delete()
-    Mahnsperre.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("abgleich", "dokumente", "stammdaten"),
     aufbauen=aufbauen,
-    leeren=leeren,
     sonderfaelle=SONDERFAELLE,
 )

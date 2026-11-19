@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import OuterRef, Q, Subquery
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -22,7 +22,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.bank import enablebanking, importieren, services
 from apps.bank.importformat import FORMATE, VIVID_CSV
-from apps.bank.models import Bankabruf, Bankkonto, Bankumsatz, Kontostand
+from apps.bank.models import Bankabruf, Bankkonto, Bankumsatz
 from apps.kern import services as kern_services
 
 logger = logging.getLogger(__name__)
@@ -39,16 +39,8 @@ SITZUNG_IMPORT = "bank_import"
 @login_required
 @require_GET
 def konten(request: HttpRequest) -> HttpResponse:
-    """Konten mit letztem Saldo, letztem Abruf und Bankfreigabe."""
-    letzter_stand = Kontostand.objects.filter(konto=OuterRef("pk")).order_by("-datum")
-    liste = (
-        Bankkonto.objects.select_related("mandant")
-        .annotate(
-            saldo=Subquery(letzter_stand.values("saldo")[:1]),
-            saldo_datum=Subquery(letzter_stand.values("datum")[:1]),
-        )
-        .order_by("-aktiv", "bezeichnung", "pk")
-    )
+    """Konten mit Saldo (Stand des letzten erfolgreichen Abrufs), letztem Abruf und Freigabe."""
+    liste = Bankkonto.objects.select_related("mandant").order_by("-aktiv", "bezeichnung", "pk")
     zeilen = []
     heute = timezone.localdate()
     for konto in liste:
@@ -56,6 +48,7 @@ def konten(request: HttpRequest) -> HttpResponse:
         zeilen.append(
             {
                 "konto": konto,
+                "saldo": services.saldo_stand(konto),
                 "letzter_abruf": konto.abrufe.exclude(quelle=Bankabruf.Quelle.IMPORT).first(),
                 "freigabe": freigabe,
                 "freigabe_bald": freigabe is not None

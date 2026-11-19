@@ -44,22 +44,15 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.contrib.contenttypes.models import ContentType
-
 from apps.abgleich import services
 from apps.abgleich.models import (
-    Guthaben,
     Handzahlung,
-    Klaerfall,
-    Sammelvertrag,
     Zahlerregel,
-    Zuordnung,
 )
 from apps.bank import services as bank_services
 from apps.bank.models import Bankumsatz
 from apps.dokumente.models import Dokument
 from apps.kassenbuch.models import Zuordnungsregel
-from apps.kern.models import Arbeitsposten
 from apps.soll.models import Sollposten
 from apps.stammdaten.models import Partei, Vertrag, Vertragspartei
 from testhof import pdfs, register
@@ -309,22 +302,9 @@ def aufbauen(kontext: Kontext) -> AbgleichDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht die Daten des Abgleichs (nur erfundene Daten, siehe ``aufbau.leeren``)."""
-    Arbeitsposten.objects.filter(bezug_typ=ContentType.objects.get_for_model(Klaerfall)).delete()
-    Zuordnung.objects.all().delete()
-    while Guthaben.objects.exists():
-        Guthaben.objects.filter(reste__isnull=True).delete()
-    Klaerfall.objects.all().delete()
-    Handzahlung.objects.all().delete()
-    Sammelvertrag.objects.all().delete()
-    Zahlerregel.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("bank", "belege", "kassenbuch", "soll"),
     aufbauen=aufbauen,
-    leeren=leeren,
     sonderfaelle=SONDERFAELLE,
 )

@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.dokumente import services
-from apps.dokumente.models import Schreiben, Vorlage
+from apps.dokumente.models import Vorlage
 from testhof import register
 from testhof.aufbau import Kontext
 
@@ -192,10 +192,4 @@ def aufbauen(kontext: Kontext) -> DokumenteDaten:
     return DokumenteDaten(vorlagen=vorlagen)
 
 
-def leeren() -> None:
-    """Löscht Schreiben und Vorlagen (nur erfundene Daten)."""
-    Schreiben.objects.all().delete()
-    Vorlage.objects.all().delete()
-
-
-register.registrieren(NAME, abhaengig_von=("kern",), aufbauen=aufbauen, leeren=leeren)
+register.registrieren(NAME, abhaengig_von=("kern",), aufbauen=aufbauen)

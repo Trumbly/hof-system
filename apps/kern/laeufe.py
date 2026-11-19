@@ -47,6 +47,7 @@ class Koerbe:
     gebucht: int = 0
     arbeitsposten: int = 0
     fehler: int = 0
+    uebersprungen: bool = False
 
 
 class LaufBefehl(BaseCommand):
@@ -74,6 +75,10 @@ class LaufBefehl(BaseCommand):
     def fehler(self, anzahl: int = 1) -> None:
         """Zählt einen Fehler, ohne den Lauf abzubrechen (z. B. ein einzelner Posten)."""
         self.koerbe.fehler += anzahl
+
+    def ueberspringen(self) -> None:
+        """Der Lauf endet mit Status „übersprungen“ statt „erfolgreich“ (ohne Fehler)."""
+        self.koerbe.uebersprungen = True
 
     def arbeitsposten_anlegen(
         self,
@@ -145,6 +150,7 @@ class LaufBefehl(BaseCommand):
             arbeitsposten=self.koerbe.arbeitsposten,
             fehler=self.koerbe.fehler,
             meldung=meldung,
+            uebersprungen=self.koerbe.uebersprungen,
         )
         self.stdout.write(
             f"Lauf #{self.lauf.pk} ({name}): {self.lauf.get_status_display()}, "

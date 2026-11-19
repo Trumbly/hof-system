@@ -19,7 +19,7 @@ import datetime
 from dataclasses import dataclass
 
 from apps.fristen import services
-from apps.fristen.models import Frist, Fristverschiebung
+from apps.fristen.models import Frist
 from testhof import register
 from testhof.aufbau import Kontext
 from testhof.kern import KernDaten
@@ -73,10 +73,4 @@ def aufbauen(kontext: Kontext) -> FristenDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht Verschiebungen und Fristen (nur erfundene Daten)."""
-    Fristverschiebung.objects.all().delete()
-    Frist.objects.all().delete()
-
-
-register.registrieren(NAME, aufbauen=aufbauen, leeren=leeren, abhaengig_von=("kern",))
+register.registrieren(NAME, aufbauen=aufbauen, abhaengig_von=("kern",))

@@ -15,7 +15,7 @@
     <tr id="konto-{{ z.konto.pk }}">
       <td data-titel="Konto"><strong>{{ z.konto.bezeichnung }}</strong> <span class="leise">#{{ z.konto.pk }} · {{ z.konto.bank }} · {{ z.konto.get_zugang_display }}{% if not z.konto.aktiv %} · inaktiv{% endif %}</span><br><code>{{ z.konto.iban }}</code></td>
       <td data-titel="Mandant">{{ z.konto.mandant.kuerzel }}</td>
-      <td data-titel="Saldo">{% if z.konto.saldo is not None %}{{ z.konto.saldo|floatformat:"2g" }} {{ z.konto.waehrung }} <span class="leise">(Ende {{ z.konto.saldo_datum|date:"d.m.Y" }})</span>{% else %}–{% endif %}</td>
+      <td data-titel="Saldo">{% if z.saldo %}{{ z.saldo.saldo|floatformat:"2g" }} {{ z.konto.waehrung }} <span class="leise">(Stand {{ z.saldo.stand|date:"d.m.Y" }}{% if z.saldo.abgerufen_am %}, abgerufen {{ z.saldo.abgerufen_am|date:"d.m.Y H:i" }}{% endif %})</span>{% else %}–{% endif %}</td>
       <td data-titel="Letzter Abruf">{% if z.letzter_abruf %}{{ z.letzter_abruf.gestartet_am|date:"d.m.Y H:i" }} <span class="status status-{% if z.letzter_abruf.status == 'gescheitert' %}abgebrochen{% else %}{{ z.letzter_abruf.status }}{% endif %}">{{ z.letzter_abruf.get_status_display }}</span>{% if z.letzter_abruf.status == 'erfolgreich' %} <span class="leise">{{ z.letzter_abruf.neu }} neu</span>{% endif %}{% else %}noch keiner{% endif %}</td>
       <td data-titel="Bankfreigabe">
         {% if z.konto.zugang == 'nur_import' %}–{% else %}

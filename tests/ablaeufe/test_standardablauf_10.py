@@ -80,6 +80,7 @@ def test_standardablauf_10_tageslauf(
         "zaehler_stichtag",
         "verwaltio_kennzahlen",
         "id_abgleich",
+        "arbeitsposten_pflege",
         "aufgaben_abgleich",
         "statusmcp_aktualisieren",
         "sicherung_pruefen",

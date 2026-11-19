@@ -20,19 +20,14 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass
 
-from django.contrib.contenttypes.models import ContentType
-
 from apps.anbindungen import services
 from apps.anbindungen.models import (
     Abweichung,
     Buchungsanfrage,
-    Einheitbild,
     Kennzahl,
-    Websitezugang,
 )
 from apps.anbindungen.verwaltio import FakeVerwaltio
 from apps.anbindungen.website import FakeWebsite
-from apps.kern.models import Arbeitsposten
 from apps.stammdaten.models import Einheit, Vertrag
 from testhof import erfunden, register
 from testhof.aufbau import Kontext, TesthofFehler
@@ -146,12 +141,4 @@ def aufbauen(kontext: Kontext) -> AnbindungenDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht die Daten der Anbindungen samt ihrer Arbeitsposten (nur erfundene Daten)."""
-    typen = ContentType.objects.filter(app_label="anbindungen")
-    Arbeitsposten.objects.filter(bezug_typ__in=typen).delete()
-    for modell in (Abweichung, Kennzahl, Buchungsanfrage, Einheitbild, Websitezugang):
-        modell.objects.all().delete()
-
-
-register.registrieren(NAME, aufbauen=aufbauen, leeren=leeren, abhaengig_von=("stammdaten",))
+register.registrieren(NAME, aufbauen=aufbauen, abhaengig_von=("stammdaten",))

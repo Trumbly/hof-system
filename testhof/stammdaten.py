@@ -25,29 +25,18 @@ import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from django.contrib.contenttypes.models import ContentType
-
-from apps.fristen.models import Frist, Fristverschiebung
-from apps.kern.models import Arbeitsposten, Objekt
+from apps.kern.models import Objekt
 from apps.soll import services as soll
 from apps.stammdaten import schreiben, services
 from apps.stammdaten.models import (
-    Checkliste,
-    Checkpunkt,
     Einheit,
     EinheitStatus,
-    Kaution,
     Kondition,
     Kontaktweg,
-    Kuendigung,
     Partei,
     Schluessel,
     Uebergabe,
-    UebergabeFoto,
     Vertrag,
-    Vertragseinheit,
-    Vertragspartei,
-    Zielmiete,
 )
 from testhof import erfunden, register
 from testhof.aufbau import Kontext
@@ -361,41 +350,9 @@ def _aufbauen(kontext: Kontext) -> StammdatenDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht die Stammdaten des Testhofs samt ihrer Arbeitsposten (nur erfundene Daten)."""
-    typen = ContentType.objects.filter(app_label="stammdaten")
-    Arbeitsposten.objects.filter(bezug_typ__in=typen).delete()
-    fristen = Frist.objects.filter(bezug_typ__in=typen)
-    Arbeitsposten.objects.filter(
-        bezug_typ=ContentType.objects.get_for_model(Frist), bezug_id__in=fristen.values("pk")
-    ).delete()
-    Fristverschiebung.objects.filter(frist__in=fristen).delete()
-    fristen.delete()
-    for modell in (
-        UebergabeFoto,
-        Uebergabe,
-        Kuendigung,
-        Checkpunkt,
-        Checkliste,
-        Schluessel,
-        Kaution,
-        Kondition,
-        Vertragspartei,
-        Vertragseinheit,
-        Vertrag,
-        Kontaktweg,
-        Partei,
-        Zielmiete,
-        EinheitStatus,
-        Einheit,
-    ):
-        modell.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("kern",),
     aufbauen=aufbauen,
-    leeren=leeren,
     sonderfaelle=SONDERFAELLE,
 )

@@ -29,9 +29,7 @@ from decimal import Decimal
 
 from apps.bank.models import Bankumsatz
 from apps.dokumente import dokumentarten, services
-from apps.dokumente.models import Beleg, Dokument, Dokumentbezug, Eingangsrechnung, Lieferant
-from apps.fristen.models import Frist
-from apps.kern.models import Arbeitsposten
+from apps.dokumente.models import Beleg, Dokument, Eingangsrechnung, Lieferant
 from testhof import register
 from testhof.aufbau import Kontext
 from testhof.kassenbuch import AUSGABE_KATEGORIE
@@ -237,31 +235,8 @@ def aufbauen(kontext: Kontext) -> BelegeDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht Belege, Dokumente und Lieferanten (nur erfundene Daten, siehe ``aufbau.leeren``)."""
-    Arbeitsposten.objects.filter(
-        art__in=[
-            services.ART_BELEGE_ZUORDNEN,
-            services.ART_MAIL_OHNE_PDF,
-            services.ART_RECHNUNG_ZAHLEN,
-            services.ART_RECHNUNG_ZUORDNEN,
-        ]
-    ).delete()
-    Frist.objects.filter(quelle=Frist.Quelle.EINGANGSRECHNUNG).delete()
-    Eingangsrechnung.objects.all().delete()
-    Beleg.objects.all().delete()
-    Dokumentbezug.objects.all().delete()
-    for dokument in Dokument.objects.all():
-        dokument.datei.delete(save=False)
-        if dokument.original:
-            dokument.original.delete(save=False)
-    Dokument.objects.all().delete()
-    Lieferant.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("kern", "bank", "kassenbuch", "dokumente", "fristen"),
     aufbauen=aufbauen,
-    leeren=leeren,
 )

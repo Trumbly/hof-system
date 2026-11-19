@@ -34,11 +34,9 @@ from apps.kassenbuch import services
 from apps.kassenbuch.models import (
     Buchung,
     Kategorie,
-    Monatsabschluss,
-    Monatsbericht,
     Zuordnungsregel,
 )
-from apps.kern.models import Arbeitsposten, Mandant, Objekt
+from apps.kern.models import Mandant, Objekt
 from testhof import register
 from testhof.aufbau import Kontext
 from testhof.bank import AUSGABEN
@@ -314,23 +312,9 @@ def aufbauen(kontext: Kontext) -> KassenbuchDaten:
     )
 
 
-def leeren() -> None:
-    """Löscht alle Daten des Kassenbuchs (nur erfundene Daten, siehe ``aufbau.leeren``)."""
-    for bericht in Monatsbericht.objects.exclude(datei=""):
-        bericht.datei.delete(save=False)
-    Monatsbericht.objects.all().delete()
-    Arbeitsposten.objects.filter(art__in=[services.ART_EINORDNEN, services.ART_ABSCHLUSS]).delete()
-    Monatsabschluss.objects.all().delete()
-    Buchung.objects.filter(storno_von__isnull=False).delete()
-    Buchung.objects.all().delete()
-    Zuordnungsregel.objects.all().delete()
-    Kategorie.objects.all().delete()
-
-
 register.registrieren(
     NAME,
     abhaengig_von=("kern", "bank"),
     aufbauen=aufbauen,
-    leeren=leeren,
     sonderfaelle=("sammelrechnung_zwei_objekte", "wohnraummiete_selbes_konto"),
 )

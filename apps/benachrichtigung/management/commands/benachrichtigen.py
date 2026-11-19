@@ -24,6 +24,9 @@ class Command(LaufBefehl):
         )
         if ergebnis.status == "still":
             return "Nichts zu melden."
+        if ergebnis.status == "uebersprungen":
+            self.ueberspringen()
+            return f"{zaehler}; kein Kanal eingerichtet, übersprungen (nicht in der Produktion)."
         if ergebnis.status == "schon_gemeldet":
             return f"{zaehler}; heute schon gemeldet."
         if ergebnis.status == "gemeldet" and ergebnis.benachrichtigung is not None:

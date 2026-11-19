@@ -41,6 +41,9 @@ ART_FREIGABE_FEHLT = "Bankfreigabe fehlt"
 ART_ABRUF = "Bankabruf gescheitert"
 ART_ZULIEFERUNG = "Bankumsätze fehlen"
 
+#: Grund eines gescheiterten Abrufs ohne gültige Freigabe (steht im Hinweis des Postens).
+GRUND_KEINE_FREIGABE = "keine gültige Bankfreigabe"
+
 TOKEN_PRAEFIX = "hofz_"  # noqa: S105  (Präfix, kein Geheimnis)
 
 CENT = Decimal("0.01")
@@ -133,8 +136,21 @@ def konto_zum_token(token: str) -> Bankkonto | None:
 
 
 def aktuelle_freigabe(konto: Bankkonto) -> Bankfreigabe | None:
-    """Die Freigabe mit dem spätesten Ablauf."""
+    """Die Freigabe mit dem spätesten Ablauf (für Anzeige und Ablaufprüfung)."""
     return konto.freigaben.order_by("-gueltig_bis", "-pk").first()
+
+
+def gueltige_freigabe(konto: Bankkonto, am: datetime.date) -> Bankfreigabe | None:
+    """Die jüngste Freigabe des Kontos, die ``am`` gilt (gültig ab ≤ am ≤ gültig bis).
+
+    „Jüngste“ heißt: zuletzt erteilt. Eine abgelaufene alte Freigabe neben einer neuen
+    stört nicht, ebenso wenig eine, die erst später beginnt (Review 1, Punkt 2).
+    """
+    return (
+        konto.freigaben.filter(gueltig_ab__lte=am, gueltig_bis__gte=am)
+        .order_by("-gueltig_ab", "-angelegt_am", "-pk")
+        .first()
+    )
 
 
 def bankfreigabe_anlegen(
@@ -162,6 +178,11 @@ def bankfreigabe_anlegen(
         kern_services.arbeitsposten_erledigen(posten)
     for posten in _posten_zu(ART_FREIGABE_FEHLT, [konto], offen=True):
         kern_services.arbeitsposten_erledigen(posten)
+    # Ein Abruf, der an der fehlenden Freigabe gescheitert ist, ist mit ihr behoben. Ob
+    # der nächste Abruf klappt, zeigt der nächste Lauf; scheitert er, kommt ein neuer Posten.
+    for posten in _posten_zu(ART_ABRUF, [konto], offen=True):
+        if GRUND_KEINE_FREIGABE in posten.hinweis:
+            kern_services.arbeitsposten_erledigen(posten)
     _freigabe_frist(freigabe)
     return freigabe
 
@@ -286,6 +307,14 @@ def abruf_gescheitert_melden(
         hinweis=f"Der Abruf für Konto #{konto.pk} ist gescheitert: {grund}",
         lauf=lauf,
     )
+
+
+def abruf_gelungen(konto: Bankkonto) -> list[Arbeitsposten]:
+    """Ein erfolgreicher Abruf erledigt offene Posten „Bankabruf gescheitert“ des Kontos."""
+    erledigt = []
+    for posten in _posten_zu(ART_ABRUF, [konto], offen=True):
+        erledigt.append(kern_services.arbeitsposten_erledigen(posten))
+    return erledigt
 
 
 def zulieferung_pruefen(heute: datetime.date, *, lauf: Lauf | None = None) -> list[Arbeitsposten]:
@@ -501,6 +530,54 @@ def kontostand_aus_saldo(
     )["summe"] or Decimal("0")
     return kontostand_erfassen(
         konto, stand_am - datetime.timedelta(days=1), saldo - spaeter, abruf=abruf
+    )
+
+
+@dataclass(frozen=True)
+class SaldoStand:
+    """Der Saldo eines Kontos zur Anzeige (Review 1, Punkt 2).
+
+    ``saldo`` ist der letzte Tagesend-Saldo der Bank plus die Umsätze danach, die der
+    letzte erfolgreiche Abruf mitgebracht hat. ``stand`` ist der Tag, bis zu dem dieser
+    Abruf reichte (höchstens der Tag des Abrufs), mindestens aber der Tag des Kontostands.
+    ``abgerufen_am`` ist der Zeitpunkt des letzten erfolgreichen Abrufs (ohne Importe).
+    """
+
+    saldo: Decimal
+    stand: datetime.date
+    kontostand_datum: datetime.date
+    abgerufen_am: datetime.datetime | None
+
+
+def letzter_erfolgreicher_abruf(konto: Bankkonto) -> Bankabruf | None:
+    """Der letzte erfolgreiche Abruf oder die letzte Zulieferung, ohne Importe."""
+    return (
+        konto.abrufe.filter(status=Bankabruf.Status.ERFOLGREICH)
+        .exclude(quelle=Bankabruf.Quelle.IMPORT)
+        .order_by("-gestartet_am", "-pk")
+        .first()
+    )
+
+
+def saldo_stand(konto: Bankkonto) -> SaldoStand | None:
+    """Saldo mit dem Datum des letzten erfolgreichen Abrufs; None ohne Kontostand."""
+    kontostand = konto.kontostaende.order_by("-datum").first()
+    if kontostand is None:
+        return None
+    abruf = letzter_erfolgreicher_abruf(konto)
+    abgerufen_am = (abruf.beendet_am or abruf.gestartet_am) if abruf is not None else None
+    stand = kontostand.datum
+    # Nur ein Abruf mit bekanntem Zeitraum verschiebt den Stand über den Kontostand hinaus.
+    if abruf is not None and abgerufen_am is not None and abruf.bis is not None:
+        stand = max(stand, min(timezone.localdate(abgerufen_am), abruf.bis))
+    danach = konto.umsaetze.filter(
+        buchungsdatum__gt=kontostand.datum, buchungsdatum__lte=stand
+    ).aggregate(summe=_vorzeichen_summe())["summe"] or Decimal("0")
+    return SaldoStand(
+        saldo=kontostand.saldo + danach,
+        stand=stand,
+        kontostand_datum=kontostand.datum,
+        abgerufen_am=abgerufen_am,
     )
 
 

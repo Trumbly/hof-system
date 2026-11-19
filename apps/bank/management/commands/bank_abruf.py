@@ -92,9 +92,10 @@ class Command(LaufBefehl):
         heute: datetime.date,
         optionen: dict[str, Any],
     ) -> Bankabruf:
-        freigabe = services.aktuelle_freigabe(konto)
-        if freigabe is None or freigabe.gueltig_bis < heute:
-            raise enablebanking.EnableBankingFehler("keine gültige Bankfreigabe")
+        # Die jüngste Freigabe, die heute gilt; abgelaufene alte stören nicht. „Heute“ ist
+        # der echte Tag, nicht ein Stichtag: Die Bank prüft die Freigabe gegen ihre Uhr.
+        if services.gueltige_freigabe(konto, heute) is None:
+            raise enablebanking.EnableBankingFehler(services.GRUND_KEINE_FREIGABE)
         if not konto.eb_konto_uid:
             raise enablebanking.EnableBankingFehler("Konto-ID bei Enable Banking fehlt")
 
@@ -123,6 +124,7 @@ class Command(LaufBefehl):
         # der Saldo zum Ende des Vortags rechnen (services.kontostand_aus_saldo).
         if saldo is not None and bis >= heute:
             services.kontostand_aus_saldo(konto, saldo.betrag, stand_am=heute, abruf=abruf)
+        services.abruf_gelungen(konto)
         services.bankabruf_beenden(
             abruf,
             meldung=(

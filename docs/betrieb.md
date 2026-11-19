@@ -71,6 +71,7 @@ Der Lauf `tageslauf` (täglich 6:00, `deploy/systemd/laeufe/tageslauf.conf`) ruf
 | 60 | Fristen prüfen | `fristen` (markiert dabei auch überfällige Eingangsrechnungen) |
 | 65 | Ablesung zum Stichtag | `zaehler_stichtag` (tut außerhalb des Ablesefensters nichts) |
 | 70, 75 | Kennzahlen aus Verwaltio, ID-Abgleich | `verwaltio_kennzahlen`, `id_abgleich` |
+| 78 | Arbeitsposten ohne Bezug schließen | `arbeitsposten_pflege` (Vermerk im Hinweis, Protokoll) |
 | 80 | Hof-Cockpit: Aufgaben im Hof-Backlog | `aufgaben_abgleich` |
 | 85 | Kennzahlen für den Status-MCP | `statusmcp_aktualisieren` (Schritt 11) |
 | 90 | Sicherung prüfen | `sicherung_pruefen` |
@@ -106,7 +107,7 @@ Einrichten in `/opt/hof/.env`:
 - Push über ntfy: `HOF_NTFY_URL=https://ntfy.sh` (oder der eigene Server), `HOF_NTFY_THEMA=<langes, zufälliges Thema>`, bei geschütztem Thema `HOF_NTFY_TOKEN=tk_…`. In der ntfy-App dasselbe Thema abonnieren.
 - Optional: `HOF_BENACHRICHTIGUNG_ARTEN` (Arten, durch Komma getrennt), `HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN` (Standard 24).
 
-Ein Kanal ohne Einstellung bleibt aus; `check --deploy` warnt, wenn keiner eingerichtet ist oder `HOF_BASIS_URL` fehlt. Fällt ein Kanal aus, steht der Lauf auf „mit Fehlern“. Die Seite „Läufe“ zeigt bei jedem Lauf `benachrichtigen`, ob und über welche Kanäle gemeldet wurde. Testen: `compose.sh exec app python manage.py benachrichtigen`.
+Ein Kanal ohne Einstellung bleibt aus; `check --deploy` warnt, wenn keiner eingerichtet ist oder `HOF_BASIS_URL` fehlt. Ist gar kein Kanal eingerichtet, endet der Lauf auf dem Server (`DJANGO_ENV=prod`) „mit Fehlern“, in Entwicklung und Tests dagegen „übersprungen“ (kein Fehler, keine Meldung). Fällt ein Kanal aus, steht der Lauf auf „mit Fehlern“. Die Seite „Läufe“ zeigt bei jedem Lauf `benachrichtigen`, ob und über welche Kanäle gemeldet wurde. Testen: `compose.sh exec app python manage.py benachrichtigen`.
 
 ## Sicherung
 

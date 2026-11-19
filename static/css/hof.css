@@ -671,7 +671,8 @@ section {
 }
 
 .status-verworfen,
-.status-abgeloest {
+.status-abgeloest,
+.status-uebersprungen {
   color: var(--text-leise);
 
 .formular input[type="checkbox"] {
