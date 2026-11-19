@@ -207,6 +207,19 @@
   </div>
 </section>
 
+<section class="stil-abschnitt" id="optionen">
+  <h2>Optionen (Radio und Checkbox)</h2>
+  <p class="stil-zweck">Mehrere Optionen unter einer Überschrift: <code>fieldset</code> mit <code>legend</code>, Optionen untereinander, Label neben dem Feld (die ganze Zeile ist die Klickfläche, mindestens 44 px), Fehler und Hilfe unter der Gruppe, danach Abstand zum nächsten Feld. Gilt für jedes <code>RadioSelect</code> und <code>CheckboxSelectMultiple</code> über <code>{% verbatim %}{% feld %}{% endverbatim %}</code>.</p>
+  <div class="raster raster-2">
+    {% karte "Normal" %}
+      <div class="felder">{% for f in optionen %}{% feld f %}{% endfor %}</div>
+    {% endkarte %}
+    {% karte "Mit Fehler" %}
+      <div class="felder">{% for f in optionen_fehler %}{% feld f %}{% endfor %}</div>
+    {% endkarte %}
+  </div>
+</section>
+
 <section class="stil-abschnitt" id="dateien">
   <h2>Dateiknöpfe</h2>
   <p class="stil-zweck">Eigene Knöpfe statt der englischen Standardknöpfe des Browsers: „Foto aufnehmen“ öffnet am Handy die Kamera, „Datei wählen“ die Ablage. Gewählte Bilder erscheinen als Vorschau.</p>

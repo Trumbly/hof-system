@@ -2049,6 +2049,35 @@ dialog.dialog[open] {
   cursor: pointer;
 }
 
+/* Radio- und Checkbox-Gruppe aus {% feld %} (Review 3, Punkt 2): fieldset ohne Rahmen,
+   legend wie ein Label, Optionen untereinander, Label neben dem Feld (ganze Zeile ist die
+   Klickfläche, mindestens 44 px), Fehler und Hilfe unter der Gruppe. */
+fieldset.feld {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+fieldset.feld > legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.feld-optionen > .feld-option {
+  display: flex;
+}
+
+.feld-option > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.feld-fehlerhaft > .feld-optionen {
+  padding-left: var(--a3);
+  border-left: 2px solid var(--fehler);
+}
+
 /* --- Suche in der Kopfzeile (Review 2, B1) ----------------------------------------------
  * Am Desktop oben in der Seitenleiste, am Handy in der Kopfzeile. Strg+K bzw. ⌘K, Pfeile,
  * Enter (static/js/bausteine.js). Die Treffer liegen als Menü über der Seite. */

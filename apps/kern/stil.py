@@ -48,6 +48,41 @@ class BeispielForm(forms.Form):
     bestaetigt = forms.BooleanField(label="Vertrag ist unterschrieben", required=False)
 
 
+class OptionenForm(forms.Form):
+    """Radio- und Checkbox-Gruppe (Review 3, Punkt 2); nur für die Stilseite."""
+
+    ohne_mail = forms.ChoiceField(
+        label="Wer keine E-Mail-Adresse hat",
+        choices=[("brief", "bekommt einen Brief"), ("auslassen", "wird ausgelassen")],
+        widget=forms.RadioSelect,
+        help_text="Gilt nur, wenn die Serie per Mail geht.",
+        error_messages={"required": "Bitte wählen, was mit Empfängern ohne E-Mail geschieht."},
+    )
+    wunsch = forms.ChoiceField(
+        label="Wunschtermin vor dem Fristende",
+        choices=[
+            ("fristende", "Fristende 31.01.2027"),
+            ("aufhebung", "Aufhebung zum Wunschtermin 15.11.2026 (Vorlage Aufhebungsvertrag)"),
+        ],
+        widget=forms.RadioSelect,
+    )
+    objekte = forms.MultipleChoiceField(
+        label="Empfänger",
+        choices=[("feld", "FELD · Außenflächen"), ("halle", "HALLE · Gewerbehalle")],
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Bitte mindestens einen Empfänger auswählen."},
+    )
+
+    def clean_wunsch(self) -> str:
+        wahl: str = self.cleaned_data["wunsch"]
+        if wahl != "fristende":
+            raise forms.ValidationError(
+                "Der Wunschtermin 15.11.2026 liegt vor dem Fristende 31.01.2027. Bitte wählen: "
+                "Kündigung zum Fristende oder Aufhebung zum Wunschtermin."
+            )
+        return wahl
+
+
 class FotoForm(forms.Form):
     fotos = forms.FileField(
         label="Fotos der Einheit",
@@ -176,6 +211,10 @@ def stilseite(request: HttpRequest) -> HttpResponse:
         prefix="fehler",
     )
     fehlerhaft.is_valid()
+    optionen_fehler = OptionenForm(
+        {"optionen_fehler-wunsch": "aufhebung"}, prefix="optionen_fehler"
+    )
+    optionen_fehler.is_valid()
     return render(
         request,
         "kern/stil.html",
@@ -190,6 +229,8 @@ def stilseite(request: HttpRequest) -> HttpResponse:
             "summe_offen": sum((z["offen"] for z in BEISPIEL_ZEILEN), Decimal("0")),
             "form": BeispielForm(prefix="beispiel"),
             "fehlerhaft": fehlerhaft,
+            "optionen": OptionenForm(prefix="optionen", initial={"ohne_mail": "brief"}),
+            "optionen_fehler": optionen_fehler,
             "fotos": FotoForm(),
             "filter": FilterBeispielForm(prefix="filter"),
             "reiter": _reiter(reiter),

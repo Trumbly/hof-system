@@ -8,6 +8,8 @@ Je Seite und Breite:
   Monatsnamen wie „October“) und in eingebauten Feldern des Browsers, die ihren Text selbst
   zeichnen (Datei- und Monatsfelder, siehe ``EINGEBAUTE_FELDER``),
 - bei 390 px: Knöpfe und Haken (samt Label) mindestens 44 px hoch (Review 2, C4),
+- in Formularen überschneiden sich Label, Eingabe, Fehlertext und nächstes Feld nicht
+  (Review 3, Punkt 2, ``tests/e2e/ueberlappung.py``; Fehlerzustände in ``test_formulare.py``),
 - ein Screenshot der ganzen Seite unter ``tests/e2e/artefakte/smoke/<breite>/``.
 
 Die Seiten stehen in ``SEITEN``; ihre Adressen kommen aus den URL-Namen des Codes
@@ -27,6 +29,7 @@ from playwright.sync_api import Browser, Page, Response
 
 from tests.e2e.conftest import DESKTOP, HANDY
 from tests.e2e.server import ARTEFAKTE, Server
+from tests.e2e.ueberlappung import ueberlappende_elemente
 
 pytestmark = pytest.mark.e2e
 
@@ -177,6 +180,8 @@ def pruefen(seite: Page, handy: bool = False) -> list[str]:
             befunde.append(f"{len(sichtbar)}× {hinweis} ({selektor})")
     if handy and (klein := _kleine_ziele(seite)):
         befunde.append(f"Ziele unter {ZIEL_PX} px: {', '.join(klein[:6])}")
+    if ueberlappend := ueberlappende_elemente(seite):
+        befunde.append(f"überlappende Elemente im Formular: {'; '.join(ueberlappend)}")
     return befunde
 
 

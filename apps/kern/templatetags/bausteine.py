@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from django import forms, template
-from django.forms.boundfield import BoundField
+from django.forms.boundfield import BoundField, BoundWidget
 from django.template.base import FilterExpression, Parser, Token, token_kwargs
 from django.urls import reverse
 from django.utils.html import format_html_join
@@ -91,9 +91,7 @@ def _attrs(feld: BoundField) -> dict[str, str]:
         attrs["inputmode"] = "decimal"
     elif isinstance(feld.field, forms.IntegerField):
         attrs["inputmode"] = "numeric"
-    if isinstance(widget, forms.RadioSelect | forms.CheckboxSelectMultiple):
-        attrs["class"] = "feld-haken"
-    elif isinstance(widget, forms.Select):
+    if isinstance(widget, forms.Select):
         attrs["class"] = "feld-auswahl"
     elif isinstance(widget, forms.MultiWidget) and all(
         isinstance(w, forms.Select) for w in widget.widgets
@@ -109,18 +107,60 @@ def _attrs(feld: BoundField) -> dict[str, str]:
     return attrs
 
 
+def _ist_gruppe(feld: BoundField) -> bool:
+    """Radio- oder Checkbox-Gruppe: mehrere Optionen unter einer Überschrift."""
+    return isinstance(feld.field.widget, forms.RadioSelect | forms.CheckboxSelectMultiple)
+
+
+def _optionen(feld: BoundField) -> list[BoundWidget]:
+    """Die Optionen einer Radio- oder Checkbox-Gruppe, je eine mit ihrem Eingabefeld.
+
+    Django setzt die Attribute eines ``RadioSelect`` auch an den umschließenden ``div``; eine
+    Klasse wie ``feld-haken`` (20 × 20 px) machte daraus eine winzige Box, aus der Text,
+    Fehler und das nächste Feld herausquollen (Review 3, Punkt 2). Deshalb rendert der
+    Baustein die Optionen selbst; die Attribute stehen nur an den Eingabefeldern.
+    ``aria-describedby`` trägt das ``fieldset`` (``bausteine/feld.html``)."""
+    widget = feld.field.widget
+    attrs: dict[str, Any] = {"class": "feld-haken"}
+    if kennung := widget.attrs.get("id") or feld.auto_id:
+        attrs["id"] = kennung
+    attrs = feld.build_widget_attrs(attrs)  # required, disabled, aria-invalid
+    return [
+        BoundWidget(widget, daten, feld.form.renderer)
+        for daten in widget.subwidgets(feld.html_name, feld.value(), attrs=attrs)
+    ]
+
+
+def _beschrieben_von(feld: BoundField) -> str:
+    """IDs von Fehler und Hilfetext für ``aria-describedby`` einer Gruppe (Fehler zuerst)."""
+    teile = []
+    if feld.errors:
+        teile.append(f"{feld.auto_id}-fehler")
+    if feld.help_text:
+        teile.append(f"{feld.auto_id}-hilfe")
+    return " ".join(teile)
+
+
 @register.inclusion_tag("bausteine/feld.html")
 def feld(feld: BoundField, **optionen: Any) -> dict[str, Any]:
     """Formularfeld: Label über dem Feld, Hilfetext darunter, Fehler direkt am Feld.
 
     Checkboxen stehen mit ihrem Label in einer Zeile (Ziel mindestens 44 px).
+    Radio- und Checkbox-Gruppen (Review 3, Punkt 2) stehen in einem ``fieldset`` mit
+    ``legend``: Optionen untereinander, Label neben dem Feld, Fehler unter der Gruppe.
     """
     widget = feld.field.widget
+    if _ist_gruppe(feld):
+        return {
+            "feld": feld,
+            "optionen": _optionen(feld),
+            "beschrieben_von": _beschrieben_von(feld),
+            "breit": optionen.get("breit", False),
+        }
     return {
         "feld": feld,
         "eingabe": feld.as_widget(attrs=_attrs(feld)),
         "haken": isinstance(widget, forms.CheckboxInput),
-        "optionen": isinstance(widget, forms.RadioSelect | forms.CheckboxSelectMultiple),
         "gruppe": isinstance(widget, forms.MultiWidget),
         "breit": optionen.get("breit", False),
     }
