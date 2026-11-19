@@ -1,0 +1,16 @@
+{% for b in zeilen %}
+<tr id="buchung-{{ b.pk }}"{% if b.ist_storno %} class="zeile-leise"{% endif %}>
+  <td data-titel="Datum" class="eng">{{ b.datum|date:"d.m.Y" }}</td>
+  <td data-titel="Gegenpartei">{{ b.umsatz.gegenpartei|default:"–" }}</td>
+  <td data-titel="Zweck"><a href="{% url 'kassenbuch:umsatz' b.umsatz_id %}">{{ b.umsatz.verwendungszweck|default:"ohne Zweck"|truncatechars:70 }}</a></td>
+  <td data-titel="Kategorie">{{ b.kategorie.bezeichnung }}{% if b.wohnraum %} <span class="text-3 klein">Wohnraum</span>{% endif %}{% if b.ist_storno %} <span class="text-3 klein">Storno von #{{ b.storno_von_id }}</span>{% endif %}</td>
+  <td data-titel="Objekt">{{ b.objekt.kuerzel }} <span class="text-3 klein">{{ b.mandant.kuerzel }}</span></td>
+  <td data-titel="Konto">{{ b.umsatz.konto.bezeichnung }}</td>
+  <td data-titel="Betrag" class="zahl">{% if b.richtung == 'ausgang' %}−{% endif %}{{ b.betrag|euro }}</td>
+</tr>
+{% endfor %}
+{% if weiter %}
+<tr class="mehr-laden" id="mehr-laden">
+  <td colspan="7"><a class="knopf knopf-zweit" href="{{ mehr_url }}" hx-get="{{ mehr_url }}" hx-target="#mehr-laden" hx-swap="outerHTML">mehr laden</a></td>
+</tr>
+{% endif %}

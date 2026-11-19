@@ -1,26 +1,30 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Katalog der Website{% endblock %}
 
 {% block inhalt %}
-<h1>Katalog der Website</h1>
 {% include "anbindungen/_unternavigation.html" %}
-<p class="leise">{{ im_katalog }} von {{ einheiten|length }} vermarkteten Einheiten sind buchbar und stehen im Katalog. Buchbar ist eine Einheit, wenn sie eine Fläche hat, (ab einem Tag) frei ist, kein Vertrag sie bindet und keine angenommene Anfrage auf ihr liegt. Was dem Katalog fehlt, steht im <a href="{% url 'stammdaten:datenstand' %}#bereich-katalog">Datenstand</a>. Eine Rückgabe macht sie von selbst wieder buchbar.</p>
-<div class="tabelle-rahmen">
-<table class="karten">
-  <thead><tr><th>NW-ID</th><th>Typ</th><th>Fläche</th><th>Preis je Monat</th><th>frei ab</th><th>Bilder</th></tr></thead>
+{% seitenkopf "Katalog der Website" "" %}{% endseitenkopf %}
+<p class="text-2">{{ im_katalog }} von {{ anzahl_alle }} vermarkteten Einheiten sind buchbar und stehen im Katalog. Buchbar ist eine Einheit, wenn sie eine Fläche hat, (ab einem Tag) frei ist, kein Vertrag sie bindet und keine angenommene Anfrage auf ihr liegt. Was dem Katalog fehlt, steht im <a href="{% url 'stammdaten:datenstand' %}#bereich-katalog">Datenstand</a>. Eine Rückgabe macht sie von selbst wieder buchbar.</p>
+
+{% include "bausteine/reiter.html" with reiter=schalter aktiv=alle|yesno:"alle,buchbar" beschriftung="Einheiten zeigen" %}
+
+<div class="tabelle-box">
+<table class="tab tab-karten">
+  <thead><tr><th>NW-ID</th><th>Typ</th><th class="zahl">Fläche</th><th class="zahl">Preis je Monat</th><th>frei ab</th><th>Bilder</th></tr></thead>
   <tbody>
   {% for e in einheiten %}
-  <tr id="einheit-{{ e.pk }}">
+  <tr id="einheit-{{ e.pk }}"{% if not e.katalog_eintrag %} class="zeile-leise"{% endif %}>
     <td data-titel="NW-ID"><a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a></td>
     <td data-titel="Typ">{{ e.get_typ_display }}</td>
-    <td data-titel="Fläche">{% if e.flaeche_qm %}{{ e.flaeche_qm }} m²{% else %}–{% endif %}</td>
-    <td data-titel="Preis je Monat">{% if e.katalog_eintrag.preis_monat is not None %}{{ e.katalog_eintrag.preis_monat }} €{% else %}–{% endif %}</td>
-    <td data-titel="frei ab">{% if e.katalog_eintrag %}{{ e.katalog_eintrag.frei_ab|date:"d.m.Y" }}{% else %}<span class="leise">nicht im Katalog</span>{% endif %}</td>
+    <td data-titel="Fläche" class="zahl">{% if e.flaeche_qm %}{{ e.flaeche_qm|zahl }} m²{% else %}–{% endif %}</td>
+    <td data-titel="Preis je Monat" class="zahl">{% if e.katalog_eintrag.preis_monat is not None %}{{ e.katalog_eintrag.preis_monat|euro }}{% else %}–{% endif %}</td>
+    <td data-titel="frei ab">{% if e.katalog_eintrag %}{{ e.katalog_eintrag.frei_ab|date:"d.m.Y" }}{% else %}nicht buchbar{% endif %}</td>
     <td data-titel="Bilder"><a href="{% url 'anbindungen:bilder' e.pk %}">{{ e.anzahl_bilder }} Bild{{ e.anzahl_bilder|pluralize:"er" }}</a></td>
   </tr>
   {% empty %}
-  <tr><td colspan="6">Keine Einheiten mit Vermarktung „Website“.</td></tr>
+  {% if alle %}{% include "bausteine/leer.html" with spalten=6 text="Keine Einheiten mit Vermarktung „Website“." %}{% else %}{% include "bausteine/leer.html" with spalten=6 text="Gerade ist keine Einheit buchbar." hilfe="Unter „alle“ stehen alle vermarkteten Einheiten mit dem Grund." %}{% endif %}
   {% endfor %}
   </tbody>
 </table>

@@ -1,37 +1,43 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Monatsbericht{% endblock %}
 
 {% block inhalt %}
-<h1>Monatsbericht je Objekt</h1>
 {% include "kassenbuch/_unternavigation.html" %}
-<form method="get" class="filter formular">
-  {{ form.as_p }}
-  <button type="submit" class="zweitrangig">Anzeigen</button>
+{% seitenkopf "Monatsbericht je Objekt" "Einnahmen, Kosten und Ergebnis im Vergleich zum Vorjahresmonat" %}
+  {% if bericht %}
+  {% if gespeichert and gespeichert.datei or pdf_verfuegbar %}<a class="knopf knopf-zweit" href="{% url 'kassenbuch:bericht_pdf' bericht.objekt.pk bericht.monat.year bericht.monat.month %}">PDF{% if gespeichert and gespeichert.datei %} (gespeichert {{ gespeichert.erstellt_am|date:"d.m.Y" }}){% endif %}</a>{% endif %}
+  {% endif %}
+{% endseitenkopf %}
+
+<form method="get" class="filterleiste">
+  {% feld form.objekt %}
+  {% feld form.monat %}
+  <button type="submit" class="knopf knopf-zweit">Anzeigen</button>
 </form>
 
 {% if bericht %}
-<section class="gruppe" aria-labelledby="bericht-titel">
-  <h2 id="bericht-titel">{{ bericht.objekt.kuerzel }} · {{ bericht.monat|date:"F Y" }}</h2>
-  <p class="leise">
+{% karte bericht.objekt.kuerzel %}
+  <p class="text-2">
+    {{ bericht.monat|date:"F Y" }} ·
     {% if bericht.abgeschlossen %}Der Monat ist abgeschlossen.{% else %}Der Monat ist noch offen; die Zahlen können sich ändern.{% endif %}
     {{ bericht.anzahl_buchungen }} Buchungen.
-    {% if gespeichert and gespeichert.datei %}<a href="{% url 'kassenbuch:bericht_pdf' bericht.objekt.pk bericht.monat.year bericht.monat.month %}">PDF (gespeichert {{ gespeichert.erstellt_am|date:"d.m.Y H:i" }})</a>
-    {% elif pdf_verfuegbar %}<a href="{% url 'kassenbuch:bericht_pdf' bericht.objekt.pk bericht.monat.year bericht.monat.month %}">PDF</a>
-    {% else %}PDF hier nicht verfügbar (WeasyPrint fehlt).{% endif %}
+    {% if not pdf_verfuegbar and not gespeichert.datei %}PDF hier nicht verfügbar (WeasyPrint fehlt).{% endif %}
   </p>
-  <div class="tabelle-rahmen">{% include "kassenbuch/_bericht_tabelle.html" %}</div>
-</section>
+  <div class="tabelle-box">{% include "kassenbuch/_bericht_tabelle.html" %}</div>
+{% endkarte %}
 {% endif %}
 
 {% if letzte %}
-<section class="gruppe" aria-labelledby="letzte">
-  <h2 id="letzte">Gespeicherte Berichte</h2>
-  <ul>
+<div class="stapel">
+{% aufklapper "Gespeicherte Berichte" zahl=letzte|length %}
+  <ul class="liste">
     {% for b in letzte %}
-    <li><a href="?objekt={{ b.objekt_id }}&amp;monat={{ b.monat|date:'Y-m' }}">{{ b.objekt.kuerzel }} {{ b.monat|date:"m/Y" }}</a>{% if b.datei %} · <a href="{% url 'kassenbuch:bericht_pdf' b.objekt_id b.monat.year b.monat.month %}">PDF</a>{% endif %}</li>
+    <li><span class="liste-haupt"><a href="?objekt={{ b.objekt_id }}&amp;monat={{ b.monat|date:'Y-m' }}">{{ b.objekt.kuerzel }} {{ b.monat|date:"m/Y" }}</a></span>{% if b.datei %}<span class="liste-neben"><a href="{% url 'kassenbuch:bericht_pdf' b.objekt_id b.monat.year b.monat.month %}">PDF</a></span>{% endif %}</li>
     {% endfor %}
   </ul>
-</section>
+{% endaufklapper %}
+</div>
 {% endif %}
 {% endblock %}

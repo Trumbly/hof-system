@@ -7,7 +7,9 @@
   Telefonnummern aus dem fiktiven Bereich (``testhof.erfunden``).
 - **Verträge:** 45, davon 43 aktiv und 2 beendet.
 - **Datenstand:** bewusst mit Lücken (Fläche, Zielmiete, Kontaktweg, Kündigungsfrist,
-  Zahlweise, Kautionseingang, Schlüssel; kein Vertrag hat einen Scan).
+  Zahlweise, Kautionseingang, Schlüssel). Zwei von drei Verträgen haben einen
+  unterschriebenen Scan (kleines erfundenes PDF, Review 2, B12); die übrigen zeigt der
+  Datenstand als „Verträge ohne Scan“ mit Sammelaktion.
 - **Sonderfälle** (``testhof.sonderfaelle``):
   ``vertrag_monatsmitte`` (Beginn am 15., befristetes Ende am 15.),
   ``staffelmiete`` (Stufe am 01.01.2026, im Testzeitraum),
@@ -25,6 +27,8 @@ import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from django.core.files.base import ContentFile
+
 from apps.kern.models import Objekt
 from apps.soll import services as soll
 from apps.stammdaten import schreiben, services
@@ -40,6 +44,7 @@ from apps.stammdaten.models import (
 )
 from testhof import erfunden, register
 from testhof.aufbau import Kontext
+from testhof.pdfs import einfaches_pdf
 
 NAME = "stammdaten"
 SONDERFAELLE = ("vertrag_monatsmitte", "staffelmiete", "kuendigung_rueckgabe_kaution")
@@ -188,6 +193,17 @@ def _miete(einheit: Einheit) -> Decimal:
     return Decimal("60.00")
 
 
+def _scan(vertrag: Vertrag, nummer: int) -> ContentFile[bytes] | None:
+    """Unterschriebener Scan für zwei von drei Verträgen (Review 2, B12): ein kleines,
+    deterministisches PDF ohne Namen."""
+    if nummer % 3 == 0:
+        return None
+    inhalt = einfaches_pdf(
+        [f"Mietvertrag {vertrag.nummer}", "Scan der unterschriebenen Fassung (erfunden, Testhof)"]
+    )
+    return ContentFile(inhalt, name=f"{vertrag.nummer}.pdf")
+
+
 def _schluessel(kontext: Kontext, einheit: Einheit, mieter: Partei | None, nummer: int) -> None:
     if einheit.typ not in MIT_SCHLUESSELN or nummer in (2, 9, 30):  # Lücken
         return
@@ -293,7 +309,9 @@ def _aufbauen(kontext: Kontext) -> StammdatenDaten:
             services.kaution_eingang_erfassen(
                 vertrag.kaution, beginn - datetime.timedelta(days=z.randrange(3, 20)), KONTO
             )
-        services.vertrag_unterschrieben(vertrag, beginn - datetime.timedelta(days=7))
+        services.vertrag_unterschrieben(
+            vertrag, beginn - datetime.timedelta(days=7), scan=_scan(vertrag, i)
+        )
         _schluessel(kontext, einheit, partei, i)
         vertraege.append(vertrag)
 

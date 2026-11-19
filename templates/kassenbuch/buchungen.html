@@ -1,52 +1,53 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Kassenbuch{% endblock %}
 
 {% block inhalt %}
-<h1>Kassenbuch</h1>
 {% include "kassenbuch/_unternavigation.html" %}
-{% if offen %}<p><a href="{% url 'kern:arbeitslisten' %}">{{ offen }} Umsätze sind noch nicht vollständig eingeordnet</a> (Arbeitsliste „Umsätze einordnen“).</p>{% endif %}
-<form method="get" class="filter formular">
-  {{ filter.as_p }}
-  <button type="submit" class="zweitrangig">Filtern</button>
+{% seitenkopf "Kassenbuch" "" %}
+  {% if offen %}<a class="knopf knopf-zweit" href="{% url 'kern:arbeitslisten' %}">{{ offen }} Umsätze einordnen</a>{% endif %}
+{% endseitenkopf %}
+
+<form method="get" class="filterleiste" id="kassenbuch-filter">
+  {% feld filter.q %}
+  {% feld filter.monat %}
+  <button type="submit" class="knopf knopf-zweit">Zeigen</button>
+  {% aufklapper "Weitere Filter" offen=filter.weitere_aktiv %}
+    <div class="felder felder-2">
+      {% feld filter.von %}{% feld filter.bis %}{% feld filter.mandant %}{% feld filter.objekt %}
+      {% feld filter.kategorie %}{% feld filter.art %}{% feld filter.konto %}{% feld filter.ohne_storno %}
+    </div>
+    <div class="formular-fuss">
+      <a class="knopf knopf-text" href="{% url 'kassenbuch:buchungen' %}">Filter zurücksetzen</a>
+      <button type="submit" class="knopf knopf-zweit">Filtern</button>
+    </div>
+  {% endaufklapper %}
 </form>
-<p class="leise">{{ von|date:"d.m.Y" }} bis {{ bis|date:"d.m.Y" }}: {{ anzahl }} Buchungen · Eingänge {{ summe_eingang|floatformat:"2g" }} € · Ausgänge {{ summe_ausgang|floatformat:"2g" }} €</p>
 
-<section class="gruppe" aria-labelledby="entnahmen">
-  <h2 id="entnahmen">Entnahmen je Mandant</h2>
-  {% if entnahmen %}
-  <ul id="entnahmen-liste">
-    {% for mandant, betrag in entnahmen %}<li>{{ mandant.kuerzel }}: {{ betrag|floatformat:"2g" }} €</li>{% endfor %}
-  </ul>
-  {% else %}<p class="leise">Keine Entnahmen im Zeitraum.</p>{% endif %}
-</section>
+<div class="kennzahlen-reihe">
+  {% kennzahl "Buchungen" anzahl|zahl unter=zeitraum_text %}
+  {% kennzahl "Eingänge" summe_eingang|euro art="ok" %}
+  {% kennzahl "Ausgänge" summe_ausgang|euro %}
+</div>
 
-<div class="tabelle-rahmen">
-<table class="buchungen">
+<div class="tabelle-box">
+<table class="tab tab-karten buchungen">
   <thead>
-    <tr><th>Datum</th><th>Betrag</th><th>Kategorie</th><th>Objekt</th><th>Mandant</th><th>Umsatz</th></tr>
+    <tr><th>Datum</th><th>Gegenpartei</th><th>Zweck</th><th>Kategorie</th><th>Objekt</th><th>Konto</th><th class="zahl">Betrag</th></tr>
   </thead>
   <tbody>
-    {% for b in seite %}
-    <tr id="buchung-{{ b.pk }}"{% if b.ist_storno %} class="storno"{% endif %}>
-      <td data-titel="Datum">{{ b.datum|date:"d.m.Y" }}</td>
-      <td data-titel="Betrag" class="betrag-{{ b.richtung }}">{% if b.richtung == 'ausgang' %}−{% endif %}{{ b.betrag|floatformat:"2g" }} €</td>
-      <td data-titel="Kategorie">{{ b.kategorie.bezeichnung }}{% if b.wohnraum %} <span class="leise">Wohnraum</span>{% endif %}{% if b.ist_storno %} <span class="leise">Storno von #{{ b.storno_von_id }}</span>{% endif %}</td>
-      <td data-titel="Objekt">{{ b.objekt.kuerzel }}</td>
-      <td data-titel="Mandant">{{ b.mandant.kuerzel }}</td>
-      <td data-titel="Umsatz"><a href="{% url 'kassenbuch:umsatz' b.umsatz_id %}">#{{ b.umsatz_id }}</a> <span class="leise">{{ b.umsatz.konto.bezeichnung }}</span></td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="6">Keine Buchungen.</td></tr>
-    {% endfor %}
+    {% include "kassenbuch/_buchungen_zeilen.html" %}
+    {% if not zeilen %}{% include "bausteine/leer.html" with spalten=7 text="Keine Buchungen für diese Auswahl." hilfe="Zeitraum oder Suche ändern." %}{% endif %}
   </tbody>
 </table>
 </div>
-{% if seite.has_other_pages %}
-<p class="filter">
-  {% if seite.has_previous %}<a href="?{{ parameter }}&amp;seite={{ seite.previous_page_number }}">← zurück</a>{% endif %}
-  Seite {{ seite.number }} von {{ seite.paginator.num_pages }}
-  {% if seite.has_next %}<a href="?{{ parameter }}&amp;seite={{ seite.next_page_number }}">weiter →</a>{% endif %}
-</p>
+
+{% if entnahmen %}
+<div class="stapel">{% aufklapper "Entnahmen je Mandant" zahl=entnahmen|length %}
+  <ul class="liste" id="entnahmen-liste">
+    {% for mandant, betrag in entnahmen %}<li><span class="liste-haupt">{{ mandant.kuerzel }}</span><span class="liste-neben zahl">{{ betrag|euro }}</span></li>{% endfor %}
+  </ul>
+{% endaufklapper %}</div>
 {% endif %}
 {% endblock %}

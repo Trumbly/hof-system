@@ -1,7 +1,61 @@
-{% extends "base_neu.html" %}
+{% extends "base.html" %}
 {% load bausteine %}
 
-{% block titel %}Stil{% endblock %}
+{% block titel %}Stil
+<section class="stil-abschnitt" id="unternavigation">
+  <h2>Unternavigation</h2>
+  <p class="stil-zweck">Unterseiten eines Bereichs als Reiter in einer Zeile, am Handy waagrecht scrollbar, nie als Raster mit losen „·“. <code>{% verbatim %}{% unternavigation "Kassenbuch" "kassenbuch:buchungen" "Buchungen" … %}{% endverbatim %}</code>; mit „|“ zählen Unterseiten zum Reiter.</p>
+  {% unternavigation "Kassenbuch" "kassenbuch:buchungen" "Buchungen" "kassenbuch:regeln" "Regeln" "kassenbuch:abschluesse" "Abschlüsse" "kassenbuch:bericht" "Monatsbericht" %}
+</section>
+
+<section class="stil-abschnitt" id="geteilt">
+  <h2>Geteilte Ansicht und PDF groß</h2>
+  <p class="stil-zweck">Links das PDF (mindestens die halbe Breite, läuft beim Scrollen mit), rechts Formular oder Text; am Handy untereinander. <code>{% verbatim %}{% pdf_vorschau url "Titel" %}{% endverbatim %}</code> zeigt das PDF im A4-Verhältnis. Für Belege (prüfen und ein Klick) und Schreiben (PDF neben dem Mailtext).</p>
+  <div class="geteilt">
+    <div class="geteilt-vorschau">{% pdf_vorschau "about:blank" "Beispiel-PDF" %}</div>
+    <div class="stapel">
+      {% karte "Mailtext" %}<pre class="mailtext">Guten Tag,
+
+anbei das Schreiben als PDF.
+
+Mit freundlichen Grüßen</pre>{% endkarte %}
+    </div>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="filterleiste">
+  <h2>Filterleiste</h2>
+  <p class="stil-zweck">Nur Suche und Monat sichtbar, alles Weitere zugeklappt. Mehrteilige Felder (Monat und Jahr) stehen in einer Zeile (<code>.feld-gruppe</code>).</p>
+  <form class="filterleiste" onsubmit="return false">
+    <div class="feld"><label class="feld-label" for="stil-suche">Suche</label><input class="feld-eingabe" id="stil-suche" type="search" placeholder="Gegenpartei, Zweck, Kategorie, Betrag"></div>
+    <div class="feld"><label class="feld-label" for="stil-monat">Monat</label><div class="feld-gruppe"><select class="feld-auswahl" id="stil-monat" aria-label="Monat"><option>Oktober</option></select><select class="feld-auswahl" aria-label="Jahr"><option>2026</option></select></div></div>
+    <button type="button" class="knopf knopf-zweit">Zeigen</button>
+    {% aufklapper "Weitere Filter" %}<p class="text-2">Zeitraum, Mandant, Objekt, Kategorie, Konto …</p>{% endaufklapper %}
+  </form>
+</section>
+
+<section class="stil-abschnitt" id="zeilenaktionen">
+  <h2>Aktionen in der Zeile</h2>
+  <p class="stil-zweck">Kleine Knöpfe rechts in der Zeile (HTMX ersetzt nur die Zeile), Seltenes im Menü. Gleichartiges steht gebündelt in einer Zeile mit Aufklapper.</p>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Datum</th><th>Art</th><th>Bezug</th><th class="eng"><span class="nur-leser">Aktionen</span></th></tr></thead>
+      <tbody>
+        <tr class="zeile-markiert"><td data-titel="Datum">22.10.2026 {% badge "ueberfaellig" %}</td><td data-titel="Art">Kündigungsfrist</td><td data-titel="Bezug"><a href="#zeilenaktionen">V-0002</a></td>
+          <td class="eng"><div class="zeilen-aktionen"><button type="button" class="knopf knopf-zweit knopf-klein">Erledigt</button>
+            <details class="menue"><summary class="knopf knopf-text knopf-klein">verschieben ▾</summary><ul class="menue-liste"><li><button type="button">+1 Woche</button></li><li><button type="button">+1 Monat</button></li></ul></details></div></td></tr>
+        <tr><td colspan="4" class="buendel">{% aufklapper "14 Eichfristen 2027–2033" zahl=14 %}<p class="text-2">Jede Frist als eigene Zeile.</p>{% endaufklapper %}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="dateien-sofort">
+  <h2>Dateiknöpfe „sofort“</h2>
+  <p class="stil-zweck">Mit <code>sofort=True</code> sendet die Wahl einer Datei das Formular gleich ab (ein Klick statt zwei, etwa „Beleg hochladen“). Hier ohne Wirkung.</p>
+  <form class="karte" onsubmit="return false"><div class="karte-rumpf">{% dateiknoepfe fotos.fotos sofort=True %}</div></form>
+</section>
+{% endblock %}
 
 {% block inhalt %}
 {% seitenkopf "Bausteine" "Alle Bausteine der neuen Gestaltung mit Beispielen · Werte in static/css/werte.css" %}
@@ -222,5 +276,59 @@
   <h2>Stichtag-Band</h2>
   <p class="stil-zweck">Steht über jeder Seite, wenn ein fester Stichtag gesetzt ist (nur dev und test, <code>HOF_STICHTAG</code>). In prod gibt es keinen.</p>
   <div class="stichtag-band" style="border: 1px solid var(--linie); border-radius: var(--radius)">Testhof · Stichtag {{ stichtag_beispiel|date:"d.m.Y" }}</div>
+</section>
+
+<section class="stil-abschnitt" id="unternavigation">
+  <h2>Unternavigation</h2>
+  <p class="stil-zweck">Unterseiten eines Bereichs als Reiter in einer Zeile, am Handy waagrecht scrollbar, nie als Raster mit losen „·“. <code>{% verbatim %}{% unternavigation "Kassenbuch" "kassenbuch:buchungen" "Buchungen" … %}{% endverbatim %}</code>; mit „|“ zählen Unterseiten zum Reiter.</p>
+  {% unternavigation "Kassenbuch" "kassenbuch:buchungen" "Buchungen" "kassenbuch:regeln" "Regeln" "kassenbuch:abschluesse" "Abschlüsse" "kassenbuch:bericht" "Monatsbericht" %}
+</section>
+
+<section class="stil-abschnitt" id="geteilt">
+  <h2>Geteilte Ansicht und PDF groß</h2>
+  <p class="stil-zweck">Links das PDF (mindestens die halbe Breite, läuft beim Scrollen mit), rechts Formular oder Text; am Handy untereinander. <code>{% verbatim %}{% pdf_vorschau url "Titel" %}{% endverbatim %}</code> zeigt das PDF im A4-Verhältnis. Für Belege (prüfen und ein Klick) und Schreiben (PDF neben dem Mailtext).</p>
+  <div class="geteilt">
+    <div class="geteilt-vorschau">{% pdf_vorschau "about:blank" "Beispiel-PDF" %}</div>
+    <div class="stapel">
+      {% karte "Mailtext" %}<pre class="mailtext">Guten Tag,
+
+anbei das Schreiben als PDF.
+
+Mit freundlichen Grüßen</pre>{% endkarte %}
+    </div>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="filterleiste">
+  <h2>Filterleiste</h2>
+  <p class="stil-zweck">Nur Suche und Monat sichtbar, alles Weitere zugeklappt. Mehrteilige Felder (Monat und Jahr) stehen in einer Zeile (<code>.feld-gruppe</code>).</p>
+  <form class="filterleiste" onsubmit="return false">
+    <div class="feld"><label class="feld-label" for="stil-suche">Suche</label><input class="feld-eingabe" id="stil-suche" type="search" placeholder="Gegenpartei, Zweck, Kategorie, Betrag"></div>
+    <div class="feld"><label class="feld-label" for="stil-monat">Monat</label><div class="feld-gruppe"><select class="feld-auswahl" id="stil-monat" aria-label="Monat"><option>Oktober</option></select><select class="feld-auswahl" aria-label="Jahr"><option>2026</option></select></div></div>
+    <button type="button" class="knopf knopf-zweit">Zeigen</button>
+    {% aufklapper "Weitere Filter" %}<p class="text-2">Zeitraum, Mandant, Objekt, Kategorie, Konto …</p>{% endaufklapper %}
+  </form>
+</section>
+
+<section class="stil-abschnitt" id="zeilenaktionen">
+  <h2>Aktionen in der Zeile</h2>
+  <p class="stil-zweck">Kleine Knöpfe rechts in der Zeile (HTMX ersetzt nur die Zeile), Seltenes im Menü. Gleichartiges steht gebündelt in einer Zeile mit Aufklapper.</p>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Datum</th><th>Art</th><th>Bezug</th><th class="eng"><span class="nur-leser">Aktionen</span></th></tr></thead>
+      <tbody>
+        <tr class="zeile-markiert"><td data-titel="Datum">22.10.2026 {% badge "ueberfaellig" %}</td><td data-titel="Art">Kündigungsfrist</td><td data-titel="Bezug"><a href="#zeilenaktionen">V-0002</a></td>
+          <td class="eng"><div class="zeilen-aktionen"><button type="button" class="knopf knopf-zweit knopf-klein">Erledigt</button>
+            <details class="menue"><summary class="knopf knopf-text knopf-klein">verschieben ▾</summary><ul class="menue-liste"><li><button type="button">+1 Woche</button></li><li><button type="button">+1 Monat</button></li></ul></details></div></td></tr>
+        <tr><td colspan="4" class="buendel">{% aufklapper "14 Eichfristen 2027–2033" zahl=14 %}<p class="text-2">Jede Frist als eigene Zeile.</p>{% endaufklapper %}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="dateien-sofort">
+  <h2>Dateiknöpfe „sofort“</h2>
+  <p class="stil-zweck">Mit <code>sofort=True</code> sendet die Wahl einer Datei das Formular gleich ab (ein Klick statt zwei, etwa „Beleg hochladen“). Hier ohne Wirkung.</p>
+  <form class="karte" onsubmit="return false"><div class="karte-rumpf">{% dateiknoepfe fotos.fotos sofort=True %}</div></form>
 </section>
 {% endblock %}

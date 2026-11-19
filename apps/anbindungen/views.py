@@ -184,10 +184,33 @@ def vermarktung(request: HttpRequest) -> HttpResponse:
     for einheit in einheiten:
         einheit.katalog_eintrag = im_katalog.get(einheit.nw_id)  # type: ignore[attr-defined]
         einheit.anzahl_bilder = einheit.bilder.filter(aktiv=True).count()  # type: ignore[attr-defined]
+    # Review 2, B11: standardmäßig nur buchbare Einheiten; „alle N“ als Schalter.
+    alle = request.GET.get("alle") == "1"
+    gezeigt = einheiten if alle else [e for e in einheiten if e.nw_id in im_katalog]
+    basis = reverse("anbindungen:vermarktung")
     return render(
         request,
         "anbindungen/vermarktung.html",
-        {"einheiten": einheiten, "im_katalog": len(im_katalog)},
+        {
+            "einheiten": gezeigt,
+            "alle": alle,
+            "anzahl_alle": len(einheiten),
+            "im_katalog": len(im_katalog),
+            "schalter": [
+                {
+                    "schluessel": "buchbar",
+                    "titel": "buchbar",
+                    "url": basis,
+                    "anzahl": len(im_katalog),
+                },
+                {
+                    "schluessel": "alle",
+                    "titel": "alle",
+                    "url": f"{basis}?alle=1",
+                    "anzahl": len(einheiten),
+                },
+            ],
+        },
     )
 
 

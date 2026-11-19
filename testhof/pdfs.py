@@ -7,7 +7,9 @@ Testhofs bleibt bei zwei Läufen gleich, und die Dublettenprüfung lässt sich g
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import Sequence
+from decimal import Decimal
 
 
 def _text(zeile: str) -> bytes:
@@ -44,3 +46,42 @@ def einfaches_pdf(zeilen: Sequence[str]) -> bytes:
         f"trailer\n<< /Size {len(objekte) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
     ).encode()
     return pdf
+
+
+def _euro(betrag: Decimal) -> str:
+    """Deutsches Zahlenformat wie auf einer Rechnung: 1.234,56."""
+    return f"{betrag:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _iban_gruppen(iban: str) -> str:
+    return " ".join(iban[i : i + 4] for i in range(0, len(iban), 4))
+
+
+def rechnung_pdf(
+    *,
+    lieferant: str,
+    nummer: str,
+    datum: datetime.date | None,
+    betrag: Decimal,
+    leistung: str = "",
+    iban: str = "",
+    email: str = "",
+) -> bytes:
+    """Erfundene Rechnung mit Textschicht wie eine echte deutsche Rechnung (Review 2, B9).
+
+    Der Briefkopf steht in der ersten Zeile; darunter Rechnungs-Nr., Rechnungsdatum
+    (TT.MM.JJJJ), Leistung, Gesamtbetrag mit Komma und Bankverbindung. Daraus liest
+    ``apps.dokumente.textschicht`` die Angaben für das Formular.
+    """
+    zeilen = [lieferant]
+    if email:
+        zeilen.append(f"E-Mail: {email}")
+    zeilen += ["Rechnung (erfunden, Testhof)", f"Rechnungs-Nr.: {nummer}"]
+    if datum is not None:
+        zeilen.append(f"Rechnungsdatum: {datum:%d.%m.%Y}")
+    if leistung:
+        zeilen.append(f"Leistung: {leistung}")
+    zeilen.append(f"Gesamtbetrag: {_euro(betrag)} EUR")
+    if iban:
+        zeilen.append(f"Bankverbindung: IBAN {_iban_gruppen(iban)}")
+    return einfaches_pdf(zeilen)

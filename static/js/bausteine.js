@@ -139,6 +139,15 @@
       liste.appendChild(leer);
       return;
     }
+    // „sofort“ (Baustein dateiknoepfe): Die Wahl sendet das Formular gleich ab.
+    if (eingabe.hasAttribute("data-sofort-senden") && eingabe.form) {
+      eingabe.form.classList.add("sendet");
+      if (eingabe.form.requestSubmit) {
+        eingabe.form.requestSubmit();
+      } else {
+        eingabe.form.submit();
+      }
+    }
     dateien.forEach(function (datei) {
       var li = document.createElement("li");
       if (datei.type && datei.type.indexOf("image/") === 0) {

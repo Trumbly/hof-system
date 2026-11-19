@@ -9,6 +9,8 @@ Seite ``/stil/``. Verwendung::
     {% feld form.miete %}                      Label oben, Hilfetext, Fehler am Feld
     {% dateiknoepfe form.fotos %}              „Foto aufnehmen“ und „Datei wählen“
     {% kennzahl "Saldo" konto.saldo|euro art="fehler" unter="2 Posten" link=url %}
+    {% unternavigation "Kassenbuch" "kassenbuch:buchungen" "Buchungen" … %}  Reiter
+    {% pdf_vorschau url "Titel" %}             PDF groß (A4), in .geteilt mitlaufend
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from typing import Any
 from django import forms, template
 from django.forms.boundfield import BoundField
 from django.template.base import FilterExpression, Parser, Token, token_kwargs
+from django.urls import reverse
 from django.utils.html import format_html_join
 from django.utils.safestring import SafeString, mark_safe
 
@@ -83,6 +86,10 @@ def _attrs(feld: BoundField) -> dict[str, str]:
         attrs["class"] = "feld-haken"
     elif isinstance(widget, forms.Select):
         attrs["class"] = "feld-auswahl"
+    elif isinstance(widget, forms.MultiWidget) and all(
+        isinstance(w, forms.Select) for w in widget.widgets
+    ):
+        attrs["class"] = "feld-auswahl"  # z. B. Monat und Jahr als zwei Auswahllisten
     if isinstance(widget, forms.CheckboxInput):
         attrs["class"] = "feld-haken"
     if feld.errors:
@@ -105,16 +112,23 @@ def feld(feld: BoundField, **optionen: Any) -> dict[str, Any]:
         "eingabe": feld.as_widget(attrs=_attrs(feld)),
         "haken": isinstance(widget, forms.CheckboxInput),
         "optionen": isinstance(widget, forms.RadioSelect | forms.CheckboxSelectMultiple),
+        "gruppe": isinstance(widget, forms.MultiWidget),
         "breit": optionen.get("breit", False),
     }
 
 
 @register.inclusion_tag("bausteine/dateiknoepfe.html")
-def dateiknoepfe(feld: BoundField, kamera: bool = True) -> dict[str, Any]:
+def dateiknoepfe(
+    feld: BoundField, kamera: bool = True, sofort: bool = False, datei_text: str = ""
+) -> dict[str, Any]:
     """Eigene Dateiknöpfe (Review 2, C4): „Foto aufnehmen“ (Kamera am Handy) und „Datei
     wählen“, beide mit Vorschau der gewählten Bilder. Beide Eingaben tragen den Namen des
     Felds; gesendet wird, was gewählt ist (leere Dateifelder überträgt der Browser nicht
-    als Datei)."""
+    als Datei).
+
+    Mit ``sofort`` sendet die Wahl einer Datei das Formular gleich ab (ein Klick statt
+    zwei, etwa „Beleg hochladen“, Review 2, B9); ohne JavaScript bleibt der Knopf des
+    Formulars."""
     widget = feld.field.widget
     mehrere = bool(getattr(widget, "allow_multiple_selected", False))
     accept = widget.attrs.get("accept", "")
@@ -126,6 +140,8 @@ def dateiknoepfe(feld: BoundField, kamera: bool = True) -> dict[str, Any]:
         "accept": accept,
         "kamera": kamera,
         "pflicht": feld.field.required,
+        "sofort": sofort,
+        "datei_text": datei_text,
     }
 
 
@@ -153,6 +169,40 @@ def kennzahl(
 ) -> dict[str, Any]:
     """Kennzahl-Kachel: Titel, große Zahl, Zeile darunter, optional Link."""
     return {"titel": titel, "wert": wert, "art": art, "unter": unter, "link": link}
+
+
+@register.inclusion_tag("bausteine/reiter.html", takes_context=True)
+def unternavigation(
+    context: template.Context, beschriftung: str, *eintraege: str
+) -> dict[str, Any]:
+    """Unternavigation eines Bereichs als Reiter (Review 2, B11): eine Zeile, am Handy
+    waagrecht scrollbar, statt Links mit „·“ dazwischen. Paare aus URL-Namen und Titel::
+
+        {% unternavigation "Kassenbuch" "kassenbuch:buchungen|kassenbuch:umsatz" "Buchungen"
+           "kassenbuch:regeln" "Regeln" %}
+
+    Mit „|“ getrennte weitere URL-Namen markieren denselben Reiter als aktiv (Unterseiten).
+    """
+    if len(eintraege) % 2:
+        raise template.TemplateSyntaxError("unternavigation: Paare aus URL-Name und Titel")
+    request = context.get("request")
+    treffer = getattr(request, "resolver_match", None)
+    aktuell = treffer.view_name if treffer is not None else ""
+    reiter = []
+    aktiv = ""
+    for i in range(0, len(eintraege), 2):
+        namen = eintraege[i].split("|")
+        reiter.append({"schluessel": namen[0], "titel": eintraege[i + 1], "url": reverse(namen[0])})
+        if not aktiv and aktuell in namen:
+            aktiv = namen[0]
+    return {"reiter": reiter, "aktiv": aktiv, "beschriftung": beschriftung, "ziel": ""}
+
+
+@register.inclusion_tag("bausteine/pdf_vorschau.html")
+def pdf_vorschau(url: str, titel: str = "PDF") -> dict[str, Any]:
+    """PDF groß im A4-Verhältnis mit Link „in neuem Fenster öffnen“ (Review 2, B9, B13).
+    In der geteilten Ansicht (``.geteilt``) läuft es beim Scrollen mit."""
+    return {"url": url, "titel": titel}
 
 
 # --- Bausteine mit Inhalt: {% seitenkopf %}…{% endseitenkopf %} ------------------------

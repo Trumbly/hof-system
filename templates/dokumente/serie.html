@@ -1,29 +1,42 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Serie{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_reiter.html" %}
-<h1>Serie <span class="leise">{{ schreiben|length }} Schreiben</span></h1>
-<p class="leise">Vor dem Senden jedes PDF ansehen. „Alle senden“ sendet genau die Schreiben, die hier stehen.</p>
-<ul class="posten-liste">
-  {% for s in schreiben %}
-  <li class="posten">
-    <div class="posten-kopf">
-      <a class="posten-titel" href="{% url 'dokumente:schreiben' s.pk %}">Schreiben #{{ s.pk }}</a>
-      <span class="status status-{{ s.status }}">{{ s.get_status_display }}</span>
-    </div>
-    <p class="leise posten-meta">{{ s.get_versandweg_display }} · Bezug #{{ s.bezug_id }} ·
-      <a href="{% url 'dokumente:schreiben_pdf' s.pk %}" target="_blank" rel="noopener">PDF ansehen</a></p>
-  </li>
-  {% endfor %}
-</ul>
+{% seitenkopf "Serie" "Vor dem Senden jedes PDF ansehen. „Alle senden“ sendet genau die Schreiben, die hier stehen." %}{% endseitenkopf %}
+
+<div class="stapel">
 {% if bereit %}
-<form method="post" action="{% url 'dokumente:serie_senden' serie %}" class="aktionen senden">
-  {% csrf_token %}
-  <input type="hidden" name="pruefsumme" value="{{ pruefsumme }}">
-  {% if gesperrt %}<p class="meldung meldung-warning" id="senden-gesperrt">{{ gesperrt }}</p>{% endif %}
-  <button type="submit"{% if gesperrt %} disabled aria-describedby="senden-gesperrt"{% endif %}>Alle {{ bereit|length }} senden</button>
+<form method="post" action="{% url 'dokumente:serie_senden' serie %}" class="karte senden">
+  <div class="karte-rumpf">
+    {% csrf_token %}
+    <input type="hidden" name="pruefsumme" value="{{ pruefsumme }}">
+    {% if gesperrt %}<p class="hinweis-band hinweis-warnung" id="senden-gesperrt" role="status">Senden gesperrt: {{ gesperrt }}</p>{% endif %}
+    <div class="formular-fuss">
+      <button type="submit" class="knopf knopf-primaer"{% if gesperrt %} disabled aria-describedby="senden-gesperrt"{% endif %}>Alle {{ bereit|length }} senden</button>
+    </div>
+  </div>
 </form>
 {% endif %}
+
+{% karte "Schreiben der Serie" zahl=schreiben|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Schreiben</th><th>Versandweg</th><th>Status</th><th class="eng">PDF</th></tr></thead>
+    <tbody>
+      {% for s in schreiben %}
+      <tr id="schreiben-{{ s.pk }}">
+        <td data-titel="Schreiben"><a href="{% url 'dokumente:schreiben' s.pk %}">{{ s.titel_lesbar }}</a></td>
+        <td data-titel="Versandweg">{{ s.get_versandweg_display }}</td>
+        <td data-titel="Status">{% badge s.status %}</td>
+        <td data-titel="PDF" class="eng"><a href="{% url 'dokumente:schreiben_pdf' s.pk %}" target="_blank" rel="noopener">ansehen</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+</div>
 {% endblock %}

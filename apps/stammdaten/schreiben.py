@@ -405,4 +405,17 @@ def vertrag_anmelden() -> None:
         kontext=lambda v: kontext_vertrag(v, timezone.localdate()),
         auswahl=_vertraege_fuer_serie,
         bezeichnung=_vertrag_bezeichnung,
+        filtern=_vertraege_eingrenzen,
+        nach_typ=True,
     )
+
+
+def _vertraege_eingrenzen(
+    auswahl: models.QuerySet[Vertrag], objekt: Any, typ: str
+) -> models.QuerySet[Vertrag]:
+    """Serienmitteilung nach Objekt und Typ der Einheit (Review 2, B13)."""
+    if objekt is not None:
+        auswahl = auswahl.filter(einheiten__objekt=objekt)
+    if typ:
+        auswahl = auswahl.filter(einheiten__typ=typ)
+    return auswahl.distinct()

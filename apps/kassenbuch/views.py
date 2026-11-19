@@ -4,13 +4,13 @@ anlegen), Regeln mit rückwirkender Anwendung, Monatsabschlüsse und Monatsberic
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
+import re
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, QuerySet, Sum
 from django.http import FileResponse, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -28,9 +28,10 @@ from apps.kassenbuch.forms import (
     monat_aus_text,
 )
 from apps.kassenbuch.models import Buchung, Monatsabschluss, Monatsbericht, Zuordnungsregel
+from apps.kern.htmx import ist_htmx
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
 
-BUCHUNGEN_JE_SEITE = 100
+BUCHUNGEN_JE_SEITE = 50
 VORSCHAU_ZEILEN = 50
 PREFIX_TEILE = "teile"
 
@@ -38,18 +39,31 @@ PREFIX_TEILE = "teile"
 # --- Kassenbuch ----------------------------------------------------------------------
 
 
-@login_required
-@require_GET
-def buchungen(request: HttpRequest) -> HttpResponse:
-    """Buchungen mit Filter nach Zeitraum, Mandant, Objekt, Kategorie, Art und Konto."""
-    filter_form = BuchungFilter(request.GET or None)
+def _betrag_suche(text: str) -> Decimal | None:
+    """„627,34“ oder „1.234,56“ als Betrag für die Suche; sonst None."""
+    roh = text.strip().replace("€", "").strip()
+    if not re.fullmatch(r"\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?", roh):
+        return None
+    if "," in roh:
+        roh = roh.replace(".", "").replace(",", ".")
+    try:
+        return Decimal(roh).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return None
+
+
+def buchungen_filtern(
+    filter_form: BuchungFilter, heute: datetime.date
+) -> tuple[QuerySet[Buchung], datetime.date, datetime.date]:
+    """Die Buchungen zum Filter, neueste zuerst, mit Zeitraum (Standard: Jahr bis heute)."""
     abfrage = Buchung.objects.select_related(
         "kategorie", "objekt", "mandant", "umsatz__konto", "storno_von"
     ).order_by("-datum", "-pk")
-    heute = timezone.localdate()
     von, bis = datetime.date(heute.year, 1, 1), auswertung.monatsende(heute)
     if filter_form.is_valid():
         werte: dict[str, Any] = filter_form.cleaned_data
+        if werte["monat"]:
+            von, bis = werte["monat"], auswertung.monatsende(werte["monat"])
         von = werte["von"] or von
         bis = werte["bis"] or bis
         for feld in ("mandant", "objekt", "kategorie"):
@@ -61,24 +75,57 @@ def buchungen(request: HttpRequest) -> HttpResponse:
             abfrage = abfrage.filter(umsatz__konto=werte["konto"])
         if werte["ohne_storno"]:
             abfrage = abfrage.filter(storno_von__isnull=True, storniert_durch__isnull=True)
-    abfrage = abfrage.filter(datum__gte=von, datum__lte=bis)
+        if suche := (werte["q"] or "").strip():
+            treffer = (
+                Q(umsatz__gegenpartei__icontains=suche)
+                | Q(umsatz__verwendungszweck__icontains=suche)
+                | Q(kategorie__bezeichnung__icontains=suche)
+                | Q(objekt__kuerzel__iexact=suche)
+            )
+            if (betrag := _betrag_suche(suche)) is not None:
+                treffer |= Q(betrag=betrag)
+            abfrage = abfrage.filter(treffer)
+    return abfrage.filter(datum__gte=von, datum__lte=bis), von, bis
+
+
+@login_required
+@require_GET
+def buchungen(request: HttpRequest) -> HttpResponse:
+    """Kassenbuch (Review 2, B11): Suche und Monat oben, weitere Filter zugeklappt; Spalten
+    Gegenpartei, Zweck und Konto mit Namen; 50 Zeilen, dann „mehr laden“ per HTMX."""
+    filter_form = BuchungFilter(request.GET or None)
+    abfrage, von, bis = buchungen_filtern(filter_form, timezone.localdate())
+    ab = request.GET.get("ab", "0")
+    ab_zahl = int(ab) if ab.isdigit() else 0
+    zeilen = list(abfrage[ab_zahl : ab_zahl + BUCHUNGEN_JE_SEITE + 1])
+    weiter = len(zeilen) > BUCHUNGEN_JE_SEITE
+    zeilen = zeilen[:BUCHUNGEN_JE_SEITE]
+    parameter = request.GET.copy()
+    parameter.pop("ab", None)
+    parameter.pop("seite", None)
+    if weiter:
+        parameter["ab"] = str(ab_zahl + BUCHUNGEN_JE_SEITE)
+    teil = {
+        "zeilen": zeilen,
+        "weiter": weiter,
+        "mehr_url": f"?{parameter.urlencode()}" if weiter else "",
+    }
+    if ist_htmx(request) and ab_zahl:
+        return render(request, "kassenbuch/_buchungen_zeilen.html", teil)
     summen = abfrage.aggregate(
         anzahl=Count("pk"),
         eingang=Sum("betrag", filter=Q(richtung="eingang")),
         ausgang=Sum("betrag", filter=Q(richtung="ausgang")),
     )
-    seite = Paginator(abfrage, BUCHUNGEN_JE_SEITE).get_page(request.GET.get("seite"))
-    parameter = request.GET.copy()
-    parameter.pop("seite", None)
     return render(
         request,
         "kassenbuch/buchungen.html",
         {
+            **teil,
             "filter": filter_form,
-            "seite": seite,
-            "parameter": parameter.urlencode(),
             "von": von,
             "bis": bis,
+            "zeitraum_text": f"{von:%d.%m.%Y} bis {bis:%d.%m.%Y}",
             "anzahl": summen["anzahl"],
             "summe_eingang": summen["eingang"] or Decimal("0"),
             "summe_ausgang": summen["ausgang"] or Decimal("0"),

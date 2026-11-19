@@ -1,12 +1,6 @@
-<li class="posten">
-  <div class="posten-kopf">
-    <a class="posten-titel" href="{% url 'dokumente:schreiben' s.pk %}">Schreiben #{{ s.pk }} · {{ s.art }}</a>
-    <span class="status status-{{ s.status }}">{{ s.get_status_display }}</span>
-  </div>
-  <p class="leise posten-meta">
-    {{ s.get_versandweg_display }} · Bezug: {{ s.bezug_typ.name }} #{{ s.bezug_id }}
-    {% if s.serie %} · <a href="{% url 'dokumente:serie' s.serie %}">Serie</a>{% endif %}
-    {% if s.einseitige_erklaerung and not s.ist_erledigt %} · <span class="faellig">Zustellnachweis nötig</span>{% endif %}
-    · erzeugt {{ s.erzeugt_am|date:"d.m.Y" }}
-  </p>
-</li>
+{% load bausteine %}<tr id="schreiben-{{ s.pk }}">
+  <td data-titel="Schreiben"><a href="{% url 'dokumente:schreiben' s.pk %}">{{ s.titel_lesbar }}</a>{% if s.einseitige_erklaerung and not s.ist_erledigt %}<br><span class="text-3 klein">Zustellnachweis nötig</span>{% endif %}</td>
+  <td data-titel="Versandweg">{{ s.get_versandweg_display }}</td>
+  <td data-titel="Status">{% badge s.status %}{% if s.serie %} <a class="klein" href="{% url 'dokumente:serie' s.serie %}">Serie</a>{% endif %}</td>
+  <td data-titel="erzeugt" class="eng">{{ s.erzeugt_am|date:"d.m.Y" }}</td>
+</tr>

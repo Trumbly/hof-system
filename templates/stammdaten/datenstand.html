@@ -1,26 +1,10 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Datenstand{% endblock %}
 
 {% block inhalt %}
-<h1>Datenstand</h1>
-<p class="leise">Fehlende Pflichtfelder je Bereich. Ein Klick führt zur Eingabe. Welche Felder Pflicht sind, steht in <code>apps/stammdaten/konfiguration.toml</code>.</p>
-<ul class="kacheln">
-  {% for bereich in bereiche %}
-  <li><a class="kachel" href="#bereich-{{ bereich.schluessel }}">{{ bereich.titel }}: <strong>{{ bereich.anzahl_luecken }}</strong> Lücke{{ bereich.anzahl_luecken|pluralize:"n" }} <span class="leise">an {{ bereich.luecken|length }} von {{ bereich.geprueft }}</span></a></li>
-  {% endfor %}
-</ul>
-{% for bereich in bereiche %}
-<details class="gruppe" id="bereich-{{ bereich.schluessel }}"{% if bereich.luecken %} open{% endif %}>
-  <summary>{{ bereich.titel }} <span class="zahl">{{ bereich.anzahl_luecken }}</span></summary>
-  <ul class="posten-liste">
-    {% for luecke in bereich.luecken %}
-    <li class="posten luecke"><a href="{{ luecke.url }}"><strong>{{ luecke.kennung }}</strong>{% if luecke.name %} · {{ luecke.name }}{% endif %}</a>: fehlt {{ luecke.felder_titel }}</li>
-    {% empty %}
-    <li class="leise">Vollständig.</li>
-    {% endfor %}
-  </ul>
-  {% if bereich.schluessel == "zaehler" %}<p><a class="knopf" href="{% url 'zaehler:besuch' %}">Liste für deinen nächsten Besuch</a> <span class="leise">sortiert nach Objekt, druckbar</span></p>{% endif %}
-</details>
-{% endfor %}
+{% seitenkopf "Datenstand" "Fehlende Pflichtfelder je Bereich, gruppiert nach Feld · ein Klick führt zur Eingabe" %}{% endseitenkopf %}
+{% include "stammdaten/_datenstand_inhalt.html" %}
+<p class="text-3 klein">Welche Felder Pflicht sind, steht in <code>apps/stammdaten/konfiguration.toml</code>.</p>
 {% endblock %}

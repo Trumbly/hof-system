@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import uebergaben, views
+from . import datenstandseite, uebergaben, views
 
 app_name = "stammdaten"
 
@@ -32,5 +32,6 @@ urlpatterns = [
     path("uebergaben/fotos/<int:pk>/", views.uebergabe_foto, name="uebergabe_foto"),
     path("checkpunkte/<int:pk>/", views.checkpunkt, name="checkpunkt"),
     path("leerstand/", views.leerstand_seite, name="leerstand"),
-    path("datenstand/", views.datenstand_seite, name="datenstand"),
+    path("datenstand/", datenstandseite.seite, name="datenstand"),
+    path("datenstand/scans/", datenstandseite.scans_hochladen, name="datenstand_scans"),
 ]

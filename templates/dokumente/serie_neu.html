@@ -1,61 +1,81 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Serienmitteilung{% endblock %}
 
 {% block inhalt %}
 {% include "dokumente/_reiter.html" %}
-<h1>Serienmitteilung</h1>
-<p class="leise">Eine Vorlage, viele Empfänger: Erst zeigt die Vorschau, wer was auf welchem Weg bekommt. Jedes Schreiben entsteht einzeln und wird einzeln abgelegt. Gesendet wird danach mit einem Klick, nach der Vorschau der PDFs.</p>
+{% seitenkopf "Serienmitteilung" "Eine Vorlage, viele Empfänger. Erst zeigt die Vorschau, wer was auf welchem Weg bekommt; jedes Schreiben entsteht einzeln und wird nach der Vorschau der PDFs gesendet." %}{% endseitenkopf %}
 
 {% if arten|length > 1 %}
-<nav class="reiter" aria-label="Bezug">
+<nav class="reiter" aria-label="Empfänger">
   {% for a in arten %}<a href="?bezug={{ a.schluessel }}"{% if a.schluessel == bezugsart.schluessel %} aria-current="page"{% endif %}>{{ a.titel }}</a>{% endfor %}
 </nav>
 {% endif %}
 
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ form.non_field_errors }}
-  <p>{{ form.vorlage.label_tag }} {{ form.vorlage }} {{ form.vorlage.errors }}</p>
-  <p>{{ form.versandweg.label_tag }} {{ form.versandweg }}</p>
-  <fieldset>
-    <legend>{{ form.ohne_mail.label }}</legend>
-    {% for feld in form.ohne_mail %}<div class="auswahl-zeile">{{ feld }}</div>{% endfor %}
-    <p class="leise">{{ form.ohne_mail.help_text }}</p>
-  </fieldset>
-  <fieldset class="auswahl">
-    <legend>{{ bezugsart.titel }}</legend>
-    {{ form.auswahl.errors }}
-    {% for feld in form.auswahl %}<div class="auswahl-zeile">{{ feld }}</div>{% empty %}<p class="leise">Nichts zur Auswahl.</p>{% endfor %}
-  </fieldset>
-  <button type="submit" name="schritt" value="vorschau"{% if plan %} class="zweitrangig"{% endif %}>Empfänger prüfen</button>
+<div class="stapel">
+{% karte "Empfänger eingrenzen" %}
+  <form method="get" class="filterleiste" id="serie-eingrenzen">
+    <input type="hidden" name="bezug" value="{{ bezugsart.schluessel }}">
+    {% feld eingrenzen.objekt %}
+    {% if bezugsart.nach_typ %}{% feld eingrenzen.typ %}{% endif %}
+    <button type="submit" class="knopf knopf-zweit">Eingrenzen</button>
+  </form>
+  <p class="text-2">{% if eingegrenzt %}Alle {{ form.auswahl.field.choices|length }} passenden {{ bezugsart.titel }} sind vorgewählt; einzelne lassen sich unten abwählen. <a href="?bezug={{ bezugsart.schluessel }}">Eingrenzung aufheben</a>{% else %}Nach Objekt{% if bezugsart.nach_typ %} und Typ{% endif %} eingrenzen wählt alles Passende vor; oder unten einzeln wählen.{% endif %}</p>
+{% endkarte %}
 
-  {% if plan %}
-  <section aria-labelledby="vorschau-titel">
-    <h2 id="vorschau-titel">Empfänger <span class="leise">{{ erzeugt }} von {{ plan|length }} bekommen ein Schreiben</span></h2>
-    <input type="hidden" name="marke" value="{{ marke }}">
-    <div class="tabelle-rahmen">
-    <table class="empfaenger-vorschau">
-      <thead><tr><th>Einheit</th><th>Name</th><th>Versandweg</th><th>Hinweis</th></tr></thead>
-      <tbody>
-        {% for z in plan %}
-        <tr{% if z.ausgelassen %} class="ausgelassen"{% endif %}>
-          <td data-titel="Einheit">{{ z.einheit|default:"–" }}</td>
-          <td data-titel="Name">{{ z.name|default:"–" }}</td>
-          <td data-titel="Versandweg">
-            <select name="weg_{{ z.bezug.pk }}" aria-label="Versandweg für {{ z.name|default:z.einheit }}">
-              {% for wert, titel in wege %}<option value="{{ wert }}"{% if wert == z.versandweg %} selected{% endif %}>{{ titel }}</option>{% endfor %}
-            </select>
-          </td>
-          <td data-titel="Hinweis">{% if z.ausgelassen %}<strong>Ausgelassen.</strong> {% endif %}{{ z.hinweis }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<form method="post" class="karte" id="serie-formular">
+  <div class="karte-rumpf">
+    {% csrf_token %}
+    <input type="hidden" name="objekt" value="{{ grenzen.objekt }}">
+    <input type="hidden" name="typ" value="{{ grenzen.typ }}">
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder felder-2">
+      {% feld form.vorlage %}
+      {% feld form.versandweg %}
+      {% feld form.freitext breit=True %}
+      {% feld form.ohne_mail breit=True %}
     </div>
-    <p class="leise">Wählt man einen Weg, für den Angaben fehlen, wird der Empfänger ausgelassen und mit Grund genannt.</p>
-    <button type="submit" name="schritt" value="erzeugen">{{ erzeugt }} Schreiben erzeugen</button>
-  </section>
-  {% endif %}
+    {% aufklapper bezugsart.titel zahl=form.auswahl.field.choices|length offen=True %}
+      {% if form.auswahl.errors %}<p class="feld-fehler">{{ form.auswahl.errors|join:" " }}</p>{% endif %}
+      <div class="feld-optionen" id="serie-auswahl">
+        {% for feld in form.auswahl %}<div>{{ feld }}</div>{% empty %}<p class="text-2">Nichts zur Auswahl.</p>{% endfor %}
+      </div>
+    {% endaufklapper %}
+    <div class="formular-fuss">
+      <button type="submit" name="schritt" value="vorschau" class="knopf {% if plan %}knopf-zweit{% else %}knopf-primaer{% endif %}">Empfänger prüfen</button>
+    </div>
+
+    {% if plan %}
+    <section aria-labelledby="vorschau-titel" class="stapel">
+      <h2 id="vorschau-titel">Empfänger <span class="text-2">{{ erzeugt }} von {{ plan|length }} bekommen ein Schreiben</span></h2>
+      <input type="hidden" name="marke" value="{{ marke }}">
+      <div class="tabelle-box">
+      <table class="tab tab-karten empfaenger-vorschau">
+        <thead><tr><th>Einheit</th><th>Name</th><th>Versandweg</th><th>Hinweis</th></tr></thead>
+        <tbody>
+          {% for z in plan %}
+          <tr{% if z.ausgelassen %} class="zeile-leise"{% endif %}>
+            <td data-titel="Einheit">{{ z.einheit|default:"–" }}</td>
+            <td data-titel="Name">{{ z.name|default:"–" }}</td>
+            <td data-titel="Versandweg">
+              <select class="feld-auswahl" name="weg_{{ z.bezug.pk }}" aria-label="Versandweg für {{ z.name|default:z.einheit }}">
+                {% for wert, titel in wege %}<option value="{{ wert }}"{% if wert == z.versandweg %} selected{% endif %}>{{ titel }}</option>{% endfor %}
+              </select>
+            </td>
+            <td data-titel="Hinweis">{% if z.ausgelassen %}{% badge "neutral" "ausgelassen" %} {% endif %}{{ z.hinweis }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <p class="text-3 klein">Wählt man einen Weg, für den Angaben fehlen, wird der Empfänger ausgelassen und mit Grund genannt.</p>
+      <div class="formular-fuss">
+        <button type="submit" name="schritt" value="erzeugen" class="knopf knopf-primaer">{{ erzeugt }} Schreiben erzeugen</button>
+      </div>
+    </section>
+    {% endif %}
+  </div>
 </form>
+</div>
 {% endblock %}

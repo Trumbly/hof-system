@@ -739,11 +739,3 @@ def leerstand_seite(request: HttpRequest) -> HttpResponse:
         "stammdaten/leerstand.html",
         {"zeilen": zeilen, "summe": leerstand.summe(zeilen), "von": von, "bis": bis},
     )
-
-
-@login_required
-def datenstand_seite(request: HttpRequest) -> HttpResponse:
-    """Fehlende Pflichtfelder je Bereich; jede Lücke führt mit einem Klick zur Eingabe."""
-    return render(
-        request, "stammdaten/datenstand.html", {"bereiche": datenstand.ermitteln(_heute())}
-    )

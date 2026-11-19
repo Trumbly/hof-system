@@ -71,6 +71,9 @@ def test_testhof_hat_leerstand_und_luecken(testhof: Testhof) -> None:
     zeilen = leerstand.berechnen(STICHTAG - datetime.timedelta(days=364), STICHTAG)
     assert len(zeilen) >= 9
     stand = {b.schluessel: b for b in datenstand.ermitteln(STICHTAG)}
-    assert stand["vertrag"].anzahl_luecken >= 43  # kein Vertrag hat einen Scan
+    # Review 2, B12: zwei von drei Verträgen haben einen Scan, die übrigen nicht.
+    ohne_scan = [lu for lu in stand["vertrag"].luecken if "scan" in dict(lu.felder)]
+    assert 10 <= len(ohne_scan) <= 20
+    assert stand["vertrag"].anzahl_luecken > len(ohne_scan)  # weitere Lücken als nur Scans
     assert stand["einheit"].anzahl_luecken >= 4
     assert stand["partei"].luecken

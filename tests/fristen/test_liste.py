@@ -111,16 +111,17 @@ def test_aktion_erledigt_ohne_htmx_leitet_zurueck(angemeldet: Client, objekt: Ob
 
 def test_liste_am_handy_bedienbar(angemeldet: Client, objekt: Objekt) -> None:
     """Schritt 9a: Die Seite ist am Handy bedienbar: Viewport, Navigation, Filter mit
-    Beschriftung, Knöpfe als echte Formulare (auch ohne JavaScript)."""
+    Beschriftung, Knöpfe als echte Formulare (auch ohne JavaScript). Review 2, B10: eine
+    kompakte Tabelle, die am Handy zu Karten je Zeile wird (``tab-karten``)."""
     services.frist_anlegen(Frist.Art.SONSTIGE, tage(1), Frist.Quelle.HAND, objekt)
     html = _seite(angemeldet)
 
     assert 'name="viewport"' in html
     assert f'href="{LISTE}" aria-current="page"' in html
     for feld in ("zeitraum", "art", "quelle"):
-        assert f'<label for="{feld}">' in html
+        assert f'for="{feld}">' in html
     assert '<form method="post" action="/fristen/' in html
-    assert "<table" not in html  # Karten statt breiter Tabelle
+    assert 'class="tab tab-karten"' in html
 
 
 def test_liste_nur_angemeldet(client: Client) -> None:

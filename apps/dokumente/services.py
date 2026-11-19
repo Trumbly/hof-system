@@ -493,6 +493,9 @@ def schreiben_erzeugen(
 
     heute = timezone.localdate()
     voll: dict[str, Any] = {"absender": absender(), **kontext, "datum": heute}
+    if vorlagenart.freitext:
+        # Review 2, B13: Ohne Freitext bleibt die Stelle leer, statt zu scheitern.
+        voll.setdefault("mitteilung", {"text": ""})
     kopf_html = _briefkopf_html(voll)
     # Fehlt im Briefkopf etwas, entsteht das Schreiben trotzdem (Vorschau), lässt sich aber
     # nicht senden (``senden_gesperrt``).
@@ -690,9 +693,19 @@ def serie_aus_plan(vorlage: Vorlage, plan: Iterable[Serienempfaenger]) -> Serie:
 # --- Senden --------------------------------------------------------------------------
 
 
+def mail_text(schreiben: Schreiben) -> str:
+    """Text der Mail zu einem Schreiben (das PDF hängt an); die Seite zeigt ihn neben dem PDF."""
+    return _mail_text(schreiben)
+
+
 def _mail_text(schreiben: Schreiben) -> str:
-    text = html.unescape(strip_tags(re.sub(r"<br\s*/?>|</p>", "\n", schreiben.inhalt_html)))
-    zeilen = [z.strip() for z in text.splitlines()]
+    """Der Text des Schreibens als reiner Text. Tabellen (etwa die Aufstellung der offenen
+    Posten) bleiben lesbar: eine Zeile je Tabellenzeile, Zellen mit „ · “ getrennt (Review 2,
+    B13: vorher klebten die Zellen aneinander, „10/202605.10.202676,73 €“)."""
+    roh = re.sub(r"<br\s*/?>|</p>|</tr>|</h\d>|</li>|</div>", "\n", schreiben.inhalt_html)
+    roh = re.sub(r"</t[dh]>", " · ", roh)
+    text = html.unescape(strip_tags(roh))
+    zeilen = [re.sub(r"\s+", " ", z).strip().removesuffix(" ·").strip() for z in text.splitlines()]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(zeilen)).strip() + "\n"
 
 
@@ -1612,17 +1625,24 @@ def _belegte_umsaetze() -> models.QuerySet[Beleg, Any]:
     )
 
 
-def buchung_kandidaten(beleg: Beleg) -> list[Buchung]:
-    """Gültige Ausgaben mit dem Betrag des Belegs um das Belegdatum, ohne eigenen Beleg."""
-    if beleg.betrag is None:
+def buchung_kandidaten(
+    beleg: Beleg, *, betrag: Decimal | None = None, datum: datetime.date | None = None
+) -> list[Buchung]:
+    """Gültige Ausgaben mit dem Betrag des Belegs um das Belegdatum, ohne eigenen Beleg.
+
+    Für einen offenen Beleg gibt die Seite ``betrag`` und ``datum`` aus der Vorbelegung
+    (Textschicht des PDFs) mit, damit die passende Abbuchung schon neben dem Formular steht
+    (Review 2, B9)."""
+    betrag = betrag if betrag is not None else beleg.betrag
+    if betrag is None:
         return []
-    datum = beleg.dokument.datum
+    datum = datum or beleg.dokument.datum
     spanne = datetime.timedelta(days=KANDIDATEN_TAGE)
     buchungen = (
         kassenbuch_services.gueltige_buchungen()
         .filter(
             richtung=Bankumsatz.Richtung.AUSGANG,
-            betrag=beleg.betrag,
+            betrag=betrag,
             datum__gte=datum - spanne,
             datum__lte=datum + spanne,
         )

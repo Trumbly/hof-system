@@ -177,6 +177,78 @@ class Bereichsstand:
         return sum(len(luecke.felder) for luecke in self.luecken)
 
 
+#: Wie die Objekte eines Bereichs in der Mehrzahl heißen („44 Verträge ohne Scan“).
+MEHRZAHL = {
+    "einheit": ("Einheit", "Einheiten"),
+    "partei": ("Partei", "Parteien"),
+    "vertrag": ("Vertrag", "Verträge"),
+    "kaution": ("Kaution", "Kautionen"),
+    "schluessel": ("Einheit", "Einheiten"),
+    "katalog": ("Einheit im Katalog", "Einheiten im Katalog"),
+    "zaehler": ("Zähler", "Zähler"),
+}
+#: Titel einer Gruppe, wo „ohne <Feld>“ schief klingt.
+OHNE = {
+    ("vertrag", "scan"): "ohne Scan",
+    ("schluessel", "anzahl"): "ohne Schlüssel",
+    ("schluessel", "inhaber"): "mit Schlüsseln bei Unbekannt",
+    ("katalog", "slug"): "ohne Adresse auf der Website",
+}
+#: Sammelaktionen je Gruppe (Bereich, Feld) → Schlüssel des Dialogs
+SAMMELAKTIONEN = {("vertrag", "scan"): "scans"}
+
+
+@dataclass(frozen=True)
+class Feldgruppe:
+    """Alle Lücken eines Bereichs, denen dasselbe Feld fehlt (Review 2, B12)."""
+
+    bereich: str
+    feld: str
+    feld_titel: str
+    luecken: tuple[Luecke, ...]
+
+    @property
+    def anzahl(self) -> int:
+        return len(self.luecken)
+
+    @property
+    def titel(self) -> str:
+        einzahl, mehrzahl = MEHRZAHL.get(self.bereich, ("Eintrag", "Einträge"))
+        ohne = OHNE.get((self.bereich, self.feld), f"ohne {self.feld_titel}")
+        return f"{self.anzahl} {einzahl if self.anzahl == 1 else mehrzahl} {ohne}"
+
+    @property
+    def sammelaktion(self) -> str:
+        return SAMMELAKTIONEN.get((self.bereich, self.feld), "")
+
+    @property
+    def mit_namen(self) -> bool:
+        return any(luecke.name for luecke in self.luecken)
+
+    #: Lange Gruppen stehen zugeklappt, damit die Seite überschaubar bleibt.
+    OFFEN_BIS = 20
+
+    @property
+    def offen(self) -> bool:
+        return self.anzahl <= self.OFFEN_BIS
+
+
+def nach_feld(stand: Bereichsstand) -> list[Feldgruppe]:
+    """Die Lücken eines Bereichs gruppiert nach fehlendem Feld, die größte Gruppe zuerst.
+    Eine Lücke mit zwei fehlenden Feldern steht in beiden Gruppen."""
+    je_feld: dict[str, list[Luecke]] = {}
+    titel: dict[str, str] = {}
+    for luecke in stand.luecken:
+        for feld, feld_titel in luecke.felder:
+            je_feld.setdefault(feld, []).append(luecke)
+            titel[feld] = feld_titel
+    reihenfolge = list(je_feld)
+    return sorted(
+        (Feldgruppe(stand.schluessel, f, titel[f], tuple(je_feld[f])) for f in je_feld),
+        key=lambda g: (-g.anzahl, reihenfolge.index(g.feld)),
+    )
+
+
 def konfiguration_pruefen() -> list[str]:
     """Pflichtfelder aus ``konfiguration.toml``, für die es keine Prüfung gibt."""
     fehler = []
@@ -235,7 +307,13 @@ def _kennung(bereich: str, objekt: Any) -> tuple[str, str, str]:
             objekt.anzeigename,
         )
     if bereich == "vertrag":
-        return objekt.nummer, reverse("stammdaten:vertrag", args=[objekt.pk]), ""
+        # Review 2, B12: Mieter-Name, damit Max den Papiervertrag findet (nur die Seite).
+        mieter = ", ".join(
+            vp.partei.anzeigename
+            for vp in objekt.vertragsparteien.select_related("partei").order_by("pk")
+            if vp.rolle == "mieter"
+        )
+        return objekt.nummer, reverse("stammdaten:vertrag", args=[objekt.pk]), mieter
     if bereich == "zaehler":
         return f"Zähler {objekt.nummer}", reverse("zaehler:zaehler", args=[objekt.pk]), ""
     vertrag = objekt.vertrag
@@ -288,4 +366,13 @@ def einheiten_mit_luecken(stichtag: datetime.date | None = None) -> list[str]:
     return []
 
 
-__all__ = ["PRUEFUNGEN", "Bereichsstand", "Luecke", "ermitteln", "konfiguration_pruefen", "zaehler"]
+__all__ = [
+    "PRUEFUNGEN",
+    "Bereichsstand",
+    "Feldgruppe",
+    "Luecke",
+    "ermitteln",
+    "konfiguration_pruefen",
+    "nach_feld",
+    "zaehler",
+]
