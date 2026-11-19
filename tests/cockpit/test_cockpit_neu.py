@@ -7,11 +7,11 @@ import datetime
 import pytest
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.cockpit import eigene_kacheln, kacheln
 from apps.fristen import services as fristen
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten
 from apps.stammdaten import schreiben
 from tests.factories import MandantFabrik, ObjektFabrik
@@ -34,7 +34,7 @@ def _start(client: Client) -> str:
 def test_fristen_als_zwei_listen(angemeldet: Client) -> None:
     """Review 1, Punkt 6: Fristen „überfällig“ und „in den nächsten 14 Tagen“ stehen im
     Cockpit als zwei getrennte Listen."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     objekt = ObjektFabrik(kuerzel="HOF", mandant=MandantFabrik())
     fristen.frist_anlegen("kuendigung", heute - T(days=3), "hand", objekt)
     fristen.frist_anlegen("sonstige", heute - T(days=1), "hand", objekt)
@@ -68,7 +68,7 @@ def test_belege_zuordnen_nicht_doppelt(angemeldet: Client) -> None:
 def test_freigaben_nach_dringlichkeit_fuenf_arten_rest_hinter_link(angemeldet: Client) -> None:
     """Review 1, Punkt 7: Offene Freigaben nach Dringlichkeit (überfällige zuerst, dann
     früheste Fälligkeit, dann Anzahl), die ersten fünf Arten, der Rest hinter einem Link."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     for _ in range(4):
         kern.arbeitsposten_anlegen("Viele ohne Datum")
     kern.arbeitsposten_anlegen("Morgen fällig", faellig_am=heute + T(days=1))

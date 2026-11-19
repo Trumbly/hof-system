@@ -27,9 +27,9 @@ from typing import Any
 
 from django.core.management import call_command, get_commands, load_command_class
 from django.core.management.base import BaseCommand, CommandParser
-from django.utils import timezone
 
 from apps.cockpit import tageslauf
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 from apps.kern.models import Lauf
 
@@ -60,7 +60,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        stichtag: datetime.date = optionen.get("stichtag") or zeit.heute()
         ohne = set(optionen.get("ohne") or [])
         gescheitert: set[str] = set()
         zeilen = []

@@ -18,10 +18,10 @@ from typing import Any
 
 from django.core.management.base import CommandParser
 from django.db import transaction
-from django.utils import timezone
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankabruf, Bankkonto
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 
 #: So viele Tage überlappt ein Abruf mit dem letzten gespeicherten Umsatz.
@@ -46,7 +46,7 @@ class Command(LaufBefehl):
         parser.add_argument("--bis", type=_datum, help="Ende (JJJJ-MM-TT), Standard heute")
 
     def ausfuehren(self, **optionen: Any) -> str:
-        heute = timezone.localdate()
+        heute = zeit.heute()
         konten = Bankkonto.objects.filter(aktiv=True, zugang=Bankkonto.Zugang.ENABLE_BANKING)
         if optionen.get("konto"):
             konten = konten.filter(pk=optionen["konto"])
@@ -93,7 +93,8 @@ class Command(LaufBefehl):
         optionen: dict[str, Any],
     ) -> Bankabruf:
         # Die jüngste Freigabe, die heute gilt; abgelaufene alte stören nicht. „Heute“ ist
-        # der echte Tag, nicht ein Stichtag: Die Bank prüft die Freigabe gegen ihre Uhr.
+        # ``zeit.heute()``: in prod der echte Tag (die Bank prüft gegen ihre Uhr), im
+        # Testhof der Stichtag (Review 3, Punkt 1).
         if services.gueltige_freigabe(konto, heute) is None:
             raise enablebanking.EnableBankingFehler(services.GRUND_KEINE_FREIGABE)
         if not konto.eb_konto_uid:

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import datetime
 import json
 
 import pytest
@@ -12,6 +11,7 @@ from django.urls import reverse
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankabruf, Bankkonto
+from apps.kern import zeit
 from apps.kern.models import Lauf
 from tests.bank.conftest import eb_umsatz
 
@@ -24,7 +24,7 @@ def test_abruf_starten_ruft_nur_dieses_konto_als_lauf_ab(
 ) -> None:
     """R2-9 (gemeinsam mit R2-6): ``abruf_starten(konto)`` ist der Lauf ``bank_abruf`` für ein
     Konto, mit eigenem Eintrag im Laufprotokoll und dem Abruf dazu."""
-    heute = datetime.date.today()
+    heute = zeit.heute()
     fake.umsaetze_je_konto["uid-vivid"] = [eb_umsatz(heute, "12.00")]
 
     ergebnis = services.abruf_starten(vivid)
@@ -45,7 +45,7 @@ def test_erneut_abrufen_an_der_kontenseite(
     assert reverse("bank:abrufen", args=[vivid.pk]) in seite
     assert reverse("bank:abrufen", args=[vr.pk]) not in seite  # liefert der hof-mac
 
-    fake.umsaetze_je_konto["uid-vivid"] = [eb_umsatz(datetime.date.today(), "12.00")]
+    fake.umsaetze_je_konto["uid-vivid"] = [eb_umsatz(zeit.heute(), "12.00")]
     antwort = angemeldet.post(reverse("bank:abrufen", args=[vivid.pk]), **HTMX)
     html = antwort.content.decode()
     assert "Vivid Test abgerufen: 1 neue Umsätze" in html

@@ -21,10 +21,10 @@
 </form>
 
 <div id="einheiten-liste">
-  <p class="text-3 klein filterleiste-ergebnis">{{ lagen|length }} von {{ anzahl_alle }} Einheiten{% if gefiltert %} · <a href="{{ basis }}">Filter zurücksetzen</a>{% endif %}{% if summe_offen %} · zusammen {{ summe_offen|euro }} offen{% endif %}</p>
+  <p class="text-3 klein filterleiste-ergebnis">{{ lagen|length }} von {{ anzahl_alle }} Einheiten{% if gefiltert %} · <a href="{{ basis }}">Filter zurücksetzen</a>{% endif %}{% if summe_offen %} · zusammen {{ summe_offen|euro }} {% begriff "ueberfaellig" %}{% endif %}</p>
   <div class="tabelle-box">
     <table class="tab tab-karten">
-      <thead><tr><th>NW-ID</th><th>Typ</th><th>Objekt</th><th>Status</th><th>Mieter</th><th class="zahl">Miete</th><th class="zahl">offen</th><th>frei ab</th></tr></thead>
+      <thead><tr><th>NW-ID</th><th>Typ</th><th>Objekt</th><th>Status</th><th>Mieter</th><th class="zahl">Miete</th><th class="zahl">{% begriff "ueberfaellig" %}</th><th>frei ab</th></tr></thead>
       <tbody>
       {% for l in lagen %}
       <tr id="einheit-{{ l.einheit.pk }}">
@@ -34,7 +34,7 @@
         <td data-titel="Status">{% badge l.badge l.status_text %}{% if l.einheit_status %} <span class="text-3 klein">{{ l.einheit_status }}</span>{% endif %}</td>
         <td data-titel="Mieter">{% if l.vertrag %}<a href="{% url 'stammdaten:vertrag' l.vertrag.pk %}">{{ l.mieter_text|default:l.vertrag.nummer }}</a>{% elif l.status == "wohnraum" %}<span class="text-3 klein">{{ l.einheit.hinweis }}</span>{% else %}<span class="text-3">–</span>{% endif %}</td>
         <td data-titel="Miete" class="zahl">{% if l.miete is not None %}{{ l.miete|euro }}{% elif l.zielmiete is not None %}<span class="text-3" title="Zielmiete">Ziel {{ l.zielmiete|euro }}</span>{% else %}–{% endif %}</td>
-        <td data-titel="offen" class="zahl">{% if l.offen > 0 %}<a class="text-fehler" href="{% url 'stammdaten:vertrag' l.vertrag.pk %}?reiter=mietkonto">{{ l.offen|euro }}</a>{% elif l.vertrag %}{{ l.offen|euro }}{% else %}–{% endif %}</td>
+        <td data-titel="überfällig" class="zahl">{% if l.offen > 0 %}<a class="text-fehler" href="{% url 'stammdaten:vertrag' l.vertrag.pk %}?reiter=mietkonto">{{ l.offen|euro }}</a>{% elif l.vertrag %}{{ l.offen|euro }}{% else %}–{% endif %}</td>
         <td data-titel="frei ab">{% if l.ist_frei %}{% if l.frei_ab %}seit {{ l.frei_ab|date:"d.m.Y" }}{% else %}sofort{% endif %}{% elif l.frei_ab %}<time>{{ l.frei_ab|date:"d.m.Y" }}</time>{% else %}<span class="text-3">–</span>{% endif %}</td>
       </tr>
       {% empty %}

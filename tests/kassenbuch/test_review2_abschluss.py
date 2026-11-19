@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 import re
+from typing import Any
 
 import pytest
 from django.test import Client
@@ -23,11 +24,9 @@ def _knopf(mandant_pk: int, monat: datetime.date) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _heute_im_februar(monkeypatch: pytest.MonkeyPatch) -> None:
+def _heute_im_februar(uhr: Any) -> None:
     """Der Januar 2026 ist vorbei."""
-    from django.utils import timezone
-
-    monkeypatch.setattr(timezone, "localdate", lambda *a, **k: datetime.date(2026, 2, 10))
+    uhr.stellen(datetime.date(2026, 2, 10))
 
 
 def test_bereiter_monat_hat_knopf_und_schliesst_ab(januar: Januar, angemeldet: Client) -> None:  # noqa: F811

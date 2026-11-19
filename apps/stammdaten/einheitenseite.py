@@ -25,11 +25,10 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.http import urlencode
 
 from apps.anbindungen import services as anbindungen
-from apps.kern import htmx, zahlen
+from apps.kern import htmx, zahlen, zeit
 from apps.stammdaten import einheitenliste, services
 from apps.stammdaten import forms as f
 from apps.stammdaten.models import (
@@ -83,7 +82,7 @@ def _gebunden(request: HttpRequest, prefix: str, klasse: Any, **kwargs: Any) -> 
 
 
 def formulare(request: HttpRequest, einheit: Einheit) -> dict[str, forms.Form]:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     if einheit.ist_wohnraum:
         return {"stammfelder": _gebunden(request, "stammfelder", f.WohnraumForm, instance=einheit)}
     zielmiete = einheit.zielmiete_am(heute)
@@ -190,7 +189,7 @@ def _mieter(vertrag: Vertrag | None) -> list[dict[str, Any]]:
 
 
 def kopf_kontext(einheit: Einheit) -> dict[str, Any]:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     lage = einheitenliste.lage(einheit, heute)
     zaehler = list(einheit.zaehler.filter(ausgebaut_am__isnull=True).order_by("art", "nummer"))
     return {

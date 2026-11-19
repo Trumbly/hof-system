@@ -31,13 +31,13 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import models, transaction
-from django.utils import timezone
 
 from apps.dokumente import pdf
 from apps.dokumente import services as dokumente
 from apps.dokumente.models import Schreiben
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten
 from apps.stammdaten import fristrechnung, konfiguration
 from apps.stammdaten.models import (
@@ -402,7 +402,7 @@ def vertrag_anmelden() -> None:
     bezuege.registrieren(
         Vertrag,
         titel="Verträge",
-        kontext=lambda v: kontext_vertrag(v, timezone.localdate()),
+        kontext=lambda v: kontext_vertrag(v, zeit.heute()),
         auswahl=_vertraege_fuer_serie,
         bezeichnung=_vertrag_bezeichnung,
         filtern=_vertraege_eingrenzen,

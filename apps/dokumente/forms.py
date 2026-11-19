@@ -9,12 +9,12 @@ from decimal import Decimal
 from typing import Any, ClassVar
 
 from django import forms
-from django.utils import timezone
 
 from apps.dokumente import dokumentarten, vorlagenarten
 from apps.dokumente.models import Lieferant, Vorlage
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.kassenbuch.models import Kategorie
+from apps.kern import zeit
 from apps.kern.models import Objekt
 
 
@@ -41,7 +41,7 @@ class VorlageForm(forms.Form):
 class AbschlussForm(forms.Form):
     zugestellt_am = forms.DateField(
         label="zugestellt am",
-        initial=timezone.localdate,
+        initial=zeit.heute,
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     nachweis = forms.FileField(
@@ -173,7 +173,7 @@ class BelegFelder(forms.Form):
     datum = forms.DateField(
         label="Belegdatum",
         widget=forms.DateInput(attrs={"type": "date"}),
-        initial=timezone.localdate,
+        initial=zeit.heute,
     )
     betrag = forms.DecimalField(
         label="Betrag (Euro)",
@@ -362,4 +362,4 @@ class BelegmappeForm(forms.Form):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["objekt"].queryset = Objekt.objects.order_by("kuerzel")  # type: ignore[attr-defined]
-        self.fields["jahr"].initial = timezone.localdate().year
+        self.fields["jahr"].initial = zeit.heute().year

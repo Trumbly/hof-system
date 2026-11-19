@@ -29,12 +29,11 @@ from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.db import models, transaction
 from django.db.models import Q, QuerySet
-from django.utils import timezone
 
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
 from apps.kern import services as kern
-from apps.kern import zahlen
+from apps.kern import zahlen, zeit
 from apps.kern.models import Arbeitsposten, Lauf, Objekt
 from apps.stammdaten.models import Einheit, Uebergabe
 from apps.zaehler import konfiguration
@@ -65,7 +64,7 @@ def _deutsch(stand: Decimal) -> str:
 
 
 def _heute() -> datetime.date:
-    return timezone.localdate()
+    return zeit.heute()
 
 
 def _speichern(objekt: models.Model) -> None:

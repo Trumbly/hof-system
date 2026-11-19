@@ -28,7 +28,6 @@ from django.db import transaction
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
@@ -36,7 +35,7 @@ from apps.dokumente import services, textschicht, umwandeln
 from apps.dokumente.forms import BelegBestaetigenForm, BelegUmwidmenForm
 from apps.dokumente.models import Beleg, Eingangsrechnung
 from apps.kassenbuch.models import Buchung
-from apps.kern import htmx
+from apps.kern import htmx, zeit
 
 ABLAGE_FEHLER = (services.AblageFehler, umwandeln.DateiUngueltig)
 
@@ -351,7 +350,7 @@ def neu(request: HttpRequest) -> HttpResponse:
         return redirect("dokumente:ablage")
     inhalt = datei.read()
     angaben = textschicht.angaben_aus_pdf(inhalt) if inhalt.startswith(b"%PDF") else None
-    datum = (angaben.datum if angaben else None) or timezone.localdate()
+    datum = (angaben.datum if angaben else None) or zeit.heute()
     try:
         ergebnis = services.beleg_hochladen(
             inhalt, datum=datum, lieferant=angaben.lieferant if angaben else None

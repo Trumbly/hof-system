@@ -8,9 +8,8 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from django.utils import timezone
-
 from apps.dokumente.models import Beleg, Eingangsrechnung
+from apps.kern import zeit
 
 TAGE = 14
 
@@ -20,7 +19,7 @@ def belege_kontext() -> dict[str, Any]:
 
 
 def rechnungen_kontext() -> dict[str, Any]:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     offen = Eingangsrechnung.objects.exclude(status=Eingangsrechnung.Status.BEZAHLT)
     return {
         "offen": offen.count(),

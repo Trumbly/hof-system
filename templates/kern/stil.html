@@ -83,6 +83,12 @@
   <p class="text-3 klein" style="margin-top: var(--a3)">Weitere Zustände: {% for schluessel, b in alle_badges.items %}{% if forloop.counter > 8 %}{% badge schluessel %} {% endif %}{% endfor %}</p>
 </section>
 
+<section class="stil-abschnitt" id="begriffe">
+  <h2>Begriffe</h2>
+  <p class="stil-zweck">Drei Wörter für offene Beträge, überall gleich und mit Erklärung beim Darüberfahren: <code>{% templatetag openblock %} begriff "nicht_pruefbar" {% templatetag closeblock %}</code>. Offen ist die Summe der drei.</p>
+  {% for schluessel, b in begriffe %}<p><strong>{% begriff schluessel %}</strong> <span class="klein text-2">{{ b.erklaerung }}</span></p>{% endfor %}
+</section>
+
 <section class="stil-abschnitt" id="seitenkopf">
   <h2>Seitenkopf</h2>
   <p class="stil-zweck">Titel, Meta-Zeile, Aktionen rechts. Am Handy rutschen die Aktionen unter den Titel.</p>

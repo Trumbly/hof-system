@@ -9,11 +9,11 @@ from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Abweichung, Buchungsanfrage, Einheitbild, Kennzahl
+from apps.kern import zeit
 from apps.kern.models import Lauf
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import Einheit, Kuendigung, Vertrag
@@ -25,7 +25,7 @@ ANBINDUNG_LAEUFE = ("verwaltio_kennzahlen", "id_abgleich")
 
 @login_required
 def uebersicht(request: HttpRequest) -> HttpResponse:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     return render(
         request,
         "anbindungen/uebersicht.html",
@@ -153,7 +153,7 @@ def anfrage(request: HttpRequest, pk: int) -> HttpResponse:
         # erfassten Kündigung (Review 2, A3).
         entscheidungen = [s for s in entscheidungen if s != Buchungsanfrage.Status.ERLEDIGT]
     vertraege = list(eintrag.einheit.vertraege.order_by("-beginn"))
-    heute = timezone.localdate()
+    heute = zeit.heute()
     einheit = eintrag.einheit
     partei = stammdaten.partei_zur_email(eintrag.kontakt_email)
     return render(
@@ -221,7 +221,7 @@ def abweichungen(request: HttpRequest) -> HttpResponse:
 @login_required
 def vermarktung(request: HttpRequest) -> HttpResponse:
     """Vorschau des Katalogs: alle vermarkteten Einheiten, ob und ab wann sie buchbar sind."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     im_katalog = {e.nw_id: e for e in services.katalog(heute)}
     einheiten = list(
         services.vermarktbare_einheiten(heute).select_related("objekt").order_by("nw_id")

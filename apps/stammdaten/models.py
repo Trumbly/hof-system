@@ -31,7 +31,7 @@ HINWEIS_VERWALTIO = "geführt in Verwaltio"
 def _dateiname(ordner: str, endung_von: str) -> str:
     """Neutraler Dateiname ohne Teile des Originalnamens (der kann Namen enthalten)."""
     endung = PurePath(endung_von).suffix.lower()[:10]
-    heute = datetime.date.today()
+    heute = datetime.date.today()  # zeit: echt (Ablageordner nach Speicherdatum)
     return f"stammdaten/{ordner}/{heute:%Y/%m}/{uuid.uuid4().hex}{endung}"
 
 

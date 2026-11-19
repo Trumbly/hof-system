@@ -29,7 +29,6 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.http import urlencode
 from pghistory.models import Events
@@ -38,7 +37,7 @@ from apps.anbindungen import services as anbindungen
 from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Dokumentbezug, Schreiben
 from apps.fristen.models import Frist
-from apps.kern import htmx, vorgaenge, zahlen
+from apps.kern import htmx, vorgaenge, zahlen, zeit
 from apps.kern.protokoll import ART_TITEL
 from apps.stammdaten import forms as f
 from apps.stammdaten import konfiguration, services
@@ -182,7 +181,7 @@ def formulare(
     request: HttpRequest, vertrag: Vertrag, anfrage: Buchungsanfrage | None = None
 ) -> dict[str, forms.Form]:
     kaution = getattr(vertrag, "kaution", None)
-    heute = timezone.localdate()
+    heute = zeit.heute()
     ergebnis: dict[str, forms.Form] = {
         "stammfelder": _gebunden(request, "stammfelder", f.VertragForm, instance=vertrag),
         # Vorausgefüllt (Review 2, B): nächster Monatserster, Miete und Zahlweise von heute.
@@ -215,7 +214,7 @@ def formulare(
 
 
 def _kondition_vorschlag(vertrag: Vertrag) -> dict[str, Any]:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     erster = (heute.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
     jetzt = vertrag.kondition_am(max(heute, vertrag.beginn))
     vorschlag: dict[str, Any] = {"gueltig_ab": max(erster, vertrag.beginn)}
@@ -417,7 +416,7 @@ def _saldo(konto: Any) -> dict[str, Any]:
 def kopf_kontext(vertrag: Vertrag) -> dict[str, Any]:
     from apps.abgleich import services as abgleich
 
-    heute = timezone.localdate()
+    heute = zeit.heute()
     konto = abgleich.mietkonto(vertrag)
     naechste = (
         Frist.objects.filter(_bezug_q(vertrag), erledigt_am__isnull=True)

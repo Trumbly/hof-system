@@ -21,10 +21,10 @@ from typing import Any
 
 from django.conf import settings
 from django.core.management.base import CommandError, CommandParser
-from django.utils import timezone
 
 from apps.kassenbuch import auswertung, pdf, services
 from apps.kassenbuch.forms import monat_aus_text
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 
 
@@ -48,7 +48,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        bis = optionen.get("bis") or auswertung.vormonat(timezone.localdate())
+        bis = optionen.get("bis") or auswertung.vormonat(zeit.heute())
         ab = optionen.get("ab") or settings.KASSENBUCH_BEGINN
         ergebnis = services.monatsabschluesse_ausfuehren(bis, ab=ab, lauf=self.lauf)
         self.gebucht(len(ergebnis.abgeschlossen))

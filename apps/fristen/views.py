@@ -22,13 +22,12 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
-from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.fristen import services
 from apps.fristen.models import Frist
-from apps.kern import htmx
+from apps.kern import htmx, zeit
 
 #: Zeiträume der Liste: Schlüssel, Titel. „offen“ zeigt alle offenen, auch überfällige.
 ZEITRAEUME: tuple[tuple[str, str], ...] = (
@@ -209,7 +208,7 @@ def gruppieren(fristen: list[Frist], heute: datetime.date, zeitraum: str) -> lis
 
 @login_required
 def fristenliste(request: HttpRequest) -> HttpResponse:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     zeitraum = request.GET.get("zeitraum", STANDARD_ZEITRAUM)
     if zeitraum not in dict(ZEITRAEUME):
         zeitraum = STANDARD_ZEITRAUM
@@ -255,7 +254,7 @@ def _zeile(request: HttpRequest, frist: Frist, **weiteres: Any) -> str:
         "fristen/_frist.html",
         {
             "frist": frist,
-            "heute": timezone.localdate(),
+            "heute": zeit.heute(),
             "verschiebungen": VERSCHIEBUNGEN,
             **weiteres,
         },
@@ -317,7 +316,7 @@ def neues_datum(frist: Frist, um: str, datum: str, heute: datetime.date) -> date
 def verschieben(request: HttpRequest, pk: int) -> HttpResponse:
     """Verschiebt eine offene Frist direkt aus der Zeile (Review 2, B10)."""
     frist = get_object_or_404(Frist, pk=pk)
-    heute = timezone.localdate()
+    heute = zeit.heute()
     if frist.ist_erledigt:
         return HttpResponseBadRequest("Die Frist ist erledigt und lässt sich nicht verschieben.")
     ziel = neues_datum(frist, request.POST.get("um", ""), request.POST.get("datum", ""), heute)

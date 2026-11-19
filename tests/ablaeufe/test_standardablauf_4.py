@@ -15,12 +15,12 @@ import pytest
 from django.db import models
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.anbindungen import services as anbindungen
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
+from apps.kern import zeit
 from apps.soll import services as soll
 from apps.soll.models import Sollposten
 from apps.stammdaten import schreiben, services
@@ -172,7 +172,7 @@ def test_standardablauf_4_website_meldung(testhof: Testhof) -> None:
     ohne Handgriff wieder im Katalog der Website, frei ab dem Rückgabetag."""
     vertrag = _garagenvertrag(testhof)
     einheit: Einheit = vertrag.einheiten.get()
-    heute = timezone.localdate()
+    heute = zeit.heute()
     im_katalog = {e.nw_id for e in anbindungen.katalog(heute)}
     assert einheit.nw_id not in im_katalog
 

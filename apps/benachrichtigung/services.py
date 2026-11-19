@@ -109,7 +109,7 @@ def lage_ermitteln(
     jetzt: datetime.datetime | None = None, *, arten: Sequence[str] | None = None
 ) -> Lage:
     """Zählt gescheiterte Läufe im Zeitfenster und offene Posten der gemeldeten Arten."""
-    jetzt = jetzt or timezone.now()
+    jetzt = jetzt or timezone.now()  # zeit: echt (Zeitfenster der Läufe)
     fenster = datetime.timedelta(hours=settings.HOF_BENACHRICHTIGUNG_FENSTER_STUNDEN)
     arten = list(settings.HOF_BENACHRICHTIGUNG_ARTEN if arten is None else arten)
 
@@ -207,7 +207,7 @@ def benachrichtigen(
     der scheitert, hält die anderen nicht auf. Hat kein Kanal gesendet, gilt die Lage
     als nicht gemeldet und kommt beim nächsten Lauf wieder.
     """
-    jetzt = jetzt or timezone.now()
+    jetzt = jetzt or timezone.now()  # zeit: echt (Zeitfenster der Läufe)
     lage = lage_ermitteln(jetzt)
     if lage.leer:
         return Ergebnis(status="still", lage=lage)

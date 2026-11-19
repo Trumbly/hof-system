@@ -19,6 +19,7 @@ from django.utils import timezone
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankabruf, Bankkonto
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 from tests.bank.conftest import eb_umsatz
 
@@ -41,7 +42,7 @@ def test_abgelaufene_alte_und_gueltige_neue_freigabe_abruf_erfolgreich(
 ) -> None:
     """Review 1, Punkt 2: Neben einer abgelaufenen alten Freigabe gilt die neue; der Abruf
     ist erfolgreich und der Posten „Bankabruf gescheitert“ ist erledigt."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     _freigabe_abgelaufen(vivid, heute)
     call_command("bank_abruf")
     (posten,) = _abruf_posten(vivid)
@@ -63,7 +64,7 @@ def test_neue_freigabe_erledigt_posten_wegen_fehlender_freigabe(
 ) -> None:
     """Review 1, Punkt 2: Nach dem Erneuern zeigt das System keinen offenen Posten „keine
     gültige Bankfreigabe“ mehr, auch bevor der nächste Abruf läuft."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     _freigabe_abgelaufen(vivid, heute)
     call_command("bank_abruf")
 
@@ -92,7 +93,7 @@ def test_freigabe_die_erst_spaeter_beginnt_gilt_heute_nicht(
 ) -> None:
     """Review 1, Punkt 2: Der Abruf prüft „gilt heute“, nicht nur den spätesten Ablauf.
     Eine Freigabe, die erst in fünf Tagen beginnt, macht den Abruf heute nicht gültig."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     _freigabe_abgelaufen(vivid, heute)
     services.bankfreigabe_anlegen(vivid, gueltig_ab=heute + 5 * TAG, gueltig_bis=heute + 300 * TAG)
 
@@ -106,7 +107,7 @@ def test_freigabe_die_erst_spaeter_beginnt_gilt_heute_nicht(
 def test_gueltige_freigabe_ist_die_juengste(vivid: Bankkonto) -> None:
     """Review 1, Punkt 2: Gelten zwei Freigaben, zählt die zuletzt erteilte, auch wenn die
     ältere länger läuft."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     alte = vivid.freigaben.get()
     vivid.freigaben.update(gueltig_ab=heute - 30 * TAG, gueltig_bis=heute + 300 * TAG)
     neue = services.bankfreigabe_anlegen(vivid, gueltig_bis=heute + 180 * TAG)
@@ -122,7 +123,7 @@ def test_saldo_mit_datum_des_letzten_erfolgreichen_abrufs(
 ) -> None:
     """Review 1, Punkt 2: Der Saldo gilt bis zum Tag des letzten erfolgreichen Abrufs; die
     Umsätze nach dem letzten Kontostand der Bank sind eingerechnet."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     alter_stand = heute - 19 * TAG
     services.kontostand_erfassen(vivid, alter_stand, Decimal("1000.00"))
     fake.umsaetze_je_konto["uid-vivid"] = [
@@ -146,7 +147,7 @@ def test_kontenseite_zeigt_stand_und_abrufzeit(
 ) -> None:
     """Review 1, Punkt 2: Die Kontenseite zeigt „Stand <Tag des Abrufs>, abgerufen …“ statt
     „Ende <Tag des letzten Kontostands>“."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     services.kontostand_erfassen(vivid, heute - 19 * TAG, Decimal("1234.56"))
     call_command("bank_abruf")
 

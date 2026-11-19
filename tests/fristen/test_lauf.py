@@ -6,18 +6,17 @@ import datetime
 
 import pytest
 from django.core.management import call_command
-from django.utils import timezone
 
 from apps.fristen import services
 from apps.fristen.models import Frist
-from apps.kern import aktionen
+from apps.kern import aktionen, zeit
 from apps.kern import services as kern_services
 from apps.kern.models import Arbeitsposten, Lauf, Objekt
 from tests.factories import ObjektFabrik
 
 pytestmark = pytest.mark.django_db
 
-HEUTE = timezone.localdate()
+HEUTE = zeit.heute()
 
 
 def tage(n: int) -> datetime.date:

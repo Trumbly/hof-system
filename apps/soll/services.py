@@ -35,9 +35,9 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Count, F, Max, QuerySet, Sum
-from django.utils import timezone
 
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 from apps.soll import konfiguration, rechnung
 from apps.soll.models import Sollposten, Sollregel
@@ -76,7 +76,7 @@ def ohne_sollstellung(grund: str) -> Iterator[None]:
 
 def heute() -> datetime.date:
     """Das heutige Datum der Sollstellung (in Tests austauschbar)."""
-    return timezone.localdate()
+    return zeit.heute()
 
 
 # --- Regeln je Vertrag ---------------------------------------------------------------
@@ -729,6 +729,122 @@ def offen(vertrag: Vertrag | None = None, stichtag: datetime.date | None = None)
         guthaben_qs = guthaben_qs.filter(vertrag=vertrag)
     guthaben = guthaben_qs.aggregate(s=Sum("betrag"))["s"] or NULL
     return Offen(posten=posten, guthaben=guthaben, stichtag=stichtag)
+
+
+# --- Drei Begriffe: überfällig, nicht prüfbar, noch nicht fällig (Review 3, Punkt 1) ----
+
+#: Die drei Teile von „offen“, in dieser Reihenfolge. Erklärungen: ``kern.begriffe``.
+TEILE = ("ueberfaellig", "nicht_pruefbar", "noch_nicht_faellig")
+
+
+def datenstand_bank() -> datetime.date | None:
+    """Bis wann die Bankdaten vorliegen (der letzte Bankabruf), ``None`` ohne Bankdaten."""
+    # Spät importiert: ``abgleich`` importiert ``soll`` (Ring beim Laden).
+    from apps.abgleich import services as abgleich
+
+    return abgleich.bank_datenstand()
+
+
+def einordnen(
+    faellig_am: datetime.date, stichtag: datetime.date, datenstand: datetime.date | None
+) -> str:
+    """Der Teil von „offen“, zu dem ein offener Posten am ``stichtag`` gehört.
+
+    - ``noch_nicht_faellig``: fällig am Stichtag oder später.
+    - ``nicht_pruefbar``: vor dem Stichtag fällig, aber nach dem letzten Bankabruf (oder es
+      gibt keine Bankdaten). Ob bezahlt ist, zeigt erst der nächste Abruf; kein Rückstand.
+    - ``ueberfaellig``: vor dem Stichtag und spätestens am Datenstand der Bank fällig. Das ist
+      der Rückstand (Kachel Rückstand, Seite Rückstände, Mahnwesen).
+    """
+    if faellig_am >= stichtag:
+        return "noch_nicht_faellig"
+    if datenstand is None or faellig_am > datenstand:
+        return "nicht_pruefbar"
+    return "ueberfaellig"
+
+
+def teil_abfrage(
+    teil: str,
+    vertrag: Vertrag | None = None,
+    stichtag: datetime.date | None = None,
+    datenstand: datetime.date | None = None,
+) -> QuerySet[Sollposten]:
+    """Die Posten von ``offen_abfrage`` in einem Teil (``TEILE``), als Abfrage für Seiten mit
+    Filter. ``datenstand`` ohne Angabe: ``datenstand_bank()``. Gleiche Regeln wie
+    ``einordnen``."""
+    stichtag = stichtag or heute()
+    qs = offen_abfrage(vertrag)
+    if teil == "noch_nicht_faellig":
+        return qs.filter(faellig_am__gte=stichtag)
+    datenstand = datenstand if datenstand is not None else datenstand_bank()
+    qs = qs.filter(faellig_am__lt=stichtag)
+    if teil == "nicht_pruefbar":
+        return qs if datenstand is None else qs.filter(faellig_am__gt=datenstand)
+    if teil == "ueberfaellig":
+        return qs.none() if datenstand is None else qs.filter(faellig_am__lte=datenstand)
+    raise ValueError(f"Unbekannter Teil von „offen“: {teil}")
+
+
+@dataclass(frozen=True)
+class Teil:
+    """Anzahl und Summe offen eines Teils von „offen“."""
+
+    anzahl: int = 0
+    summe: Decimal = NULL
+
+
+@dataclass(frozen=True)
+class Aufteilung:
+    """Ergebnis von ``aufteilung()``: offen = überfällig + nicht prüfbar + noch nicht fällig.
+
+    Cockpit (Kacheln Offene Posten und Rückstand), die Seite Offene Posten, die Seite
+    Rückstände und die Spalte „offen“ der Einheiten- und Vertragsliste lesen hier.
+    """
+
+    stichtag: datetime.date
+    datenstand: datetime.date | None
+    ueberfaellig: Teil
+    nicht_pruefbar: Teil
+    noch_nicht_faellig: Teil
+
+    @property
+    def offen(self) -> Teil:
+        teile = (self.ueberfaellig, self.nicht_pruefbar, self.noch_nicht_faellig)
+        return Teil(sum(t.anzahl for t in teile), sum((t.summe for t in teile), NULL))
+
+    def kontext(self) -> dict[str, object]:
+        """Einfache Werte für Vorlagen."""
+        return {
+            "stichtag": self.stichtag,
+            "datenstand": self.datenstand,
+            "offen": self.offen,
+            "ueberfaellig": self.ueberfaellig,
+            "nicht_pruefbar": self.nicht_pruefbar,
+            "noch_nicht_faellig": self.noch_nicht_faellig,
+        }
+
+
+def aufteilung(vertrag: Vertrag | None = None, stichtag: datetime.date | None = None) -> Aufteilung:
+    """Die eine Aufteilung von „offen“ (Review 3, Punkt 1), aus ``offen()``.
+
+    ``stichtag`` ohne Angabe: ``heute()``. „Nicht prüfbar“ heißt: vor dem Stichtag, aber
+    nach dem letzten Bankabruf fällig (``datenstand_bank``).
+    """
+    stichtag = stichtag or heute()
+    datenstand = datenstand_bank()
+    anzahl = dict.fromkeys(TEILE, 0)
+    summe = dict.fromkeys(TEILE, NULL)
+    for p in offen(vertrag).posten:
+        teil = einordnen(p.faellig_am, stichtag, datenstand)
+        anzahl[teil] += 1
+        summe[teil] += p.offen
+    return Aufteilung(
+        stichtag=stichtag,
+        datenstand=datenstand,
+        ueberfaellig=Teil(anzahl["ueberfaellig"], summe["ueberfaellig"]),
+        nicht_pruefbar=Teil(anzahl["nicht_pruefbar"], summe["nicht_pruefbar"]),
+        noch_nicht_faellig=Teil(anzahl["noch_nicht_faellig"], summe["noch_nicht_faellig"]),
+    )
 
 
 # --- Rücknahme im Protokoll ----------------------------------------------------------

@@ -26,6 +26,7 @@ from django.utils import timezone
 from apps.bank import fingerabdruck
 from apps.bank.models import Bankabruf, Bankfreigabe, Bankkonto, Bankumsatz, Kontostand
 from apps.kern import services as kern_services
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf, Mandant
 
 logger = logging.getLogger(__name__)
@@ -166,7 +167,7 @@ def bankfreigabe_anlegen(
     eb_konto_uid: str | None = None,
 ) -> Bankfreigabe:
     """Hält eine neue Freigabe fest. Offene Posten zu älteren Freigaben sind damit erledigt."""
-    gueltig_ab = gueltig_ab or timezone.localdate()
+    gueltig_ab = gueltig_ab or zeit.heute()
     if gueltig_bis < gueltig_ab:
         raise BankFehler(f"Freigabe für Konto #{konto.pk}: gültig bis liegt vor gültig ab.")
     freigabe = Bankfreigabe(
@@ -202,7 +203,7 @@ def _freigabe_frist(freigabe: Bankfreigabe) -> None:
     from apps.fristen import services as fristen
     from apps.fristen.models import Frist
 
-    erledigt_am = min(freigabe.gueltig_ab, timezone.localdate())
+    erledigt_am = min(freigabe.gueltig_ab, zeit.heute())
     for alte in freigabe.konto.freigaben.exclude(pk=freigabe.pk):
         for frist in fristen.fristen_zu(alte, nur_offen=True).filter(
             quelle=Frist.Quelle.BANKFREIGABE
@@ -291,7 +292,7 @@ def bankabruf_beenden(
 ) -> Bankabruf:
     """Schließt einen Abruf. Die Meldung nennt nur IDs und Zähler."""
     abruf.status = Bankabruf.Status.GESCHEITERT if gescheitert else Bankabruf.Status.ERFOLGREICH
-    abruf.beendet_am = timezone.now()
+    abruf.beendet_am = zeit.jetzt()
     abruf.meldung = meldung
     abruf.save(update_fields=["status", "beendet_am", "meldung"])
     return abruf
@@ -336,7 +337,7 @@ def abruf_gescheitert_melden(
         ART_ABRUF,
         bezug=konto,
         aktionen=AKTIONEN_ABRUF,
-        faellig_am=timezone.localdate(),
+        faellig_am=zeit.heute(),
         hinweis=f"Der Abruf für Konto #{konto.pk} ist gescheitert: {grund}",
         lauf=lauf,
     )

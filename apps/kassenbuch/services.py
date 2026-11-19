@@ -31,7 +31,6 @@ from django.db import models, transaction
 from django.db.models import Max, Min, Q, Sum
 from django.db.models.functions import Coalesce
 from django.template.loader import render_to_string
-from django.utils import timezone
 
 from apps.bank import fingerabdruck
 from apps.bank.models import Bankkonto, Bankumsatz, Kontostand
@@ -45,6 +44,7 @@ from apps.kassenbuch.models import (
     Zuordnungsregel,
 )
 from apps.kern import services as kern_services
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf, Mandant, Objekt
 from apps.kern.vorgaenge import als_vorgang
 
@@ -1314,7 +1314,7 @@ def belege_posten_abgleichen(
         ART_BELEGE_FEHLEN,
         bezug=abschluss,
         aktionen=AKTIONEN_BELEGE_FEHLEN,
-        faellig_am=timezone.localdate(),
+        faellig_am=zeit.heute(),
         hinweis=_belege_hinweis(abschluss, pruefung),
         lauf=lauf,
     )
@@ -1353,7 +1353,7 @@ def monat_abschliessen(
     abschluss.saldo_buch = pruefung.saldo_buch
     abschluss.lauf = lauf or abschluss.lauf
     if pruefung.ok:
-        abschluss.abgeschlossen_am = timezone.now()
+        abschluss.abgeschlossen_am = zeit.jetzt()
         abschluss.save()
         for erledigt in _posten_zu(ART_ABSCHLUSS, abschluss, offen=True):
             kern_services.arbeitsposten_erledigen(erledigt)
@@ -1373,7 +1373,7 @@ def monat_abschliessen(
             ART_ABSCHLUSS,
             bezug=abschluss,
             aktionen=AKTIONEN_ABSCHLUSS,
-            faellig_am=timezone.localdate(),
+            faellig_am=zeit.heute(),
             hinweis=pruefung.hinweis(),
             lauf=lauf,
         )

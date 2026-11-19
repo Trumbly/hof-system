@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import datetime
 from typing import Any
 
 from django import forms
 
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten.forms import Datum, foto_pruefen
 from apps.stammdaten.models import Einheit
@@ -40,7 +40,7 @@ def _einheiten() -> Any:
 
 
 def _nicht_in_der_zukunft(datum: Any) -> None:
-    if datum is not None and datum > datetime.date.today():
+    if datum is not None and datum > zeit.heute():
         raise forms.ValidationError("Das Datum liegt in der Zukunft.")
 
 

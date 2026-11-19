@@ -12,11 +12,11 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from django.utils import timezone
 
 from apps.dokumente import pdf, services
 from apps.dokumente.models import Schreiben, Vorlage
 from apps.dokumente.vorlagenarten import Versandweg
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from tests.dokumente.conftest import braucht_weasyprint, kontext
 
@@ -72,7 +72,7 @@ def test_aus_freigegebener_vorlage_entsteht_schreiben_mit_pdf(
 def test_dateiname_aus_art_datum_und_id_nie_aus_namen(mitteilung: Vorlage, objekt: Objekt) -> None:
     """Schritt 3c, Aufgabe 2: Der Dateiname des PDFs besteht aus Art, Datum und ID."""
     schreiben = services.schreiben_erzeugen(mitteilung, objekt, kontext(objekt), Versandweg.MAIL)
-    heute = timezone.localdate()
+    heute = zeit.heute()
     assert schreiben.pdf.name == (
         f"schreiben/{heute:%Y/%m}/mitteilung_{heute:%Y-%m-%d}_{schreiben.pk}.pdf"
     )
@@ -108,7 +108,7 @@ def test_pdf_hat_anschrift_im_fenster_nach_din_5008(mitteilung: Vorlage, objekt:
         inhalt_html="<p>Inhalt</p>",
         betreff="Betreff",
         empfaenger_anschrift="Erika Beispiel\nErfundene Straße 1\n12345 Testdorf",
-        datum=timezone.localdate(),
+        datum=zeit.heute(),
         zeichen="S-1",
     )
     seite = _gerendert(html).pages[0]
@@ -140,7 +140,7 @@ def test_pdf_enthaelt_briefkopf_und_text(mitteilung: Vorlage, objekt: Objekt) ->
         inhalt_html=schreiben.inhalt_html,
         betreff=schreiben.betreff,
         empfaenger_anschrift="Erika Beispiel\nErfundene Straße 1\n12345 Testdorf",
-        datum=timezone.localdate(),
+        datum=zeit.heute(),
         zeichen=f"S-{schreiben.pk}",
     )
     text = " ".join(_text(s._page_box) for s in _gerendert(html).pages)

@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 from django.core.management import call_command
-from django.utils import timezone
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankabruf, Bankkonto, Bankumsatz, Kontostand
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 from tests.bank.conftest import eb_umsatz
 
@@ -37,7 +37,7 @@ def test_zweimaliger_abruf_erzeugt_keine_doppelten(
 ) -> None:
     """Abnahme Schritt 1: Ein Test zeigt, dass ein zweimaliger Abruf desselben Zeitraums
     keine Doppelten erzeugt (Lauf bank_abruf, Enable Banking als Fake mit Paginierung)."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     fake.umsaetze_je_konto["uid-vivid"] = _lieferung(heute)
     von = (heute - datetime.timedelta(days=3)).isoformat()
 
@@ -61,7 +61,7 @@ def test_abruf_ueberlappt_mit_dem_letzten_umsatz(
 ) -> None:
     """Ohne --von beginnt der Abruf 7 Tage vor dem letzten Umsatz (Doppelte fängt der
     Fingerabdruck ab); beim ersten Abruf 90 Tage zurück."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     call_command("bank_abruf")
     assert ("umsaetze", ("uid-vivid", heute - datetime.timedelta(days=90), heute)) in fake.aufrufe
 
@@ -74,7 +74,7 @@ def test_abruf_ueberlappt_mit_dem_letzten_umsatz(
 
 def test_abruf_liest_saldo_mit(vivid: Bankkonto, fake: enablebanking.FakeEnableBanking) -> None:
     """Schritt 1, Aufgabe 6: Der Abruf liest den Kontostand mit (Ende des Vortags)."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     fake.umsaetze_je_konto["uid-vivid"] = _lieferung(heute)
     fake.salden_je_konto["uid-vivid"] = [enablebanking.Saldo(Decimal("1085.50"), "ITBD")]
 
@@ -88,7 +88,7 @@ def test_abruf_liest_saldo_mit(vivid: Bankkonto, fake: enablebanking.FakeEnableB
 def test_abruf_meldet_saldoluecke(vivid: Bankkonto, fake: enablebanking.FakeEnableBanking) -> None:
     """Schritt 1, Aufgabe 6: Laufen Saldo und Umsätze auseinander, legt der Lauf einen
     Arbeitsposten mit Konto-ID und Datum an, ohne Beträge."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     vorgestern = heute - datetime.timedelta(days=2)
     services.kontostand_erfassen(vivid, vorgestern, Decimal("500.00"))
     fake.umsaetze_je_konto["uid-vivid"] = _lieferung(heute)
@@ -128,7 +128,7 @@ def test_gescheiterter_abruf_wird_arbeitsposten(
 def test_abgelaufene_freigabe_scheitert(
     vivid: Bankkonto, fake: enablebanking.FakeEnableBanking
 ) -> None:
-    gestern = timezone.localdate() - datetime.timedelta(days=1)
+    gestern = zeit.heute() - datetime.timedelta(days=1)
     services.bankfreigabe_anlegen(
         vivid, gueltig_ab=gestern - datetime.timedelta(days=5), gueltig_bis=gestern
     )
@@ -142,7 +142,7 @@ def test_abgelaufene_freigabe_scheitert(
 
 def test_lauf_prueft_freigaben(vivid: Bankkonto, fake: enablebanking.FakeEnableBanking) -> None:
     """Schritt 1, Aufgabe 7: Der tägliche Lauf legt 14 Tage vor Ablauf den Posten an."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     services.bankfreigabe_anlegen(vivid, gueltig_bis=heute + datetime.timedelta(days=10))
     vivid.freigaben.filter(gueltig_bis__gt=heute + datetime.timedelta(days=10)).update(
         gueltig_bis=heute + datetime.timedelta(days=10)

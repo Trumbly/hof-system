@@ -10,7 +10,6 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import Client, override_settings
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Kennzahl
@@ -20,6 +19,7 @@ from apps.anbindungen.verwaltio import (
     VerwaltioKennzahlen,
     VerwaltioNichtEingerichtet,
 )
+from apps.kern import zeit
 from apps.kern.models import Lauf, Objekt
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import Einheit, Partei
@@ -187,7 +187,7 @@ def test_cockpit_kachel_wohnraum_ohne_namen(
     """Abnahme Schritt 10: Das Cockpit (bis Schritt 9b die Startseite) zeigt für Wohnraum
     offene Posten, Mahnfälle, Stand der NKA und Fristen, ohne Namen."""
     partei = stammdaten.partei_anlegen(Partei.Art.PERSON, vorname="Wanda", nachname="Wohnmieter")
-    services.kennzahlen_abrufen(fake, timezone.localdate())
+    services.kennzahlen_abrufen(fake, zeit.heute())
 
     html = angemeldet.get(reverse("kern:startseite")).content.decode()
 

@@ -12,8 +12,8 @@ import datetime
 from typing import Any
 
 from django.core.management.base import CommandParser
-from django.utils import timezone
 
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 from apps.zaehler import services
 
@@ -36,7 +36,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        heute: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        heute: datetime.date = optionen.get("stichtag") or zeit.heute()
         ergebnis = services.stichtag_pruefen(heute, lauf=self.lauf)
         self.koerbe.arbeitsposten += len(ergebnis.neue_posten)
         if ergebnis.stichtag is None:

@@ -37,6 +37,7 @@ from django.utils.module_loading import import_string
 
 from apps.bank.models import Bankumsatz
 from apps.bank.services import UmsatzDaten
+from apps.kern import zeit
 
 JWT_GUELTIG_SEKUNDEN = 3600
 MAX_SEITEN = 500
@@ -356,7 +357,7 @@ class FakeEnableBanking:
             return self.sitzungen[code]
         return Sitzung(
             sitzung_id=f"fake-sitzung-{code}",
-            gueltig_bis=datetime.date.today() + datetime.timedelta(days=180),
+            gueltig_bis=zeit.heute() + datetime.timedelta(days=180),
             konten=[],
         )
 

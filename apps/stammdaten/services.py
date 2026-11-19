@@ -21,11 +21,11 @@ from django.core.files import File
 from django.core.validators import validate_email
 from django.db import models, transaction
 from django.db.models import Q
-from django.utils import timezone
 
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
 from apps.kern.vorgaenge import als_vorgang
 from apps.stammdaten import fristrechnung, konfiguration, schreiben
@@ -142,7 +142,7 @@ def _arbeitsposten_erledigen(art: str, bezug: models.Model, hinweis_beginnt: str
 
 def _fristen_erledigen(bezug: models.Model, am: datetime.date) -> None:
     """Erledigt die offenen Fristen eines Bezugs (Erledigt-Datum nie in der Zukunft)."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     for frist in fristen.fristen_zu(bezug, nur_offen=True):
         fristen.frist_erledigen(frist, min(am, heute))
 
@@ -718,7 +718,7 @@ def vertragsdokument_erzeugen(vertrag: Vertrag) -> schreiben.Ergebnis:
         raise StammdatenFehler(f"Vertrag {vertrag.nummer} ist kein Entwurf mehr.")
     ergebnis = schreiben.vertragsdokument_erzeugen(vertrag)
     if not isinstance(ergebnis, Arbeitsposten):
-        checkpunkte_automatisch(vertrag, "vertragsdokument", timezone.localdate())
+        checkpunkte_automatisch(vertrag, "vertragsdokument", zeit.heute())
     return ergebnis
 
 
@@ -1015,13 +1015,13 @@ def checkliste_anlegen(
             ART_CHECKLISTE, bezug=liste, hinweis=f"{vorlage.titel} · {bezug_text}"
         )
         if vertrag is not None and _vertragsdokument_da(vertrag):
-            checkpunkte_automatisch(vertrag, "vertragsdokument", timezone.localdate())
+            checkpunkte_automatisch(vertrag, "vertragsdokument", zeit.heute())
     return liste
 
 
 def _monatsmiete(vertrag: Vertrag) -> Decimal | None:
     """Miete je Monat (netto) zu Beginn bzw. heute, für Schwellen wie P8."""
-    kondition = vertrag.kondition_am(max(timezone.localdate(), vertrag.beginn))
+    kondition = vertrag.kondition_am(max(zeit.heute(), vertrag.beginn))
     if kondition is None:
         kondition = vertrag.konditionen.order_by("gueltig_ab").first()
     return kondition.miete if kondition is not None else None

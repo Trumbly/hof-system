@@ -16,11 +16,13 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils import timezone
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import SafeString
 
 from apps.cockpit import kacheln
-from apps.kern import zahlen
+from apps.kern import zahlen, zeit
 from apps.kern.models import Objekt
+from apps.kern.templatetags.bausteine import begriff_html
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +43,23 @@ def _kachel(request: HttpRequest, kachel: kacheln.Kachel) -> tuple[str, dict[str
 class Kennzahl:
     titel: str
     wert: str
-    unter: str = ""
+    unter: str | SafeString = ""
     art: str = ""
     link: str = ""
+
+
+def _rueckstand_unter(k: dict[str, Any]) -> SafeString:
+    """Zeile unter dem Rückstand: Verträge, Klärung und, mit Erklärung, was nicht prüfbar ist
+    (Review 3, Punkt 1: dieselbe Aufteilung wie die Kachel Offene Posten)."""
+    teile = [format_html("{} Vertr{}", k["anzahl"], "äge" if k["anzahl"] != 1 else "ag")]
+    if k.get("in_klaerung"):
+        teile.append(format_html("{} in Klärung", k["in_klaerung"]))
+    nicht_pruefbar = k.get("nicht_pruefbar")
+    if nicht_pruefbar is not None and nicht_pruefbar.summe:
+        teile.append(
+            format_html("{} {}", zahlen.euro(nicht_pruefbar.summe), begriff_html("nicht_pruefbar"))
+        )
+    return format_html_join(" · ", "{}", ((teil,) for teil in teile))
 
 
 def _kennzahlen(kontexte: dict[str, dict[str, Any]]) -> list[Kennzahl]:
@@ -63,14 +79,7 @@ def _kennzahlen(kontexte: dict[str, dict[str, Any]]) -> list[Kennzahl]:
             Kennzahl(
                 "Rückstand",
                 zahlen.euro(k["summe"]),
-                f"{k['anzahl']} Vertr{'äge' if k['anzahl'] != 1 else 'ag'}"
-                + (f" · {k['in_klaerung']} in Klärung" if k.get("in_klaerung") else "")
-                # R1-B: nach dem Datenstand der Bank fällig, noch nicht prüfbar
-                + (
-                    f" · {zahlen.euro(k['nicht_pruefbar'])} nicht prüfbar"
-                    if k.get("nicht_pruefbar")
-                    else ""
-                ),
+                _rueckstand_unter(k),
                 art="fehler" if k["anzahl"] else "",
                 link=reverse("abgleich:rueckstaende"),
             )
@@ -112,7 +121,7 @@ def startseite(request: HttpRequest) -> HttpResponse:
         {
             "kacheln": html,
             "kennzahlen": _kennzahlen(kontexte),
-            "heute": timezone.localdate(),
+            "heute": zeit.heute(),
             "objekte": Objekt.objects.filter(aktiv=True).select_related("mandant"),
         },
     )

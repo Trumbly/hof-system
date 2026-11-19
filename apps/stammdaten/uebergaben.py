@@ -21,6 +21,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
+from apps.kern import zeit
 from apps.stammdaten.models import Kuendigung, Uebergabe, Vertrag, Vertragspartei
 
 
@@ -115,5 +116,5 @@ def uebergaben(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "stammdaten/uebergaben.html",
-        {**listen(), "heute": datetime.date.today()},
+        {**listen(), "heute": zeit.heute()},
     )

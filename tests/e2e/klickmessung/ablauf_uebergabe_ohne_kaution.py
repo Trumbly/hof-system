@@ -13,13 +13,13 @@ Gemessen wird ab der Vertragsseite.
 
 from __future__ import annotations
 
-import datetime
 import re
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
+from apps.kern import zeit
 from tests.e2e.klickmessung.messung import Gescheitert, Messung
 
 NAME = "uebergabe_ohne_kaution"
@@ -54,7 +54,7 @@ SELEKTOREN = {
 #: Suchtext für eine vorhandene Partei des Testhofs (Vorbereitung).
 PARTEI_SUCHE = "e"
 #: Übergabe am Tag des Beginns (der Assistent schlägt heute vor; davor lehnt er ab).
-BEGINN = datetime.date.today().isoformat()
+BEGINN = zeit.heute().isoformat()
 MIETE = "55,00"
 
 

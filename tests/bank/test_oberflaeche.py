@@ -8,10 +8,10 @@ from decimal import Decimal
 import pytest
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankkonto
+from apps.kern import zeit
 from tests.bank.conftest import umsatz
 
 pytestmark = pytest.mark.django_db
@@ -92,7 +92,7 @@ def test_freigabe_erneuern_ueber_enable_banking(
     assert start.status_code == 302
     zur_bank = start["Location"]
     assert zur_bank.startswith("http://testserver/bank/freigabe/rueckkehr/?code=fake-")
-    neu_bis = timezone.localdate() + datetime.timedelta(days=180)
+    neu_bis = zeit.heute() + datetime.timedelta(days=180)
     code = zur_bank.split("code=")[1].split("&")[0]
     fake.sitzungen[code] = enablebanking.Sitzung(
         sitzung_id="neu",

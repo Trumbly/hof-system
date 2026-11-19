@@ -13,6 +13,8 @@ from apps.stammdaten.forms import Datum
 FILTER_STATUS = (
     ("offen", "offen und teilweise bezahlt"),
     ("ueberfaellig", "überfällig"),
+    ("nicht_pruefbar", "nicht prüfbar"),
+    ("noch_nicht_faellig", "noch nicht fällig"),
     ("bezahlt", "bezahlt"),
     ("storniert", "storniert"),
     ("alle", "alle"),

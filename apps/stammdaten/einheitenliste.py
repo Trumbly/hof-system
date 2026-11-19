@@ -1,7 +1,7 @@
 """Lage der Einheiten an einem Tag (Review 2, B6 und B11). Nur lesen, nichts schreiben.
 
 Für jede Einheit: Status heute (frei, vermietet, gekündigt, Vertrag im Entwurf), der Vertrag,
-der sie bindet, die Mieter, die Miete heute, was offen ist (aus ``soll.offen_abfrage``, also
+der sie bindet, die Mieter, die Miete heute, was überfällig ist (aus ``soll.teil_abfrage``, also
 dieselbe Wahrheit wie überall), die Zielmiete und ab wann sie frei ist.
 
 Genutzt von der Liste „Einheiten“, der Einheitenseite und der Einheitenauswahl von „Neuer
@@ -78,7 +78,7 @@ class Lage:
     nachfolger: Vertrag | None = None
     mieter: list[str] = field(default_factory=list)
     miete: Decimal | None = None
-    #: Offen bis heute (Rückstand), aus ``soll.offen_abfrage``.
+    #: Überfällig (Rückstand), aus ``soll.teil_abfrage("ueberfaellig")``.
     offen: Decimal = NULL
     zielmiete: Decimal | None = None
     #: Frei seit (Status „frei“) bzw. frei ab dem Tag nach dem Vertragsende.
@@ -108,11 +108,13 @@ def _gueltig(heute: datetime.date) -> Q:
 
 
 def offen_je_vertrag(vertrag_ids: Iterable[int], heute: datetime.date) -> dict[int, Decimal]:
+    """Überfälliges je Vertrag (Review 3, Punkt 1): vor heute und bis zum letzten Bankabruf
+    fällig. Die laufende Monatsmiete und „nicht prüfbare“ Posten zählen nicht."""
     # Spät importiert: ``soll`` importiert die Stammdaten.
     from apps.soll import services as soll
 
     zeilen = (
-        soll.offen_abfrage(stichtag=heute)
+        soll.teil_abfrage("ueberfaellig", stichtag=heute)
         .filter(vertrag_id__in=list(vertrag_ids))
         .order_by()
         .values("vertrag_id")

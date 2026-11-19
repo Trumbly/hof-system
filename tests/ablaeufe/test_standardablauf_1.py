@@ -17,12 +17,12 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.anbindungen import services as anbindungen
 from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
 from apps.fristen import services as fristen
+from apps.kern import zeit
 from apps.soll import services as soll
 from apps.soll.models import Sollposten
 from apps.stammdaten import schreiben, services
@@ -298,10 +298,10 @@ def test_standardablauf_1_belegung_an_website(testhof: Testhof) -> None:
 
     # 1. Die Einheit ist frei und steht mit Zielmiete und frei ab heute im Katalog.
     eintrag = katalog()[einheit.nw_id]
-    ziel = einheit.zielmiete_am(timezone.localdate())
+    ziel = einheit.zielmiete_am(zeit.heute())
     assert ziel is not None
     assert eintrag["preis_monat"] == str(ziel.betrag)
-    assert eintrag["frei_ab"] == timezone.localdate().isoformat()
+    assert eintrag["frei_ab"] == zeit.heute().isoformat()
 
     # 2.–3. Interessent bucht auf der Website: Anfrage an der Einheit, Arbeitsposten.
     antwort = website.post(

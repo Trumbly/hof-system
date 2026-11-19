@@ -6,9 +6,9 @@ import datetime
 from typing import Any
 
 from django.core.management.base import CommandParser
-from django.utils import timezone
 
 from apps.fristen import services
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 
 
@@ -27,7 +27,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        stichtag: datetime.date = optionen.get("stichtag") or zeit.heute()
         ergebnis = services.fristen_pruefen(stichtag, lauf=self.lauf)
         self.koerbe.arbeitsposten += len(ergebnis.neue_posten)
         weitere = "".join(f" {name}: {anzahl}." for name, anzahl in ergebnis.weitere.items())

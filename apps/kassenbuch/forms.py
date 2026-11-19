@@ -12,6 +12,7 @@ from django.forms import formset_factory
 
 from apps.bank.models import Bankkonto
 from apps.kassenbuch.models import Kategorie, Zuordnungsregel
+from apps.kern import zeit
 from apps.kern.models import Mandant, Objekt
 
 
@@ -251,7 +252,7 @@ class MonatAuswahl(forms.MultiWidget):
     """
 
     def __init__(self, attrs: dict[str, Any] | None = None, *, leer: bool = False) -> None:
-        jahre = range(ERSTES_JAHR, datetime.date.today().year + 2)
+        jahre = range(ERSTES_JAHR, zeit.heute().year + 2)
         # ``leer``: als Filter auch „alle“ (Kassenbuch, Review 2, B11)
         vorn: list[tuple[str, str]] = [("", "alle Monate")] if leer else []
         jahr_vorn: list[tuple[str, str]] = [("", "–")] if leer else []

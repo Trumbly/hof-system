@@ -40,7 +40,7 @@ PROTOKOLL_APPS = frozenset({"pghistory", "sessions", "admin"})
 PROTOKOLL_MODELLE = frozenset({"kern.Lauf", "benachrichtigung.Benachrichtigung"})
 #: Felder, die die Uhr bei Nutzung setzt (nicht über einen Standardwert erkennbar), etwa
 #: das Ende eines Bankabrufs. ``erledigt_am`` setzt ``kern.services.arbeitsposten_erledigen``
-#: mit ``timezone.now()``; ``vorgemerkt_am`` und ``abgeglichen_am`` setzt das Cockpit beim
+#: mit ``zeit.jetzt()``; ``vorgemerkt_am`` und ``abgeglichen_am`` setzt das Cockpit beim
 #: Vormerken und Abgleichen der Aufgaben im Hof-Backlog.
 UHR_FELDER = frozenset(
     {"last_login", "last_used_at", "beendet_am", "erledigt_am", "vorgemerkt_am", "abgeglichen_am"}
@@ -74,6 +74,7 @@ def _ist_zeitstempel(feld: models.Field[Any, Any]) -> bool:
     if feld.name in UHR_FELDER:
         return True
     if isinstance(feld, models.DateField):
+        # zeit: echt (erkennt den Standardwert, fragt die Uhr nicht)
         return bool(feld.auto_now or feld.auto_now_add or feld.default is timezone.now)
     return False
 

@@ -20,7 +20,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from apps.kern import htmx, zahlen
-from apps.kern.templatetags.bausteine import BADGES
+from apps.kern.templatetags.bausteine import BADGES, BEGRIFFE
 
 D = datetime.date
 
@@ -225,6 +225,7 @@ def stilseite(request: HttpRequest) -> HttpResponse:
             "abstaende": (4, 8, 12, 16, 20, 24, 32, 40, 48),
             "badges": [(schluessel, b) for schluessel, b in BADGES.items()][:8],
             "alle_badges": BADGES,
+            "begriffe": list(BEGRIFFE.items()),
             "zeilen": BEISPIEL_ZEILEN,
             "summe_offen": sum((z["offen"] for z in BEISPIEL_ZEILEN), Decimal("0")),
             "form": BeispielForm(prefix="beispiel"),

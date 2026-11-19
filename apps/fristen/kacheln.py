@@ -6,9 +6,8 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from django.utils import timezone
-
 from apps.fristen import services
+from apps.kern import zeit
 
 TAGE = 14
 #: Höchstens so viele Zeilen je Liste; der Rest hinter dem Link auf die Fristen.
@@ -16,7 +15,7 @@ ZEILEN = 5
 
 
 def fristen_kontext() -> dict[str, Any]:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     fristen = list(
         services.offene_fristen()
         .filter(datum__lte=heute + datetime.timedelta(days=TAGE))

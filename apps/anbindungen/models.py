@@ -29,7 +29,7 @@ from apps.stammdaten.models import Einheit, Kuendigung, Vertrag
 def _bild_pfad(instanz: Any, dateiname: str) -> str:
     """Neutraler Dateiname ohne Teile des Originalnamens."""
     endung = PurePath(dateiname).suffix.lower()[:10]
-    heute = datetime.date.today()
+    heute = datetime.date.today()  # zeit: echt (Ablageordner nach Speicherdatum)
     return f"anbindungen/bilder/{heute:%Y/%m}/{uuid.uuid4().hex}{endung}"
 
 

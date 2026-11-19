@@ -12,7 +12,6 @@ import datetime
 from typing import Any
 
 from django.core.management.base import CommandParser
-from django.utils import timezone
 
 from apps.anbindungen import services
 from apps.anbindungen.verwaltio import (
@@ -21,6 +20,7 @@ from apps.anbindungen.verwaltio import (
     verwaltio_client,
 )
 from apps.anbindungen.website import WebsiteClient, WebsiteNichtEingerichtet, website_client
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 
 
@@ -39,7 +39,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        stichtag: datetime.date = optionen.get("stichtag") or zeit.heute()
         website: WebsiteClient | None
         verwaltio: VerwaltioClient | None
         try:

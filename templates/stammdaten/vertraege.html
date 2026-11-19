@@ -23,7 +23,7 @@
   {% if suche %}<p class="text-3 klein filterleiste-ergebnis">{{ zeilen|length }} Treffer · <a href="{{ basis }}?status={{ gruppe }}">Suche zurücksetzen</a></p>{% endif %}
   <div class="tabelle-box">
     <table class="tab tab-karten">
-      <thead><tr><th>Nummer</th><th>Einheiten</th><th>Mieter</th><th class="zahl">Miete</th><th class="zahl">offen</th><th>Beginn</th><th>Ende</th><th>Status</th></tr></thead>
+      <thead><tr><th>Nummer</th><th>Einheiten</th><th>Mieter</th><th class="zahl">Miete</th><th class="zahl">{% begriff "ueberfaellig" %}</th><th>Beginn</th><th>Ende</th><th>Status</th></tr></thead>
       <tbody>
       {% for z in zeilen %}{% with v=z.vertrag %}
       <tr>
@@ -31,7 +31,7 @@
         <td data-titel="Einheiten">{% for e in v.einheiten.all %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</td>
         <td data-titel="Mieter">{% for vp in v.mieter %}{{ vp.partei.anzeigename }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-3">–</span>{% endfor %}</td>
         <td data-titel="Miete" class="zahl">{{ z.miete|euro|default:"–" }}</td>
-        <td data-titel="offen" class="zahl">{% if z.offen > 0 %}<a class="text-fehler" href="{% url 'stammdaten:vertrag' v.pk %}?reiter=mietkonto">{{ z.offen|euro }}</a>{% else %}{{ z.offen|euro }}{% endif %}</td>
+        <td data-titel="überfällig" class="zahl">{% if z.offen > 0 %}<a class="text-fehler" href="{% url 'stammdaten:vertrag' v.pk %}?reiter=mietkonto">{{ z.offen|euro }}</a>{% else %}{{ z.offen|euro }}{% endif %}</td>
         <td data-titel="Beginn"><time>{{ v.beginn|date:"d.m.Y" }}</time></td>
         <td data-titel="Ende">{{ v.ende|date:"d.m.Y"|default:"–" }}</td>
         <td data-titel="Status">{% badge v.status %}</td>

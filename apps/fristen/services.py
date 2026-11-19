@@ -46,10 +46,10 @@ from dataclasses import dataclass, field
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, models, transaction
 from django.db.models import ExpressionWrapper, F, QuerySet
-from django.utils import timezone
 
 from apps.fristen.models import Frist, Fristverschiebung
 from apps.kern import services as kern_services
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 
 logger = logging.getLogger(__name__)
@@ -215,7 +215,7 @@ def frist_verschieben(
     heute) nicht mehr fällig, schließt sich ihr Arbeitsposten. Erledigte Fristen lassen
     sich nicht verschieben.
     """
-    heute = heute or timezone.localdate()
+    heute = heute or zeit.heute()
     with transaction.atomic():
         frist = Frist.objects.select_for_update().get(pk=frist.pk)
         if frist.ist_erledigt:
@@ -239,7 +239,7 @@ def frist_erledigen(frist: Frist, am: datetime.date | None = None) -> Frist:
     Ist die Frist schon erledigt, bleibt sie unverändert. Ein Datum in der Zukunft ist
     nicht erlaubt.
     """
-    heute = timezone.localdate()
+    heute = zeit.heute()
     am = am or heute
     if am > heute:
         raise FristFehler(f"Frist #{frist.pk}: Das Erledigt-Datum liegt in der Zukunft.")

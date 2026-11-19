@@ -67,7 +67,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, models, transaction
 from django.db.models import Exists, F, Max, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 from apps.abgleich.models import (
     Guthaben,
@@ -85,6 +84,7 @@ from apps.dokumente.models import Dokument, Lieferant
 from apps.kassenbuch import services as kassenbuch
 from apps.kassenbuch.models import Buchung, Kategorie, Zuordnungsregel
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf, Objekt
 from apps.kern.vorgaenge import als_vorgang
 from apps.soll import services as soll
@@ -142,7 +142,7 @@ class AbgleichFehler(ValueError):
 
 def heute() -> datetime.date:
     """Das heutige Datum des Abgleichs (in Tests austauschbar)."""
-    return timezone.localdate()
+    return zeit.heute()
 
 
 _BEGINN: contextvars.ContextVar[datetime.date | str | None] = contextvars.ContextVar(
@@ -1263,7 +1263,7 @@ def _klaerfall_schliessen(klaerfall: Klaerfall, ergebnis: str) -> Klaerfall:
     if not klaerfall.offen:
         raise AbgleichFehler(f"Klärfall #{klaerfall.pk} ist schon geklärt.")
     klaerfall.ergebnis = ergebnis
-    klaerfall.erledigt_am = timezone.now()
+    klaerfall.erledigt_am = zeit.jetzt()
     klaerfall.save(update_fields=["ergebnis", "erledigt_am"])
     posten = klaerfall_posten(klaerfall)
     if posten is not None and posten.status != Arbeitsposten.Status.ERLEDIGT:
@@ -1820,13 +1820,15 @@ def kachel_rueckstaende() -> dict[str, Any]:
     """Kontext der Kachel „Rückstände“ für das Hof-Cockpit (Schritt 9b): nur Zähler und
     Summen, keine Namen, keine Beträge je Vertrag."""
     zahlen = rueckstaende().kennzahlen()
+    # Review 3, Punkt 1: dieselbe Aufteilung wie die Kachel Offene Posten. Der Rückstand ist
+    # „überfällig“; „nicht prüfbar“ (nach dem letzten Bankabruf fällig) zählt nicht dazu.
+    aufteilung = soll.aufteilung()
     return {
+        **aufteilung.kontext(),
         "anzahl": zahlen["vertraege_mit_rueckstand"],
         "in_klaerung": zahlen["vertraege_in_klaerung"],
-        "summe": zahlen["summe"],
+        "summe": aufteilung.ueberfaellig.summe,
         "ueber_60": zahlen["summe_ueber_60"],
-        # Nach dem Datenstand der Bank fällig: offen, aber noch nicht prüfbar.
-        "nicht_pruefbar": zahlen["nicht_pruefbar"],
     }
 
 
@@ -1859,7 +1861,7 @@ def rueckstaende(stichtag: datetime.date | None = None) -> Rueckstaende:
                 guthaben=guthaben_summe(vertrag),
             )
         eintrag.posten.append(p)
-        if datenstand is None or p.faellig_am > datenstand:
+        if soll.einordnen(p.faellig_am, stichtag, datenstand) == "nicht_pruefbar":
             eintrag.nicht_pruefbar += offen.offen
             continue
         alter = offen.alter(stichtag)

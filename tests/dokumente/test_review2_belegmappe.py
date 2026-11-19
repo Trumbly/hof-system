@@ -10,10 +10,10 @@ from decimal import Decimal
 import pytest
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.dokumente import belegmappe, services
 from apps.dokumente.models import Beleg
+from apps.kern import zeit
 from tests.dokumente.conftest import Belegwelt, gueltige_buchung, rechnung_pdf
 from tests.dokumente.test_belegmappe import beleg_zur_ausgabe
 
@@ -39,7 +39,7 @@ def _beleg_ohne_buchung(belegwelt: Belegwelt, datum: datetime.date, betrag: str)
 def test_vorbelegt_mit_objekt_und_aktuellem_jahr(angemeldet: Client, belegwelt: Belegwelt) -> None:
     """Review 2, B11: Ohne Angaben zeigt die Seite sofort die Mappe des Objekts mit den
     meisten Belegen im aktuellen Jahr (vorher: leeres Formular und das Vorjahr)."""
-    jahr = timezone.localdate().year
+    jahr = zeit.heute().year
     beleg_zur_ausgabe(belegwelt, datetime.date(jahr, 1, 15), "50.00", belegwelt.strom, "S-9")
     assert belegmappe.vorgabe(jahr) == belegwelt.hof
 

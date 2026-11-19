@@ -10,6 +10,7 @@ from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten import datenstand
 from apps.stammdaten import services as stammdaten
@@ -21,7 +22,7 @@ from tests.zaehler.conftest import foto
 
 pytestmark = pytest.mark.django_db
 D = datetime.date
-HEUTE = datetime.date.today()
+HEUTE = zeit.heute()
 #: Der letzte Stichtag vor heute; die Tests rechnen von ihm aus, damit sie jedes Jahr gelten.
 STICHTAG = services.letzter_stichtag(HEUTE)
 EINBAU = D(STICHTAG.year - 3, 1, 1)

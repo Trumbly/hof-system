@@ -3,6 +3,8 @@ der Testhof."""
 
 from __future__ import annotations
 
+import contextlib
+import datetime
 import sys
 import time
 from collections.abc import Iterator
@@ -17,6 +19,7 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django import DjangoDbBlocker
 
+from apps.kern import zeit
 from apps.kern.models import Benutzer
 from testhof.aufbau import Testhof, aufbauen
 from tests.factories import TESTPASSWORT, BenutzerFabrik
@@ -45,6 +48,26 @@ def _totp_uhr_anhalten(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     jetzt = float(int(time.time()))
     monkeypatch.setattr(totp_auth, "time", SimpleNamespace(time=lambda: jetzt))
+
+
+class Uhr:
+    """Stellt ``apps.kern.zeit`` bis zum Ende des Tests (Fixture ``uhr``)."""
+
+    def __init__(self, stapel: contextlib.ExitStack) -> None:
+        self._stapel = stapel
+
+    def stellen(self, wann: datetime.date | datetime.datetime) -> None:
+        """Ab jetzt gilt ``wann`` als heute (ein ``datetime`` legt auch die Uhrzeit fest)."""
+        self._stapel.enter_context(zeit.uhr_stellen(wann))
+
+
+@pytest.fixture
+def uhr() -> Iterator[Uhr]:
+    """Die eine Uhr des Systems (Review 3, Punkt 1). Ohne sie gilt in Tests der Stichtag des
+    Testhofs (``HOF_STICHTAG``), wie in dev. ``uhr.stellen(datum)`` stellt sie um, für den
+    Rest des Tests. Für einen Block: ``with zeit.uhr_stellen(datum): …``."""
+    with contextlib.ExitStack() as stapel:
+        yield Uhr(stapel)
 
 
 @pytest.fixture(autouse=True)
