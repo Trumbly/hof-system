@@ -12,10 +12,10 @@ import datetime
 from typing import Any
 
 from django.core.management.base import CommandParser
-from django.utils import timezone
 
 from apps.anbindungen import services
 from apps.anbindungen.verwaltio import VerwaltioNichtEingerichtet, verwaltio_client
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 
 
@@ -34,7 +34,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        stichtag: datetime.date = optionen.get("stichtag") or zeit.heute()
         try:
             client = verwaltio_client()
         except VerwaltioNichtEingerichtet as fehler:

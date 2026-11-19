@@ -6,9 +6,8 @@ Geschrieben wird nur über ``apps.bank.services`` (CLAUDE.md, Regel 4.1).
 from __future__ import annotations
 
 from django.db import models
-from django.utils import timezone
 
-from apps.kern import personenfelder
+from apps.kern import personenfelder, zeit
 from apps.kern.models import Lauf, Mandant
 from apps.kern.protokoll import ProtokolliertesModell
 
@@ -106,7 +105,9 @@ class Bankabruf(ProtokolliertesModell):
     status = models.CharField(
         "Status", max_length=20, choices=Status.choices, default=Status.LAEUFT
     )
-    gestartet_am = models.DateTimeField("gestartet am", default=timezone.now)
+    # Fachlicher Zeitpunkt (Review 3, Punkt 1): Der Tag des letzten Abrufs zählt für die
+    # Zulieferung und den Datenstand, deshalb die eine Uhr.
+    gestartet_am = models.DateTimeField("gestartet am", default=zeit.jetzt)
     beendet_am = models.DateTimeField("beendet am", null=True, blank=True)
     geliefert = models.PositiveIntegerField("geliefert", default=0)
     neu = models.PositiveIntegerField("neu", default=0)

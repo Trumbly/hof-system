@@ -36,6 +36,7 @@ from apps.dokumente.versand import (
     _fake_erlaubt,
     einstellung,
 )
+from apps.kern import zeit
 
 BASIS_URL = "https://api.letterxpress.de/v3"
 
@@ -222,7 +223,7 @@ class FakeLetterXpressClient:
             raise LetterXpressFehler("LetterXpress (Fake): Prüfsumme passt nicht.")
         type(self)._naechste += 1
         auftrag_id = str(type(self)._naechste)
-        heute = datetime.date.today().isoformat()
+        heute = zeit.heute().isoformat()
         daten: dict[str, Any] = {
             "id": int(auftrag_id),
             "shipping": "national",

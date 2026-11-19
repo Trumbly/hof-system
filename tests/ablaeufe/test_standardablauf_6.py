@@ -27,7 +27,6 @@ from django.core import mail
 from django.core.management import call_command
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.bank import services as bank_services
 from apps.dokumente import belegmappe, services
@@ -36,7 +35,7 @@ from apps.dokumente.postfach import FakePostfach
 from apps.fristen import services as fristen_services
 from apps.fristen.models import Frist
 from apps.kassenbuch import services as kassenbuch_services
-from apps.kern import aufgaben
+from apps.kern import aufgaben, zeit
 from apps.kern.models import Arbeitsposten
 from testhof.aufbau import Testhof
 from testhof.pdfs import einfaches_pdf
@@ -61,7 +60,7 @@ def test_standardablauf_6_eingangsrechnung_und_beleg(
     sich."""
     gemeldet: list[tuple[str, str]] = []
     monkeypatch.setattr(aufgaben, "melden", lambda p: gemeldet.append((p.art, p.status)))
-    heute = timezone.localdate()
+    heute = zeit.heute()
     faellig = heute + datetime.timedelta(days=14)
     strom = testhof.kassenbuch.kategorien["Strom"]
     frueher = next(b for b in testhof.belege.belege if b.kategorie == strom)
@@ -71,13 +70,14 @@ def test_standardablauf_6_eingangsrechnung_und_beleg(
 
     # 1. Die Rechnung kommt ins Postfach und liegt am selben Tag in der Ablage.
     FakePostfach.einwerfen(
-        rechnungsmail(pdf, absender=lieferant.email, datum=format_datetime(timezone.now()))
+        rechnungsmail(pdf, absender=lieferant.email, datum=format_datetime(zeit.jetzt()))
     )
     _lauf("belege_postfach")
     dokument = Dokument.objects.get(
         herkunft=Dokument.Herkunft.POSTFACH, eingangskennung__startswith="<r1@"
     )
-    assert timezone.localdate(dokument.eingegangen_am) == heute == dokument.datum
+    # ``eingegangen_am`` ist ein technischer Zeitstempel (auto_now_add, echte Zeit).
+    assert dokument.datum == heute
     assert (
         reverse("dokumente:dokument", args=[dokument.pk])
         in angemeldet.get(reverse("dokumente:ablage")).content.decode()

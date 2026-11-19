@@ -834,6 +834,14 @@ a.kennzahl:hover {
   color: var(--fehler);
 }
 
+/* --- Fachbegriff mit Erklärung (Review 3, Punkt 1) ------------------------------------ */
+
+.begriff {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
 /* --- Status-Badge und Zähler ---------------------------------------------------------- */
 
 .badge {

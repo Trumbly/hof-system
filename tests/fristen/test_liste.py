@@ -8,16 +8,16 @@ import re
 import pytest
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.fristen import services
 from apps.fristen.models import Frist
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from tests.factories import ObjektFabrik
 
 pytestmark = pytest.mark.django_db
 
-HEUTE = timezone.localdate()
+HEUTE = zeit.heute()
 LISTE = reverse("fristen:liste")
 
 

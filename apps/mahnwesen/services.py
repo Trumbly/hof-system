@@ -55,6 +55,7 @@ from apps.dokumente import services as dokumente
 from apps.dokumente.models import Schreiben, Vorlage
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 from apps.mahnwesen import startdaten
 from apps.mahnwesen.models import Mahnfall, Mahnschritt, Mahnsperre, Mahnstufe
@@ -92,7 +93,7 @@ class MahnwesenFehler(ValueError):
 
 def heute() -> datetime.date:
     """Das heutige Datum des Mahnwesens (in Tests austauschbar)."""
-    return timezone.localdate()
+    return zeit.heute()
 
 
 def _nw_ids(vertrag: Vertrag) -> list[str]:

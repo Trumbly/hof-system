@@ -72,10 +72,10 @@ def test_abnahme_eine_wahrheit_fuer_offen(nach_tageslauf: Testhof, angemeldet: C
 
     # Cockpit: Kachel Offene Posten (überfällig) und Kachel Rückstand
     kachel = soll_kacheln.offene_posten_kontext()
-    assert (kachel["ueberfaellig"], kachel["summe_ueberfaellig"]) == (ANZAHL, SUMME)
+    assert kachel["ueberfaellig"] == soll.Teil(ANZAHL, SUMME)
     rueck_kachel = abgleich.kachel_rueckstaende()
     assert (rueck_kachel["anzahl"], rueck_kachel["summe"]) == (3, SUMME)
-    assert rueck_kachel["nicht_pruefbar"] == E("0.00")
+    assert rueck_kachel["nicht_pruefbar"] == soll.Teil(0, E("0.00"))
     start = angemeldet.get(reverse("kern:startseite")).content.decode()
     assert "139,05\u00a0€" in start  # |euro: geschütztes Leerzeichen
 

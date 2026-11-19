@@ -15,11 +15,11 @@ from __future__ import annotations
 from typing import Any
 
 from django.db import models
-from django.utils import timezone
 
 from apps.fristen import services
 from apps.fristen.models import Frist
 from apps.kern import services as kern
+from apps.kern import zeit
 
 
 def _fristen_zu_entferntem(modell: type[models.Model], objekt_id: Any) -> list[kern.Schritt]:
@@ -31,7 +31,7 @@ def _fristen_zu_entferntem(modell: type[models.Model], objekt_id: Any) -> list[k
         bezug_id=objekt_id,
         erledigt_am__isnull=True,
     ):
-        services.frist_erledigen(frist, timezone.localdate())
+        services.frist_erledigen(frist, zeit.heute())
         schritte.append(kern.Schritt(f"Frist #{frist.pk} ({frist.get_art_display()}) erledigt"))
     return schritte
 

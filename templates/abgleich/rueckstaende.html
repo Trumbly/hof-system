@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Rückstände{% endblock %}
 
@@ -7,12 +8,12 @@
 {% with zahlen=stand.kennzahlen %}
 <p class="leise">Stand {{ stand.stichtag|date:"d.m.Y" }} · Bankdaten bis {{ stand.datenstand|date:"d.m.Y"|default:"–" }}. Später fällige Posten sind nicht prüfbar und zählen nicht als Rückstand.</p>
 <ul class="kennzahlen">
-  <li>Gesamt: <strong>{{ zahlen.summe|floatformat:"2g" }} €</strong> bei {{ zahlen.vertraege_mit_rueckstand }} Verträgen</li>
+  <li>{% begriff "ueberfaellig" "Überfällig" %} (Rückstand): <strong>{{ zahlen.summe|floatformat:"2g" }} €</strong> bei {{ zahlen.vertraege_mit_rueckstand }} Verträgen</li>
   <li>0–30 Tage: {{ zahlen.summe_0_30|floatformat:"2g" }} €</li>
   <li>31–60 Tage: {{ zahlen.summe_31_60|floatformat:"2g" }} €</li>
   <li>über 60 Tage: {{ zahlen.summe_ueber_60|floatformat:"2g" }} €</li>
   <li>in Klärung: {{ zahlen.vertraege_in_klaerung }} Verträge</li>
-  {% if zahlen.nicht_pruefbar %}<li>nicht prüfbar (nach den Bankdaten fällig): {{ zahlen.nicht_pruefbar|floatformat:"2g" }} €</li>{% endif %}
+  <li>{% begriff "nicht_pruefbar" %} (nach dem letzten Bankabruf fällig): {{ zahlen.nicht_pruefbar|floatformat:"2g" }} €</li>
 </ul>
 {% endwith %}
 <p><a href="{% url 'abgleich:zahlerregeln' %}">Zahlerregeln</a> · <a href="{% url 'kern:arbeitslisten' %}">Zahlungen klären</a></p>

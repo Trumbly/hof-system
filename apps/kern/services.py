@@ -27,7 +27,7 @@ from django.urls import reverse
 from django.utils import timezone
 from pghistory.models import Context, Events
 
-from apps.kern import aufgaben, vorgaenge
+from apps.kern import aufgaben, vorgaenge, zeit
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Mandant, Objekt
 from apps.kern.protokoll import ist_protokolliert
 from apps.kern.vorgaenge import vorgang
@@ -133,7 +133,7 @@ def objekt_aendern(
 
 def lauf_starten(name: str) -> Lauf:
     """Öffnet einen Lauf im Status „läuft“."""
-    return Lauf.objects.create(name=name, gestartet_am=timezone.now())
+    return Lauf.objects.create(name=name, gestartet_am=timezone.now())  # zeit: echt (Laufprotokoll)
 
 
 def lauf_beenden(
@@ -159,7 +159,7 @@ def lauf_beenden(
         status = Lauf.Status.UEBERSPRUNGEN
     else:
         status = Lauf.Status.ERFOLGREICH
-    lauf.beendet_am = timezone.now()
+    lauf.beendet_am = timezone.now()  # zeit: echt (Laufprotokoll)
     lauf.status = status
     lauf.gebucht = gebucht
     lauf.arbeitsposten = arbeitsposten
@@ -243,7 +243,7 @@ def arbeitsposten_anlegen(
 
 def arbeitsposten_erledigen(posten: Arbeitsposten) -> Arbeitsposten:
     posten.status = Arbeitsposten.Status.ERLEDIGT
-    posten.erledigt_am = timezone.now()
+    posten.erledigt_am = zeit.jetzt()
     posten.save(update_fields=["status", "erledigt_am"])
     aufgaben.melden(posten)
     return posten
@@ -308,7 +308,7 @@ def verwaiste_arbeitsposten_schliessen(*, lauf: Lauf | None = None) -> list[Arbe
         vermerk = f"Geschlossen: Bezug {bezug} fehlt" + (f" (Lauf #{lauf.pk})." if lauf else ".")
         posten.hinweis = f"{posten.hinweis}\n{vermerk}".strip()
         posten.status = Arbeitsposten.Status.ERLEDIGT
-        posten.erledigt_am = timezone.now()
+        posten.erledigt_am = zeit.jetzt()
         posten.save(update_fields=["hinweis", "status", "erledigt_am"])
         aufgaben.melden(posten)
         logger.info("Arbeitsposten #%s geschlossen: Bezug %s fehlt", posten.pk, bezug)

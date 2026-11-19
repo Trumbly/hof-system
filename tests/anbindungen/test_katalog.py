@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Buchungsanfrage, Websitezugang
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import Einheit, EinheitStatus, Vertrag
@@ -26,7 +27,7 @@ URL = "/api/website/katalog"
 
 
 def _heute() -> datetime.date:
-    return timezone.localdate()
+    return zeit.heute()
 
 
 def _nw_ids(website: Client) -> list[str]:

@@ -207,9 +207,10 @@ def test_testhof_klaerfall_sperrt_und_geklaert_ist_bezahlt(
     assert not Mahnschritt.objects.filter(fall=fall).exists()
 
 
-def test_klaerfall_erledigt_hebt_sperre_sofort_auf(hof: Testhof) -> None:
+def test_klaerfall_erledigt_hebt_sperre_sofort_auf(hof: Testhof, uhr: Any) -> None:
     """Review 2, A11: Wird der Klärfall erledigt, hebt das System die automatische Sperre
     sofort auf (Haken im Abgleich), nicht erst beim nächsten Montagslauf."""
+    uhr.stellen(M1)  # Lauf und Klärung am selben Tag (Review 3, Punkt 1: eine Uhr)
     vertrag = _vertrag(hof, "klaerfall")
     lauf(M1)
     (sperre,) = Mahnsperre.objects.filter(vertrag=vertrag, grund="klaerfall", automatisch=True)

@@ -4,7 +4,11 @@
 {% block titel %}Offene Posten{% endblock %}
 
 {% block inhalt %}
-{% seitenkopf "Offene Posten" "Sollposten aller Verträge im Hof-System. „offen“ und „überfällig“ zählen wie Cockpit, Rückstände und Mahnwesen." %}{% endseitenkopf %}
+{% seitenkopf "Offene Posten" "Sollposten aller Verträge im Hof-System. Offen ist überfällig, nicht prüfbar und noch nicht fällig zusammen, gezählt wie im Cockpit, bei den Rückständen und im Mahnwesen." %}{% endseitenkopf %}
+
+<div class="kennzahlen-reihe" id="aufteilung">
+  {% for t in teile %}{% kennzahl t.titel t.teil.summe|euro art=t.art unter=t.teil.anzahl|stringformat:"s"|add:" Posten · alle Verträge" link=t.link %}{% endfor %}
+</div>
 
 <form method="get" class="filterleiste" role="search" aria-label="Offene Posten filtern">
   {% feld form.suche breit=True %}

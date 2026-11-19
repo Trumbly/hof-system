@@ -21,7 +21,6 @@ from django.db import transaction
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
@@ -62,7 +61,7 @@ from apps.dokumente.versand import MailserverNichtErreichbar, VersandFehler
 from apps.dokumente.vorlagenarten import Versandweg
 from apps.fristen import services as fristen_services
 from apps.kassenbuch.models import Buchung
-from apps.kern import htmx
+from apps.kern import htmx, zeit
 from apps.kern.models import Benutzer
 
 FEHLER = (services.SchreibenFehler, PlatzhalterFehler, VersandFehler, pdf.PdfNichtVerfuegbar)
@@ -754,7 +753,7 @@ def beleg_vorschlag(request: HttpRequest) -> HttpResponse:
     lieferant = werte.get("lieferant")
     beleg_id = request.GET.get("beleg", "")
     dieser = Beleg.objects.filter(pk=int(beleg_id)).first() if beleg_id.isdigit() else None
-    treffer = services.vorschlag(lieferant, werte.get("datum") or timezone.localdate(), ohne=dieser)
+    treffer = services.vorschlag(lieferant, werte.get("datum") or zeit.heute(), ohne=dieser)
     gefuellt = []
     if treffer is not None:
         for feld in VORSCHLAG_FELDER:
@@ -957,10 +956,10 @@ def belegmappe_seite(request: HttpRequest) -> HttpResponse:
     daten.pop("dialog", None)
     daten.pop("buchung", None)
     if not daten.get("jahr"):
-        daten["jahr"] = str(timezone.localdate().year)
+        daten["jahr"] = str(zeit.heute().year)
     if not daten.get("objekt"):
         jahr = daten["jahr"]
-        vorgabe = belegmappe.vorgabe(int(jahr) if jahr.isdigit() else timezone.localdate().year)
+        vorgabe = belegmappe.vorgabe(int(jahr) if jahr.isdigit() else zeit.heute().year)
         if vorgabe is not None:
             daten["objekt"] = str(vorgabe.pk)
     form = BelegmappeForm(daten)
@@ -1030,7 +1029,7 @@ def rechnungen(request: HttpRequest) -> HttpResponse:
             "bezahlt": alle.filter(status=Eingangsrechnung.Status.BEZAHLT).order_by(
                 "-bezahlt_am", "-pk"
             )[:ABLAGE_ANZAHL],
-            "heute": timezone.localdate(),
+            "heute": zeit.heute(),
         },
     )
 
@@ -1054,7 +1053,7 @@ def rechnung(request: HttpRequest, pk: int) -> HttpResponse:
                 else []
             ),
             "fristen": fristen_services.fristen_zu(eintrag),
-            "heute": timezone.localdate(),
+            "heute": zeit.heute(),
         },
     )
 

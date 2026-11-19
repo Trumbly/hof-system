@@ -35,7 +35,7 @@ from typing import Any, ClassVar
 from django.core.management.base import BaseCommand, CommandError
 from django.db import models, transaction
 
-from apps.kern import services
+from apps.kern import services, zeit
 from apps.kern.models import Arbeitsposten, Lauf
 from apps.kern.vorgaenge import Art, vorgang
 
@@ -111,8 +111,11 @@ class LaufBefehl(BaseCommand):
         self.lauf = services.lauf_starten(name)
         try:
             klammer = transaction.atomic() if self.in_transaktion else contextlib.nullcontext()
+            # Ein Lauf mit ``--stichtag`` rechnet durchgehend mit seinem eigenen Tag: Auch
+            # Fälligkeiten und Vorbelegungen in den Diensten sehen ihn (Review 3, Punkt 1).
             with (
                 klammer,
+                zeit.uhr_stellen(optionen.get("stichtag")),
                 vorgang(
                     f"Lauf {name} #{self.lauf.pk}",
                     art=Art.LAUF,

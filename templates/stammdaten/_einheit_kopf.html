@@ -53,8 +53,8 @@ Zielmiete, Zähler. Wird nach jedem Speichern im Dialog ersetzt (oob).
       <dd>{% if lage.vertrag %}<span class="fakt-wert zahl">{{ lage.miete|euro|default:"–" }}</span><span class="fakt-unter">Ziel {{ zielmiete_heute.betrag|euro|default:"nicht erfasst" }}</span>{% else %}<span class="fakt-wert zahl">{{ zielmiete_heute.betrag|euro|default:"–" }}</span><span class="fakt-unter">{% if zielmiete_heute %}seit {{ zielmiete_heute.gueltig_ab|date:"d.m.Y" }}{% else %}nicht erfasst{% endif %}</span>{% endif %}</dd>
     </div>
     <div class="fakt">
-      <dt>{% if lage.vertrag %}Offen{% else %}Frei ab{% endif %}</dt>
-      <dd>{% if lage.vertrag %}<a class="fakt-wert zahl{% if lage.offen > 0 %} fakt-fehler{% endif %}" href="{% url 'stammdaten:vertrag' lage.vertrag.pk %}?reiter=mietkonto">{{ lage.offen|euro }}</a><span class="fakt-unter">{% if lage.frei_ab %}frei ab {{ lage.frei_ab|date:"d.m.Y" }}{% else %}Rückstand bis heute{% endif %}</span>{% else %}<span class="fakt-wert">{{ lage.frei_ab|date:"d.m.Y"|default:"sofort" }}</span><span class="fakt-unter">{{ einheit.get_vermarktung_display }}</span>{% endif %}</dd>
+      <dt>{% if lage.vertrag %}{% begriff "ueberfaellig" "Überfällig" %}{% else %}Frei ab{% endif %}</dt>
+      <dd>{% if lage.vertrag %}<a class="fakt-wert zahl{% if lage.offen > 0 %} fakt-fehler{% endif %}" href="{% url 'stammdaten:vertrag' lage.vertrag.pk %}?reiter=mietkonto">{{ lage.offen|euro }}</a><span class="fakt-unter">{% if lage.frei_ab %}frei ab {{ lage.frei_ab|date:"d.m.Y" }}{% else %}Rückstand bis zum letzten Bankabruf{% endif %}</span>{% else %}<span class="fakt-wert">{{ lage.frei_ab|date:"d.m.Y"|default:"sofort" }}</span><span class="fakt-unter">{{ einheit.get_vermarktung_display }}</span>{% endif %}</dd>
     </div>
     <div class="fakt">
       <dt>Zähler</dt>

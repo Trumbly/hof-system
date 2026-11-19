@@ -4,7 +4,7 @@
 {% block titel %}Heute{% endblock %}
 
 {% block inhalt %}
-{% seitenkopf "Heute" heute|date:"l, d. F Y" %}
+{% seitenkopf "Heute" heute|date:"l, j. F Y" %}
   <a class="knopf knopf-primaer" href="{% url 'kern:arbeitslisten' %}">Arbeitslisten öffnen</a>
 {% endseitenkopf %}
 

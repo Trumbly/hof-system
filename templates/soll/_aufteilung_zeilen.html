@@ -1,0 +1,7 @@
+{# Aufteilung von „offen“ (soll.services.aufteilung, Review 3, Punkt 1) als Zeilen einer Kachel. Gleich in den Kacheln Offene Posten und Rückstände. #}
+{% load bausteine %}
+<span class="kachel-zeilen aufteilung">
+  <span class="kachel-zeile" data-teil="ueberfaellig"><span>{% begriff "ueberfaellig" %} · {{ ueberfaellig.anzahl }}</span><strong class="zahl">{{ ueberfaellig.summe|euro }}</strong></span>
+  <span class="kachel-zeile" data-teil="nicht_pruefbar"><span>{% begriff "nicht_pruefbar" %} · {{ nicht_pruefbar.anzahl }}</span><span class="zahl">{{ nicht_pruefbar.summe|euro }}</span></span>
+  <span class="kachel-zeile" data-teil="noch_nicht_faellig"><span>{% begriff "noch_nicht_faellig" %} · {{ noch_nicht_faellig.anzahl }}</span><span class="zahl">{{ noch_nicht_faellig.summe|euro }}</span></span>
+</span>

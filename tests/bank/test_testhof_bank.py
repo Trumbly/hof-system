@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 from django.core.management import call_command
-from django.utils import timezone
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankabruf, Bankkonto, Bankumsatz, Kontostand
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten
 from testhof import aufbau, erfunden, register, sonderfaelle
 from testhof import bank as testhof_bank
@@ -177,7 +177,7 @@ def test_bank_abruf_im_testhof(testhof: Testhof, monkeypatch: pytest.MonkeyPatch
     """Der Lauf bank_abruf läuft gegen den Testhof: Ein erneuter Abruf bekannter Umsätze
     bringt nichts Neues; die Saldo-Prüfung findet keine Abweichung."""
     vivid = testhof.bank.konten["vivid"]
-    heute = timezone.localdate()
+    heute = zeit.heute()
     services.bankfreigabe_anlegen(vivid, gueltig_bis=heute + datetime.timedelta(days=100))
     letzte = list(vivid.umsaetze.filter(buchungsdatum__gte=datetime.date(2026, 10, 20)))
     fake = enablebanking.FakeEnableBanking(

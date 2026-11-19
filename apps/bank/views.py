@@ -30,7 +30,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from apps.bank import enablebanking, importieren, services
 from apps.bank.importformat import FORMATE, VIVID_CSV
 from apps.bank.models import Bankabruf, Bankkonto, Bankumsatz
-from apps.kern import htmx
+from apps.kern import htmx, zeit
 from apps.kern import services as kern_services
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ SITZUNG_IMPORT = "bank_import"
 def _konten_zeilen() -> list[dict[str, Any]]:
     liste = Bankkonto.objects.select_related("mandant").order_by("-aktiv", "bezeichnung", "pk")
     zeilen = []
-    heute = timezone.localdate()
+    heute = zeit.heute()
     for konto in liste:
         freigabe = services.aktuelle_freigabe(konto)
         zeilen.append(
@@ -312,6 +312,7 @@ def freigabe(request: HttpRequest, pk: int) -> HttpResponse:
         if konto.zugang == Bankkonto.Zugang.ENABLE_BANKING:
             state = secrets.token_urlsafe(24)
             request.session[SITZUNG_FREIGABE] = {"state": state, "konto": konto.pk}
+            # zeit: echt (Ablauf für die Bank, sie prüft gegen ihre Uhr)
             gueltig_bis = timezone.now() + datetime.timedelta(
                 days=settings.ENABLE_BANKING_FREIGABE_TAGE
             )

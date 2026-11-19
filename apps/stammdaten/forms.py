@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 
 from django import forms
 
+from apps.kern import zeit
 from apps.kern.models import Mandant, Objekt
 from apps.stammdaten import konfiguration
 from apps.stammdaten.models import (
@@ -359,7 +360,6 @@ class VertragNeuForm(forms.Form):
     WEITERE = ("ende", "zahlweise", "pauschale", "steuersatz", "vertragsart", "mandant")
 
     def __init__(self, *args: Any, heute: Any = None, **kwargs: Any) -> None:
-        import datetime
 
         from apps.stammdaten import einheitenliste
 
@@ -367,7 +367,7 @@ class VertragNeuForm(forms.Form):
         self.fields["kuendigungsregel"].choices = _regel_auswahl(  # type: ignore[attr-defined]
             "– Standard der Vertragsart –"
         )
-        heute = heute or datetime.date.today()
+        heute = heute or zeit.heute()
         vermietbar = Einheit.objects.exclude(typ=Einheit.Typ.WOHNUNG).filter(
             aufgeloest_am__isnull=True
         )

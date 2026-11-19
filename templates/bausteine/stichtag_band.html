@@ -1,2 +1,2 @@
 {# Review 1, Punkt 14: fester Stichtag (nur dev und test, HOF_STICHTAG). #}
-{% if hof_stichtag %}<div class="stichtag-band" role="note" title="Die Testdaten reichen bis zu diesem Tag. Gerechnet wird mit dem heutigen Datum.">Testhof · Stichtag {{ hof_stichtag|date:"d.m.Y" }}</div>{% endif %}
+{% if hof_stichtag %}<div class="stichtag-band" role="note" title="Die Testdaten reichen bis zu diesem Tag. Das System rechnet mit ihm als „heute“: Fälligkeiten, Fristen, Vorbelegungen.">Testhof · Stichtag {{ hof_stichtag|date:"d.m.Y" }}</div>{% endif %}

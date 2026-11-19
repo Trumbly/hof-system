@@ -10,10 +10,10 @@ from typing import Any
 
 from django.db.models import Count, Min, Q
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.http import urlencode
 
 from apps.cockpit import kacheln, services
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 
 GESCHEITERT = (Lauf.Status.ABGEBROCHEN, Lauf.Status.MIT_FEHLERN)
@@ -30,7 +30,7 @@ def freigaben() -> dict[str, Any]:
     """Offene Arbeitsposten je Art, nach Dringlichkeit: Arten mit überfälligen Posten zuerst,
     dann nach der frühesten Fälligkeit, dann nach Anzahl. Arten mit eigener Kachel
     (``kacheln.eigene_arten``) und der Selbsttest fehlen."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     liste = reverse("kern:arbeitslisten")
     weg = kacheln.eigene_arten() | NICHT_IM_COCKPIT
     zeilen = (

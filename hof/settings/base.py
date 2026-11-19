@@ -185,8 +185,8 @@ MAHNWESEN_BAGATELLGRENZE = Decimal(env.str("HOF_MAHN_BAGATELLGRENZE", default="2
 
 # Fester Stichtag (Review 1, Punkt 14): Nur dev und test setzen ihn, auf den Stand des
 # Testhofs (testhof.aufbau.STICHTAG). Dann zeigt jede Seite oben „Testhof · Stichtag …“.
-# Er ist nur eine Anzeige: Gerechnet wird weiter mit dem heutigen Datum. prod.py setzt ihn
-# immer auf None.
+# Review 3, Punkt 1: Dann rechnet auch alles mit ihm (``apps.kern.zeit.heute()``). prod.py
+# setzt ihn immer auf None; dort gilt das echte Datum.
 _stichtag = env.str("HOF_STICHTAG", default="")
 HOF_STICHTAG = date.fromisoformat(_stichtag) if _stichtag else None
 

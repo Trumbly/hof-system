@@ -11,8 +11,8 @@ import datetime
 from typing import Any
 
 from django.core.management.base import CommandParser
-from django.utils import timezone
 
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 from apps.statusmcp import services
 
@@ -31,7 +31,7 @@ class Command(LaufBefehl):
         )
 
     def ausfuehren(self, **optionen: Any) -> str:
-        stichtag: datetime.date = optionen.get("stichtag") or timezone.localdate()
+        stichtag: datetime.date = optionen.get("stichtag") or zeit.heute()
         anzahl = services.kennzahlen_aktualisieren(stichtag)
         self.gebucht(sum(anzahl.values()))
         teile = ", ".join(f"{bereich} {zahl}" for bereich, zahl in sorted(anzahl.items()))

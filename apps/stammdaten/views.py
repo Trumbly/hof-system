@@ -18,6 +18,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.dokumente.models import Schreiben
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten import (
     datenstand,
@@ -51,7 +52,7 @@ Handler = Callable[[HttpRequest, Any, forms.Form], "str | tuple[str, str]"]
 
 
 def _heute() -> datetime.date:
-    return datetime.date.today()
+    return zeit.heute()
 
 
 def _zurueck(url: str, anker: str = "") -> HttpResponse:

@@ -26,7 +26,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html
 
-from apps.kern import htmx, zahlen
+from apps.kern import htmx, zahlen, zeit
 from apps.kern.models import Objekt
 from apps.stammdaten import datenstand
 from apps.stammdaten.forms import Datum
@@ -36,7 +36,7 @@ from apps.zaehler.models import Zaehler, Zaehlerstand
 
 
 def _heute() -> datetime.date:
-    return datetime.date.today()
+    return zeit.heute()
 
 
 # --- Übersicht -----------------------------------------------------------------------

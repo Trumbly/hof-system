@@ -30,7 +30,7 @@ from apps.stammdaten.models import Einheit, Uebergabe
 def _foto_pfad(instanz: Any, dateiname: str) -> str:
     """Neutraler Dateiname ohne Teile des Originalnamens (der kann Namen enthalten)."""
     endung = PurePath(dateiname).suffix.lower()[:10]
-    heute = datetime.date.today()
+    heute = datetime.date.today()  # zeit: echt (Ablageordner nach Speicherdatum)
     return f"zaehler/fotos/{heute:%Y/%m}/{uuid.uuid4().hex}{endung}"
 
 

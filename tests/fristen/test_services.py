@@ -7,18 +7,18 @@ import datetime
 import pytest
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
-from django.utils import timezone
 from pghistory.models import Events
 
 from apps.fristen import services
 from apps.fristen.models import Frist, Fristverschiebung
 from apps.kern import services as kern_services
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Objekt
 from tests.factories import ObjektFabrik
 
 pytestmark = pytest.mark.django_db
 
-HEUTE = timezone.localdate()
+HEUTE = zeit.heute()
 
 
 def tage(n: int) -> datetime.date:

@@ -22,7 +22,6 @@ from decimal import Decimal
 
 from django.db.models import Count
 from django.template.loader import render_to_string
-from django.utils import timezone
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 
@@ -30,6 +29,7 @@ from apps.dokumente import pdf
 from apps.dokumente.models import Beleg, Dokument
 from apps.kassenbuch import auswertung
 from apps.kassenbuch.models import Buchung, Kategorie
+from apps.kern import zeit
 from apps.kern.models import Objekt
 
 logger = logging.getLogger(__name__)
@@ -228,7 +228,7 @@ def _seiten(inhalt: bytes) -> int:
 def _deckblatt(mappe: Mappe) -> bytes:
     html = render_to_string(
         "dokumente/pdf/belegmappe.html",
-        {"mappe": mappe, "hinweise": mappe.hinweise(), "erstellt": timezone.localdate()},
+        {"mappe": mappe, "hinweise": mappe.hinweise(), "erstellt": zeit.heute()},
     )
     return pdf.erzeugen(html)
 

@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten.models import Einheit
 from apps.zaehler import services
@@ -132,7 +133,7 @@ def test_schaetzwert_am_handy_mit_kennzeichen(
 def test_ablesung_lehnt_zukunft_und_andere_dateien_ab(
     angemeldet: Client, objekt: Objekt, stromzaehler: Zaehler
 ) -> None:
-    morgen = datetime.date.today() + datetime.timedelta(days=1)
+    morgen = zeit.heute() + datetime.timedelta(days=1)
     antwort = angemeldet.post(
         _ablesung(objekt), {"datum": morgen.isoformat(), f"stand_{stromzaehler.pk}": "5"}
     )

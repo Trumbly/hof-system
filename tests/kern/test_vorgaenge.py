@@ -9,6 +9,7 @@ import pytest
 from django.core.management import call_command
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from pghistory.models import Context, Events
 
 from apps.kern import services, vorgaenge
@@ -177,7 +178,8 @@ def test_spaetere_aenderung_bricht_ab_mit_verstaendlicher_meldung() -> None:
         services.vorgang_zuruecknehmen(erste.id)
 
     meldung = str(fehler.value)
-    heute = datetime.date.today().strftime("%d.%m.%Y")
+    # zeit: echt (das Protokoll trägt die Zeit der Datenbank)
+    heute = timezone.localdate().strftime("%d.%m.%Y")
     assert meldung.startswith(f"Objekt HOF wurde danach am {heute} um ")
     assert "im Vorgang „zweite Umbenennung“ erneut geändert (Bezeichnung)" in meldung
     objekt.refresh_from_db()
@@ -249,7 +251,8 @@ def test_protokoll_filter_nach_zeitraum(angemeldet: Client) -> None:
     """Review 2, B14: Filter nach Zeitraum (Datenbasis)."""
     with vorgang("heute geändert"):
         ObjektFabrik()
-    morgen = datetime.date.today() + datetime.timedelta(days=1)
+    # zeit: echt (das Protokoll trägt die Zeit der Datenbank)
+    morgen = timezone.localdate() + datetime.timedelta(days=1)
 
     assert "heute geändert" in angemeldet.get(reverse("kern:protokoll")).content.decode()
     leer = angemeldet.get(reverse("kern:protokoll"), {"von": morgen.isoformat()})

@@ -20,7 +20,7 @@ from apps.benachrichtigung.kanaele import FakeKanal, Nachricht
 from apps.benachrichtigung.models import Benachrichtigung
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
-from apps.kern import personenfelder
+from apps.kern import personenfelder, zeit
 from apps.kern import services as kern_services
 from apps.kern.laeufe import LaufBefehl
 from apps.kern.models import Arbeitsposten, Lauf
@@ -63,7 +63,7 @@ def _scheitern() -> None:
 def _frist_faellig() -> Frist:
     frist = fristen.frist_anlegen(
         Frist.Art.SONSTIGE,
-        timezone.localdate() - datetime.timedelta(days=1),
+        zeit.heute() - datetime.timedelta(days=1),
         Frist.Quelle.HAND,
         ObjektFabrik(),
     )

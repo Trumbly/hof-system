@@ -18,6 +18,7 @@ from typing import Any
 
 from django.urls import reverse
 
+from apps.kern import zeit
 from apps.stammdaten import konfiguration
 from apps.stammdaten.models import (
     BINDEND,
@@ -322,7 +323,7 @@ def _kennung(bereich: str, objekt: Any) -> tuple[str, str, str]:
 
 def ermitteln(stichtag: datetime.date | None = None) -> list[Bereichsstand]:
     """Lücken je Bereich in der Reihenfolge der Konfiguration."""
-    stichtag = stichtag or datetime.date.today()
+    stichtag = stichtag or zeit.heute()
     ergebnis = []
     for schluessel, bereich in konfiguration.laden().datenstand.items():
         pruefungen = PRUEFUNGEN[schluessel]

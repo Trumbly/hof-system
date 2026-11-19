@@ -15,7 +15,6 @@ from django.db.models import Count, Q, QuerySet, Sum
 from django.http import FileResponse, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from apps.bank.models import Bankkonto, Bankumsatz
@@ -30,7 +29,7 @@ from apps.kassenbuch.forms import (
     monat_aus_text,
 )
 from apps.kassenbuch.models import Buchung, Monatsabschluss, Monatsbericht, Zuordnungsregel
-from apps.kern import arbeitslisten, htmx, zahlen
+from apps.kern import arbeitslisten, htmx, zahlen, zeit
 from apps.kern.models import Arbeitsposten, Mandant, Objekt
 
 BUCHUNGEN_JE_SEITE = 50
@@ -96,7 +95,7 @@ def buchungen(request: HttpRequest) -> HttpResponse:
     """Kassenbuch (Review 2, B11): Suche und Monat oben, weitere Filter zugeklappt; Spalten
     Gegenpartei, Zweck und Konto mit Namen; 50 Zeilen, dann „mehr laden“ per HTMX."""
     filter_form = BuchungFilter(request.GET or None)
-    abfrage, von, bis = buchungen_filtern(filter_form, timezone.localdate())
+    abfrage, von, bis = buchungen_filtern(filter_form, zeit.heute())
     ab = request.GET.get("ab", "0")
     ab_zahl = int(ab) if ab.isdigit() else 0
     zeilen = list(abfrage[ab_zahl : ab_zahl + BUCHUNGEN_JE_SEITE + 1])
@@ -459,7 +458,7 @@ def abschluesse(request: HttpRequest) -> HttpResponse:
         naechster = services.naechster_abschlussmonat(mandant, None)
         pruefung = (
             services.abschluss_pruefen(mandant, naechster)
-            if naechster is not None and naechster <= auswertung.vormonat(timezone.localdate())
+            if naechster is not None and naechster <= auswertung.vormonat(zeit.heute())
             else None
         )
         gruppen.append({"mandant": mandant, "abschluesse": liste, "pruefung": pruefung})
@@ -520,7 +519,7 @@ def abschluss_jetzt(request: HttpRequest, mandant: int, jahr: int, monat: int) -
             "der Reihe nach.",
         )
         return _nach_abschluss(request, reverse("kassenbuch:abschluesse"))
-    if erster > auswertung.vormonat(timezone.localdate()):
+    if erster > auswertung.vormonat(zeit.heute()):
         messages.error(request, f"{erster:%m/%Y} ist noch nicht vorbei.")
         return _nach_abschluss(request, reverse("kassenbuch:abschluesse"))
     ergebnis = services.monat_abschliessen(eintrag, erster)
@@ -545,7 +544,7 @@ def abschluss_jetzt(request: HttpRequest, mandant: int, jahr: int, monat: int) -
 @require_GET
 def bericht(request: HttpRequest) -> HttpResponse:
     """Monatsbericht je Objekt: Einnahmen, Kosten, Ergebnis, Entnahmen, Vorjahresmonat."""
-    vormonat = auswertung.vormonat(timezone.localdate())
+    vormonat = auswertung.vormonat(zeit.heute())
     daten = request.GET.copy()
     daten.setdefault("monat", f"{vormonat:%Y-%m}")
     if "objekt" not in daten:

@@ -37,6 +37,7 @@ from django.utils.http import urlencode
 from apps.cockpit.models import NotionAufgabe
 from apps.cockpit.notion import AufgabenInhalt, NotionClient, NotionFehler
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf, Objekt
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,7 @@ def aufgabe_vormerken(posten: Arbeitsposten) -> NotionAufgabe | None:
     """
     if posten.art not in arten():
         return None
-    jetzt = timezone.now()
+    jetzt = timezone.now()  # zeit: echt (Abgleich mit Notion)
     aufgabe = _offene_aufgabe(posten.art)
     if aufgabe is None:
         if posten.status != Arbeitsposten.Status.OFFEN:
@@ -296,7 +297,7 @@ def aufgaben_abgleichen(
     Kennungen oder Fälligkeit geändert haben; auf Erledigt setzen, wenn keiner mehr offen
     ist. Scheitert Notion bei einer Art, bleibt deren Stand, und die anderen laufen weiter.
     """
-    jetzt = jetzt or timezone.now()
+    jetzt = jetzt or timezone.now()  # zeit: echt (Abgleich mit Notion, Alter der Sicherung)
     ergebnis = AbgleichErgebnis()
     for art in arten():
         try:
@@ -354,7 +355,7 @@ def sicherung_lesen(
     die Sicherung ist älter als ``HOF_BACKUP_HOECHSTALTER_STUNDEN`` (Standard 26).
     """
     pfad = Path(pfad or settings.HOF_BACKUP_STATUS)
-    jetzt = jetzt or timezone.now()
+    jetzt = jetzt or timezone.now()  # zeit: echt (Abgleich mit Notion, Alter der Sicherung)
     hoechstalter: int = settings.HOF_BACKUP_HOECHSTALTER_STUNDEN
     try:
         daten = json.loads(pfad.read_text(encoding="utf-8"))
@@ -412,7 +413,7 @@ def sicherung_pruefen(
     posten = kern.arbeitsposten_anlegen(
         ART_SICHERUNG,
         aktionen=kern.STANDARD_AKTIONEN,
-        faellig_am=timezone.localdate(),
+        faellig_am=zeit.heute(),
         hinweis=f"Sicherung nicht in Ordnung: {stand.grund}. Siehe docs/betrieb.md, Sicherung.",
         lauf=lauf,
     )

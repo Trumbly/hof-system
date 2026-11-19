@@ -23,12 +23,12 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.kern import htmx
+from apps.kern import htmx, zeit
 from apps.stammdaten import datenstand, scans, services
 
 
 def _heute() -> datetime.date:
-    return datetime.date.today()
+    return zeit.heute()
 
 
 class MehrereDateien(forms.ClearableFileInput):

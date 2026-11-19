@@ -11,13 +11,13 @@ import pytest
 from django.core.management import call_command
 from django.test import Client, override_settings
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.benachrichtigung import services
 from apps.benachrichtigung.models import Benachrichtigung
 from apps.cockpit import eigene_kacheln, tageslauf
 from apps.fristen import services as fristen
 from apps.fristen.models import Frist
+from apps.kern import zeit
 from apps.kern.laeufe import LaufBefehl
 from apps.kern.models import Lauf
 from apps.statusmcp import werkzeuge
@@ -33,7 +33,7 @@ OHNE_KANAL = override_settings(HOF_BENACHRICHTIGUNG_MAIL="", HOF_NTFY_URL="", HO
 def _frist_faellig() -> None:
     fristen.frist_anlegen(
         Frist.Art.SONSTIGE,
-        timezone.localdate() - datetime.timedelta(days=1),
+        zeit.heute() - datetime.timedelta(days=1),
         Frist.Quelle.HAND,
         ObjektFabrik(),
     )

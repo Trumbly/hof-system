@@ -22,11 +22,14 @@ from django.apps import apps
 from django.db import connection, models, transaction
 from faker import Faker
 
+from apps.kern import zeit
 from testhof import register, sperre
 
 STANDARD_SEED = 42
 
-#: Feste „Jetzt“-Zeit des Testhofs. Module nutzen sie statt ``timezone.now()``.
+#: Feste „Jetzt“-Zeit des Testhofs. Module nutzen sie statt ``zeit.jetzt()``; beim Aufbau
+#: steht auch ``apps.kern.zeit`` auf ihr. ``hof/settings/dev.py`` und ``test.py`` setzen
+#: ``HOF_STICHTAG`` auf denselben Tag.
 ZEITPUNKT = datetime.datetime(2026, 11, 1, 8, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 STICHTAG = ZEITPUNKT.date()
 
@@ -79,7 +82,13 @@ def aufbauen(seed: int = STANDARD_SEED) -> Testhof:
     sperre.pruefen()
     module = register.reihenfolge()
     hof = Testhof(seed=seed, module=[m.name for m in module])
-    with transaction.atomic(), pghistory.context(testhof_seed=seed):
+    # Die Uhr steht beim Aufbau fest auf ZEITPUNKT: Was die Dienste mit ``zeit.jetzt()``
+    # vermerken, ist bei gleichem Seed gleich (Prüfsumme).
+    with (
+        transaction.atomic(),
+        pghistory.context(testhof_seed=seed),
+        zeit.uhr_stellen(ZEITPUNKT),
+    ):
         for modul in module:
             kontext = Kontext.fuer(seed, modul.name, hof.ablage)
             hof.ablage[modul.name] = modul.aufbauen(kontext)

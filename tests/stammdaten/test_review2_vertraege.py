@@ -20,6 +20,7 @@ from django.utils import timezone
 from apps.anbindungen import services as anbindungen
 from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben, Vorlage
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten import einheitenliste, services, views
 from apps.stammdaten.models import Einheit, Kontaktweg, Partei, Uebergabe, Vertrag
@@ -435,7 +436,7 @@ def test_saldo_der_liste_ist_soll_offen(testhof: object) -> None:
     dieselbe Zahl wie ``soll.offen`` (Rückstand bis heute) für den Vertrag."""
     from apps.soll import services as soll
 
-    heute = timezone.localdate()
+    heute = zeit.heute()
     lagen = [lage for lage in einheitenliste.lagen(heute) if lage.vertrag is not None]
     assert any(lage.offen > 0 for lage in lagen)
     for lage in lagen:

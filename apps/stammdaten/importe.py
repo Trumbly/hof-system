@@ -23,6 +23,7 @@ from typing import Any
 
 from django.db import transaction
 
+from apps.kern import zeit
 from apps.kern.models import Objekt
 from apps.stammdaten import services
 from apps.stammdaten.models import Einheit, EinheitStatus, Kondition, Kontaktweg, Partei, Vertrag
@@ -145,7 +146,7 @@ def einheiten_importieren(
     """
     abschnitt = zuordnung("notion_einheiten")
     zeilen = _lesen(pfad, abschnitt, ("typ", "objekt"))
-    stichtag = stichtag or datetime.date.today()
+    stichtag = stichtag or zeit.heute()
     objekte = {o.kuerzel.upper(): o for o in Objekt.objects.all()}
 
     def arbeit() -> Bericht:
@@ -280,7 +281,7 @@ def hellohousing_importieren(
         mieter_pfad, abschnitt, ("mietverhaeltnis", "mieter_nr", "einheit", "beginn", "miete")
     )
     verlauf, unlesbar = _mietverlauf(mietverlauf_pfad)
-    stichtag = stichtag or datetime.date.today()
+    stichtag = stichtag or zeit.heute()
 
     def arbeit() -> Bericht:
         bericht = Bericht("Import Parteien und Verträge (HelloHousing)", ausfuehren, len(zeilen))

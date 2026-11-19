@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 
 from apps.bank import fingerabdruck, services
 from apps.bank.models import Bankabruf, Bankfreigabe, Bankkonto, Bankumsatz, Kontostand
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten
 from tests.bank.conftest import umsatz
 
@@ -318,7 +319,7 @@ def test_freigabe_legt_ihre_frist_an_und_erledigt_die_alte(vivid: Bankkonto) -> 
     )
 
     frist.refresh_from_db()
-    assert frist.erledigt_am == datetime.date.today()
+    assert frist.erledigt_am == zeit.heute()
     (neue_frist,) = fristen.fristen_zu(neu, nur_offen=True)
     assert neue_frist.datum == neu.gueltig_bis
     assert list(fristen.offene_fristen()) == [neue_frist]

@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.anbindungen import services
+from apps.kern import zeit
 from testhof.aufbau import Testhof
 
 SEITE = reverse("anbindungen:vermarktung")
@@ -15,7 +15,7 @@ SEITE = reverse("anbindungen:vermarktung")
 
 def test_standard_nur_buchbare_alle_als_schalter(testhof: Testhof, angemeldet: Client) -> None:
     """Review 2, B11: standardmäßig nur buchbare Einheiten; „alle N“ zeigt auch die übrigen."""
-    heute = timezone.localdate()
+    heute = zeit.heute()
     buchbar = {e.nw_id for e in services.katalog(heute)}
     alle = services.vermarktbare_einheiten(heute).count()
     assert "NW-G-0017" not in buchbar and buchbar

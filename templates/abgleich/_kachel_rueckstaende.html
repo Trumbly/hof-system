@@ -1,1 +1,4 @@
-<li id="kachel-rueckstaende"><a class="kachel" href="{% url 'abgleich:rueckstaende' %}"><strong>Rückstände</strong><span class="kachel-zeilen"><strong>{{ anzahl }}</strong> Verträge mit Rückstand · {{ summe|euro }}{% if in_klaerung %} · {{ in_klaerung }} in Klärung{% endif %}{% if nicht_pruefbar %} · {{ nicht_pruefbar|euro }} nicht prüfbar{% endif %}</span></a></li>
+{% load bausteine %}
+<li id="kachel-rueckstaende"><a class="kachel" href="{% url 'abgleich:rueckstaende' %}"><strong>Rückstände</strong><strong>{{ anzahl }}</strong> Verträge mit Rückstand · {{ summe|euro }}{% if in_klaerung %} · {{ in_klaerung }} in Klärung{% endif %}
+  {% include "soll/_aufteilung_zeilen.html" %}
+</a></li>

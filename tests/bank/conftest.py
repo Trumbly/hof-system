@@ -11,6 +11,7 @@ import pytest
 
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankkonto
+from apps.kern import zeit
 from testhof import erfunden
 from tests.factories import MandantFabrik
 
@@ -34,7 +35,7 @@ def vivid(db: None) -> Bankkonto:
     )
     services.bankfreigabe_anlegen(
         konto,
-        gueltig_bis=datetime.date.today() + datetime.timedelta(days=100),
+        gueltig_bis=zeit.heute() + datetime.timedelta(days=100),
         sitzung_id="s-1",
         eb_konto_uid="uid-vivid",
     )

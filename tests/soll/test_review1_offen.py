@@ -103,10 +103,13 @@ def test_alle_lesen_offen(neuer_vertrag: VertragBauer, angemeldet: Client) -> No
     assert stand.summe_offen == E("425.00")
     assert soll.offen().anzahl == 5  # Dezember ist noch nicht gestellt
 
+    # Review 3, Punkt 1: Ohne Bankdaten ist nichts prüfbar; die fünf Posten sind „nicht
+    # prüfbar“, kein Rückstand. Kachel und Seite zeigen dieselbe Aufteilung.
     kachel = kacheln.offene_posten_kontext()
-    assert (kachel["ueberfaellig"], kachel["summe_ueberfaellig"]) == (5, E("425.00"))
+    assert kachel["nicht_pruefbar"] == soll.Teil(5, E("425.00"))
+    assert kachel["ueberfaellig"] == soll.Teil(0, E("0.00"))
 
-    seite = angemeldet.get(reverse("soll:liste"), {"status": "ueberfaellig"})
+    seite = angemeldet.get(reverse("soll:liste"), {"status": "nicht_pruefbar"})
     assert (seite.context["anzahl"], seite.context["summe_offen"]) == (5, E("425.00"))
 
     rueck = abgleich.rueckstaende(HEUTE)
@@ -131,7 +134,8 @@ def test_summe_zaehlt_alle_treffer(
     monkeypatch.setattr(views, "GRENZE", 3)
     neuer_vertrag(miete="85.00")
     neuer_vertrag(miete="40.00")
-    seite = angemeldet.get(reverse("soll:liste"), {"status": "ueberfaellig"})
+    # Ohne Bankdaten sind die fälligen Posten „nicht prüfbar“ (Review 3, Punkt 1).
+    seite = angemeldet.get(reverse("soll:liste"), {"status": "nicht_pruefbar"})
     assert len(seite.context["posten"]) == 3
     assert seite.context["abgeschnitten"]
     assert seite.context["anzahl"] == 10

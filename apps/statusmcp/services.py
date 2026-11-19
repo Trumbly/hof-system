@@ -26,6 +26,7 @@ from psycopg import sql
 from apps.abgleich import services as abgleich
 from apps.cockpit import services as cockpit
 from apps.fristen.models import Frist
+from apps.kern import zeit
 from apps.stammdaten import datenstand, leerstand
 from apps.stammdaten.models import Einheit, Kaution, Partei, Vertrag
 from apps.statusmcp import rechte
@@ -207,8 +208,8 @@ def _fristen() -> list[Kennzahl]:
 @transaction.atomic
 def kennzahlen_aktualisieren(stichtag: datetime.date | None = None) -> dict[str, int]:
     """Schreibt die Momentaufnahme neu (alles oder nichts). Rückgabe: Zeilen je Bereich."""
-    stichtag = stichtag or timezone.localdate()
-    jetzt = timezone.now()
+    stichtag = stichtag or zeit.heute()
+    jetzt = timezone.now()  # zeit: echt (Zeitpunkt der Momentaufnahme)
     zeilen = _rueckstaende(stichtag) + _datenstand(stichtag) + _leerstand(stichtag) + _fristen()
     for zeile in zeilen:
         zeile.stichtag = stichtag

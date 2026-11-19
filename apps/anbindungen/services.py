@@ -46,6 +46,7 @@ from apps.anbindungen.models import (
 from apps.anbindungen.verwaltio import VerwaltioClient, VerwaltioFehler
 from apps.anbindungen.website import WebsiteClient, WebsiteEinheit
 from apps.kern import services as kern
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Lauf
 from apps.kern.vorgaenge import als_vorgang
 from apps.stammdaten import services as stammdaten
@@ -248,7 +249,7 @@ def katalog(stichtag: datetime.date | None = None) -> list[KatalogEintrag]:
     Preis ist die Zielmiete je Monat am Tag „frei ab“ (leer, wenn keine gepflegt ist).
     Sortiert nach NW-ID.
     """
-    stichtag = stichtag or timezone.localdate()
+    stichtag = stichtag or zeit.heute()
     einheiten = (
         vermarktbare_einheiten(stichtag)
         .select_related("objekt")
@@ -508,7 +509,7 @@ def buchungsanfrage_entscheiden(
         anfrage.vertrag = vertrag
     with transaction.atomic():
         anfrage.status = status
-        anfrage.entschieden_am = am or timezone.now()
+        anfrage.entschieden_am = am or zeit.jetzt()
         _speichern(anfrage)
         if status != Buchungsanfrage.Status.ANGENOMMEN:
             _posten_schliessen(ART_BUCHUNGSANFRAGE, anfrage)
@@ -781,7 +782,7 @@ VERALTET_NACH_TAGEN = 2
 
 def wohnraum_ueberblick(stichtag: datetime.date | None = None) -> WohnraumUeberblick:
     """Kennzahlen Wohnraum vom letzten Abruf bis zum Stichtag, zusammengezählt."""
-    stichtag = stichtag or timezone.localdate()
+    stichtag = stichtag or zeit.heute()
     anzahl = wohneinheiten().count()
     stand = (
         Kennzahl.objects.filter(datum__lte=stichtag).aggregate(m=Max("datum"))["m"]

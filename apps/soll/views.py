@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.kern import htmx, zahlen
+from apps.kern.templatetags.bausteine import begriff_html
 from apps.soll import services
 from apps.soll.forms import FilterForm, PostenForm, SollregelForm, StornoForm
 from apps.soll.models import Sollposten, Sollregel
@@ -33,12 +34,15 @@ GRENZE = 500
 
 
 def _gefiltert(form: FilterForm) -> QuerySet[Sollposten]:
-    """Die Posten zum Filter. „offen“ und „überfällig“ sind genau die Posten aus
-    ``services.offen()`` bzw. ``services.offen(stichtag=heute)`` (Review 1, Punkt 1)."""
+    """Die Posten zum Filter. „offen“ sind genau die Posten aus ``services.offen()`` (Review 1,
+    Punkt 1); „überfällig“, „nicht prüfbar“ und „noch nicht fällig“ die drei Teile davon wie
+    in ``services.aufteilung()`` (Review 3, Punkt 1)."""
     daten: dict[str, Any] = form.cleaned_data if form.is_valid() else {}
     status = daten.get("status") or "offen"
-    if status in ("offen", "ueberfaellig"):
-        qs = services.offen_abfrage(stichtag=services.heute() if status == "ueberfaellig" else None)
+    if status == "offen":
+        qs = services.offen_abfrage()
+    elif status in services.TEILE:
+        qs = services.teil_abfrage(status)
     else:
         qs = Sollposten.objects.all()
         if status != "alle":
@@ -77,8 +81,24 @@ def liste(request: HttpRequest) -> HttpResponse:
             "grenze": GRENZE,
             "summe_offen": summe,
             "heute": services.heute(),
+            "teile": _teile(),
         },
     )
+
+
+def _teile() -> list[dict[str, Any]]:
+    """Die drei Teile von „offen“ aller Verträge, wie in den Kacheln des Cockpits."""
+    aufteilung = services.aufteilung()
+    basis = reverse("soll:liste")
+    return [
+        {
+            "titel": begriff_html(teil),
+            "teil": getattr(aufteilung, teil),
+            "link": f"{basis}?status={teil}",
+            "art": "fehler" if teil == "ueberfaellig" and aufteilung.ueberfaellig.anzahl else "",
+        }
+        for teil in services.TEILE
+    ]
 
 
 def _formular(request: HttpRequest, aktion: str, klasse: type[forms.Form], **kw: Any) -> Any:

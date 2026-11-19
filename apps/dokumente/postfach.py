@@ -36,6 +36,7 @@ from apps.dokumente.versand import (
     _fake_erlaubt,
     imap_verbinden,
 )
+from apps.kern import zeit
 
 MARKIEREN = "markieren"
 VERSCHIEBEN = "verschieben"
@@ -225,12 +226,12 @@ def _teile(nachricht: EmailMessage) -> Iterator[EmailMessage]:
 
 def _datum(nachricht: EmailMessage) -> datetime.date:
     try:
-        zeit = parsedate_to_datetime(str(nachricht["Date"] or ""))
+        gesendet = parsedate_to_datetime(str(nachricht["Date"] or ""))
     except (TypeError, ValueError):
-        return timezone.localdate()
-    if zeit.tzinfo is None:
-        return zeit.date()
-    return timezone.localdate(zeit)
+        return zeit.heute()
+    if gesendet.tzinfo is None:
+        return gesendet.date()
+    return timezone.localdate(gesendet)
 
 
 def lesen(mail: Postfachmail) -> Rechnungsmail:

@@ -41,6 +41,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Buchungsanfrage, Einheitbild
+from apps.kern import zeit
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ def katalog(request: HttpRequest) -> HttpResponse:
     fehler = _zugang_pruefen(request)
     if fehler is not None:
         return fehler
-    daten = katalog_daten(request, timezone.localdate())
+    daten = katalog_daten(request, zeit.heute())
     inhalt = json.dumps(daten, ensure_ascii=False, sort_keys=True).encode("utf-8")
     etag = _etag(inhalt)
     if _passt(request, etag):

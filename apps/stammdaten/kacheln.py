@@ -5,8 +5,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from django.utils import timezone
-
+from apps.kern import zeit
 from apps.stammdaten import datenstand, leerstand
 
 #: Zeitraum für den entgangenen Ertrag (wie die Seite „Leerstand“).
@@ -14,7 +13,7 @@ LEERSTAND_TAGE = 365
 
 
 def leerstand_kontext() -> dict[str, Any]:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     zeilen = leerstand.berechnen(heute - datetime.timedelta(days=LEERSTAND_TAGE - 1), heute)
     frei = sorted(z.einheit.nw_id for z in zeilen if z.frei_seit is not None)
     return {
@@ -28,7 +27,7 @@ def leerstand_kontext() -> dict[str, Any]:
 def datenstand_kontext() -> dict[str, Any]:
     bereiche = [
         {"titel": stand.titel, "luecken": stand.anzahl_luecken}
-        for stand in datenstand.ermitteln(timezone.localdate())
+        for stand in datenstand.ermitteln(zeit.heute())
     ]
     return {
         "bereiche": [b for b in bereiche if b["luecken"]],

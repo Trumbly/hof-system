@@ -20,10 +20,11 @@ from django.test import Client
 
 from apps.bank import services
 from apps.bank.models import Bankkonto
+from apps.kern import zeit
 
 WURZEL = Path(__file__).resolve().parents[2]
 SKRIPT = WURZEL / "zulieferung" / "vr_hochladen.py"
-HEUTE = datetime.date.today()
+HEUTE = zeit.heute()
 
 ADAPTER = """
 import datetime

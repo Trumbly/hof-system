@@ -28,13 +28,12 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.anbindungen import services as anbindungen
 from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
-from apps.kern import htmx
+from apps.kern import htmx, zeit
 from apps.stammdaten import forms as f
 from apps.stammdaten import konfiguration, schreiben, services, suche
 from apps.stammdaten.models import Einheit, Kontaktweg, Partei, Vertrag
@@ -220,7 +219,7 @@ def _kontext(
 
 
 def seite(request: HttpRequest) -> HttpResponse:
-    heute = timezone.localdate()
+    heute = zeit.heute()
     anfrage = _anfrage(request)
     if anfrage is None and request.method == "GET":
         anfrage = _anfrage_der_einheit(request)

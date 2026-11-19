@@ -11,11 +11,11 @@ import pytest
 from django.core.management import call_command
 from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
 
 from apps.cockpit import kacheln
 from apps.fristen import services as fristen
 from apps.kern import services as kern
+from apps.kern import zeit
 from tests.cockpit.conftest import Statusdatei
 from tests.factories import MandantFabrik, ObjektFabrik
 
@@ -89,7 +89,7 @@ def test_startseite_liest_direkt_aus_der_datenbank(
     assert "Noch keine Läufe" in _kachel(html, "laeufe")
     assert "Statusdatei fehlt" in _kachel(html, "sicherung")
 
-    heute = timezone.localdate()
+    heute = zeit.heute()
     objekt = ObjektFabrik(kuerzel="HOF", mandant=MandantFabrik())
     fristen.frist_anlegen("sonstige", heute + datetime.timedelta(days=3), "hand", objekt)
     fristen.frist_anlegen("sonstige", heute - datetime.timedelta(days=1), "vertrag", objekt)

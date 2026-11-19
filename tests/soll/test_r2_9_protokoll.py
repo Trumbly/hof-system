@@ -10,7 +10,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from apps.kern import vorgaenge
+from apps.kern import vorgaenge, zeit
 from apps.kern.models import Benutzer
 from apps.kern.protokoll import protokollierte_modelle
 from apps.stammdaten import services as stammdaten
@@ -92,9 +92,9 @@ def test_filter_nach_benutzer_lauf_und_zeitraum(
     nur_laeufe = angemeldet.get(SEITE, {"wer": "lauf"}).content.decode()
     assert "von Hand" not in nur_laeufe and "Noch keine Vorgänge." in nur_laeufe
 
-    morgen = datetime.date.today() + datetime.timedelta(days=1)
+    morgen = zeit.heute() + datetime.timedelta(days=1)
     falsch = angemeldet.get(
-        SEITE, {"von": morgen.isoformat(), "bis": datetime.date.today().isoformat()}
+        SEITE, {"von": morgen.isoformat(), "bis": zeit.heute().isoformat()}
     ).content.decode()
     assert "„bis“ liegt vor „von“." in falsch
 

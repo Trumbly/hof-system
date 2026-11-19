@@ -93,6 +93,7 @@ from apps.fristen.models import Frist
 from apps.kassenbuch import services as kassenbuch_services
 from apps.kassenbuch.models import Buchung, Kategorie
 from apps.kern import services as kern_services
+from apps.kern import zeit
 from apps.kern.models import Arbeitsposten, Benutzer, Lauf, Objekt
 from apps.kern.vorgaenge import als_vorgang
 
@@ -252,7 +253,7 @@ def vorlage_freigeben(
         vorlage.status = Vorlage.Status.FREIGEGEBEN
         vorlage.freigegeben_von = benutzer
         vorlage.freigabe_durch = name
-        vorlage.freigegeben_am = am or timezone.now()
+        vorlage.freigegeben_am = am or zeit.jetzt()
         vorlage.save(
             update_fields=["status", "freigegeben_von", "freigabe_durch", "freigegeben_am"]
         )
@@ -399,7 +400,7 @@ def vorschau_pdf(vorlage: Vorlage) -> bytes:
         **platzhalter.beispielkontext(vorlagenarten.BRIEFKOPF_PLATZHALTER)["absender"],
         **kontext.get("absender", {}),
     }
-    kontext["datum"] = timezone.localdate()
+    kontext["datum"] = zeit.heute()
     kontext["zeichen"] = "S-Vorschau"
     if vorlage.vorlagenart.briefkopf:
         kopf_text = vorlage.text
@@ -491,7 +492,7 @@ def schreiben_erzeugen(
     platzhalter.kontext_pruefen(kontext)
     _versandweg_pruefen(versandweg, kontext)
 
-    heute = timezone.localdate()
+    heute = zeit.heute()
     voll: dict[str, Any] = {"absender": absender(), **kontext, "datum": heute}
     if vorlagenart.freitext:
         # Review 2, B13: Ohne Freitext bleibt die Stelle leer, statt zu scheitern.
@@ -724,7 +725,7 @@ def _dateiname(schreiben: Schreiben) -> str:
 
 def _senden(schreiben: Schreiben, benutzer: Benutzer) -> Schreiben:
     daten = _pdf_daten(schreiben)
-    jetzt = timezone.now()
+    jetzt = zeit.jetzt()
     if schreiben.versandweg == Versandweg.MAIL:
         nachricht = EmailMessage(
             subject=schreiben.betreff,
@@ -958,7 +959,7 @@ def versandstand_abrufen(schreiben: Schreiben) -> bool:
     if auftrag.zugestellt:
         schreiben_abschliessen(
             schreiben,
-            zugestellt_am=_zustelldatum(auftrag.sendungsstatus) or timezone.localdate(),
+            zugestellt_am=_zustelldatum(auftrag.sendungsstatus) or zeit.heute(),
             vermerk=(
                 f"LetterXpress, Sendung {auftrag.sendungsnummer or auftrag.auftrag_id}: "
                 f"{auftrag.sendungsstatus}"
@@ -1419,7 +1420,7 @@ def beleg_bestaetigen(
     beleg.leistungsjahr = leistungsjahr
     beleg.umlagefaehiger_anteil = anteil
     beleg.status = Beleg.Status.BESTAETIGT
-    beleg.bestaetigt_am = beleg.bestaetigt_am or am or timezone.now()
+    beleg.bestaetigt_am = beleg.bestaetigt_am or am or zeit.jetzt()
     beleg.rechnungsnummer = (rechnungsnummer or "").strip()[:100]
     beleg.full_clean()
     beleg.save()
@@ -1890,7 +1891,7 @@ def _abweichung_einzeln(beleg: Beleg, *, lauf: Lauf | None = None) -> Arbeitspos
         ART_BELEG_ABWEICHUNG,
         bezug=beleg,
         aktionen=AKTIONEN_BELEG_ABWEICHUNG,
-        faellig_am=timezone.localdate(),
+        faellig_am=zeit.heute(),
         hinweis=_abweichung_hinweis(liste),
         lauf=lauf,
     )
@@ -1899,7 +1900,7 @@ def _abweichung_einzeln(beleg: Beleg, *, lauf: Lauf | None = None) -> Arbeitspos
 def belegabweichungen_pruefen(lauf: Lauf | None = None) -> kassenbuch_services.Abgleich:
     """Lauf ``kassenbuch_einordnen``: prüft bestätigte Belege erneut, weil die Abbuchung
     oft erst nach dem Beleg kommt; verknüpfte gegen ihre Buchung."""
-    seit = timezone.localdate() - datetime.timedelta(days=ABWEICHUNG_TAGE)
+    seit = zeit.heute() - datetime.timedelta(days=ABWEICHUNG_TAGE)
     neu = 0
     belege = Beleg.objects.filter(
         status=Beleg.Status.BESTAETIGT, dokument__datum__gte=seit
@@ -2329,7 +2330,7 @@ def rechnungen_abgleichen(lauf: Lauf | None = None) -> kassenbuch_services.Abgle
             ART_RECHNUNG_ZUORDNEN,
             bezug=rechnung,
             aktionen=AKTIONEN_RECHNUNG_ZUORDNEN,
-            faellig_am=timezone.localdate(),
+            faellig_am=zeit.heute(),
             hinweis=_unsicher_hinweis(liste, alle),
             lauf=lauf,
         )

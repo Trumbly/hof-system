@@ -59,7 +59,8 @@ NUR_LESEN = ToolAnnotations(
 
 
 def heute_berlin() -> datetime.date:
-    return datetime.datetime.now(ZoneInfo(ZEITZONE)).date()
+    # zeit: echt (eigener Dienst ohne Django, liest die Momentaufnahme mit ihrem Stichtag)
+    return datetime.datetime.now(ZoneInfo(ZEITZONE)).date()  # zeit: echt
 
 
 def mcp_server(quelle: Quelle, *, heute: Callable[[], datetime.date] = heute_berlin) -> MCPServer:

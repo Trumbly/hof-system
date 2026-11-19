@@ -11,6 +11,7 @@ Seite ``/stil/``. Verwendung::
     {% kennzahl "Saldo" konto.saldo|euro art="fehler" unter="2 Posten" link=url %}
     {% unternavigation "Kassenbuch" "kassenbuch:buchungen=Buchungen" … %}  Reiter
     {% pdf_vorschau url "Titel" %}             PDF groß (A4), in .geteilt mitlaufend
+    {% begriff "nicht_pruefbar" %}             Fachbegriff mit Erklärung (Tooltip, BEGRIFFE)
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from django import forms, template
 from django.forms.boundfield import BoundField
 from django.template.base import FilterExpression, Parser, Token, token_kwargs
 from django.urls import reverse
-from django.utils.html import format_html_join
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import SafeString, mark_safe
 
 from apps.kern import navigation as navi
@@ -68,6 +69,46 @@ BADGES: dict[str, Badge] = {
 }
 
 ARTEN = ("ok", "hinweis", "warnung", "fehler", "neutral")
+
+
+@dataclass(frozen=True)
+class Begriff:
+    text: str
+    erklaerung: str
+
+
+#: Die drei Begriffe für offene Beträge (Review 3, Punkt 1), überall gleich. Gerechnet wird
+#: in ``soll.services.einordnen``; offen = überfällig + nicht prüfbar + noch nicht fällig.
+BEGRIFFE: dict[str, Begriff] = {
+    "offen": Begriff(
+        "offen",
+        "Noch nicht ganz bezahlt, egal wann fällig: überfällig, nicht prüfbar und noch nicht "
+        "fällig zusammen.",
+    ),
+    "ueberfaellig": Begriff(
+        "überfällig",
+        "Vor heute fällig und bis zum letzten Bankabruf nicht bezahlt. Das ist der Rückstand; "
+        "nur er wird gemahnt.",
+    ),
+    "nicht_pruefbar": Begriff(
+        "nicht prüfbar",
+        "Vor heute fällig, aber nach dem letzten Bankabruf. Ob bezahlt ist, zeigt erst der "
+        "nächste Abruf. Zählt nicht als Rückstand.",
+    ),
+    "noch_nicht_faellig": Begriff("noch nicht fällig", "Fällig heute oder später."),
+}
+
+
+def begriff_html(schluessel: str, text: str = "") -> SafeString:
+    """Ein Fachbegriff mit Erklärung als Tooltip (auch für Texte, die Python baut)."""
+    b = BEGRIFFE[schluessel]
+    return format_html('<span class="begriff" title="{}">{}</span>', b.erklaerung, text or b.text)
+
+
+@register.simple_tag
+def begriff(schluessel: str, text: str = "") -> SafeString:
+    """Fachbegriff aus ``BEGRIFFE`` mit Erklärung im Tooltip; ``text`` ersetzt das Wort."""
+    return begriff_html(str(schluessel), str(text))
 
 
 def badge_fuer(status: str, text: str = "") -> Badge:
