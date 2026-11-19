@@ -50,6 +50,7 @@ from apps.kern.models import Arbeitsposten, Lauf
 from apps.kern.vorgaenge import als_vorgang
 from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import (
+    BINDEND,
     Einheit,
     EinheitStatus,
     Kontaktweg,
@@ -73,7 +74,7 @@ TOKEN_PRAEFIX = "hofw_"  # noqa: S105  (Präfix, kein Geheimnis)
 TAGE_BIS_PRUEFUNG = 2
 
 #: Verträge in diesen Status binden ihre Einheiten (wie ``stammdaten.services``).
-BINDENDE_STATUS = (Vertrag.Status.ENTWURF, Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
+BINDENDE_STATUS = BINDEND  # stammdaten.models.VertragQuerySet
 
 BILD_ENDUNGEN = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -211,13 +212,16 @@ def _frei_ab(staende: Sequence[EinheitStatus], stichtag: datetime.date) -> datet
 def buchbar_ab(einheit: Einheit, stichtag: datetime.date) -> datetime.date | None:
     """Ab wann eine Einheit buchbar ist, sonst None.
 
-    Buchbar ist sie, wenn sie (ab einem Tag) den Status „frei“ hat, kein Vertrag (Entwurf,
-    aktiv, gekündigt) sie ab da bindet und keine angenommene Buchungsanfrage auf ihr liegt.
+    Buchbar ist sie, wenn sie eine Fläche hat, (ab einem Tag) den Status „frei“ hat, kein
+    Vertrag (Entwurf, aktiv, gekündigt) sie ab da bindet und keine angenommene
+    Buchungsanfrage auf ihr liegt.
     Nutzt vorgeladene Listen aus ``katalog()``, sonst fragt sie die Datenbank.
     """
     staende: list[EinheitStatus] = getattr(einheit, "katalog_staende", None) or list(
         einheit.statusstaende.order_by("gueltig_ab")
     )
+    if not einheit.flaeche_qm:
+        return None  # ohne Fläche nicht buchbar (Review 2, A11; Datenstand „Katalog“)
     ab = _frei_ab(staende, stichtag)
     if ab is None:
         return None

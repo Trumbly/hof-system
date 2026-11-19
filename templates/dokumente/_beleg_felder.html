@@ -1,6 +1,6 @@
 <fieldset id="beleg-felder" class="beleg-felder">
   <legend>Angaben zum Beleg</legend>
-  {% if vorschlag %}<p class="leise" role="status">Vorschlag aus Beleg #{{ vorschlag.aus_beleg.pk }} desselben Lieferanten: {{ vorschlag.objekt.kuerzel }}, {{ vorschlag.kategorie.bezeichnung }}, Leistungsjahr {{ vorschlag.leistungsjahr }}.</p>{% endif %}
+  {% if vorschlag_text %}<p class="leise" role="status">{{ vorschlag_text }}</p>{% endif %}
   {% for name in felder %}{% for feld in form %}{% if feld.name == name %}
   <p>
     {{ feld.label_tag }}

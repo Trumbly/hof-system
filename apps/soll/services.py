@@ -39,7 +39,7 @@ from apps.kern.models import Arbeitsposten, Lauf
 from apps.soll import konfiguration, rechnung
 from apps.soll.models import Sollposten, Sollregel
 from apps.stammdaten import fristrechnung
-from apps.stammdaten.models import Vertrag
+from apps.stammdaten.models import MIT_SOLL, Vertrag
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ GRUND_AENDERUNG = "Vertrag geändert"
 #: Arten, die aus den Konditionen entstehen. Kaution und Sonstiges legt man von Hand an.
 ARTEN_AUS_VERTRAG = (Sollposten.Art.MIETE, Sollposten.Art.PAUSCHALE)
 #: Verträge in diesen Status haben ein Soll (bis zu ihrem Ende).
-STATUS_MIT_SOLL = (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT, Vertrag.Status.BEENDET)
+STATUS_MIT_SOLL = MIT_SOLL  # stammdaten.models.VertragQuerySet
 GELTEND = (Sollposten.Status.OFFEN, Sollposten.Status.TEILWEISE, Sollposten.Status.BEZAHLT)
 
 

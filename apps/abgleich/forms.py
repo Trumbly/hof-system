@@ -47,6 +47,11 @@ class ZuordnenForm(forms.Form):
         Vertrag.objects.prefetch_related("einheiten").order_by("nummer"), label="Vertrag"
     )
     rest_als_guthaben = forms.BooleanField(label="Rest als Guthaben", required=False, initial=True)
+    zahlerregel_aendern = forms.BooleanField(
+        label="Zahlerregel auf diesen Vertrag ändern",
+        required=False,
+        help_text="Die Zahlerregel dieses Zahlers zeigt auf einen anderen Vertrag.",
+    )
 
 
 class AnteilForm(forms.Form):

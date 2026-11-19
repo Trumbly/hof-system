@@ -156,9 +156,62 @@ def monat_aus_text(text: str | None) -> datetime.date | None:
     return datetime.date(jahr, monat, 1)
 
 
+MONATSNAMEN = (
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+)
+#: Erstes Jahr in der Auswahl (Monatsberichte gibt es nicht vor dem Kassenbuch).
+ERSTES_JAHR = 2015
+
+
+class MonatAuswahl(forms.MultiWidget):
+    """Monat und Jahr als zwei Auswahllisten mit deutschen Namen (Review 2, A11). Ersetzt
+    ``<input type="month">``, das der Browser in seiner Sprache zeigt („October 2026“).
+
+    Der Wert bleibt „JJJJ-MM“; Links mit ``?monat=2026-10`` gehen weiter.
+    """
+
+    def __init__(self, attrs: dict[str, Any] | None = None) -> None:
+        jahre = range(ERSTES_JAHR, datetime.date.today().year + 2)
+        super().__init__(
+            [
+                forms.Select(
+                    attrs={"aria-label": "Monat"},
+                    choices=[(f"{n:02d}", name) for n, name in enumerate(MONATSNAMEN, start=1)],
+                ),
+                forms.Select(
+                    attrs={"aria-label": "Jahr"}, choices=[(str(j), str(j)) for j in jahre]
+                ),
+            ],
+            attrs,
+        )
+
+    def decompress(self, value: Any) -> list[str | None]:
+        treffer = MONAT_MUSTER.match(str(value or ""))
+        if not treffer:
+            return [None, None]
+        return [treffer.group(2), treffer.group(1)]
+
+    def value_from_datadict(self, data: Any, files: Any, name: str) -> Any:
+        monat, jahr = (data.get(f"{name}_{i}") for i in (0, 1))
+        if monat and jahr:
+            return f"{jahr}-{monat}"
+        return data.get(name)
+
+
 class BerichtForm(forms.Form):
     objekt = ObjektWahl(Objekt.objects.order_by("kuerzel"))
-    monat = forms.CharField(widget=forms.TextInput(attrs={"type": "month"}))
+    monat = forms.CharField(label="Monat", widget=MonatAuswahl())
 
     def clean_monat(self) -> datetime.date:
         monat = monat_aus_text(self.cleaned_data.get("monat"))

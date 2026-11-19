@@ -231,7 +231,7 @@ def test_uebergabe_am_handy_in_schritten_mit_kamera(
         'type="file" id="fotos" name="fotos" accept="image/*" capture="environment" multiple'
         in seite
     )
-    assert "Schritt 3 von 6" in seite
+    assert "Schritt 3 von 7" in seite
 
     def schritt(n: int, daten: dict[str, object]) -> None:
         url = reverse("stammdaten:uebergabe", args=[uebergabe.pk, n])
@@ -249,8 +249,9 @@ def test_uebergabe_am_handy_in_schritten_mit_kamera(
     schritt(2, {f"stand_{zaehler.pk}": "77", f"foto_{zaehler.pk}": foto("z.png")})
     schritt(3, {"fotos": [foto("a.png"), foto("b.png")]})
     schritt(4, {f"schluessel_{schluessel.pk}": "2"})
-    schritt(5, {"zustand": "gut", "unterschrift": foto("u.png")})
-    schritt(6, {})
+    schritt(5, {"betrag": "180,00", "art": "ueberweisung", "eingang_am": "2026-11-25"})
+    schritt(6, {"zustand": "gut", "unterschrift": foto("u.png")})
+    schritt(7, {})
 
     bereit.refresh_from_db()
     assert bereit.status == Vertrag.Status.AKTIV
@@ -275,7 +276,7 @@ def test_nur_fotos_werden_angenommen(bereit: Vertrag, angemeldet: Client) -> Non
 
 def test_abschluss_mit_hindernis_bleibt_auf_der_seite(entwurf: Vertrag, angemeldet: Client) -> None:
     uebergabe = services.uebergabe_beginnen(entwurf, Uebergabe.Art.UEBERGABE, D(2026, 12, 1))
-    antwort = angemeldet.post(reverse("stammdaten:uebergabe", args=[uebergabe.pk, 6]), follow=True)
+    antwort = angemeldet.post(reverse("stammdaten:uebergabe", args=[uebergabe.pk, 7]), follow=True)
     assert "Kaution" in antwort.content.decode()
     entwurf.refresh_from_db()
     assert entwurf.status == Vertrag.Status.ENTWURF

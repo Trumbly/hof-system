@@ -199,6 +199,8 @@ compose.sh exec app python manage.py kassenbuch_kategorien_import /app/medien/im
 4. Regeln auf der Seite „Kassenbuch → Regeln“ anlegen, dann `compose.sh exec app python manage.py kassenbuch_einordnen` und die Arbeitsliste abarbeiten.
 5. 2026 nachholen: `compose.sh exec app python manage.py kassenbuch_monatsabschluss --ab 2026-01 --bis 2026-12` (bzw. bis zum Vormonat). Er schließt der Reihe nach ab und hält beim ersten Monat mit Lücken an; nach dem Klären erneut starten.
 
+**Warum kein Monat geschlossen ist (Review 2, A11).** Abgeschlossen wird der Reihe nach: Ein Monat braucht den abgeschlossenen Vormonat. Hat der erste Monat eine Lücke, bleiben alle späteren offen. Im Testhof ist das gewollt: Ohne `HOF_KASSENBUCH_BEGINN` beginnt die Kette beim ersten Umsatz (11/2024), und dort sind Umsätze nicht eingeordnet (etwa „Material Baumarkt“ ohne Regel, die mehrdeutige Versicherung); also bleibt alles ab 11/2024 offen. In Produktion setzt `HOF_KASSENBUCH_BEGINN` den Anfang. Die Seite „Kassenbuch → Monatsabschlüsse“ nennt je Mandant (mit Namen) den nächsten offenen Monat, verlinkt die offenen Umsätze und hat für einen bereiten Monat den Knopf „Monat jetzt abschließen“ (mit Rückfrage).
+
 ## Bankfreigabe erneuern
 
 Vivid gibt den Zugriff für höchstens 180 Tage frei, VR (FinTS) etwa alle 90 Tage. 14 Tage vor Ablauf legt der Lauf `bank_abruf` einen Arbeitsposten „Bankfreigabe läuft ab“ an, je Freigabe genau einen; mit der neuen Freigabe ist er erledigt.
@@ -231,6 +233,8 @@ Der Lauf `belege_postfach` (stündlich 7 bis 21 Uhr) legt jede PDF-Anlage des Re
 
 Eingangsrechnungen (Schritt 3b): Wer beim Bestätigen eines Belegs „fällig am“ einträgt, bekommt eine offene Rechnung mit Arbeitsposten „Rechnung zahlen“ und einer Frist; drei Tage vorher erinnert der Lauf `fristen` (Posten „Frist fällig“), nach der Fälligkeit steht am Posten „Überfällig seit …“. Der Lauf `kassenbuch_einordnen` erkennt die Abbuchung an Betrag und Gegen-IBAN des Lieferanten oder an der Rechnungsnummer im Zweck, verbindet Buchung und Rechnung, schließt Posten und Frist und hängt den Beleg an die Buchung. Unsichere Treffer werden ein Arbeitsposten „Rechnung zuordnen“. Die Meldung ans Hof-Backlog in Notion (`apps/kern/aufgaben.py`) kommt mit Schritt 9.
 
+Beleg und Abbuchung weichen ab (Review 2, A7): Passen Rechnungsnummer (im Zweck) oder Lieferant (Gegen-IBAN, dann höchstens 20 % Unterschied) zu einer Abbuchung, der Betrag aber nicht, entsteht ein Arbeitsposten „Beleg und Abbuchung weichen ab“. Ebenso, wenn ein schon verknüpfter Beleg (bzw. alle Teile einer Sammelrechnung) nicht mehr den Betrag seiner Abbuchung ergibt. Geprüft wird beim Bestätigen und Speichern eines Belegs, beim Verknüpfen und im Lauf `kassenbuch_einordnen`. Beide Beträge stehen auf der Seite des Belegs; der Hinweis am Posten (geht ins Hof-Backlog) nennt nur die Umsatz-ID. Ist die Abbuchung richtig (Skonto, Teilzahlung), den Posten erledigen; er kommt dann nicht wieder.
+
 Damit der Lieferant einer Mail erkannt wird, auf „Dokumente → Lieferanten“ seine Absenderadresse eintragen; für die Abbuchung seine IBAN. Belege vom Handy: „Dokumente → Beleg hochladen“ (Foto oder PDF). Die Belegmappe je Objekt und Jahr entsteht auf „Dokumente → Belegmappe“.
 
 ## Stammdaten importieren (Schritt 4)
@@ -241,6 +245,8 @@ Reihenfolge: erst Einheiten, dann Parteien und Verträge. Beide Befehle laufen o
 2. `compose.sh exec app python manage.py import_einheiten /pfad/einheiten.csv`, Bericht prüfen, dann mit `--ausfuehren`.
 3. `compose.sh exec app python manage.py import_hellohousing /pfad/mieter.csv --mietverlauf /pfad/verlauf.csv`, Bericht prüfen, dann mit `--ausfuehren`.
 4. Seite „Datenstand“: Kündigungsfrist, Kaution, Zahlweise und Scan je Vertrag aus dem PDF nachtragen.
+
+**Zählung der Verträge (Review 2, A11).** Es gibt eine Zählung, `Vertrag.objects` (`apps/stammdaten/models.py`): „laufend“ heißt aktiv oder gekündigt. Diese Zahl steht in den Stammdaten und als Standard der Vertragsliste; Entwürfe und beendete Verträge stehen getrennt daneben. Früher zählte die Übersicht Entwürfe mit, die Liste auch beendete, daher 43/44/45. Katalog und Leerstand nutzen `bindend()` (mit Entwürfen), das Soll `mit_soll()` (mit beendeten).
 
 Weichen die Spaltenköpfe ab, wird nur `apps/stammdaten/import_spalten.toml` angepasst. Kündigungsregeln je Vertragsart, Checklisten und Pflichtfelder stehen in `apps/stammdaten/konfiguration.toml`. Für Vertrag und Kündigungsbestätigung braucht es freigegebene Vorlagen der Arten „Vertrag“ (Name je Vertragsart, z. B. „Vertrag Garage“, sonst die neueste) und „Kündigungsbestätigung“; fehlt eine, entsteht ein Arbeitsposten „Schreiben erstellen“.
 

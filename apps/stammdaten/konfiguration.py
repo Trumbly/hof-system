@@ -9,7 +9,8 @@ from __future__ import annotations
 import datetime
 import functools
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -40,10 +41,32 @@ class Vertragsart:
 
 
 @dataclass(frozen=True)
+class Checkpunktvorlage:
+    text: str
+    #: Das System hakt den Punkt ab, sobald das Ereignis eintritt (z. B. „vertragsdokument“).
+    automatisch: str = ""
+    #: Nur bei einer Monatsmiete (netto) ab diesem Betrag (P8: Bonität ab 100 €).
+    ab_miete: Decimal | None = None
+
+
+#: Ereignisse, nach denen ein Punkt automatisch abgehakt wird.
+AUTOMATISCH = ("vertragsdokument",)
+
+
+@dataclass(frozen=True)
 class Checklistenvorlage:
     phase: str
     titel: str
     punkte: tuple[str, ...]
+    vorlagen: tuple[Checkpunktvorlage, ...] = field(default=())
+
+    def punkte_fuer(self, miete: Decimal | None) -> tuple[Checkpunktvorlage, ...]:
+        """Die Punkte für einen Vertrag mit dieser Monatsmiete (ohne Miete: ohne bedingte)."""
+        return tuple(
+            p
+            for p in (self.vorlagen or tuple(Checkpunktvorlage(t) for t in self.punkte))
+            if p.ab_miete is None or (miete is not None and miete >= p.ab_miete)
+        )
 
 
 @dataclass(frozen=True)
@@ -69,6 +92,8 @@ class Konfiguration:
     kaution_abrechnung_monate: int
     checklisten: dict[str, Checklistenvorlage]
     datenstand: dict[str, Datenstandbereich]
+    #: P8: ab dieser Monatsmiete (netto) ist ein Bonitätsnachweis Pflicht.
+    bonitaet_ab_miete: Decimal | None = None
 
 
 def _tabelle(daten: dict[str, Any], schluessel: str) -> dict[str, Any]:
@@ -76,6 +101,20 @@ def _tabelle(daten: dict[str, Any], schluessel: str) -> dict[str, Any]:
     if not isinstance(wert, dict):
         raise KonfigurationFehler(f"Abschnitt [{schluessel}] fehlt in {DATEI.name}.")
     return wert
+
+
+def _checkpunkt(phase: str, punkt: Any) -> Checkpunktvorlage:
+    if isinstance(punkt, str):
+        return Checkpunktvorlage(punkt)
+    automatisch = str(punkt.get("automatisch", ""))
+    if automatisch and automatisch not in AUTOMATISCH:
+        raise KonfigurationFehler(f"Checkliste {phase}: unbekanntes Ereignis {automatisch}")
+    ab = punkt.get("ab_miete")
+    return Checkpunktvorlage(
+        text=str(punkt["text"]),
+        automatisch=automatisch,
+        ab_miete=Decimal(str(ab)) if ab is not None else None,
+    )
 
 
 def _lesen(daten: dict[str, Any]) -> Konfiguration:
@@ -111,12 +150,15 @@ def _lesen(daten: dict[str, Any]) -> Konfiguration:
             vorlage=str(art["vorlage"]),
         )
 
-    checklisten = {
-        phase: Checklistenvorlage(
-            phase=phase, titel=str(liste["titel"]), punkte=tuple(str(p) for p in liste["punkte"])
+    checklisten = {}
+    for phase, liste in _tabelle(daten, "checklisten").items():
+        vorlagen = tuple(_checkpunkt(phase, p) for p in liste["punkte"])
+        checklisten[phase] = Checklistenvorlage(
+            phase=phase,
+            titel=str(liste["titel"]),
+            punkte=tuple(p.text for p in vorlagen),
+            vorlagen=vorlagen,
         )
-        for phase, liste in _tabelle(daten, "checklisten").items()
-    }
 
     datenstand: dict[str, Datenstandbereich] = {}
     for schluessel, bereich in _tabelle(daten, "datenstand").items():
@@ -143,6 +185,9 @@ def _lesen(daten: dict[str, Any]) -> Konfiguration:
         kaution_abrechnung_monate=int(_tabelle(daten, "kaution")["abrechnung_monate"]),
         checklisten=checklisten,
         datenstand=datenstand,
+        bonitaet_ab_miete=(
+            Decimal(str(daten["bonitaet"]["ab_miete"])) if "bonitaet" in daten else None
+        ),
     )
 
 

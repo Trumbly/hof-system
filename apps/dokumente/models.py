@@ -391,6 +391,21 @@ class Beleg(ProtokolliertesModell):
         "Status", max_length=20, choices=Status.choices, default=Status.OFFEN, db_index=True
     )
     bestaetigt_am = models.DateTimeField("bestätigt am", null=True, blank=True)
+    rechnungsnummer = models.CharField(
+        "Rechnungsnummer",
+        max_length=100,
+        blank=True,
+        help_text="Erkennt die Abbuchung im Verwendungszweck (auch ohne Fälligkeit).",
+    )
+    vorschlag_aus = models.ForeignKey(
+        "self",
+        verbose_name="Vorschlag aus Beleg",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Der frühere Beleg, aus dem Objekt, Kostenart und Leistungsjahr stammen.",
+    )
     angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
 
     class Meta:
@@ -509,5 +524,6 @@ personenfelder.unbedenklich(Dokument, ["art", "datei", "original", "sha256", "da
 personenfelder.unbedenklich(Dokument, ["herkunft"])
 personenfelder.register(Dokument, ["eingangskennung", "bemerkung"])
 personenfelder.unbedenklich(Beleg, ["status"])
+personenfelder.register(Beleg, ["rechnungsnummer"])
 personenfelder.register(Eingangsrechnung, ["rechnungsnummer"])
 personenfelder.unbedenklich(Eingangsrechnung, ["status"])

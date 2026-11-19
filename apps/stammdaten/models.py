@@ -282,6 +282,40 @@ class Kontaktweg(ProtokolliertesModell):
 # --- Vertrag -------------------------------------------------------------------------
 
 
+class VertragQuerySet(models.QuerySet["Vertrag"]):
+    """Die eine Zählung der Verträge (Review 2, A11). Jede Seite zählt hierüber.
+
+    - ``laufend()``: aktiv oder gekündigt, also unterschrieben und noch nicht zurückgegeben.
+      Das ist „die“ Zahl der Verträge (Stammdaten, Vertragsliste, Cockpit).
+    - ``bindend()``: dazu die Entwürfe; sie binden die Einheit schon (Katalog, Leerstand).
+    - ``mit_soll()``: laufend und beendet; nur diese haben Sollposten.
+    """
+
+    def laufend(self) -> VertragQuerySet:
+        return self.filter(status__in=LAUFEND)
+
+    def bindend(self) -> VertragQuerySet:
+        return self.filter(status__in=BINDEND)
+
+    def mit_soll(self) -> VertragQuerySet:
+        return self.filter(status__in=MIT_SOLL)
+
+    def zaehlung(self) -> dict[str, int]:
+        """Anzahl je Gruppe: laufend, entwurf, beendet, alle."""
+        je_status = dict(
+            self.order_by()
+            .values_list("status")
+            .annotate(n=models.Count("pk"))
+            .values_list("status", "n")
+        )
+        return {
+            "laufend": sum(je_status.get(s, 0) for s in LAUFEND),
+            "entwurf": je_status.get("entwurf", 0),
+            "beendet": je_status.get("beendet", 0),
+            "alle": sum(je_status.values()),
+        }
+
+
 class Vertrag(ProtokolliertesModell):
     """Mietvertrag außerhalb von Wohnraum (H1.3) mit Mandant, Einheiten und Parteien."""
 
@@ -332,6 +366,8 @@ class Vertrag(ProtokolliertesModell):
     )
     angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
 
+    objects = VertragQuerySet.as_manager()
+
     class Meta:
         verbose_name = "Vertrag"
         verbose_name_plural = "Verträge"
@@ -362,6 +398,12 @@ class Vertrag(ProtokolliertesModell):
         return [
             vp.partei for vp in self.vertragsparteien.filter(rolle=rolle).select_related("partei")
         ]
+
+
+#: Status-Gruppen der Verträge (``VertragQuerySet``); die einzige Stelle dafür.
+LAUFEND = (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
+BINDEND = (Vertrag.Status.ENTWURF, *LAUFEND)
+MIT_SOLL = (*LAUFEND, Vertrag.Status.BEENDET)
 
 
 class Vertragseinheit(ProtokolliertesModell):
@@ -466,10 +508,21 @@ class Kondition(Zeitraum, ProtokolliertesModell):
 class Kaution(ProtokolliertesModell):
     """Kaution als eigener Posten am Vertrag (H2.10). Betrag 0 heißt: keine vereinbart."""
 
+    class Art(models.TextChoices):
+        UNBEKANNT = "", "noch nicht erfasst"
+        UEBERWEISUNG = "ueberweisung", "Überweisung"
+        BAR = "bar", "bar"
+        BUERGSCHAFT = "buergschaft", "Bürgschaft"
+        SPARBUCH = "sparbuch", "verpfändetes Sparbuch"
+        SONSTIGE = "sonstige", "sonstige"
+
     vertrag = models.OneToOneField(
         Vertrag, verbose_name="Vertrag", on_delete=models.PROTECT, related_name="kaution"
     )
     betrag = models.DecimalField("Betrag", max_digits=12, decimal_places=2, null=True, blank=True)
+    art = models.CharField(
+        "Art", max_length=20, choices=Art.choices, blank=True, default=Art.UNBEKANNT
+    )
     eingang_am = models.DateField("eingegangen am", null=True, blank=True)
     konto = models.CharField(
         "Konto",
@@ -656,6 +709,12 @@ class Uebergabe(ProtokolliertesModell):
     zustand = models.TextField("Zustand", blank=True)
     zurueckgelassen = models.TextField("zurückgelassene Sachen", blank=True)
     unterschrift = models.FileField("Unterschrift (Foto)", upload_to=_foto_pfad, blank=True)
+    uebersprungen = models.JSONField(
+        "übersprungene Schritte",
+        default=dict,
+        blank=True,
+        help_text='Schritt → Begründung, z. B. {"zaehler": "Einheit ohne Strom"}.',
+    )
     angelegt_am = models.DateTimeField("angelegt am", auto_now_add=True)
 
     class Meta:
@@ -769,13 +828,13 @@ personenfelder.unbedenklich(Vertrag, ["herkunft"])
 personenfelder.unbedenklich(Vertragspartei, ["rolle"])
 personenfelder.unbedenklich(Kondition, ["zahlweise", "grund"])
 personenfelder.register(Kaution, ["abrechnung_notiz"])
-personenfelder.unbedenklich(Kaution, ["konto"])
+personenfelder.unbedenklich(Kaution, ["konto", "art"])
 personenfelder.register(Schluessel, ["inhaber_text"])
 personenfelder.unbedenklich(Schluessel, ["art", "bezeichnung", "inhaber"])
 personenfelder.unbedenklich(Checkliste, ["phase", "titel"])
 personenfelder.register(Checkpunkt, ["notiz"])
 personenfelder.unbedenklich(Checkpunkt, ["text"])
-personenfelder.register(Uebergabe, ["zustand", "zurueckgelassen"])
+personenfelder.register(Uebergabe, ["zustand", "zurueckgelassen", "uebersprungen"])
 personenfelder.unbedenklich(Uebergabe, ["art", "status"])
 personenfelder.register(UebergabeFoto, ["beschreibung"])
 personenfelder.unbedenklich(Kuendigung, ["von", "kuendigungsregel", "zugangsweg"])

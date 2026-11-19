@@ -38,7 +38,9 @@ def test_testhof_anfragen_kennzahlen_und_abweichung(testhof: Testhof) -> None:
     im_katalog = {e.nw_id for e in services.katalog(STICHTAG)}
     assert daten.buchung_offen.einheit.nw_id in im_katalog
     assert daten.buchung_angenommen.einheit.nw_id not in im_katalog
-    assert len(im_katalog) == 10
+    # Review 2, A11: NW-G-0017 hat keine Fläche und ist deshalb nicht buchbar (vorher 10).
+    assert "NW-G-0017" not in im_katalog
+    assert len(im_katalog) == 9
 
     wohnungen = Einheit.objects.filter(typ=Einheit.Typ.WOHNUNG).count()
     assert Kennzahl.objects.filter(datum=STICHTAG).count() == wohnungen == 6

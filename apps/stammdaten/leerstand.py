@@ -17,10 +17,10 @@ from decimal import Decimal
 
 from django.db.models import Prefetch, Q
 
-from apps.stammdaten.models import Einheit, EinheitStatus, Vertrag, Zielmiete
+from apps.stammdaten.models import MIT_SOLL, Einheit, EinheitStatus, Vertrag, Zielmiete
 
 EIN_TAG = datetime.timedelta(days=1)
-ABDECKEND = (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT, Vertrag.Status.BEENDET)
+ABDECKEND = MIT_SOLL  # stammdaten.models.VertragQuerySet
 
 
 @dataclass(frozen=True)

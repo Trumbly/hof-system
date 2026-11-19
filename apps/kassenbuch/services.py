@@ -46,6 +46,7 @@ from apps.kassenbuch.models import (
 )
 from apps.kern import services as kern_services
 from apps.kern.models import Arbeitsposten, Lauf, Mandant, Objekt
+from apps.kern.vorgaenge import als_vorgang
 
 logger = logging.getLogger(__name__)
 
@@ -1105,6 +1106,7 @@ def belege_erneut_pruefen(abschluss: Monatsabschluss) -> AbschlussPruefung:
     return pruefung
 
 
+@als_vorgang("Monatsabschluss {monat:%m/%Y} {mandant.kuerzel}")
 @transaction.atomic
 def monat_abschliessen(
     mandant: Mandant, monat: datetime.date, *, lauf: Lauf | None = None

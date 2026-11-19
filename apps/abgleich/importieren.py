@@ -29,9 +29,7 @@ from apps.bank.models import Bankumsatz
 from apps.kassenbuch import services as kassenbuch
 from apps.kassenbuch.models import Kategorie, Zuordnungsregel
 from apps.kern.models import Objekt
-from apps.stammdaten.models import Einheit, Vertrag
-
-LAUFEND = (Vertrag.Status.AKTIV, Vertrag.Status.GEKUENDIGT)
+from apps.stammdaten.models import LAUFEND, Einheit, Vertrag
 
 KEINE_BEDINGUNG = "keine Bedingung für den Zahler"
 DOPPELT = "doppelt in der Datei"

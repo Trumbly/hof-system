@@ -23,11 +23,12 @@ from django.views.decorators.http import require_POST
 from apps.anbindungen import services as anbindungen
 from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
-from apps.stammdaten import datenstand, leerstand, schreiben, services
+from apps.stammdaten import datenstand, konfiguration, leerstand, schreiben, services
 from apps.stammdaten import forms as f
 from apps.stammdaten.models import (
     Checkpunkt,
     Einheit,
+    Kaution,
     Kontaktweg,
     Kuendigung,
     Partei,
@@ -103,7 +104,7 @@ def uebersicht(request: HttpRequest) -> HttpResponse:
         {
             "einheiten": Einheit.objects.filter(aufgeloest_am__isnull=True).count(),
             "parteien": Partei.objects.count(),
-            "vertraege": Vertrag.objects.filter(status__in=services.BINDENDE_STATUS).count(),
+            "zaehlung": Vertrag.objects.zaehlung(),
             "luecken": sum(b.anzahl_luecken for b in stand),
         },
     )
@@ -284,9 +285,27 @@ def kontaktweg_entfernen(request: HttpRequest, pk: int) -> HttpResponse:
 # --- Verträge ------------------------------------------------------------------------
 
 
+#: Filter der Vertragsliste; Standard sind die laufenden (dieselbe Zahl wie überall).
+VERTRAG_FILTER = (
+    ("laufend", "laufend"),
+    ("entwurf", "Entwürfe"),
+    ("beendet", "beendet"),
+    ("alle", "alle"),
+)
+
+
 @login_required
 def vertraege(request: HttpRequest) -> HttpResponse:
-    liste = Vertrag.objects.prefetch_related(
+    gruppe = request.GET.get("status", "laufend")
+    if gruppe not in dict(VERTRAG_FILTER):
+        gruppe = "laufend"
+    auswahl = {
+        "laufend": Vertrag.objects.laufend(),
+        "entwurf": Vertrag.objects.filter(status=Vertrag.Status.ENTWURF),
+        "beendet": Vertrag.objects.filter(status=Vertrag.Status.BEENDET),
+        "alle": Vertrag.objects.all(),
+    }[gruppe]
+    liste = auswahl.prefetch_related(
         "einheiten",
         Prefetch(
             "vertragsparteien",
@@ -296,7 +315,16 @@ def vertraege(request: HttpRequest) -> HttpResponse:
             to_attr="mieter",
         ),
     ).order_by("nummer")
-    return render(request, "stammdaten/vertraege.html", {"vertraege": liste})
+    return render(
+        request,
+        "stammdaten/vertraege.html",
+        {
+            "vertraege": liste,
+            "gruppe": gruppe,
+            "filter": VERTRAG_FILTER,
+            "zaehlung": Vertrag.objects.zaehlung(),
+        },
+    )
 
 
 def _dokument_melden(request: HttpRequest, ergebnis: schreiben.Ergebnis) -> None:
@@ -353,6 +381,12 @@ def vertrag_neu(request: HttpRequest) -> HttpResponse:
                 )
             messages.success(request, meldung)
             _dokument_melden(request, ergebnis)
+            if services.bonitaet_noetig(vertrag):
+                messages.warning(
+                    request,
+                    "Die Monatsmiete liegt bei 100 € oder darüber: Bitte vor der Unterschrift "
+                    "Selbstauskunft und Bonitätsnachweis prüfen (P8).",
+                )
             return redirect("stammdaten:vertrag", vertrag.pk)
     einheit = Einheit.objects.filter(pk=initial.get("einheit") or 0).first() if initial else None
     return render(
@@ -526,6 +560,8 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
             "kuendigungsregel": services.kuendigungsregel_fuer(vertrag),
             "uebergaben": vertrag.uebergaben.all(),
             "checklisten": vertrag.checklisten.prefetch_related("punkte").order_by("-pk"),
+            "bonitaet": services.bonitaet_noetig(vertrag),
+            "bonitaet_ab": konfiguration.laden().bonitaet_ab_miete,
         }
 
     return _formular_seite(
@@ -575,6 +611,8 @@ def checkpunkt(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Übergabe und Rückgabe am Handy (O1) ---------------------------------------------
 
+#: Schritte der Rückgabe. Die Übergabe hat dazu den Schritt „Kaution“ vor der Unterschrift
+#: (Review 2, A10): kein Schlüssel vor Unterschrift und Kaution (SOP, Grundregel 5).
 SCHRITTE: tuple[tuple[str, str], ...] = (
     ("vorab", "Vorab"),
     ("zaehler", "Zählerstände"),
@@ -583,6 +621,22 @@ SCHRITTE: tuple[tuple[str, str], ...] = (
     ("unterschrift", "Zustand und Unterschrift"),
     ("abschluss", "Abschluss"),
 )
+SCHRITTE_UEBERGABE: tuple[tuple[str, str], ...] = (
+    *SCHRITTE[:4],
+    ("kaution", "Kaution"),
+    *SCHRITTE[4:],
+)
+
+
+def schritte_fuer(uebergabe: Uebergabe) -> tuple[tuple[str, str], ...]:
+    return SCHRITTE_UEBERGABE if uebergabe.art == Uebergabe.Art.UEBERGABE else SCHRITTE
+
+
+def _schritt_nummer(uebergabe: Uebergabe, name: str) -> int:
+    for nummer, (schluessel, _) in enumerate(schritte_fuer(uebergabe), start=1):
+        if schluessel == name:
+            return nummer
+    raise Http404("Unbekannter Schritt")
 
 
 @login_required
@@ -597,6 +651,18 @@ def uebergabe_starten(request: HttpRequest, pk: int, art: str) -> HttpResponse:
     return redirect("stammdaten:uebergabe", uebergabe.pk, 1)
 
 
+def _datei_oder_none(datei: Any) -> Any:
+    """Ein leeres Dateifeld ist kein Foto (Review 2, A1): ohne Namen oder ohne Inhalt."""
+    if datei is None or not getattr(datei, "name", "") or not getattr(datei, "size", 0):
+        return None
+    return datei
+
+
+def fotos_aus_post(request: HttpRequest, feld: str = "fotos") -> list[Any]:
+    """Die gewählten Fotos eines Mehrfach-Dateifelds; ein leeres Feld heißt: kein Foto."""
+    return [d for d in request.FILES.getlist(feld) if _datei_oder_none(d) is not None]
+
+
 def _zaehler_aus_post(request: HttpRequest, uebergabe: Uebergabe) -> list[dict[str, Any]]:
     """Stand, Foto und Kennzeichen „geschätzt“ je Zähler der Einheiten des Vertrags."""
     zeilen: list[dict[str, Any]] = []
@@ -605,11 +671,28 @@ def _zaehler_aus_post(request: HttpRequest, uebergabe: Uebergabe) -> list[dict[s
             {
                 "zaehler": z.pk,
                 "stand": request.POST.get(f"stand_{z.pk}", ""),
-                "foto": request.FILES.get(f"foto_{z.pk}"),
+                "foto": _datei_oder_none(request.FILES.get(f"foto_{z.pk}")),
                 "art": "geschaetzt" if request.POST.get(f"geschaetzt_{z.pk}") else "abgelesen",
             }
         )
     return zeilen
+
+
+def _ueberspringen_oder_fehler(
+    request: HttpRequest, uebergabe: Uebergabe, schritt: str, leer: bool
+) -> str | None:
+    """Ein Schritt ohne Inhalt (kein Zähler, kein Schlüssel) geht nur mit Begründung weiter."""
+    begruendung = request.POST.get("begruendung", "").strip()
+    if begruendung:
+        services.uebergabe_ueberspringen(uebergabe, schritt, begruendung)
+        return None
+    if leer and schritt not in (uebergabe.uebersprungen or {}):
+        titel = services.UEBERSPRINGBAR[schritt]
+        return (
+            f"Für „{titel}“ gibt es nichts zu erfassen. Bitte oben anlegen oder kurz "
+            "begründen, warum der Schritt entfällt."
+        )
+    return None
 
 
 def _uebergabe_post(request: HttpRequest, uebergabe: Uebergabe, schritt: str) -> str | None:
@@ -619,16 +702,18 @@ def _uebergabe_post(request: HttpRequest, uebergabe: Uebergabe, schritt: str) ->
         if not form.is_valid():
             return "Bitte ein gültiges Datum angeben."
         services.uebergabe_speichern(uebergabe, datum=form.cleaned_data["datum"])
-        if form.cleaned_data["vertrag_unterschrieben"]:
+        if form.cleaned_data["vertrag_unterschrieben"] and not uebergabe.vertrag.unterschrieben_am:
             services.vertrag_unterschrieben(uebergabe.vertrag, form.cleaned_data["datum"])
     elif schritt == "zaehler":
         zeilen = _zaehler_aus_post(request, uebergabe)
         for zeile in zeilen:
             if zeile["foto"] is not None and (fehler := f.foto_pruefen(zeile["foto"])):
                 return fehler
+        if fehler := _ueberspringen_oder_fehler(request, uebergabe, "zaehler", not zeilen):
+            return fehler
         services.uebergabe_speichern(uebergabe, zaehlerstaende=zeilen)
     elif schritt == "fotos":
-        dateien = request.FILES.getlist("fotos")
+        dateien = fotos_aus_post(request)
         for datei in dateien:
             if fehler := f.foto_pruefen(datei):
                 return fehler
@@ -636,14 +721,30 @@ def _uebergabe_post(request: HttpRequest, uebergabe: Uebergabe, schritt: str) ->
             services.uebergabe_foto_hinzufuegen(uebergabe, datei)
     elif schritt == "schluessel":
         eintraege = []
-        for s in services.schluessel_der_uebergabe(uebergabe):
+        alle = services.schluessel_der_uebergabe(uebergabe)
+        for s in alle:
             wert = request.POST.get(f"schluessel_{s.pk}", "0") or "0"
             if not wert.isdigit() or int(wert) > s.anzahl:
-                return f"Schlüssel #{s.pk}: Anzahl zwischen 0 und {s.anzahl}."
+                return f"Bitte für Schlüssel #{s.pk} eine Anzahl zwischen 0 und {s.anzahl} angeben."
             eintraege.append({"schluessel": s.pk, "anzahl": int(wert)})
+        if fehler := _ueberspringen_oder_fehler(request, uebergabe, "schluessel", not alle):
+            return fehler
         services.uebergabe_speichern(uebergabe, schluessel=eintraege)
+    elif schritt == "kaution":
+        kform = f.KautionSchrittForm(request.POST)
+        if not kform.is_valid():
+            return " ".join(" ".join(e) for e in kform.errors.values())
+        d = kform.cleaned_data
+        services.uebergabe_kaution_erfassen(
+            uebergabe,
+            keine=d["keine"],
+            betrag=d["betrag"],
+            art=d["art"] or "",
+            eingang_am=d["eingang_am"],
+            konto=d["konto"],
+        )
     elif schritt == "unterschrift":
-        datei = request.FILES.get("unterschrift")
+        datei = _datei_oder_none(request.FILES.get("unterschrift"))
         if datei is not None and (fehler := f.foto_pruefen(datei)):
             return fehler
         services.uebergabe_speichern(
@@ -657,20 +758,71 @@ def _uebergabe_post(request: HttpRequest, uebergabe: Uebergabe, schritt: str) ->
     return None
 
 
+def _schnell_anlegen(request: HttpRequest, uebergabe: Uebergabe, aktion: str) -> str | None:
+    """Zähler anlegen bzw. Schlüssel erfassen direkt im Schritt. Rückgabe: Fehler oder None."""
+    einheiten = uebergabe.vertrag.einheiten.all()
+    if aktion == "zaehler_anlegen":
+        zform = f.ZaehlerSchnellForm(request.POST, einheiten=einheiten)
+        if not zform.is_valid():
+            return "Bitte Einheit, Art und Zählernummer angeben."
+        d = zform.cleaned_data
+        try:
+            zaehler = zaehler_services.zaehler_anlegen(d["nummer"], d["art"], einheit=d["einheit"])
+        except zaehler_services.ZaehlerFehler as fehler:
+            return str(fehler)
+        messages.success(request, f"Zähler {zaehler.nummer} an {d['einheit'].nw_id} angelegt.")
+        return None
+    sform = f.SchluesselSchnellForm(request.POST, einheiten=einheiten)
+    if not sform.is_valid():
+        return "Bitte Einheit, Art und Anzahl der Schlüssel angeben."
+    d = sform.cleaned_data
+    services.schluessel_anlegen(
+        d["einheit"],
+        art=d["art"],
+        anzahl=d["anzahl"],
+        bezeichnung=d["bezeichnung"],
+        inhaber=Schluessel.Inhaber.HOF,
+    )
+    messages.success(request, f"{d['anzahl']} Schlüssel für {d['einheit'].nw_id} erfasst.")
+    return None
+
+
+def _kaution_initial(vertrag: Vertrag) -> dict[str, Any]:
+    """Vorbelegung des Kautionsschritts aus der Kaution am Vertrag."""
+    kaution = getattr(vertrag, "kaution", None)
+    if kaution is None or kaution.betrag is None:
+        return {"art": Kaution.Art.UEBERWEISUNG}
+    if kaution.betrag == 0:
+        return {"keine": True}
+    return {
+        "betrag": kaution.betrag,
+        "art": kaution.art or Kaution.Art.UEBERWEISUNG,
+        "eingang_am": kaution.eingang_am,
+        "konto": kaution.konto,
+    }
+
+
 @login_required
 def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
     """Übergabe oder Rückgabe in Schritten; Fotos direkt aus der Kamera."""
     uebergabe = get_object_or_404(Uebergabe.objects.select_related("vertrag"), pk=pk)
-    if not 1 <= schritt <= len(SCHRITTE):
+    schritte = schritte_fuer(uebergabe)
+    if not 1 <= schritt <= len(schritte):
         raise Http404("Unbekannter Schritt")
-    schluessel_name, schritt_titel = SCHRITTE[schritt - 1]
+    schluessel_name, schritt_titel = schritte[schritt - 1]
     if uebergabe.status == Uebergabe.Status.ABGESCHLOSSEN:
         messages.info(request, f"{uebergabe} ist abgeschlossen.")
         return redirect("stammdaten:vertrag", uebergabe.vertrag_id)
 
     if request.method == "POST":
+        aktion = request.POST.get("aktion", "")
         try:
-            fehler = _uebergabe_post(request, uebergabe, schluessel_name)
+            if aktion in ("zaehler_anlegen", "schluessel_anlegen"):
+                fehler = _schnell_anlegen(request, uebergabe, aktion)
+                if not fehler:
+                    return redirect("stammdaten:uebergabe", uebergabe.pk, schritt)
+            else:
+                fehler = _uebergabe_post(request, uebergabe, schluessel_name)
         except services.StammdatenFehler as ausnahme:
             fehler = str(ausnahme)
         if fehler:
@@ -682,6 +834,7 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
             return redirect("stammdaten:uebergabe", uebergabe.pk, schritt + 1)
 
     uebergabe.refresh_from_db()
+    vertrag = uebergabe.vertrag
     erfasst = {s.zaehler_id: s for s in uebergabe.zaehlerstaende.all()}
     zaehler_zeilen = [
         (z, erfasst.get(z.pk), z.letzter_stand(uebergabe.datum - datetime.timedelta(days=1)))
@@ -689,18 +842,32 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
     ]
     schluessel = services.schluessel_der_uebergabe(uebergabe)
     gespeichert = {int(e["schluessel"]): int(e["anzahl"]) for e in uebergabe.schluessel}
+    einheiten = vertrag.einheiten.all()
+    fehlt = [
+        (text, reverse("stammdaten:uebergabe", args=[uebergabe.pk, _schritt_nummer(uebergabe, n)]))
+        for text, n in services.uebergabe_fehlt(uebergabe)
+    ]
     return render(
         request,
         "stammdaten/uebergabe.html",
         {
             "uebergabe": uebergabe,
-            "vertrag": uebergabe.vertrag,
+            "vertrag": vertrag,
             "schritt": schritt,
             "schritt_name": schluessel_name,
             "schritt_titel": schritt_titel,
-            "schritte": SCHRITTE,
-            "anzahl_schritte": len(SCHRITTE),
-            "vorab_form": f.UebergabeVorabForm(initial={"datum": uebergabe.datum}),
+            "schritte": schritte,
+            "anzahl_schritte": len(schritte),
+            "vorab_form": f.UebergabeVorabForm(
+                initial={
+                    "datum": uebergabe.datum,
+                    "vertrag_unterschrieben": vertrag.unterschrieben_am is not None,
+                }
+            ),
+            "kaution_form": f.KautionSchrittForm(initial=_kaution_initial(vertrag)),
+            "kondition": vertrag.kondition_am(max(uebergabe.datum, vertrag.beginn)),
+            "zaehler_form": f.ZaehlerSchnellForm(einheiten=einheiten),
+            "schluessel_form": f.SchluesselSchnellForm(einheiten=einheiten),
             "zaehler_zeilen": zaehler_zeilen,
             "zaehlerstaende": list(erfasst.values()),
             "schluessel_zeilen": [
@@ -708,7 +875,10 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
             ],
             "fotos": uebergabe.fotos.all(),
             "hindernisse": services.uebergabe_hindernisse(uebergabe),
-            "einheiten": uebergabe.vertrag.einheiten.all(),
+            "fehlt": fehlt,
+            "uebersprungen": uebergabe.uebersprungen or {},
+            "kaution": getattr(vertrag, "kaution", None),
+            "einheiten": einheiten,
         },
     )
 

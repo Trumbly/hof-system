@@ -98,7 +98,8 @@ def test_standardablauf_4_kuendigung_und_rueckgabe(testhof: Testhof, angemeldet:
     schluessel = services.schluessel_der_uebergabe(rueckgabe)
     assert schluessel
     schritt(angemeldet, rueckgabe.pk, 1, {"datum": FRISTENDE.isoformat()})
-    schritt(angemeldet, rueckgabe.pk, 2, {"nummer_0": "Z-R-1", "stand_0": "2210"})
+    # Ohne Zähler an der Einheit geht es nur mit Begründung weiter (Review 2, A10).
+    schritt(angemeldet, rueckgabe.pk, 2, {"begruendung": "Garage ohne Stromzähler"})
     schritt(angemeldet, rueckgabe.pk, 3, {"fotos": [foto("rueckgabe.png")]})
     schritt(angemeldet, rueckgabe.pk, 4, {f"schluessel_{s.pk}": str(s.anzahl) for s in schluessel})
     schritt(angemeldet, rueckgabe.pk, 5, {"zustand": "besenrein", "zurueckgelassen": "nichts"})

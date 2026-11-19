@@ -25,7 +25,16 @@ def test_pflichtfelder_je_bereich_wie_im_bauplan() -> None:
     Bereiche und Regeln wie in der Tabelle des Bauplans."""
     bereiche = konfiguration.laden().datenstand
 
-    assert list(bereiche) == ["einheit", "partei", "vertrag", "kaution", "schluessel", "zaehler"]
+    assert list(bereiche) == [
+        "einheit",
+        "partei",
+        "vertrag",
+        "kaution",
+        "schluessel",
+        "katalog",  # Review 2, A11
+        "zaehler",
+    ]
+    assert set(bereiche["katalog"].pflicht) == {"flaeche", "bilder", "slug"}
     assert set(bereiche["einheit"].pflicht) == {"typ", "flaeche", "objekt", "status", "zielmiete"}
     assert set(bereiche["partei"].pflicht) == {"anschrift", "kontaktweg"}
     assert set(bereiche["vertrag"].pflicht) == {

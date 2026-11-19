@@ -8,7 +8,7 @@ der Auswahl, die die Seite „Serienmitteilung“ anbietet::
         Vertrag,
         titel="Verträge",
         kontext=lambda v: {"empfaenger": {...}, "vertrag": {...}},
-        auswahl=lambda: Vertrag.objects.filter(status="aktiv"),
+        auswahl=lambda: Vertrag.objects.laufend(),
     )
 
 Der Dokumente-Teil meldet ``kern.Objekt`` an (Aushang je Objekt); die Stammdaten melden

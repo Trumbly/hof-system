@@ -173,3 +173,43 @@ def test_zahlerregeln_pflegen(hof: Abgleichhof, angemeldet: Client) -> None:
     assert {v.pk for v in zahlerregel.vertraege()} == {a.pk, b.pk}
     antwort = angemeldet.post(url, {"vertrag": a.pk, "nicht_vertragsbezogen": "on"})
     assert antwort.status_code == 200 and "genau eins" in antwort.content.decode()
+
+
+def test_klaerfall_bietet_an_die_zahlerregel_zu_korrigieren(
+    hof: Abgleichhof, angemeldet: Client
+) -> None:
+    """Review 2, A11: Zeigt die Zahlerregel auf einen anderen Vertrag als den gewählten,
+    bietet „Zuordnen“ an, sie zu korrigieren: Checkbox „Zahlerregel auf diesen Vertrag
+    ändern“, vorangehakt, wenn sie vom Vorschlag abweicht. Danach zeigt sie auf den Vertrag."""
+    falsch, richtig = hof.vertrag(), hof.vertrag("40.00")
+    iban = neue_iban()
+    regel = hof.regel(iban, vertrag=falsch)
+    buchung = hof.zahlung(D(2026, 7, 2), "40.00", iban=iban, zweck=f"Miete {richtig.nummer}")
+    services.abgleichen()
+    (fall,) = klaerfaelle(buchung)
+    url = reverse("abgleich:zuordnen", args=[fall.pk])
+
+    seite = angemeldet.get(url).content.decode()
+    assert "Zahlerregel auf diesen Vertrag ändern" in seite
+    assert falsch.nummer in seite
+    vorschlag = (fall.vorschlag or {}).get("vertrag")
+    if vorschlag and int(vorschlag) != falsch.pk:
+        assert 'name="zahlerregel_aendern" id="id_zahlerregel_aendern" checked' in seite
+
+    antwort = angemeldet.post(url, {"vertrag": richtig.pk, "zahlerregel_aendern": "on"})
+    assert antwort.status_code == 302, antwort.content.decode()[:800]
+    zahlerregel = Zahlerregel.objects.get(regel=regel)
+    assert zahlerregel.vertrag == richtig
+    assert posten(richtig)[0].status == "bezahlt"
+
+
+def test_klaerfall_ohne_haken_laesst_die_zahlerregel(hof: Abgleichhof, angemeldet: Client) -> None:
+    """Review 2, A11: Ohne Haken bleibt die Zahlerregel, wie sie ist."""
+    falsch, richtig = hof.vertrag(), hof.vertrag("40.00")
+    iban = neue_iban()
+    regel = hof.regel(iban, vertrag=falsch)
+    buchung = hof.zahlung(D(2026, 7, 2), "40.00", iban=iban, zweck=f"Miete {richtig.nummer}")
+    services.abgleichen()
+    (fall,) = klaerfaelle(buchung)
+    angemeldet.post(reverse("abgleich:zuordnen", args=[fall.pk]), {"vertrag": richtig.pk})
+    assert Zahlerregel.objects.get(regel=regel).vertrag == falsch

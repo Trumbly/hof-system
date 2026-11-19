@@ -12,6 +12,29 @@
   {% if geschwister %}<div><dt>Sammelrechnung</dt><dd>weitere Teile: {% for g in geschwister %}<a href="{% url 'dokumente:beleg' g.pk %}">#{{ g.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
 </dl>
 
+{% if abweichungen %}
+<section class="gruppe meldung meldung-warning" id="abweichung" aria-labelledby="abweichung-titel">
+  <h2 id="abweichung-titel">Beleg und Abbuchung weichen ab</h2>
+  <div class="tabelle-rahmen">
+  <table>
+    <thead><tr><th>Abbuchung</th><th>passt nach</th><th class="zahl">Beleg</th><th class="zahl">Abbuchung</th><th class="zahl">Differenz</th></tr></thead>
+    <tbody>
+      {% for a in abweichungen %}
+      <tr>
+        <td data-titel="Abbuchung"><a href="{% url 'kassenbuch:umsatz' a.umsatz.pk %}">Umsatz #{{ a.umsatz.pk }}</a> vom {{ a.umsatz.buchungsdatum|date:"d.m.Y" }}</td>
+        <td data-titel="passt nach">{{ a.grund }}</td>
+        <td data-titel="Beleg" class="zahl">{{ a.beleg_betrag|floatformat:"2g" }} €</td>
+        <td data-titel="Abbuchung" class="zahl">{{ a.umsatz.betrag|floatformat:"2g" }} €</td>
+        <td data-titel="Differenz" class="zahl">{{ a.differenz|floatformat:"2g" }} €</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="leise">Stimmt der Betrag des Belegs nicht, ihn unten im Formular korrigieren und speichern. Ist die Abbuchung falsch (etwa eine Teilzahlung), den Posten in der Arbeitsliste erledigen.</p>
+</section>
+{% endif %}
+
 {% if beleg.status != "verworfen" %}
 <form method="post" class="formular">
   {% csrf_token %}

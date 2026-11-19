@@ -116,13 +116,25 @@ punkte = [
 
 [checklisten.vertrag]
 titel = "Phase 2: Vertrag schließen"
+# Ein Punkt ist Text oder eine Tabelle mit:
+# - automatisch: das System hakt ihn ab, sobald es geschehen ist
+#   („vertragsdokument“: das PDF des Vertrags aus der Vorlage ist erzeugt),
+# - ab_miete: nur bei einer Monatsmiete (netto) ab diesem Betrag in Euro.
 punkte = [
   "Identität und Nutzungszweck geprüft",
-  "Vertrag und Anlagen aus der Vorlage erzeugt",
+  { text = "Bonität geprüft (Selbstauskunft und Nachweis, ab 100 € Monatsmiete, P8)", ab_miete = 100 },
+  { text = "Vertrag und Anlagen aus der Vorlage erzeugt", automatisch = "vertragsdokument" },
   "Vertrag vor Ort unterschrieben",
   "Unterschriebenen Scan abgelegt",
   "Kaution eingegangen",
 ]
+
+# --- Bonität (P8, entschieden am 16.11.) ----------------------------------------------
+
+[bonitaet]
+# Ab dieser Monatsmiete (netto, Euro) ist ein Bonitätsnachweis Pflicht; keine Grenze nach
+# Fläche. Der Vertrag zeigt dann einen Hinweis, die Checkliste einen eigenen Punkt.
+ab_miete = 100
 
 [checklisten.uebergabe]
 titel = "Phase 3: Übergabe"
@@ -178,6 +190,12 @@ titel = "Schlüssel"
 pflicht = ["anzahl", "inhaber"]
 # Einheiten dieser Typen haben Schlüssel. Stellplätze, Gärten und Außenflächen nicht.
 typen = ["garage", "lager", "halle"]
+
+[datenstand.katalog]
+# Einheiten, die auf der Website stehen (Vermarktung „Website“). Ohne Fläche ist eine
+# Einheit nicht buchbar und fehlt im Katalog.
+titel = "Katalog"
+pflicht = ["flaeche", "bilder", "slug"]
 
 [datenstand.zaehler]
 titel = "Zähler"

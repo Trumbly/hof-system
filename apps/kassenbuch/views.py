@@ -13,6 +13,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q, Sum
 from django.http import FileResponse, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
@@ -27,7 +28,7 @@ from apps.kassenbuch.forms import (
     monat_aus_text,
 )
 from apps.kassenbuch.models import Buchung, Monatsabschluss, Monatsbericht, Zuordnungsregel
-from apps.kern.models import Arbeitsposten, Objekt
+from apps.kern.models import Arbeitsposten, Mandant, Objekt
 
 BUCHUNGEN_JE_SEITE = 100
 VORSCHAU_ZEILEN = 50
@@ -376,6 +377,45 @@ def abschluesse(request: HttpRequest) -> HttpResponse:
         )
         gruppen.append({"mandant": mandant, "abschluesse": liste, "pruefung": pruefung})
     return render(request, "kassenbuch/abschluesse.html", {"gruppen": gruppen})
+
+
+@login_required
+@require_POST
+def abschluss_jetzt(request: HttpRequest, mandant: int, jahr: int, monat: int) -> HttpResponse:
+    """Knopf „Monat jetzt abschließen“ für einen Monat, der bereit ist (Review 2, A11).
+
+    Geht nur für den nächsten offenen Monat und nur, wenn die Prüfung von jetzt stimmt;
+    sonst sagt die Seite, was fehlt. Abgeschlossen ist abgeschlossen (Sperre).
+    """
+    eintrag = get_object_or_404(Mandant, pk=mandant)
+    try:
+        erster = datetime.date(jahr, monat, 1)
+    except ValueError:
+        return redirect("kassenbuch:abschluesse")
+    name = eintrag.bezeichnung or eintrag.kuerzel
+    if services.naechster_abschlussmonat(eintrag, None) != erster:
+        messages.error(
+            request,
+            f"{erster:%m/%Y} ist für {name} nicht der nächste offene Monat; abgeschlossen wird "
+            "der Reihe nach.",
+        )
+        return redirect("kassenbuch:abschluesse")
+    if erster > auswertung.vormonat(timezone.localdate()):
+        messages.error(request, f"{erster:%m/%Y} ist noch nicht vorbei.")
+        return redirect("kassenbuch:abschluesse")
+    ergebnis = services.monat_abschliessen(eintrag, erster)
+    if ergebnis.abschluss.abgeschlossen:
+        messages.success(
+            request,
+            f"Monat {erster:%m/%Y} für {name} abgeschlossen. Geändert wird ab jetzt nur noch "
+            "per Stornobuchung im offenen Monat.",
+        )
+    else:
+        messages.warning(
+            request,
+            f"Monat {erster:%m/%Y} für {name} ist nicht bereit; was fehlt, steht unten.",
+        )
+    return redirect(f"{reverse('kassenbuch:abschluesse')}#mandant-{eintrag.pk}")
 
 
 # --- Monatsbericht (H10.2) -----------------------------------------------------------

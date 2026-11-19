@@ -7,7 +7,7 @@
 <ul class="kacheln">
   <li><a class="kachel" href="{% url 'stammdaten:einheiten' %}"><strong>{{ einheiten }}</strong> Einheiten</a></li>
   <li><a class="kachel" href="{% url 'stammdaten:parteien' %}"><strong>{{ parteien }}</strong> Parteien</a></li>
-  <li><a class="kachel" href="{% url 'stammdaten:vertraege' %}"><strong>{{ vertraege }}</strong> laufende Verträge und Entwürfe</a></li>
+  <li><a class="kachel" href="{% url 'stammdaten:vertraege' %}"><strong>{{ zaehlung.laufend }}</strong> laufende Verträge{% if zaehlung.entwurf %} <span class="leise">· {{ zaehlung.entwurf }} Entw{{ zaehlung.entwurf|pluralize:"urf,ürfe" }}</span>{% endif %}</a></li>
   <li><a class="kachel" href="{% url 'stammdaten:leerstand' %}">Leerstand und entgangener Ertrag</a></li>
   <li><a class="kachel" href="{% url 'stammdaten:datenstand' %}">Datenstand: <strong>{{ luecken }}</strong> fehlende Pflichtfelder</a></li>
   <li><a class="kachel" href="{% url 'stammdaten:vertrag_neu' %}">Neuer Vertrag</a></li>
