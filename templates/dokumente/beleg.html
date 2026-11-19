@@ -62,7 +62,7 @@
         <fieldset class="feld">
           <legend class="feld-label">Passende Abbuchung</legend>
           {% for b in kandidaten %}
-          <label class="wahl-zeile"><input type="radio" name="buchung" value="{{ b.pk }}"{% if gewaehlt == b.pk|stringformat:"s" %} checked{% endif %}>
+          <label class="wahl-zeile"><input type="radio" name="buchung" value="{{ b.pk }}"{% if gewaehlt == b.pk|stringformat:"s" %} checked{% endif %} data-vergleich-betrag="{{ b.betrag|stringformat:'s' }}" data-vergleich-text="von der gewählten Abbuchung">
             <span>verknüpfen mit {{ b.datum|date:"d.m.Y" }} · {{ b.umsatz.gegenpartei|default:"ohne Gegenpartei" }} · {{ b.betrag|euro }}<br><span class="text-3 klein">Buchung #{{ b.pk }} · {{ b.objekt.kuerzel }} · {{ b.kategorie.bezeichnung }}</span></span></label>
           {% endfor %}
           <label class="wahl-zeile"><input type="radio" name="buchung" value=""{% if not gewaehlt %} checked{% endif %}><span>nicht verknüpfen</span></label>

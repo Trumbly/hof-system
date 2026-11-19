@@ -34,6 +34,7 @@ from apps.dokumente import (
     dokumentarten,
     pdf,
     services,
+    textschicht,
     vorlagenarten,
 )
 from apps.dokumente.forms import (
@@ -249,6 +250,12 @@ def schreiben(request: HttpRequest, pk: int) -> HttpResponse:
             "abschluss": AbschlussForm(),
             "anwalt": services.braucht_anwalt(eintrag),
             "anwalt_hinweis": vorlagenarten.ANWALT_HINWEIS,
+            # Review 3, Punkt 6: Ist der Briefkopf nachgetragen, ein Klick „Neu erzeugen“.
+            "neu_erzeugen": (
+                eintrag.absender_luecken != ""
+                and not services.briefkopf_luecken()
+                and services.neu_erzeugbar(eintrag)
+            ),
             # Review 1, Punkt 4: Der Knopf bleibt gesperrt, solange der Briefkopf fehlt.
             "gesperrt": (
                 services.senden_gesperrt(eintrag)
@@ -313,6 +320,29 @@ def schreiben_verwerfen(request: HttpRequest, pk: int) -> HttpResponse:
     else:
         messages.success(request, f"Schreiben #{eintrag.pk} verworfen.")
     return redirect("dokumente:schreiben", pk=pk)
+
+
+@login_required
+@require_POST
+def schreiben_neu_erzeugen(request: HttpRequest, pk: int) -> HttpResponse:
+    """„Neu erzeugen“ (Review 3, Punkt 6): dieselben Angaben, neues PDF, das alte Schreiben
+    ist verworfen. Danach steht die Seite des neuen Schreibens zur Prüfung da."""
+    eintrag = get_object_or_404(Schreiben, pk=pk)
+    try:
+        neu = services.schreiben_neu_erzeugen(eintrag)
+    except FEHLER as fehler:
+        messages.error(request, f"Nicht neu erzeugt: {fehler}")
+        return redirect("dokumente:schreiben", pk=pk)
+    messages.success(
+        request,
+        format_html(
+            'Schreiben #{} neu erzeugt als #{}, das alte ist verworfen · <a href="{}">ansehen</a>',
+            eintrag.pk,
+            neu.pk,
+            reverse("dokumente:schreiben", args=[neu.pk]),
+        ),
+    )
+    return redirect("dokumente:schreiben", pk=neu.pk)
 
 
 @login_required
@@ -544,11 +574,15 @@ def ablage(request: HttpRequest) -> HttpResponse:
     dokumente = Dokument.objects.order_by("-eingegangen_am", "-pk")
     if art in dokumentarten.DOKUMENTARTEN:
         dokumente = dokumente.filter(art=art)
-    offen = (
+    offen = list(
         Beleg.objects.filter(status=Beleg.Status.OFFEN)
         .select_related("dokument", "lieferant")
         .order_by("dokument__datum", "pk")
     )
+    # Review 3, Punkt 7: ohne Lieferanten den Namen, der im PDF steht (grau, „gelesen“).
+    gelesen = textschicht.angaben_gemerkt(b.dokument for b in offen if b.lieferant is None)
+    for b in offen:
+        b.lieferant_gelesen = _gelesener_name(gelesen.get(b.dokument_id))  # type: ignore[attr-defined]
     return render(
         request,
         "dokumente/ablage.html",
@@ -581,6 +615,10 @@ class AblageZeile:
     betrag: Any
     #: Seite, auf der man weiterarbeitet (Beleg, sonst Dokument)
     url: str
+    #: Review 3, Punkt 7: Bei offenen Belegen ohne Angaben das, was im PDF steht (grau,
+    #: „gelesen“); leer, sobald der Beleg selbst Lieferant bzw. Betrag hat.
+    absender_gelesen: str = ""
+    betrag_gelesen: Any = None
 
 
 def _bezug_titel(bezug: Any) -> str:
@@ -595,12 +633,21 @@ def _bezug_titel(bezug: Any) -> str:
     return str(anzeigename) if anzeigename else ""
 
 
+def _gelesener_name(angaben: textschicht.Angaben | None) -> str:
+    if angaben is None:
+        return ""
+    return angaben.lieferant.name if angaben.lieferant is not None else angaben.lieferant_name
+
+
 def ablage_zeilen(dokumente: Iterable[Dokument]) -> list[AblageZeile]:
     """Je Dokument: Lieferant oder Absender, Betreff und Betrag statt nur „#26“."""
     liste = list(
         Dokument.objects.filter(pk__in=[d.pk for d in dokumente])
         .prefetch_related("belege__lieferant", "belege__kategorie", "bezuege__bezug")
         .order_by("-eingegangen_am", "-pk")
+    )
+    gelesen = textschicht.angaben_gemerkt(
+        d for d in liste if any(b.status == Beleg.Status.OFFEN for b in d.belege.all())
     )
     zeilen = []
     for dok in liste:
@@ -625,6 +672,7 @@ def ablage_zeilen(dokumente: Iterable[Dokument]) -> list[AblageZeile]:
             if len(belege) == 1
             else reverse("dokumente:dokument", args=[dok.pk])
         )
+        angaben = gelesen.get(dok.pk)
         zeilen.append(
             AblageZeile(
                 dokument=dok,
@@ -632,6 +680,8 @@ def ablage_zeilen(dokumente: Iterable[Dokument]) -> list[AblageZeile]:
                 betreff=" · ".join(teile),
                 betrag=sum(betraege) if betraege else None,
                 url=url,
+                absender_gelesen=_gelesener_name(angaben) if not absender else "",
+                betrag_gelesen=angaben.betrag if angaben and not betraege else None,
             )
         )
     return zeilen
@@ -762,6 +812,9 @@ def beleg_vorschlag(request: HttpRequest) -> HttpResponse:
                 gefuellt.append(feld)
     form = BelegFelder(initial=werte)
     _vorschlag_per_htmx(form, dieser)
+    if dieser is not None and dieser.status == Beleg.Status.OFFEN:
+        angaben = textschicht.angaben_gemerkt([dieser.dokument]).get(dieser.dokument_id)
+        belegseite.betrag_vergleich(form, angaben.betrag if angaben else None)
     return render(
         request,
         "dokumente/_beleg_felder.html",

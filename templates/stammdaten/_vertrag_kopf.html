@@ -8,7 +8,7 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
       <h1>{{ vertrag.nummer }} {% badge vertrag.status %}</h1>
       <p class="seitenkopf-meta">
         {% for e in einheiten %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if e.bezeichnung %} {{ e.bezeichnung }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}ohne Einheit{% endfor %}
-        · {{ vertrag.mandant.kuerzel }} · seit {{ vertrag.beginn|date:"d.m.Y" }}{% if vertrag.ende %} bis {{ vertrag.ende|date:"d.m.Y" }}{% else %}, unbefristet{% endif %}
+        · {{ vertrag.mandant.kuerzel }} · {% if beginn_kuenftig %}ab{% else %}seit{% endif %} {{ vertrag.beginn|date:"d.m.Y" }}{% if vertrag.ende %} bis {{ vertrag.ende|date:"d.m.Y" }}{% else %}, unbefristet{% endif %}
       </p>
     </div>
     <div class="seitenkopf-aktionen">
@@ -48,7 +48,7 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
       </dd>{% endif %}{% empty %}<dd class="text-3">keine Partei</dd>{% endfor %}
     </div>
     <div class="fakt">
-      <dt>Miete heute</dt>
+      <dt>{% if beginn_kuenftig %}Miete ab Beginn{% else %}Miete heute{% endif %}</dt>
       <dd>{% if kondition_heute %}<span class="fakt-wert zahl">{{ kondition_heute.miete|euro }}</span><span class="fakt-unter">{% if kondition_heute.pauschale %}+ {{ kondition_heute.pauschale|euro }} Pauschale · {% endif %}{{ kondition_heute.get_zahlweise_display }}</span>{% else %}<span class="text-3">nicht erfasst</span>{% endif %}</dd>
     </div>
     <div class="fakt">

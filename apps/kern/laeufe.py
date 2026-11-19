@@ -28,10 +28,12 @@ from __future__ import annotations
 import contextlib
 import datetime
 import logging
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import models, transaction
 
@@ -40,6 +42,22 @@ from apps.kern.models import Arbeitsposten, Lauf
 from apps.kern.vorgaenge import Art, vorgang
 
 logger = logging.getLogger(__name__)
+
+
+#: Anfang der Meldung eines Laufs, der in der Entwicklung bewusst nicht lief (Review 3).
+DEV_UEBERSPRUNGEN = "übersprungen (dev)"
+
+
+def dev_ueberspringen() -> bool:
+    """Darf ein Lauf, der in der Entwicklung nicht laufen kann (keine echte Bank, keine
+    Statusdatei der Sicherung), „übersprungen (dev)“ enden statt „mit Fehlern“?
+
+    Nur mit ``HOF_DEV_LAEUFE`` (gesetzt in ``hof/settings/dev.py``) und nie mit
+    ``DJANGO_ENV=prod``: In der Produktion bleibt es ein Fehler, damit es auffällt.
+    """
+    if os.environ.get("DJANGO_ENV", "").strip().lower() == "prod":
+        return False
+    return bool(getattr(settings, "HOF_DEV_LAEUFE", False))
 
 
 @dataclass
@@ -79,6 +97,14 @@ class LaufBefehl(BaseCommand):
     def ueberspringen(self) -> None:
         """Der Lauf endet mit Status „übersprungen“ statt „erfolgreich“ (ohne Fehler)."""
         self.koerbe.uebersprungen = True
+
+    def in_dev_ueberspringen(self) -> bool:
+        """In der Entwicklung (``dev_ueberspringen``): als übersprungen markieren und True.
+        Sonst False; der Aufrufer zählt dann den Fehler wie gewohnt."""
+        if not dev_ueberspringen():
+            return False
+        self.ueberspringen()
+        return True
 
     def arbeitsposten_anlegen(
         self,

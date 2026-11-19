@@ -16,7 +16,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
           <tbody>
           {% for k in konditionen %}
           <tr class="kondition{% if k == kondition_heute %} aktuell{% elif k.gueltig_bis and k.gueltig_bis < heute %} zeile-leise{% endif %}">
-            <td data-titel="gültig ab">{{ k.gueltig_ab|date:"d.m.Y" }}{% if k == kondition_heute %} {% badge "ok" "heute" %}{% endif %}</td>
+            <td data-titel="gültig ab">{{ k.gueltig_ab|date:"d.m.Y" }}{% if k == kondition_heute %} {% if beginn_kuenftig %}{% badge "neutral" "ab Beginn" %}{% else %}{% badge "ok" "heute" %}{% endif %}{% endif %}</td>
             <td data-titel="gültig bis">{{ k.gueltig_bis|date:"d.m.Y"|default:"–" }}</td>
             <td data-titel="Miete" class="zahl">{{ k.miete|euro }}</td>
             <td data-titel="Pauschale" class="zahl">{{ k.pauschale|euro }}</td>

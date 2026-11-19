@@ -19,7 +19,9 @@ Lieferanten (Max' Oberfläche); Meldungen und Logs nennen nur IDs.
 from __future__ import annotations
 
 import datetime
+import json
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from django.contrib import messages
@@ -64,6 +66,19 @@ class Vorbelegung:
     #: Titel der Angaben, die aus dem PDF gelesen sind („Datum, Betrag …“).
     gelesen: list[str] = field(default_factory=list)
     vorschlag_text: str = ""
+    #: Der Betrag, der im PDF steht (für den Hinweis am Feld, Review 3, Punkt 7).
+    pdf_betrag: Decimal | None = None
+
+
+def betrag_vergleich(form: Any, pdf_betrag: Decimal | None) -> None:
+    """Review 3, Punkt 7: Das Feld „Betrag“ kennt den gelesenen PDF-Betrag (``data-vergleich``);
+    weicht der eingetippte Betrag ab, steht der Hinweis sofort am Feld (``bausteine.js``).
+    Die gewählte Abbuchung trägt ihren Betrag selbst (``data-vergleich-betrag``)."""
+    if pdf_betrag is None:
+        return
+    form.fields["betrag"].widget.attrs["data-vergleich"] = json.dumps(
+        [{"betrag": str(pdf_betrag), "text": "vom gelesenen PDF-Betrag"}]
+    )
 
 
 def vorschlag_text(aus_beleg: Beleg | None, werte: dict[str, Any], gefuellt: list[str]) -> str:
@@ -123,6 +138,7 @@ def vorbelegung(eintrag: Beleg) -> Vorbelegung:
         return Vorbelegung(initial=initial)
     ergebnis = Vorbelegung(initial=initial, vorschlag_text=_gespeicherter_vorschlag(eintrag))
     angaben = textschicht.angaben_aus_dokument(eintrag.dokument)
+    ergebnis.pdf_betrag = angaben.betrag
     if initial["lieferant"] is None and angaben.lieferant is not None:
         initial["lieferant"] = angaben.lieferant
         ergebnis.gelesen.append("Lieferant")
@@ -175,8 +191,6 @@ def _kandidaten(eintrag: Beleg, initial: dict[str, Any]) -> list[Buchung]:
 
 def vorschlag_per_htmx(form: Any, beleg: Beleg | None = None) -> None:
     """Die Wahl des Lieferanten holt den Vorschlag aus früheren Belegen (HTMX)."""
-    import json
-
     attrs = {
         "hx-get": reverse("dokumente:beleg_vorschlag"),
         "hx-trigger": "change",
@@ -290,6 +304,7 @@ def seite(request: HttpRequest, pk: int) -> HttpResponse:
     kandidaten = _kandidaten(eintrag, belegung.initial)
     form = BelegBestaetigenForm(request.POST or None, initial=belegung.initial)
     vorschlag_per_htmx(form, eintrag)
+    betrag_vergleich(form, belegung.pdf_betrag)
     if request.method == "POST":
         if eintrag.status == Beleg.Status.VERWORFEN:
             raise Http404("Der Beleg ist verworfen.")

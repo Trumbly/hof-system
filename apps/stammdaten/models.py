@@ -170,6 +170,10 @@ class EinheitStatus(Zeitraum, ProtokolliertesModell):
     def __str__(self) -> str:
         return f"Status #{self.pk} {self.status}"
 
+    def protokoll_titel(self) -> str:
+        """Klartext im Protokoll (Review 3, Punkt 10): „Status frei“."""
+        return f"Status {self.get_status_display()}"
+
 
 class Zielmiete(Zeitraum, ProtokolliertesModell):
     """Zielmiete einer Einheit mit Datum und Begründung (H2.1), Grundlage des Leerstands."""
@@ -316,6 +320,10 @@ class Kontaktweg(ProtokolliertesModell):
 
     def __str__(self) -> str:
         return f"Kontaktweg #{self.pk} ({self.art})"
+
+    def protokoll_titel(self) -> str:
+        """Klartext im Protokoll (Review 3, Punkt 10): „Kontaktweg E-Mail“."""
+        return f"Kontaktweg {self.get_art_display()}"
 
 
 # --- Vertrag -------------------------------------------------------------------------
@@ -496,6 +504,10 @@ class Vertragspartei(ProtokolliertesModell):
 
     def __str__(self) -> str:
         return f"Vertragspartei #{self.pk} ({self.rolle})"
+
+    def protokoll_titel(self) -> str:
+        """Klartext im Protokoll (Review 3, Punkt 10): „Vertragspartei Mieter“."""
+        return f"Vertragspartei {self.get_rolle_display()}"
 
 
 class Kondition(Zeitraum, ProtokolliertesModell):
@@ -694,6 +706,11 @@ class Checkliste(ProtokolliertesModell):
 
     def __str__(self) -> str:
         return f"Checkliste #{self.pk} {self.phase}"
+
+    def protokoll_titel(self) -> str:
+        """Klartext im Protokoll (Review 3, Punkt 10): „Checkliste Rückgabe“ statt
+        „Checkliste #18 rueckgabe“."""
+        return f"Checkliste {self.get_phase_display()}"
 
 
 class Checkpunkt(ProtokolliertesModell):

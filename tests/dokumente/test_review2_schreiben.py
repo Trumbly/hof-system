@@ -179,9 +179,12 @@ def test_mailtext_mit_tabelle_bleibt_lesbar() -> None:
         "</thead><tbody><tr><td>Miete 10/2026</td><td>36,50 €</td></tr></tbody></table>"
         "<p>Gruß</p>"
     )
+    # Absätze und Tabelle durch Leerzeilen getrennt (Review 3, Mailtext).
     assert services.mail_text(schreiben).splitlines() == [
         "Guten Tag,",
+        "",
         "Posten · offen",
         "Miete 10/2026 · 36,50 €",
+        "",
         "Gruß",
     ]

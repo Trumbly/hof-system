@@ -15,7 +15,7 @@
 {% endif %}
 
 {# Die Kacheln aus dem Register (apps.cockpit.kacheln), in ihrer Reihenfolge. #}
-<ul class="cockpit-raster cockpit">
+<ul class="cockpit-raster cockpit" data-mauerwerk>
   {% for html in kacheln %}{{ html|safe }}{% endfor %}
   <li id="kachel-protokoll"><a class="kachel" href="{% url 'kern:protokoll' %}"><strong>Protokoll</strong><span class="leise">alle Änderungen, mit Rücknahme</span></a></li>
 </ul>

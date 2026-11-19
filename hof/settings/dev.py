@@ -19,6 +19,8 @@ os.environ.setdefault("HOF_VERWALTIO_CLIENT", "apps.anbindungen.verwaltio.FakeVe
 os.environ.setdefault("HOF_NOTION_CLIENT", "apps.cockpit.notion.FakeNotion")
 # Stichtag des Testhofs (testhof.aufbau.STICHTAG) als Band oben auf jeder Seite.
 os.environ.setdefault("HOF_STICHTAG", "2026-11-01")
+# Läufe ohne echte Bank oder Sicherung: „übersprungen (dev)“ statt „mit Fehlern“ (Review 3).
+os.environ.setdefault("HOF_DEV_LAEUFE", "1")
 
 from .base import *  # noqa: F403
 

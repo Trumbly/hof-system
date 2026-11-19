@@ -3258,3 +3258,35 @@ form.sendet .datei-knoepfe {
   gap: 6px;
   margin-top: var(--a3);
 }
+
+/* Abweichung am Feld (Review 3, Punkt 7): Hinweis, bevor man bestätigt (bausteine.js) */
+.feld-abweichung,
+.neu p.feld-abweichung {
+  margin: 0;
+  padding: var(--a1) var(--a2);
+  font-size: var(--text-13);
+  color: var(--warnung);
+  background: var(--warnung-grund);
+  border-radius: var(--radius-klein);
+}
+
+/* Gelesener Wert (Review 3, Punkt 7): aus dem PDF, noch nicht bestätigt */
+.gelesen {
+  color: var(--text-3);
+}
+
+.gelesen-zusatz {
+  font-size: var(--text-13);
+  font-style: italic;
+}
+
+/* Mauerwerk (Review 3, Punkt 10): [data-mauerwerk] am Raster, bausteine.js setzt je Kachel
+   die Zahl der 4-px-Zeilen. Der Abstand nach unten steckt in dieser Zahl. */
+.mauerwerk-an {
+  grid-auto-rows: 4px;
+  row-gap: 0;
+}
+
+.mauerwerk-an > li {
+  align-self: start;
+}

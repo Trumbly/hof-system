@@ -132,7 +132,11 @@ FILTER = (
     "yesno",
 )
 for _name in FILTER:
-    bibliothek.filter(_name, getattr(defaultfilters, _name), is_safe=True)
+    # Die Filter so, wie Django sie anmeldet, mit ihren eigenen Angaben (is_safe,
+    # needs_autoescape). Nicht ``getattr(defaultfilters, name)``: Unter „linebreaks“ steht
+    # dort ``django.utils.html.linebreaks`` ohne Autoescape; dessen <p> wurde maskiert und
+    # stand als „&lt;p&gt;“ im Brief und in der Mail (Review 3, Mailtext).
+    bibliothek.filter(_name, defaultfilters.register.filters[_name])
 
 
 @bibliothek.filter(name="euro", is_safe=True)

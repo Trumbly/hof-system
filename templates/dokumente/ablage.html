@@ -25,7 +25,7 @@
         {% for b in offen %}
         <tr>
           <td data-titel="Eingang">{{ b.dokument.datum|date:"d.m.Y" }}</td>
-          <td data-titel="Lieferant">{{ b.lieferant.name|default:"noch unbekannt" }}</td>
+          <td data-titel="Lieferant">{% if b.lieferant %}{{ b.lieferant.name }}{% elif b.lieferant_gelesen %}{% include "bausteine/gelesen.html" with wert=b.lieferant_gelesen %}{% else %}noch unbekannt{% endif %}</td>
           <td data-titel="Herkunft">{{ b.dokument.get_herkunft_display }}</td>
           <td class="eng"><a class="knopf knopf-zweit knopf-klein" href="{% url 'dokumente:beleg' b.pk %}">prüfen</a></td>
         </tr>
@@ -63,9 +63,9 @@
       {% for z in dokumente %}
       <tr>
         <td data-titel="Datum">{{ z.dokument.datum|date:"d.m.Y" }}</td>
-        <td data-titel="Lieferant / Absender">{{ z.absender|default:"–" }}</td>
+        <td data-titel="Lieferant / Absender">{% if z.absender %}{{ z.absender }}{% elif z.absender_gelesen %}{% include "bausteine/gelesen.html" with wert=z.absender_gelesen %}{% else %}–{% endif %}</td>
         <td data-titel="Betreff"><a href="{{ z.url }}">{{ z.betreff }}</a> <a class="text-3 klein" href="{% url 'dokumente:dokument' z.dokument.pk %}">Dokument #{{ z.dokument.pk }}</a></td>
-        <td data-titel="Betrag" class="zahl">{% if z.betrag is not None %}{{ z.betrag|euro }}{% else %}–{% endif %}</td>
+        <td data-titel="Betrag" class="zahl">{% if z.betrag is not None %}{{ z.betrag|euro }}{% elif z.betrag_gelesen is not None %}{% include "bausteine/gelesen.html" with wert=z.betrag_gelesen|euro %}{% else %}–{% endif %}</td>
         <td data-titel="Eingang">{{ z.dokument.get_herkunft_display }}, {{ z.dokument.eingegangen_am|date:"d.m.Y" }}</td>
         <td data-titel="aufbewahren bis">{{ z.dokument.loeschfrist|date:"d.m.Y" }}</td>
       </tr>
