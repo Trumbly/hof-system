@@ -10,19 +10,30 @@ Das Ergebnis steht in `tests/e2e/artefakte/klickmessung.md` (mit jedem Schritt i
 ## Ergebnis
 
 „vorher“ gemessen am 19.11.2026 auf `44acd75` (main nach Schritt 7; der Messlauf fügt nur
-Testcode hinzu). „nachher“ trägt der PR ein, der die neue Oberfläche bringt.
+Testcode hinzu). „nachher“ gemessen am 19.11.2026 auf `8b83838` (main nach Review 2,
+R2-0 bis R2-9), mit denselben Skripten.
 
 | Ablauf | Klicks vorher | Klicks nachher | Seitenwechsel vorher | Seitenwechsel nachher | Tippfelder vorher | Tippfelder nachher | Stand (Commit) vorher | Stand (Commit) nachher | Ziel (Review 2) |
 |---|---:|---:|---:|---:|---:|---:|---|---|---|
-| Umsatz einordnen (je Umsatz) | 4 | | 2 | | 0 | | `44acd75` | | 1 Klick, mehrere zugleich |
-| Klärfall zuordnen | 3 | | 2 | | 0 | | `44acd75` | | 1 Klick |
-| Buchungsanfrage → Vertrag | 18 | | 14 | | 6 | | `44acd75` | | 3 Klicks |
-| Beleg erfassen (aus dem Rechnungspostfach) | 2 | | 2 | | 3 | | `44acd75` | | prüfen + 1 Klick |
-| Beleg erfassen (hochladen, neuer Lieferant) | 5 | | 2 | | 5 | | `44acd75` | | prüfen + 1 Klick |
-| Website-Kündigung übernehmen | nicht möglich | | – | | – | | `44acd75` | | 2 Klicks |
-| ↳ Umweg von Hand, ohne Verknüpfung | 6 | | 6 | | 2 | | `44acd75` | | entfällt |
-| Übergabe ohne Kaution (im Assistenten) | gescheitert | | – | | – | | `44acd75` | | im Assistenten |
-| ↳ Umweg: Kaution 0 € auf der Vertragsseite | 10 | | 8 | | 1 | | `44acd75` | | entfällt |
+| Umsatz einordnen (je Umsatz) | 4 | **1** | 2 | **0** | 0 | 0 | `44acd75` | `8b83838` | 1 Klick, mehrere zugleich |
+| Klärfall zuordnen | 3 | **1** | 2 | **0** | 0 | 0 | `44acd75` | `8b83838` | 1 Klick |
+| Buchungsanfrage → Vertrag | 18 | **3** | 14 | **2** | 6 | **0** | `44acd75` | `8b83838` | 3 Klicks |
+| Beleg erfassen (aus dem Rechnungspostfach) | 2 | 2 | 2 | 2 | 3 | **0** | `44acd75` | `8b83838` | prüfen + 1 Klick |
+| Beleg erfassen (hochladen, neuer Lieferant) | 5 | **4** | 2 | 2 | 5 | **0** | `44acd75` | `8b83838` | prüfen + 1 Klick |
+| Website-Kündigung übernehmen | nicht möglich | **2** | – | 2 | – | 0 | `44acd75` | `8b83838` | 2 Klicks |
+| ↳ Umweg von Hand, ohne Verknüpfung | 6 | entfällt | 6 | – | 2 | – | `44acd75` | `8b83838` | entfällt |
+| Übergabe ohne Kaution (im Assistenten) | gescheitert | **11** | – | 8 | – | 1 | `44acd75` | `8b83838` | im Assistenten |
+| ↳ Umweg: Kaution 0 € auf der Vertragsseite | 10 | 13 (nicht mehr nötig) | 8 | 8 | 1 | 2 | `44acd75` | `8b83838` | entfällt |
+
+### Anmerkungen zu „nachher“
+
+- **Beleg aus dem Postfach:** Es bleibt bei 2 Klicks: „Zuordnen“ und „Bestätigen und verknüpfen“. Tippen muss man nichts mehr.
+  - Datum, Betrag, Rechnungsnummer und Lieferant kommen aus der Textschicht des PDFs.
+  - Kostenart und Objekt übernimmt das System vom letzten Beleg desselben Lieferanten.
+  - Die passende Abbuchung ist vorgewählt.
+- **Beleg hochladen:** Es bleiben 4 Klicks: Datei wählen, Objekt, Kostenart, Bestätigen. Tippen muss man nichts.
+- **Website-Kündigung:** Ein Umweg von Hand ist nicht mehr nötig. Der direkte Weg erledigt die Anfrage im selben Lauf und verknüpft sie mit der Kündigung.
+- **Übergabe ohne Kaution:** Sie läuft jetzt ganz im Assistenten durch, 8 Schritte mit 11 Klicks. Das eine Tippfeld ist die Begründung „ohne Zähler weiter“, weil die Einheit keinen Zähler hat. Der Umweg über die Vertragsseite wird nicht mehr gebraucht.
 
 ## Wie gezählt wird
 
