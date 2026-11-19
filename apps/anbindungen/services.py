@@ -528,11 +528,17 @@ def kuendigung_aus_anfrage(
     rueckgabetermin: datetime.date | None = None,
     zugangsweg: str = Kuendigung.Zugangsweg.WEBSITE,
     aufhebung: bool = False,
+    absender: str = Kuendigung.Absender.PASST,
 ) -> Kuendigung:
     """Erfasst die Kündigung einer Website-Anfrage am Vertrag und erledigt die Anfrage
     (Review 2, A3). Beides in einer Transaktion: Scheitert die Kündigung, bleibt die Anfrage
     offen. Fristen, Bestätigung und Soll entstehen wie bei jeder Kündigung
-    (``stammdaten.services.kuendigung_erfassen``)."""
+    (``stammdaten.services.kuendigung_erfassen``).
+
+    Review 3, Punkt 9: Weicht der Absender (Name oder E-Mail-Adresse) von den Mietern ab
+    (``absender_abweichungen``), braucht es ``absender`` = ``Kuendigung.Absender.VOLLMACHT``
+    oder ``VERTRAGSPARTEI``; sonst ``AbsenderUngeklaert``. Die Wahl steht an der Kündigung
+    und im Protokoll."""
     if anfrage.art != Buchungsanfrage.Art.KUENDIGUNG:
         raise AnbindungFehler(f"Buchungsanfrage #{anfrage.pk} ist keine Kündigung.")
     if anfrage.status not in NOCH_OFFEN:
@@ -541,6 +547,7 @@ def kuendigung_aus_anfrage(
         raise AnbindungFehler(
             f"Vertrag {vertrag.nummer} umfasst Einheit {anfrage.einheit.nw_id} nicht."
         )
+    absender_pruefen(anfrage, vertrag, absender)
     with transaction.atomic():
         kuendigung = stammdaten.kuendigung_erfassen(
             vertrag,
@@ -550,6 +557,7 @@ def kuendigung_aus_anfrage(
             rueckgabetermin=rueckgabetermin,
             zugangsweg=zugangsweg,
             aufhebung=aufhebung,
+            absender=absender,
         )
         buchungsanfrage_entscheiden(anfrage, Buchungsanfrage.Status.ERLEDIGT, kuendigung=kuendigung)
     return kuendigung
@@ -610,6 +618,30 @@ def absender_abweichungen(anfrage: Buchungsanfrage, vertrag: Vertrag) -> list[st
             f"Vertrags {vertrag.nummer} (bekannt: {', '.join(mails) or 'keine'})."
         )
     return saetze
+
+
+#: Satz am Feld, wenn der Absender abweicht und nichts gewählt ist (Review 3, Punkt 9).
+ABSENDER_UNGEKLAERT = (
+    "Der Absender steht nicht als Mieter am Vertrag. Bitte wählen: „Vollmacht liegt vor“ "
+    "oder „Absender ist Vertragspartei (anderer Name/E-Mail)“."
+)
+#: Wahlen, mit denen eine Kündigung trotz abweichendem Absender gilt.
+ABSENDER_GEKLAERT = (Kuendigung.Absender.VOLLMACHT, Kuendigung.Absender.VERTRAGSPARTEI)
+
+
+class AbsenderUngeklaert(AnbindungFehler):
+    """Der Absender einer Website-Kündigung weicht ab, und es ist nicht gewählt, warum sie
+    trotzdem gilt (Review 3, Punkt 9)."""
+
+
+def absender_pruefen(anfrage: Buchungsanfrage, vertrag: Vertrag, absender: str) -> None:
+    """Wirft ``AbsenderUngeklaert``, wenn der Absender abweicht und ``absender`` weder
+    Vollmacht noch Vertragspartei ist. Passt der Absender, ist jede Wahl erlaubt. Die Meldung
+    nennt keine Namen (sie kann in Logs landen)."""
+    if absender in ABSENDER_GEKLAERT:
+        return
+    if absender_abweichungen(anfrage, vertrag):
+        raise AbsenderUngeklaert(ABSENDER_UNGEKLAERT)
 
 
 def angenommene_anfrage(einheit: Einheit) -> Buchungsanfrage | None:

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load bausteine %}
+
+{% block titel %}Neue Partei{% endblock %}
+{% block breite %} schmal{% endblock %}
+
+{% block inhalt %}
+{% comment %}
+Neue Partei (Review 3, Punkt 4): Pflicht sind der Name (Vor- und Nachname oder Firmenname)
+und die Anschrift oder ausdrücklich „Anschrift folgt“. Die Anrede bestimmt den Anredesatz
+der Schreiben (``empfaenger.anrede_brief``).
+{% endcomment %}
+{% seitenkopf "Neue Partei" "Mieter, Zahler oder Bürge. Ohne Anschrift: „Anschrift folgt“ anhaken; Briefe sind dann gesperrt, bis sie ergänzt ist." %}{% endseitenkopf %}
+<section class="karte">
+  <div class="karte-rumpf">
+    <form class="formular-neu" method="post" action="{% url 'stammdaten:partei_neu' %}" id="partei-neu">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+      <div class="felder">
+        <div class="felder felder-2">{% feld form.art %}{% feld form.anrede pflicht=True %}</div>
+        <div class="felder felder-2">{% feld form.vorname pflicht=True %}{% feld form.nachname pflicht=True %}</div>
+        {% feld form.firma breit=True %}
+        {% feld form.adresszusatz breit=True %}
+        {% feld form.strasse breit=True pflicht=True %}
+        <div class="felder felder-2">{% feld form.plz pflicht=True %}{% feld form.ort pflicht=True %}</div>
+        {% feld form.anschrift_folgt %}
+        {% feld form.notiz breit=True %}
+      </div>
+      <div class="formular-fuss"><a class="knopf knopf-zweit" href="{% url 'stammdaten:parteien' %}">Abbrechen</a><button type="submit" class="knopf knopf-primaer">Partei anlegen</button></div>
+    </form>
+  </div>
+</section>
+{% endblock %}

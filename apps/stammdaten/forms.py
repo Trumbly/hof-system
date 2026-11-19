@@ -96,7 +96,17 @@ class SchluesselForm(forms.ModelForm):  # type: ignore[type-arg]
         return daten
 
 
+def neue_partei_fehler(form: forms.Form, fehler: Any, felder: dict[str, str]) -> None:
+    """Hängt ``services.ParteiUnvollstaendig`` an das passende Feld (Review 3, Punkt 4).
+    ``felder`` ordnet ``vorname``, ``nachname``, ``firma`` und ``anschrift`` den Namen im
+    Formular zu."""
+    form.add_error(felder.get(fehler.feld), str(fehler))
+
+
 class ParteiForm(forms.ModelForm):  # type: ignore[type-arg]
+    """Stammfelder einer Partei. Mit ``neu=True`` (Seite „Neue Partei“) gilt Review 3,
+    Punkt 4: Name (Vor- und Nachname oder Firmenname) und Anschrift oder „Anschrift folgt“."""
+
     class Meta:
         model = Partei
         fields = (
@@ -109,9 +119,53 @@ class ParteiForm(forms.ModelForm):  # type: ignore[type-arg]
             "strasse",
             "plz",
             "ort",
+            "anschrift_folgt",
             "notiz",
         )
-        widgets: ClassVar[dict[str, forms.Widget]] = {"notiz": forms.Textarea(attrs={"rows": 3})}
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "notiz": forms.Textarea(attrs={"rows": 3}),
+            "anrede": forms.RadioSelect,
+        }
+
+    def __init__(self, *args: Any, neu: bool = False, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.neu = neu
+        # Ohne Wahl: neutral, bei einer Firma „Firma“ (siehe ``clean``).
+        self.fields["anrede"].required = False
+
+    def clean(self) -> dict[str, Any]:
+        from apps.stammdaten import services
+
+        daten: dict[str, Any] = super().clean() or {}
+        if not daten.get("anrede"):
+            daten["anrede"] = (
+                Partei.Anrede.FIRMA
+                if daten.get("art") == Partei.Art.FIRMA
+                else Partei.Anrede.NEUTRAL
+            )
+        if not self.neu or self.errors:
+            return daten
+        try:
+            services.neue_partei_pruefen(
+                art=daten.get("art") or Partei.Art.PERSON,
+                **{
+                    k: daten.get(k) or ""
+                    for k in ("vorname", "nachname", "firma", "strasse", "plz", "ort")
+                },
+                anschrift_folgt=bool(daten.get("anschrift_folgt")),
+            )
+        except services.ParteiUnvollstaendig as fehler:
+            neue_partei_fehler(
+                self,
+                fehler,
+                {
+                    "vorname": "vorname",
+                    "nachname": "nachname",
+                    "firma": "firma",
+                    "anschrift": "strasse",
+                },
+            )
+        return daten
 
 
 class KontaktwegForm(forms.ModelForm):  # type: ignore[type-arg]
@@ -196,12 +250,45 @@ class KuendigungForm(forms.Form):
         help_text="Leer: am letzten Tag des Vertrags.",
     )
     anfrage = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    # Review 3, Punkt 9: nur bei abweichendem Absender (``abweichungen``), dann Pflicht.
+    absender = forms.ChoiceField(
+        label="Der Absender ist nicht als Mieter eingetragen. Warum gilt die Kündigung?",
+        required=False,
+        choices=[
+            (Kuendigung.Absender.VOLLMACHT, Kuendigung.Absender.VOLLMACHT.label),
+            (Kuendigung.Absender.VERTRAGSPARTEI, Kuendigung.Absender.VERTRAGSPARTEI.label),
+        ],
+        widget=forms.RadioSelect,
+        help_text="Die Wahl steht an der Kündigung und im Protokoll.",
+    )
 
-    def __init__(self, *args: Any, vertrag: Vertrag | None = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        vertrag: Vertrag | None = None,
+        abweichungen: list[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.vertrag = vertrag
         self.fristende: Any = None
         self._wahl_setzen(None, None)
+        #: Sätze, wo der Absender einer Website-Kündigung vom Vertrag abweicht.
+        self.abweichungen = list(abweichungen or [])
+        if self.abweichungen:
+            from apps.anbindungen.services import ABSENDER_UNGEKLAERT
+
+            feld = self.fields["absender"]
+            feld.required = True
+            feld.error_messages["required"] = ABSENDER_UNGEKLAERT
+            self.order_fields(["absender"])
+        else:
+            del self.fields["absender"]
+
+    @property
+    def absender_pflicht(self) -> bool:
+        """Ob „Kündigung anlegen“ erst nach der Wahl zum Absender geht (Review 3, Punkt 9)."""
+        return bool(self.abweichungen)
 
     def _wahl_setzen(self, ende: Any, wunsch: Any) -> None:
         feld = self.fields["wunsch_wahl"]
@@ -302,7 +389,10 @@ class VertragNeuForm(forms.Form):
     neu_vorname = forms.CharField(label="Vorname", required=False, max_length=100)
     neu_nachname = forms.CharField(label="Nachname", required=False, max_length=100)
     neu_firma = forms.CharField(
-        label="Firma", required=False, max_length=200, help_text="Nur bei einer Firma."
+        label="Firma",
+        required=False,
+        max_length=200,
+        help_text="Bei einer Firma statt Vor- und Nachname.",
     )
     neu_email = forms.EmailField(
         label="E-Mail",
@@ -311,6 +401,24 @@ class VertragNeuForm(forms.Form):
         error_messages={"invalid": "Bitte eine gültige E-Mail-Adresse angeben."},
     )
     neu_telefon = forms.CharField(label="Telefon", required=False, max_length=50)
+    # Review 3, Punkt 4: Anrede und Anschrift der neuen Partei
+    neu_anrede = forms.ChoiceField(
+        label="Anrede",
+        choices=Partei.Anrede.choices,
+        initial=Partei.Anrede.NEUTRAL,
+        required=False,
+        widget=forms.RadioSelect,
+        help_text="Neutral: „Guten Tag Vorname Nachname“. Firma: „Sehr geehrte Damen und Herren“.",
+    )
+    neu_strasse = forms.CharField(label="Straße und Hausnummer", required=False, max_length=200)
+    neu_plz = forms.CharField(label="PLZ", required=False, max_length=10)
+    neu_ort = forms.CharField(label="Ort", required=False, max_length=100)
+    neu_anschrift_folgt = forms.BooleanField(
+        label="Anschrift folgt",
+        required=False,
+        help_text="Die Lücke steht im Datenstand; Briefe an diese Partei sind gesperrt, bis "
+        "die Anschrift ergänzt ist.",
+    )
     beginn = forms.DateField(label="Beginn", widget=Datum())
     miete = forms.DecimalField(
         label="Miete je Monat (netto)",
@@ -419,12 +527,36 @@ class VertragNeuForm(forms.Form):
             "Bitte eine Partei über die Suche wählen oder „Neue Partei“ anlegen."
         )
 
+    #: Felder der neuen Partei, an denen ein Fehler aus ``neue_partei_pruefen`` steht.
+    NEU_FEHLERFELDER: ClassVar[dict[str, str]] = {
+        "vorname": "neu_vorname",
+        "nachname": "neu_nachname",
+        "firma": "neu_firma",
+        "anschrift": "neu_strasse",
+    }
+
     def clean(self) -> dict[str, Any]:
+        from apps.stammdaten import services
+
         daten = super().clean() or {}
-        if daten.get("mieter") == self.NEU and not any(
-            (daten.get(f) or "").strip() for f in ("neu_vorname", "neu_nachname", "neu_firma")
-        ):
-            self.add_error("neu_nachname", "Bitte den Namen der neuen Partei angeben.")
+        if daten.get("mieter") == self.NEU:
+            vorname, nachname, firma = (
+                (daten.get(f"neu_{k}") or "").strip() for k in ("vorname", "nachname", "firma")
+            )
+            art = Partei.Art.FIRMA if firma and not (vorname or nachname) else Partei.Art.PERSON
+            try:
+                services.neue_partei_pruefen(
+                    art=art,
+                    vorname=vorname,
+                    nachname=nachname,
+                    firma=firma,
+                    strasse=daten.get("neu_strasse") or "",
+                    plz=daten.get("neu_plz") or "",
+                    ort=daten.get("neu_ort") or "",
+                    anschrift_folgt=bool(daten.get("neu_anschrift_folgt")),
+                )
+            except services.ParteiUnvollstaendig as fehler:
+                neue_partei_fehler(self, fehler, self.NEU_FEHLERFELDER)
         if daten.get("keine_kaution"):
             daten["kaution"] = Decimal("0.00")
         return daten

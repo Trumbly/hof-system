@@ -64,8 +64,8 @@ Namen und Kontakt stehen hier für Max' Arbeit; Arbeitsposten und Logs nennen nu
           {% csrf_token %}
           <input type="hidden" name="aktion" value="kuendigung">
           {% for verborgen in kuendigung_formular.hidden_fields %}{{ verborgen }}{% endfor %}
-          <div class="felder felder-2">{% for f in kuendigung_formular.visible_fields %}{% if f.name == "wunsch_wahl" %}{% feld f breit=True %}{% else %}{% feld f %}{% endif %}{% endfor %}</div>
-          <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer">Kündigung anlegen</button></div>
+          <div class="felder felder-2">{% for f in kuendigung_formular.visible_fields %}{% if f.name == "wunsch_wahl" or f.name == "absender" %}{% feld f breit=True %}{% else %}{% feld f %}{% endif %}{% endfor %}</div>
+          <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer"{% if kuendigung_formular.absender_pflicht %} data-gesperrt-ohne="kuendigung-absender" title="Erst wählen, warum die Kündigung trotz abweichendem Absender gilt."{% endif %}>Kündigung anlegen</button></div>
         </form>
       </div>
     </section>

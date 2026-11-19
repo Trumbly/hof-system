@@ -106,6 +106,7 @@ def _objekt_kontext(objekt: Any) -> dict[str, Any]:
         "empfaenger": {
             "name": f"An alle Nutzer: {objekt.bezeichnung}",
             "anrede": "Liebe Nutzerinnen und Nutzer",
+            "anrede_brief": "Liebe Nutzerinnen und Nutzer,",
             "anschrift": objekt.anschrift,
             "email": "",
         },

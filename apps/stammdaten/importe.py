@@ -306,7 +306,7 @@ def _partei_finden_oder_anlegen(
     try:
         partei = services.partei_anlegen(
             Partei.Art.FIRMA if ist_firma else Partei.Art.PERSON,
-            anrede=zeile.get("anrede", ""),
+            anrede=Partei.Anrede.aus_text(zeile.get("anrede", ""), firma=ist_firma),
             vorname=zeile.get("vorname", ""),
             nachname=zeile.get("nachname", ""),
             firma=zeile.get("firma", ""),

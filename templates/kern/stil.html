@@ -200,7 +200,7 @@
 
 <section class="stil-abschnitt" id="formular">
   <h2>Formularfelder</h2>
-  <p class="stil-zweck">Label über dem Feld, Hilfetext darunter, Fehler als ganzer Satz direkt am Feld. Auswahl und Datum in voller Breite. Zahlenfelder öffnen am Handy die Zahlentastatur (<code>inputmode="decimal"</code>).</p>
+  <p class="stil-zweck">Label über dem Feld, Hilfetext darunter, Fehler als ganzer Satz direkt am Feld. Auswahl und Datum in voller Breite. Zahlenfelder öffnen am Handy die Zahlentastatur (<code>inputmode="decimal"</code>). Freiwillige Felder tragen „optional“; hängt die Pflicht von einer anderen Angabe ab (Anschrift oder „Anschrift folgt“), entfällt der Hinweis mit <code>{% templatetag openblock %} feld f pflicht=True {% templatetag closeblock %}</code>.</p>
   <div class="raster raster-2">
     {% karte "Leer" %}
       <div class="felder">{% for f in form %}{% feld f %}{% endfor %}</div>
@@ -373,6 +373,21 @@
     </fieldset>
     <div class="feld" style="margin-top: var(--a4)"><label class="feld-label" for="stil-miete">Miete je Monat</label><input class="feld-eingabe" id="stil-miete" name="stil_miete" inputmode="decimal" value="85,00"></div>
     <p class="hinweis-band hinweis-warnung" data-wenn="stil_miete" data-ab="100" hidden style="margin-top: var(--a3)">Erscheint ab 100 € (<code>data-ab</code>), z. B. der Bonitätshinweis (P8).</p>
+  </div></form>
+</section>
+
+<section class="stil-abschnitt" id="pflichtwahl">
+  <h2>Pflichtwahl vor dem Absenden</h2>
+  <p class="stil-zweck">Der Knopf bleibt gesperrt, bis eine Option gewählt ist (<code>data-gesperrt-ohne="feld"</code>), z. B. bei einer Kündigung mit abweichendem Absender (Review 3, Punkt 9). Der Grund steht im <code>title</code> des Knopfs; ohne JavaScript prüft der Server und nennt den Fehler am Feld.</p>
+  <form class="karte" onsubmit="return false"><div class="karte-rumpf">
+    <div class="feld">
+      <span class="feld-label">Der Absender ist nicht als Mieter eingetragen. Warum gilt die Kündigung?</span>
+      <div class="feld-optionen">
+        <label><input type="radio" class="feld-haken" name="stil_absender" value="vollmacht"> Vollmacht liegt vor</label>
+        <label><input type="radio" class="feld-haken" name="stil_absender" value="vertragspartei"> Absender ist Vertragspartei (anderer Name/E-Mail)</label>
+      </div>
+    </div>
+    <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer" data-gesperrt-ohne="stil_absender" title="Erst wählen, warum die Kündigung trotz abweichendem Absender gilt." disabled>Kündigung anlegen</button></div>
   </div></form>
 </section>
 

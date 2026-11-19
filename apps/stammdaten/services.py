@@ -341,28 +341,99 @@ PARTEI_FELDER = (
     "strasse",
     "plz",
     "ort",
+    "anschrift_folgt",
     "notiz",
     "herkunft",
 )
+
+#: Satz am Feld, wenn der Name einer neuen Partei fehlt (Review 3, Punkt 4).
+NAME_FEHLT_PERSON = "Bitte Vor- und Nachnamen angeben (oder den Firmennamen bei einer Firma)."
+NAME_FEHLT_FIRMA = "Bitte den Firmennamen angeben."
+ANSCHRIFT_FEHLT = (
+    "Bitte die Anschrift mit Straße, PLZ und Ort eintragen oder „Anschrift folgt“ anhaken."
+)
+
+
+class ParteiUnvollstaendig(StammdatenFehler):
+    """Name oder Anschrift einer neuen Partei fehlen. ``feld`` nennt das Formularfeld, an dem
+    der Satz steht (``vorname``, ``nachname``, ``firma`` oder ``anschrift``)."""
+
+    def __init__(self, satz: str, feld: str) -> None:
+        super().__init__(satz)
+        self.feld = feld
 
 
 def _partei_pruefen(partei: Partei) -> None:
     if partei.art not in Partei.Art.values:
         raise StammdatenFehler(f"Unbekannte Art {partei.art}")
+    if partei.anrede not in Partei.Anrede.values:
+        raise StammdatenFehler(f"Unbekannte Anrede {partei.anrede}")
     if partei.art == Partei.Art.FIRMA and not partei.firma:
-        raise StammdatenFehler("Eine Firma braucht einen Firmennamen.")
+        raise ParteiUnvollstaendig("Eine Firma braucht einen Firmennamen.", "firma")
     if partei.art == Partei.Art.PERSON and not (partei.nachname or partei.vorname):
-        raise StammdatenFehler("Eine Person braucht einen Namen.")
+        raise ParteiUnvollstaendig("Eine Person braucht einen Namen.", "nachname")
+    if partei.hat_anschrift:
+        # Ergänzt: „Anschrift folgt“ ist erledigt, Briefe gehen wieder.
+        partei.anschrift_folgt = False
+
+
+def neue_partei_pruefen(
+    *,
+    art: str,
+    vorname: str = "",
+    nachname: str = "",
+    firma: str = "",
+    strasse: str = "",
+    plz: str = "",
+    ort: str = "",
+    anschrift_folgt: bool = False,
+) -> None:
+    """Was eine neu erfasste Partei mindestens braucht (Review 3, Punkt 4): einen Namen
+    (Vor- und Nachname bei einer Person, Firmenname bei einer Firma) und die Anschrift oder
+    ausdrücklich „Anschrift folgt“. Wirft ``ParteiUnvollstaendig`` mit dem Feld des Fehlers.
+
+    Gilt für „Neue Partei“ (Seite und Dialog im neuen Vertrag) und „Annehmen und Vertrag
+    anlegen“. Importe und der Bestand kennen Lücken; sie stehen im Datenstand."""
+    if art == Partei.Art.FIRMA:
+        if not firma.strip():
+            raise ParteiUnvollstaendig(NAME_FEHLT_FIRMA, "firma")
+    else:
+        if not vorname.strip():
+            raise ParteiUnvollstaendig(NAME_FEHLT_PERSON, "vorname")
+        if not nachname.strip():
+            raise ParteiUnvollstaendig(NAME_FEHLT_PERSON, "nachname")
+    vollstaendig = all(t.strip() for t in (strasse, plz, ort))
+    if not vollstaendig and not anschrift_folgt:
+        raise ParteiUnvollstaendig(ANSCHRIFT_FEHLT, "anschrift")
 
 
 def partei_anlegen(art: str = Partei.Art.PERSON, **felder: Any) -> Partei:
-    """Legt eine Partei an (H1.2): Mieter, Zahler oder Bürge außerhalb von Wohnraum."""
+    """Legt eine Partei an (H1.2): Mieter, Zahler oder Bürge außerhalb von Wohnraum.
+
+    Ohne ``anrede`` bekommt eine Firma „Firma“ (Sehr geehrte Damen und Herren), eine Person
+    „neutral“ (Guten Tag Vorname Nachname)."""
     partei = Partei(art=art)
+    if "anrede" not in felder and art == Partei.Art.FIRMA:
+        partei.anrede = Partei.Anrede.FIRMA
     _setzen(partei, felder, PARTEI_FELDER)
     _partei_pruefen(partei)
     _speichern(partei)
     logger.debug("Partei #%s angelegt", partei.pk)
     return partei
+
+
+def partei_neu_anlegen(art: str = Partei.Art.PERSON, **felder: Any) -> Partei:
+    """Neue Partei aus der Oberfläche (Seite „Neue Partei“): prüft Name und Anschrift wie
+    ``neue_partei_pruefen`` und legt sie dann an."""
+    neue_partei_pruefen(
+        art=art,
+        **{
+            k: felder.get(k) or ""
+            for k in ("vorname", "nachname", "firma", "strasse", "plz", "ort")
+        },
+        anschrift_folgt=bool(felder.get("anschrift_folgt")),
+    )
+    return partei_anlegen(art, **felder)
 
 
 def partei_aendern(partei: Partei, **felder: Any) -> Partei:
@@ -426,19 +497,45 @@ def partei_mit_kontakt_anlegen(
     firma: str = "",
     email: str = "",
     telefon: str = "",
+    anrede: str = "",
+    strasse: str = "",
+    plz: str = "",
+    ort: str = "",
+    anschrift_folgt: bool = False,
 ) -> Partei:
-    """Legt eine Partei mit E-Mail und Telefon in einem Schritt an (Review 2, B5 und B6:
-    „Neue Partei“ direkt im Vertragsdialog, vorausgefüllt aus einer Buchungsanfrage).
+    """Legt eine Partei mit Anschrift, E-Mail und Telefon in einem Schritt an (Review 2, B5
+    und B6: „Neue Partei“ direkt im Vertragsdialog, vorausgefüllt aus einer Buchungsanfrage).
 
-    Mit Firmenname und ohne Vor- und Nachnamen wird es eine Firma, sonst eine Person."""
-    art = Partei.Art.FIRMA if firma.strip() and not (vorname or nachname).strip() else None
+    Mit Firmenname und ohne Vor- und Nachnamen wird es eine Firma, sonst eine Person.
+    Review 3, Punkt 4: Pflicht sind der Name (Vor- und Nachname oder Firmenname) und die
+    Anschrift oder „Anschrift folgt“ (``neue_partei_pruefen``)."""
+    art = (
+        Partei.Art.FIRMA
+        if firma.strip() and not (vorname or nachname).strip()
+        else Partei.Art.PERSON
+    )
+    anschrift = {"strasse": strasse.strip(), "plz": plz.strip(), "ort": ort.strip()}
+    neue_partei_pruefen(
+        art=art,
+        vorname=vorname,
+        nachname=nachname,
+        firma=firma,
+        anschrift_folgt=anschrift_folgt,
+        **anschrift,
+    )
+    felder: dict[str, Any] = {
+        "vorname": vorname.strip(),
+        "nachname": nachname.strip(),
+        "firma": firma.strip(),
+        "anschrift_folgt": anschrift_folgt,
+        **anschrift,
+    }
+    if art == Partei.Art.FIRMA and anrede in ("", Partei.Anrede.NEUTRAL):
+        anrede = Partei.Anrede.FIRMA
+    if anrede:
+        felder["anrede"] = anrede
     with transaction.atomic():
-        partei = partei_anlegen(
-            art or Partei.Art.PERSON,
-            vorname=vorname.strip(),
-            nachname=nachname.strip(),
-            firma=firma.strip(),
-        )
+        partei = partei_anlegen(art, **felder)
         if email.strip():
             kontaktweg_hinzufuegen(partei, Kontaktweg.Art.EMAIL, email, bevorzugt=True)
         if telefon.strip():
@@ -763,6 +860,7 @@ def kuendigung_erfassen(
     rueckgabetermin: datetime.date | None = None,
     zugangsweg: str = Kuendigung.Zugangsweg.UNBEKANNT,
     aufhebung: bool = False,
+    absender: str = Kuendigung.Absender.PASST,
 ) -> Kuendigung:
     """Erfasst eine Kündigung (H2.8, Standardablauf 4).
 
@@ -778,6 +876,11 @@ def kuendigung_erfassen(
     ``zugangsweg`` hält fest, wie die Kündigung zuging (Website, Mail, Brief …). Bei Textform
     erkennt die Bestätigung die Form nicht ausdrücklich an (Platzhalter
     ``kuendigung.textform``).
+
+    ``absender`` hält fest, warum die Kündigung gilt, wenn ihr Absender nicht als Mieter am
+    Vertrag steht (Review 3, Punkt 9): Vollmacht oder Vertragspartei unter anderem Namen bzw.
+    anderer E-Mail-Adresse. Ob das nötig ist, prüft bei Website-Kündigungen
+    ``anbindungen.services.kuendigung_aus_anfrage``.
     """
     if vertrag.status != Vertrag.Status.AKTIV:
         raise StammdatenFehler(f"Vertrag {vertrag.nummer} ist nicht aktiv ({vertrag.status}).")
@@ -785,6 +888,8 @@ def kuendigung_erfassen(
         raise StammdatenFehler(f"Unbekannt, wer kündigt: {von}")
     if zugangsweg not in Kuendigung.Zugangsweg.values:
         raise StammdatenFehler(f"Unbekannter Zugangsweg: {zugangsweg}")
+    if absender not in Kuendigung.Absender.values:
+        raise StammdatenFehler(f"Unbekannte Angabe zum Absender: {absender}")
     regel = kuendigungsregel_fuer(vertrag)
     ende = kuendigung_fristende(vertrag, zugang_am)
     if aufhebung:
@@ -814,6 +919,7 @@ def kuendigung_erfassen(
             rueckgabetermin=rueckgabe,
             zugangsweg=zugangsweg,
             aufhebung=aufhebung,
+            absender=absender,
         )
         _speichern(kuendigung)
         vertrag.ende = ende

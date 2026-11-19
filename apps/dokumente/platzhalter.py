@@ -43,6 +43,7 @@ BEDEUTUNG: dict[str, str] = {
     "empfaenger": "der Empfänger",
     "empfaenger.name": "der Name des Empfängers",
     "empfaenger.anrede": "die Anrede des Empfängers",
+    "empfaenger.anrede_brief": "der Anredesatz des Schreibens",
     "empfaenger.anschrift": "die Anschrift des Empfängers",
     "empfaenger.email": "die E-Mail-Adresse des Empfängers",
     "absender": "der Absender",

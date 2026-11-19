@@ -89,7 +89,10 @@ def test_annehmen_und_vertrag_anlegen_vorausgefuellt(objekt: Objekt, angemeldet:
     assert 'class="dialog-formular"' in html and "<html" not in html
     assert 'name="neu_email"' in html and "paula@testhof.invalid" in html
 
-    antwort = angemeldet.post(url, _formular_daten(form.initial), **DIALOG)
+    # Review 3, Punkt 4: Die Anschrift fehlt in der Anfrage; ausdrücklich „Anschrift folgt“.
+    antwort = angemeldet.post(
+        url, _formular_daten(form.initial, neu_anschrift_folgt="on"), **DIALOG
+    )
     vertrag = Vertrag.objects.get(vertragseinheiten__einheit=einheit)
     assert antwort["HX-Redirect"] == reverse("stammdaten:vertrag", args=[vertrag.pk])
     assert vertrag.beginn == WUNSCH and vertrag.konditionen.get().miete == Decimal("55.00")
@@ -202,13 +205,15 @@ def test_neue_partei_im_dialog_und_fehler_am_feld(objekt: Objekt, angemeldet: Cl
     }
     antwort = angemeldet.post(url, daten, **DIALOG)
     assert antwort.status_code == 200
-    assert "Bitte den Namen der neuen Partei angeben." in antwort.content.decode()
+    assert services.NAME_FEHLT_PERSON in antwort.content.decode()
     assert not Vertrag.objects.exists()
 
     ohne = angemeldet.post(url, {**daten, "mieter": ""}, **DIALOG).content.decode()
     assert "Bitte eine Partei über die Suche wählen oder „Neue Partei“ anlegen." in ohne
 
-    antwort = angemeldet.post(url, {**daten, "neu_firma": "Testfirma GmbH"}, **DIALOG)
+    antwort = angemeldet.post(
+        url, {**daten, "neu_firma": "Testfirma GmbH", "neu_anschrift_folgt": "on"}, **DIALOG
+    )
     vertrag = Vertrag.objects.get()
     partei = vertrag.vertragsparteien.get().partei
     assert (partei.art, partei.firma) == (Partei.Art.FIRMA, "Testfirma GmbH")

@@ -25,7 +25,7 @@
       {% if offenes_formular.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in offenes_formular.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
       {% for verborgen in offenes_formular.hidden_fields %}{{ verborgen }}{% endfor %}
       <div class="felder">{% for feld_ in offenes_formular.visible_fields %}{% if feld_.field.widget.input_type == "file" %}{% dateiknoepfe feld_ kamera=False %}{% else %}{% feld feld_ %}{% endif %}{% endfor %}</div>
-      <div class="formular-fuss"><a class="knopf knopf-zweit" href="{% url 'stammdaten:vertrag' vertrag.pk %}">Abbrechen</a><button type="submit" class="knopf knopf-primaer">{{ offener_dialog.knopf }}</button></div>
+      <div class="formular-fuss"><a class="knopf knopf-zweit" href="{% url 'stammdaten:vertrag' vertrag.pk %}">Abbrechen</a><button type="submit" class="knopf knopf-primaer"{% if offenes_formular.absender_pflicht %} data-gesperrt-ohne="{{ offenes_formular.prefix }}-absender" title="Erst wählen, warum die Kündigung trotz abweichendem Absender gilt."{% endif %}>{{ offener_dialog.knopf }}</button></div>
     </form>
   </div>
 </section>

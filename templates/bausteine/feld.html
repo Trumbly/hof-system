@@ -1,7 +1,7 @@
 {# Formularfeld: Label oben, Hilfetext, Fehler direkt am Feld (Review 2, C3). #}
 {% if optionen %}{# Radio- oder Checkbox-Gruppe (Review 3, Punkt 2): fieldset mit legend, Optionen untereinander, Label neben dem Feld, Fehler unter der Gruppe #}
 <fieldset class="feld feld-gruppe-optionen{% if feld.errors %} feld-fehlerhaft{% endif %}{% if breit %} feld-breit{% endif %}"{% if beschrieben_von %} aria-describedby="{{ beschrieben_von }}"{% endif %}>
-  <legend class="feld-label">{{ feld.label }}{% if not feld.field.required %} <span class="feld-optional">optional</span>{% endif %}</legend>
+  <legend class="feld-label">{{ feld.label }}{% if not feld.field.required and not pflicht %} <span class="feld-optional">optional</span>{% endif %}</legend>
   <div class="feld-optionen" id="{{ feld.auto_id }}">
     {% for option in optionen %}<label class="feld-option" for="{{ option.id_for_label }}">{{ option.tag }}<span>{{ option.choice_label }}</span></label>
     {% endfor %}
@@ -17,7 +17,7 @@
 </div>
 {% else %}
 <div class="feld{% if feld.errors %} feld-fehlerhaft{% endif %}{% if breit %} feld-breit{% endif %}">
-  <label class="feld-label" for="{{ feld.id_for_label }}">{{ feld.label }}{% if not feld.field.required %} <span class="feld-optional">optional</span>{% endif %}</label>
+  <label class="feld-label" for="{{ feld.id_for_label }}">{{ feld.label }}{% if not feld.field.required and not pflicht %} <span class="feld-optional">optional</span>{% endif %}</label>
   {% if gruppe %}<div class="feld-mehrteilig">{{ eingabe }}</div>{% else %}{{ eingabe }}{% endif %}
   {% if feld.errors %}<p class="feld-fehler" id="{{ feld.auto_id }}-fehler">{{ feld.errors|join:" " }}</p>{% endif %}
   {% if feld.help_text %}<p class="feld-hilfe" id="{{ feld.auto_id }}-hilfe">{{ feld.help_text }}</p>{% endif %}
