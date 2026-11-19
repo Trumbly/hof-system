@@ -223,4 +223,50 @@
   <p class="stil-zweck">Steht über jeder Seite, wenn ein fester Stichtag gesetzt ist (nur dev und test, <code>HOF_STICHTAG</code>). In prod gibt es keinen.</p>
   <div class="stichtag-band" style="border: 1px solid var(--linie); border-radius: var(--radius)">Testhof · Stichtag {{ stichtag_beispiel|date:"d.m.Y" }}</div>
 </section>
+
+{# Bausteine aus R2-7 (Stammdaten) #}
+<section class="stil-abschnitt" id="filterleiste">
+  <h2>Filterleiste</h2>
+  <p class="stil-zweck">Über Listen: Suche breit, Auswahlen daneben, am Handy untereinander. Die Liste lädt beim Tippen nach (<code>hx-get</code> mit <code>hx-select</code>), die Adresse merkt sich den Filter. Darunter eine leise Zeile mit der Trefferzahl.</p>
+  <form class="filterleiste" onsubmit="return false" role="search">
+    <input type="search" class="feld-eingabe filterleiste-suche" placeholder="NW-ID, Bezeichnung oder Mieter" aria-label="Beispiel Suche">
+    <select class="feld-auswahl" aria-label="Beispiel Typ"><option>alle Typen</option><option>Garage</option></select>
+    <select class="feld-auswahl" aria-label="Beispiel Status"><option>alle Status (54)</option><option>frei (6)</option></select>
+  </form>
+  <p class="text-3 klein filterleiste-ergebnis">6 von 54 Einheiten · <a href="#filterleiste">Filter zurücksetzen</a></p>
+</section>
+
+<section class="stil-abschnitt" id="auswahl-treffer">
+  <h2>Auswahl mit Suche</h2>
+  <p class="stil-zweck">Statt langer Auswahllisten: ein Suchfeld, die Treffer als Zeilen mit Radio, mit Namen und Kontakt. „Neu anlegen“ als letzte Zeile öffnet die Felder darunter (<code>data-wenn</code>, <code>data-gleich</code>).</p>
+  <form class="karte" onsubmit="return false"><div class="karte-rumpf">
+    <fieldset class="feld feld-gruppe">
+      <legend class="feld-label">Mieter</legend>
+      <input type="search" class="feld-eingabe" placeholder="Name, Ort oder E-Mail suchen" aria-label="Beispiel Parteisuche">
+      <div class="feld-optionen">
+        <label class="partei-treffer"><input type="radio" class="feld-haken" name="stil_mieter" value="1" checked><span><span class="partei-name">Erika Beispiel</span> <span class="text-3 klein">Beispielstadt · erika@testhof.invalid</span></span></label>
+      </div>
+      <label class="partei-treffer"><input type="radio" class="feld-haken" name="stil_mieter" value="neu"><span><span class="partei-name">Neue Partei anlegen</span></span></label>
+      <div class="felder felder-2 feld-einzug" data-wenn="stil_mieter" data-gleich="neu" hidden>
+        <div class="feld"><label class="feld-label" for="stil-nachname">Nachname</label><input class="feld-eingabe" id="stil-nachname"></div>
+        <div class="feld"><label class="feld-label" for="stil-mail">E-Mail</label><input class="feld-eingabe" id="stil-mail"></div>
+      </div>
+    </fieldset>
+    <div class="feld" style="margin-top: var(--a4)"><label class="feld-label" for="stil-miete">Miete je Monat</label><input class="feld-eingabe" id="stil-miete" name="stil_miete" inputmode="decimal" value="85,00"></div>
+    <p class="hinweis-band hinweis-warnung" data-wenn="stil_miete" data-ab="100" hidden style="margin-top: var(--a3)">Erscheint ab 100 € (<code>data-ab</code>), z. B. der Bonitätshinweis (P8).</p>
+  </div></form>
+</section>
+
+<section class="stil-abschnitt" id="fortschritt">
+  <h2>Fortschrittsleiste</h2>
+  <p class="stil-zweck">Für Assistenten wie die Übergabe am Handy: erledigt (Haken), mit Lücke (Ausrufezeichen, Warnfarbe), aktuell (dunkel), offen. Am Handy nur die Nummern; der Titel des Schritts steht darunter.</p>
+  <ol class="fortschritt">
+    <li class="fortschritt-erledigt"><a href="#fortschritt"><span class="fortschritt-nummer" aria-hidden="true">✓</span><span class="fortschritt-titel">Vorab</span></a></li>
+    <li class="fortschritt-luecke"><a href="#fortschritt"><span class="fortschritt-nummer" aria-hidden="true">!</span><span class="fortschritt-titel">Zählerstände</span></a></li>
+    <li class="fortschritt-aktuell" aria-current="step"><a href="#fortschritt"><span class="fortschritt-nummer" aria-hidden="true">3</span><span class="fortschritt-titel">Fotos</span></a></li>
+    <li class="fortschritt-offen"><a href="#fortschritt"><span class="fortschritt-nummer" aria-hidden="true">4</span><span class="fortschritt-titel">Schlüssel</span></a></li>
+    <li class="fortschritt-offen"><a href="#fortschritt"><span class="fortschritt-nummer" aria-hidden="true">5</span><span class="fortschritt-titel">Kaution</span></a></li>
+  </ol>
+  <p class="text-2 klein">Schritt 3 von 7: <strong>Fotos</strong></p>
+</section>
 {% endblock %}

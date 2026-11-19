@@ -148,8 +148,14 @@ def test_datenstand_fuehrt_mit_einem_klick_zur_eingabe(objekt: Objekt, angemelde
     assert f'href="{link}"' in seite
     assert "fehlt Fläche" in seite
 
-    eingabe = angemeldet.get(link.split("#")[0]).content.decode()
-    assert 'id="stammfelder"' in eingabe
+    # Review 2, B7: Die Einheitenseite zeigt Formulare als Dialog. Die Sprungmarke
+    # #stammfelder öffnet ihn (Link mit data-anker-dialog); ohne JavaScript führt derselbe
+    # Link zur Seite mit offenem Formular.
+    seite_einheit = angemeldet.get(link.split("#")[0]).content.decode()
+    assert 'id="stammfelder"' in seite_einheit
+    dialog_link = f'data-anker-dialog href="{link.split("#")[0]}?dialog=stammfelder"'
+    assert dialog_link in seite_einheit
+    eingabe = angemeldet.get(link.split("#")[0] + "?dialog=stammfelder").content.decode()
     assert 'name="stammfelder-flaeche_qm"' in eingabe
 
     antwort = angemeldet.post(

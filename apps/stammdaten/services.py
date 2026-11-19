@@ -402,6 +402,50 @@ def kontaktweg_entfernen(kontaktweg: Kontaktweg) -> None:
     kontaktweg.delete()
 
 
+def partei_zur_email(email: str) -> Partei | None:
+    """Die Partei mit dieser E-Mail-Adresse (Groß- und Kleinschreibung egal), sonst None.
+
+    Review 2, B5: Aus einer Buchungsanfrage wird eine vorhandene Partei vorgeschlagen, statt
+    sie doppelt anzulegen. Bei mehreren Treffern die älteste."""
+    email = email.strip()
+    if not email:
+        return None
+    return (
+        Partei.objects.filter(
+            kontaktwege__art=Kontaktweg.Art.EMAIL, kontaktwege__wert__iexact=email
+        )
+        .order_by("pk")
+        .first()
+    )
+
+
+def partei_mit_kontakt_anlegen(
+    *,
+    vorname: str = "",
+    nachname: str = "",
+    firma: str = "",
+    email: str = "",
+    telefon: str = "",
+) -> Partei:
+    """Legt eine Partei mit E-Mail und Telefon in einem Schritt an (Review 2, B5 und B6:
+    „Neue Partei“ direkt im Vertragsdialog, vorausgefüllt aus einer Buchungsanfrage).
+
+    Mit Firmenname und ohne Vor- und Nachnamen wird es eine Firma, sonst eine Person."""
+    art = Partei.Art.FIRMA if firma.strip() and not (vorname or nachname).strip() else None
+    with transaction.atomic():
+        partei = partei_anlegen(
+            art or Partei.Art.PERSON,
+            vorname=vorname.strip(),
+            nachname=nachname.strip(),
+            firma=firma.strip(),
+        )
+        if email.strip():
+            kontaktweg_hinzufuegen(partei, Kontaktweg.Art.EMAIL, email, bevorzugt=True)
+        if telefon.strip():
+            kontaktweg_hinzufuegen(partei, Kontaktweg.Art.TELEFON, telefon)
+    return partei
+
+
 # --- Vertrag -------------------------------------------------------------------------
 
 

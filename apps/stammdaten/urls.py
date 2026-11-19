@@ -12,6 +12,7 @@ urlpatterns = [
     path("parteien/", views.parteien, name="parteien"),
     path("parteien/neu/", views.partei_neu, name="partei_neu"),
     path("parteien/<int:pk>/", views.partei, name="partei"),
+    path("parteien/suche/", views.partei_suche, name="partei_suche"),
     path(
         "kontaktwege/<int:pk>/entfernen/",
         views.kontaktweg_entfernen,

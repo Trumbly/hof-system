@@ -1,77 +1,129 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
-{% block titel %}Buchungsanfrage #{{ anfrage.pk }}{% endblock %}
+{% block titel %}{{ anfrage.get_art_display }}sanfrage #{{ anfrage.pk }}{% endblock %}
 
 {% block inhalt %}
-<h1>{{ anfrage.get_art_display }} #{{ anfrage.pk }}</h1>
-{% include "anbindungen/_unternavigation.html" %}
-<ul class="kennzahlen">
-  <li>Einheit: <a href="{% url 'stammdaten:einheit' anfrage.einheit.pk %}"><strong>{{ anfrage.einheit.nw_id }}</strong></a> <span class="leise">{{ anfrage.einheit.get_typ_display }}{% if anfrage.einheit.bezeichnung %} · {{ anfrage.einheit.bezeichnung }}{% endif %}</span></li>
-  <li>Status: <strong>{{ anfrage.get_status_display }}</strong>{% if anfrage.entschieden_am %} <span class="leise">am {{ anfrage.entschieden_am|date:"d.m.Y H:i" }}</span>{% endif %}</li>
-  <li>Gemeldet am {{ anfrage.gemeldet_am|date:"d.m.Y H:i" }} <span class="leise">(Ereignis {{ anfrage.ereignis_id }})</span></li>
-  {% if anfrage.wunsch_ab %}<li>Gewünscht ab {{ anfrage.wunsch_ab|date:"d.m.Y" }}</li>{% endif %}
-  {% if anfrage.art == "buchung" %}<li>Im Katalog buchbar ab: {{ buchbar_ab|date:"d.m.Y"|default:"derzeit nicht buchbar" }}</li>{% endif %}
-  {% if anfrage.vertragsnummer %}<li>Angegebene Vertragsnummer: {{ anfrage.vertragsnummer }}</li>{% endif %}
-  {% if anfrage.vertrag %}<li>Vertrag: <a href="{% url 'stammdaten:vertrag' anfrage.vertrag.pk %}">{{ anfrage.vertrag.nummer }}</a> · {{ anfrage.vertrag.get_status_display }}</li>{% endif %}
-  {% if anfrage.kuendigung %}<li>Kündigung: #{{ anfrage.kuendigung.pk }}, Zugang {{ anfrage.kuendigung.zugang_am|date:"d.m.Y" }}, Ende <strong>{{ anfrage.kuendigung.fristende|date:"d.m.Y" }}</strong> (<a href="{% url 'stammdaten:vertrag' anfrage.kuendigung.vertrag_id %}#kuendigung">am Vertrag</a>)</li>{% endif %}
-</ul>
-
-<section id="kontakt">
-  <h2>Kontakt</h2>
-  <ul class="angaben">
-    <li>Name: {{ anfrage.kontakt_name|default:"–" }}</li>
-    <li>E-Mail: {% if anfrage.kontakt_email %}<a href="mailto:{{ anfrage.kontakt_email }}">{{ anfrage.kontakt_email }}</a>{% else %}–{% endif %}</li>
-    <li>Telefon: {{ anfrage.kontakt_telefon|default:"–" }}</li>
-  </ul>
-  {% if anfrage.nachricht %}<h3>Nachricht</h3><p>{{ anfrage.nachricht|linebreaksbr }}</p>{% endif %}
-</section>
-
-{% if vorschlag %}
-<section id="kuendigung-anlegen">
-  <h2>Kündigung übernehmen</h2>
-  <p class="leise">„Kündigung anlegen“ öffnet den Kündigungsdialog des Vertrags, vorausgefüllt mit Zugang am {{ vorschlag.zugang_am|date:"d.m.Y" }}, gekündigt vom Mieter{% if vorschlag.zum_wunsch %}, Wunschtermin {{ vorschlag.zum_wunsch|date:"d.m.Y" }}{% endif %} und Zugangsweg Website-Formular. Erledigt ist die Anfrage erst, wenn die Kündigung gespeichert ist.</p>
-  {% for k in kuendigung_anlegen %}
-  <div class="posten">
-    <p><strong>{{ k.vertrag.nummer }}</strong> · {{ k.vertrag.get_status_display }} · ab {{ k.vertrag.beginn|date:"d.m.Y" }}</p>
-    {% for satz in k.abweichungen %}<p class="meldung meldung-warning" role="alert">Absender weicht ab: {{ satz }}</p>{% endfor %}
-    <a class="knopf" href="{{ k.url }}">Kündigung anlegen</a>
+{% comment %}
+Buchungs- oder Kündigungsanfrage der Website (Review 2, B5): Kopf mit Kontakt, Einheit und
+Aktionen. Hauptaktion bei einer Buchung: „Annehmen und Vertrag anlegen“ (Dialog, vorausgefüllt),
+bei einer Kündigung: „Kündigung anlegen“ (Formular vorausgefüllt auf der Seite).
+Namen und Kontakt stehen hier für Max' Arbeit; Arbeitsposten und Logs nennen nur Nummern.
+{% endcomment %}
+{% url 'anbindungen:anfrage' anfrage.pk as basis %}
+<header class="seitenkopf vertrag-kopf">
+  <div class="seitenkopf-text">
+    <p class="kopf-pfad"><a href="{% url 'anbindungen:anfragen' %}">Anfragen der Website</a> / {{ anfrage.get_art_display }}</p>
+    <h1>{{ anfrage.get_art_display }}sanfrage #{{ anfrage.pk }} {% badge anfrage.status anfrage.get_status_display %}</h1>
+    <p class="seitenkopf-meta">gemeldet am {{ anfrage.gemeldet_am|date:"d.m.Y H:i" }}{% if anfrage.entschieden_am %} · entschieden am {{ anfrage.entschieden_am|date:"d.m.Y H:i" }}{% endif %} · Ereignis {{ anfrage.ereignis_id }}</p>
   </div>
-  {% empty %}
-  <p>Zur Einheit {{ anfrage.einheit.nw_id }} gibt es keinen aktiven Vertrag, an dem sich die Kündigung anlegen lässt.</p>
-  {% endfor %}
-  {% if kuendigungen_erfasst %}
-  <h3>Schon erfasst?</h3>
-  {% for k in kuendigungen_erfasst %}
-  <form method="post" class="formular">
-    {% csrf_token %}
-    <input type="hidden" name="status" value="erledigt">
-    <input type="hidden" name="kuendigung" value="{{ k.pk }}">
-    <p>Kündigung #{{ k.pk }} zu {{ k.vertrag.nummer }}, Zugang {{ k.zugang_am|date:"d.m.Y" }}, Ende {{ k.fristende|date:"d.m.Y" }}</p>
-    <button type="submit" class="zweitrangig">Mit Kündigung #{{ k.pk }} verknüpfen und erledigen</button>
-  </form>
-  {% endfor %}
+  {% if entscheidungen or vertrag_anlegen %}
+  <div class="seitenkopf-aktionen">
+    {% if vertrag_anlegen %}<a class="knopf knopf-primaer" href="{{ vertrag_neu_url }}" hx-get="{{ vertrag_neu_url }}" hx-target="#dialog-inhalt">Annehmen und Vertrag anlegen</a>{% endif %}
+    {% for wert, titel in entscheidungen %}{% if wert == "angenommen" %}
+    <form method="post" action="{{ basis }}">{% csrf_token %}<input type="hidden" name="status" value="angenommen"><button type="submit" class="knopf knopf-zweit" title="Nimmt die Einheit aus dem Katalog, bis der Vertrag steht">Nur annehmen</button></form>
+    {% elif wert == "abgelehnt" %}
+    <form method="post" action="{{ basis }}">{% csrf_token %}<input type="hidden" name="status" value="abgelehnt"><button type="submit" class="knopf knopf-zweit">Ablehnen</button></form>
+    {% endif %}{% endfor %}
+  </div>
   {% endif %}
-</section>
-{% endif %}
+</header>
 
-{% if entscheidungen %}
-<section id="entscheiden">
-  <h2>Entscheiden</h2>
-  {% if anfrage.art == "buchung" %}<p class="leise">Den Vertrag legst du in v1 von Hand an (<a href="{% url 'stammdaten:vertrag_neu' %}?einheit={{ anfrage.einheit.pk }}">Neuer Vertrag für {{ anfrage.einheit.nw_id }}</a>) und wählst ihn dann hier aus. „Angenommen“ nimmt die Einheit bis dahin aus dem Katalog.</p>{% endif %}
-  {% for wert, titel in entscheidungen %}
-  <form method="post" class="formular">
-    {% csrf_token %}
-    <input type="hidden" name="status" value="{{ wert }}">
-    {% if wert == "vertrag_angelegt" %}
-    <p><label for="vertrag">Vertrag</label>
-    <select name="vertrag" id="vertrag" required>
-      <option value="">bitte wählen</option>
-      {% for v in vertraege %}<option value="{{ v.pk }}">{{ v.nummer }} · {{ v.get_status_display }} · ab {{ v.beginn|date:"d.m.Y" }}</option>{% endfor %}
-    </select></p>
+<dl class="fakten">
+  <div class="fakt fakt-breit">
+    <dt>Kontakt</dt>
+    <dd><span class="fakt-name">{{ anfrage.kontakt_name|default:"ohne Namen" }}</span>
+      <span class="fakt-kontakt">{% if anfrage.kontakt_email %}<a href="mailto:{{ anfrage.kontakt_email }}">{{ anfrage.kontakt_email }}</a>{% endif %}{% if anfrage.kontakt_telefon %}<a href="tel:{{ anfrage.kontakt_telefon|cut:' ' }}">{{ anfrage.kontakt_telefon }}</a>{% endif %}{% if not anfrage.kontakt_email and not anfrage.kontakt_telefon %}<span class="text-3">kein Kontakt angegeben</span>{% endif %}</span>
+      {% if vorhandene_partei %}<span class="fakt-unter">bekannt als <a href="{% url 'stammdaten:partei' vorhandene_partei.pk %}">{{ vorhandene_partei.anzeigename }}</a> (gleiche E-Mail-Adresse)</span>{% elif anfrage.art == "buchung" %}<span class="fakt-unter">noch keine Partei mit dieser E-Mail-Adresse</span>{% endif %}
+    </dd>
+  </div>
+  <div class="fakt">
+    <dt>Einheit</dt>
+    <dd><a class="fakt-wert" href="{% url 'stammdaten:einheit' anfrage.einheit.pk %}">{{ anfrage.einheit.nw_id }}</a><span class="fakt-unter">{{ anfrage.einheit.get_typ_display }}{% if anfrage.einheit.bezeichnung %} · {{ anfrage.einheit.bezeichnung }}{% endif %}{% if einheit_status %} · {{ einheit_status.get_status_display }}{% endif %}</span></dd>
+  </div>
+  <div class="fakt">
+    <dt>{% if anfrage.art == "buchung" %}Gewünscht ab{% else %}Gewünschtes Ende{% endif %}</dt>
+    <dd><span class="fakt-wert">{{ anfrage.wunsch_ab|date:"d.m.Y"|default:"–" }}</span><span class="fakt-unter">{% if anfrage.art == "buchung" %}buchbar ab {{ buchbar_ab|date:"d.m.Y"|default:"– (derzeit nicht im Katalog)" }}{% elif anfrage.vertragsnummer %}angegeben: {{ anfrage.vertragsnummer }}{% else %}ohne Vertragsnummer{% endif %}</span></dd>
+  </div>
+  <div class="fakt">
+    <dt>{% if anfrage.vertrag %}Vertrag{% else %}Zielmiete{% endif %}</dt>
+    <dd>{% if anfrage.vertrag %}<a class="fakt-wert" href="{% url 'stammdaten:vertrag' anfrage.vertrag.pk %}">{{ anfrage.vertrag.nummer }}</a><span class="fakt-unter">{{ anfrage.vertrag.get_status_display }}</span>{% else %}<span class="fakt-wert zahl">{{ zielmiete.betrag|euro|default:"–" }}</span><span class="fakt-unter">je Monat{% if not zielmiete %} · nicht erfasst{% endif %}</span>{% endif %}</dd>
+  </div>
+</dl>
+
+<div class="raster raster-2-1">
+  <div class="stapel">
+    {% if kuendigung_formular %}
+    {% with k=kuendigung_anlegen.0 %}
+    <section class="karte" id="kuendigung-anlegen">
+      <header class="karte-kopf"><h2 class="karte-titel">Kündigung übernehmen · {{ k.vertrag.nummer }}</h2><a class="karte-link" href="{{ k.url }}">im Kündigungsdialog des Vertrags öffnen</a></header>
+      <div class="karte-rumpf">
+        <p class="text-2">Vorausgefüllt aus der Anfrage. Gespeichert wird die Kündigung am Vertrag {{ k.vertrag.nummer }}: Fristen, Bestätigung und Soll entstehen wie bei jeder Kündigung, und die Anfrage ist danach erledigt.</p>
+        {% for satz in k.abweichungen %}<p class="hinweis-band hinweis-warnung" role="alert">Absender weicht ab: {{ satz }}</p>{% endfor %}
+        <form method="post" action="{{ k.url }}">
+          {% csrf_token %}
+          <input type="hidden" name="aktion" value="kuendigung">
+          {% for verborgen in kuendigung_formular.hidden_fields %}{{ verborgen }}{% endfor %}
+          <div class="felder felder-2">{% for f in kuendigung_formular.visible_fields %}{% if f.name == "wunsch_wahl" %}{% feld f breit=True %}{% else %}{% feld f %}{% endif %}{% endfor %}</div>
+          <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer">Kündigung anlegen</button></div>
+        </form>
+      </div>
+    </section>
+    {% endwith %}
+    {% elif vorschlag %}
+    <section class="karte" id="kuendigung-anlegen">
+      <header class="karte-kopf"><h2 class="karte-titel">Kündigung übernehmen</h2></header>
+      <div class="karte-rumpf">
+        <p class="text-2">„Kündigung anlegen“ öffnet den Kündigungsdialog des Vertrags, vorausgefüllt mit Zugang am {{ vorschlag.zugang_am|date:"d.m.Y" }}, gekündigt vom Mieter{% if vorschlag.zum_wunsch %}, Wunschtermin {{ vorschlag.zum_wunsch|date:"d.m.Y" }}{% endif %} und Zugangsweg Website-Formular. Erledigt ist die Anfrage erst, wenn die Kündigung gespeichert ist.</p>
+        <ul class="liste">
+        {% for k in kuendigung_anlegen %}
+          <li><span class="liste-haupt"><strong>{{ k.vertrag.nummer }}</strong> · {{ k.vertrag.get_status_display }} · ab {{ k.vertrag.beginn|date:"d.m.Y" }}{% for satz in k.abweichungen %}<span class="hinweis-band hinweis-warnung" role="alert">Absender weicht ab: {{ satz }}</span>{% endfor %}</span><span class="liste-neben"><a class="knopf knopf-zweit knopf-klein" href="{{ k.url }}">Kündigung anlegen</a></span></li>
+        {% empty %}
+          <li class="text-3">Zur Einheit {{ anfrage.einheit.nw_id }} gibt es keinen aktiven Vertrag, an dem sich die Kündigung anlegen lässt.</li>
+        {% endfor %}
+        </ul>
+      </div>
+    </section>
     {% endif %}
-    <button type="submit"{% if wert == "abgelehnt" %} class="zweitrangig"{% endif %}>{{ titel }}</button>
-  </form>
-  {% endfor %}
-</section>
-{% endif %}
+
+    {% if kuendigungen_erfasst %}
+    {% aufklapper "Schon erfasst? Mit einer vorhandenen Kündigung verknüpfen" zahl=kuendigungen_erfasst|length %}
+      <ul class="liste">
+      {% for k in kuendigungen_erfasst %}
+        <li><span class="liste-haupt">Kündigung #{{ k.pk }} zu {{ k.vertrag.nummer }}, Zugang {{ k.zugang_am|date:"d.m.Y" }}, Ende {{ k.fristende|date:"d.m.Y" }}</span>
+          <span class="liste-neben"><form method="post" action="{{ basis }}">{% csrf_token %}<input type="hidden" name="status" value="erledigt"><input type="hidden" name="kuendigung" value="{{ k.pk }}"><button type="submit" class="knopf knopf-zweit knopf-klein">Mit Kündigung #{{ k.pk }} verknüpfen und erledigen</button></form></span></li>
+      {% endfor %}
+      </ul>
+    {% endaufklapper %}
+    {% endif %}
+
+    {% if anfrage.art == "buchung" and vertrag_anlegen and vertraege %}
+    {% aufklapper "Vertrag schon angelegt? Mit einem vorhandenen Vertrag verknüpfen" %}
+      <form method="post" action="{{ basis }}" class="felder">
+        {% csrf_token %}
+        <input type="hidden" name="status" value="vertrag_angelegt">
+        <div class="feld"><label class="feld-label" for="vertrag">Vertrag</label>
+        <select name="vertrag" id="vertrag" class="feld-auswahl" required>
+          <option value="">bitte wählen</option>
+          {% for v in vertraege %}<option value="{{ v.pk }}">{{ v.nummer }} · {{ v.get_status_display }} · ab {{ v.beginn|date:"d.m.Y" }}</option>{% endfor %}
+        </select></div>
+        <div class="formular-fuss"><button type="submit" class="knopf knopf-zweit">Vertrag angelegt</button></div>
+      </form>
+    {% endaufklapper %}
+    {% endif %}
+
+    {% if anfrage.kuendigung %}
+    {% karte "Kündigung" %}
+      <p>Kündigung #{{ anfrage.kuendigung.pk }}, Zugang {{ anfrage.kuendigung.zugang_am|date:"d.m.Y" }}, Ende <strong>{{ anfrage.kuendigung.fristende|date:"d.m.Y" }}</strong> (<a href="{% url 'stammdaten:vertrag' anfrage.kuendigung.vertrag_id %}#kuendigung">am Vertrag</a>)</p>
+    {% endkarte %}
+    {% endif %}
+  </div>
+
+  <div class="stapel">
+    <section class="karte" id="kontakt">
+      <header class="karte-kopf"><h2 class="karte-titel">Nachricht</h2></header>
+      <div class="karte-rumpf">{% if anfrage.nachricht %}<p>{{ anfrage.nachricht|linebreaksbr }}</p>{% else %}<p class="text-3">Keine Nachricht.</p>{% endif %}</div>
+    </section>
+  </div>
+</div>
 {% endblock %}

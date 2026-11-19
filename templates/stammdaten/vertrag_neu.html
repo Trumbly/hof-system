@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load bausteine %}
+
+{% block titel %}Neuer Vertrag{% endblock %}
+{% block breite %} schmal{% endblock %}
+
+{% block inhalt %}
+{% seitenkopf "Neuer Vertrag" "Der Vertrag entsteht als Entwurf; aktiv wird er mit der Übergabe." %}{% endseitenkopf %}
+<section class="karte">
+  <div class="karte-rumpf">{% include "stammdaten/_vertrag_neu_formular.html" %}</div>
+</section>
+{% endblock %}

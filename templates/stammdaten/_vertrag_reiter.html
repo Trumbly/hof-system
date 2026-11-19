@@ -9,7 +9,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
 <div class="raster raster-2-1">
   <div class="stapel">
     <section class="karte" id="kondition">
-      <header class="karte-kopf"><h2 class="karte-titel">Miete und Konditionen</h2><a class="karte-link" href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a></header>
+      <header class="karte-kopf"><h2 class="karte-titel">Miete und Konditionen</h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a></header>
       <div class="tabelle-box">
         <table class="tab tab-karten">
           <thead><tr><th>gültig ab</th><th>gültig bis</th><th class="zahl">Miete</th><th class="zahl">Pauschale</th><th class="zahl">USt</th><th>Zahlweise</th><th>Grund</th></tr></thead>
@@ -32,7 +32,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
     </section>
 
     <section class="karte" id="parteien">
-      <header class="karte-kopf"><h2 class="karte-titel">Parteien <span class="zaehler">{{ vertragsparteien|length }}</span></h2><a class="karte-link" href="{{ basis }}?dialog=partei" hx-get="{{ basis }}?dialog=partei" hx-target="#dialog-inhalt">Partei hinzufügen</a></header>
+      <header class="karte-kopf"><h2 class="karte-titel">Parteien <span class="zaehler">{{ vertragsparteien|length }}</span></h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=partei" hx-get="{{ basis }}?dialog=partei" hx-target="#dialog-inhalt">Partei hinzufügen</a></header>
       <ul class="liste">
         {% for m in mieter %}<li><span class="liste-haupt"><a href="{% url 'stammdaten:partei' m.partei_id %}">{{ m.name }}</a> <span class="text-3 klein">{{ m.rolle }}</span></span><span class="liste-neben klein">{% for t in m.telefon %}{{ t }}{% if not forloop.last or m.email %} · {% endif %}{% endfor %}{% for e in m.email %}{{ e }}{% if not forloop.last %} · {% endif %}{% endfor %}</span></li>
         {% empty %}<li class="text-3">Keine Partei.</li>{% endfor %}
@@ -40,7 +40,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
     </section>
 
     <section class="karte" id="kuendigung">
-      <header class="karte-kopf"><h2 class="karte-titel">Kündigung</h2>{% if vertrag.status == "aktiv" %}<a class="karte-link" href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a>{% endif %}</header>
+      <header class="karte-kopf"><h2 class="karte-titel">Kündigung</h2>{% if vertrag.status == "aktiv" %}<a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a>{% endif %}</header>
       <div class="karte-rumpf">
         {% for k in kuendigungen %}
         <p>Zugang {{ k.zugang_am|date:"d.m.Y" }} ({{ k.get_von_display }}{% if k.zugangsweg %}, {{ k.get_zugangsweg_display }}{% endif %}): {% if k.aufhebung %}Aufhebung zum Wunschtermin <strong>{{ k.fristende|date:"d.m.Y" }}</strong>{% else %}Fristende <strong>{{ k.fristende|date:"d.m.Y" }}</strong>{% endif %}, Rückgabe am {{ k.rueckgabetermin|date:"d.m.Y" }}.</p>
@@ -63,7 +63,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
 
   <div class="stapel">
     <section class="karte" id="stammfelder">
-      <header class="karte-kopf"><h2 class="karte-titel">Vertrag</h2><a class="karte-link" href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">bearbeiten</a></header>
+      <header class="karte-kopf"><h2 class="karte-titel">Vertrag</h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">bearbeiten</a></header>
       <div class="karte-rumpf">
         <dl class="angaben-neu">
           <dt>Vertragsart</dt><dd>{{ vertrag.get_vertragsart_display }}</dd>
@@ -78,7 +78,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
     </section>
 
     <section class="karte" id="unterschrift">
-      <header class="karte-kopf"><h2 class="karte-titel">Unterschrift und Scan</h2><a class="karte-link" href="{{ basis }}?dialog=unterschrift" hx-get="{{ basis }}?dialog=unterschrift" hx-target="#dialog-inhalt">erfassen</a></header>
+      <header class="karte-kopf"><h2 class="karte-titel">Unterschrift und Scan</h2><a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=unterschrift" hx-get="{{ basis }}?dialog=unterschrift" hx-target="#dialog-inhalt">erfassen</a></header>
       <div class="karte-rumpf">
         <p>{% if vertrag.unterschrieben_am %}Unterschrieben am {{ vertrag.unterschrieben_am|date:"d.m.Y" }}.{% else %}{% badge "warnung" "noch nicht unterschrieben" %}{% endif %}</p>
         <p class="text-2">{% if vertrag.unterschriebener_scan %}Scan liegt vor.{% else %}Kein Scan.{% endif %}</p>
@@ -86,7 +86,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
     </section>
 
     <section class="karte" id="kaution">
-      <header class="karte-kopf"><h2 class="karte-titel">Kaution</h2>{% if kaution_obj %}<a class="karte-link" href="{{ basis }}?dialog=kaution" hx-get="{{ basis }}?dialog=kaution" hx-target="#dialog-inhalt">bearbeiten</a>{% endif %}</header>
+      <header class="karte-kopf"><h2 class="karte-titel">Kaution</h2>{% if kaution_obj %}<a class="karte-link" data-anker-dialog href="{{ basis }}?dialog=kaution" hx-get="{{ basis }}?dialog=kaution" hx-target="#dialog-inhalt">bearbeiten</a>{% endif %}</header>
       <div class="karte-rumpf">
         {% if kaution_obj %}
         <dl class="angaben-neu">
@@ -138,7 +138,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
 <div class="stapel">
   <section class="karte" id="schreiben">
     <header class="karte-kopf"><h2 class="karte-titel">Schreiben <span class="zaehler">{{ schreiben|length }}</span></h2>
-      <span class="karte-link">{% if vertrag.status == "entwurf" %}<form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}" style="display:inline">{% csrf_token %}<button type="submit" class="knopf knopf-text knopf-klein">Vertragsdokument erzeugen</button></form> · {% endif %}<a href="{% url 'dokumente:serie_neu' %}">Serienmitteilung</a></span>
+      <span class="karte-link"><a href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a> · {% if vertrag.status == "entwurf" %}<form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}" style="display:inline">{% csrf_token %}<button type="submit" class="knopf knopf-text knopf-klein">Vertragsdokument erzeugen</button></form> · {% endif %}<a href="{% url 'dokumente:serie_neu' %}">Serienmitteilung</a></span>
     </header>
     <div class="tabelle-box">
       <table class="tab tab-karten">
@@ -199,7 +199,7 @@ im Dialog wird dieser Bereich ersetzt (oob). Anker der alten Seite bleiben erhal
 
 {% elif reiter_aktiv == "verlauf" %}
 <section class="karte" id="verlauf">
-  <header class="karte-kopf"><h2 class="karte-titel">Verlauf</h2><a class="karte-link" href="{% url 'kern:protokoll' %}">Protokoll</a></header>
+  <header class="karte-kopf"><h2 class="karte-titel">Verlauf</h2><a class="karte-link" href="{{ verlauf_url }}">im Protokoll ansehen</a></header>
   <div class="tabelle-box">
     <table class="tab tab-karten">
       <thead><tr><th>Zeit</th><th>Was</th><th>Änderung</th></tr></thead>

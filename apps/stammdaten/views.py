@@ -11,19 +11,27 @@ from typing import Any
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
-from apps.anbindungen import services as anbindungen
 from apps.dokumente.models import Schreiben
-from apps.stammdaten import datenstand, leerstand, schreiben, services, vertragsseite
+from apps.kern.models import Objekt
+from apps.stammdaten import (
+    datenstand,
+    einheitenliste,
+    einheitenseite,
+    leerstand,
+    neuer_vertrag,
+    schreiben,
+    services,
+    vertragsseite,
+)
 from apps.stammdaten import forms as f
 from apps.stammdaten.models import (
+    LAUFEND,
     Checkpunkt,
     Einheit,
     Kaution,
@@ -112,11 +120,43 @@ def uebersicht(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def einheiten(request: HttpRequest) -> HttpResponse:
+    """Liste der Einheiten (Review 2, B11): Suche; Filter nach Typ, Objekt und Status;
+    Spalten Mieter, Miete, offen (aus ``soll.offen``) und frei ab."""
     heute = _heute()
-    liste = list(Einheit.objects.select_related("objekt").order_by("objekt__kuerzel", "nw_id"))
-    for einheit in liste:
-        einheit.status_heute = einheit.status_am(heute)  # type: ignore[attr-defined]
-    return render(request, "stammdaten/einheiten.html", {"einheiten": liste})
+    alle = einheitenliste.lagen(heute, Einheit.objects.filter(aufgeloest_am__isnull=True))
+    filter_ = {
+        "suche": request.GET.get("suche", "").strip(),
+        "typ": request.GET.get("typ", ""),
+        "objekt": request.GET.get("objekt", ""),
+        "status": request.GET.get("status", ""),
+    }
+    if filter_["typ"] not in Einheit.Typ.values:
+        filter_["typ"] = ""
+    if filter_["status"] not in dict(einheitenliste.STATUS_FILTER):
+        filter_["status"] = ""
+    liste = einheitenliste.filtern(alle, **filter_)
+    zaehlung = {
+        s: sum(1 for lage in alle if lage.status == s) for s, _ in einheitenliste.STATUS_FILTER
+    }
+    return render(
+        request,
+        "stammdaten/einheiten.html",
+        {
+            "lagen": liste,
+            "anzahl_alle": len(alle),
+            "filter": filter_,
+            "gefiltert": any(filter_.values()),
+            "typen": [(w, t) for w, t in Einheit.Typ.choices],
+            "objekte": Objekt.objects.filter(einheiten__isnull=False)
+            .distinct()
+            .order_by("kuerzel"),
+            "status_filter": [
+                (s, t, zaehlung.get(s, 0) if s else len(alle))
+                for s, t in einheitenliste.STATUS_FILTER
+            ],
+            "summe_offen": sum(lage.offen for lage in liste),
+        },
+    )
 
 
 @login_required
@@ -138,78 +178,9 @@ def einheit_neu(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def einheit(request: HttpRequest, pk: int) -> HttpResponse:
-    einheit = get_object_or_404(Einheit.objects.select_related("objekt"), pk=pk)
-    stamm_klasse = f.WohnraumForm if einheit.ist_wohnraum else f.EinheitForm
-    formulare: dict[str, forms.Form] = {
-        "stammfelder": _gebunden(request, "stammfelder", stamm_klasse, instance=einheit),
-    }
-    if not einheit.ist_wohnraum:
-        formulare |= {
-            "status": _gebunden(request, "status", f.StatusForm),
-            "zielmiete": _gebunden(request, "zielmiete", f.ZielmieteForm),
-            "schluessel": _gebunden(request, "schluessel", f.SchluesselForm),
-        }
-        for s in einheit.schluessel.all():
-            schluessel_prefix = f"schluessel-{s.pk}"
-            formulare[schluessel_prefix] = _gebunden(
-                request, schluessel_prefix, f.SchluesselForm, instance=s
-            )
-
-    def stammfelder(_: HttpRequest, e: Einheit, form: forms.Form) -> str:
-        services.einheit_aendern(e, **form.cleaned_data)
-        return "stammfelder"
-
-    def status(_: HttpRequest, e: Einheit, form: forms.Form) -> str:
-        d = form.cleaned_data
-        services.einheit_status_setzen(e, d["status"], d["gueltig_ab"], d["grund"])
-        return "status"
-
-    def zielmiete(_: HttpRequest, e: Einheit, form: forms.Form) -> str:
-        d = form.cleaned_data
-        services.zielmiete_setzen(e, d["betrag"], d["gueltig_ab"], d["begruendung"])
-        return "zielmiete"
-
-    def schluessel_neu(_: HttpRequest, e: Einheit, form: forms.Form) -> str:
-        services.schluessel_anlegen(e, **form.cleaned_data)
-        return "schluessel"
-
-    handler: dict[str, Handler] = {
-        "stammfelder": stammfelder,
-        "status": status,
-        "zielmiete": zielmiete,
-        "schluessel": schluessel_neu,
-    }
-    for prefix, form in formulare.items():
-        if prefix.startswith("schluessel-"):
-            instanz = form.instance  # type: ignore[attr-defined]
-
-            def aendern(
-                _: HttpRequest, e: Einheit, form: forms.Form, s: Schluessel = instanz
-            ) -> str:
-                services.schluessel_aendern(s, **form.cleaned_data)
-                return "schluessel"
-
-            handler[prefix] = aendern
-
-    def kontext() -> dict[str, Any]:
-        heute = _heute()
-        return {
-            "einheit": einheit,
-            "heute": heute,
-            "status_heute": einheit.status_am(heute),
-            "zielmiete_heute": einheit.zielmiete_am(heute),
-            "statusstaende": einheit.statusstaende.order_by("-gueltig_ab"),
-            "zielmieten": einheit.zielmieten.order_by("-gueltig_ab"),
-            "schluessel_formulare": [
-                (form.instance, prefix, form)  # type: ignore[attr-defined]
-                for prefix, form in formulare.items()
-                if prefix.startswith("schluessel-")
-            ],
-            "vertraege": einheit.vertraege.order_by("-beginn"),
-            "checklisten": einheit.checklisten.prefetch_related("punkte").order_by("-pk"),
-        }
-
-    return _formular_seite(request, einheit, formulare, handler, "stammdaten/einheit.html", kontext)
+    """Einheitenseite in der neuen Gestaltung: Kopf, Reiter, Aktionen als Dialoge
+    (``apps.stammdaten.einheitenseite``)."""
+    return einheitenseite.seite(request, pk)
 
 
 # --- Parteien ------------------------------------------------------------------------
@@ -217,8 +188,38 @@ def einheit(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 def parteien(request: HttpRequest) -> HttpResponse:
-    liste = Partei.objects.prefetch_related("kontaktwege").order_by("nachname", "firma", "pk")
-    return render(request, "stammdaten/parteien.html", {"parteien": liste})
+    """Liste der Parteien (Review 2, B11): Suche; Spalten Rolle und Verträge."""
+    suche = request.GET.get("suche", "").strip()
+    qs = neuer_vertrag.parteien_suchen(suche) if suche else Partei.objects.all()
+    liste = list(
+        qs.prefetch_related(
+            "kontaktwege",
+            Prefetch(
+                "vertragsparteien",
+                queryset=Vertragspartei.objects.select_related("vertrag").order_by(
+                    "vertrag__nummer"
+                ),
+            ),
+        ).order_by("nachname", "vorname", "firma", "pk")
+    )
+    zeilen = []
+    for p in liste:
+        vps = list(p.vertragsparteien.all())
+        rollen = sorted({vp.get_rolle_display() for vp in vps})
+        zeilen.append(
+            {
+                "partei": p,
+                "rollen": rollen,
+                "vertraege": [vp.vertrag for vp in vps],
+                "laufend": sum(1 for vp in vps if vp.vertrag.status in LAUFEND),
+                "kontakt": next(iter(p.kontaktwege.all()), None),
+            }
+        )
+    return render(
+        request,
+        "stammdaten/parteien.html",
+        {"zeilen": zeilen, "suche": suche, "anzahl_alle": Partei.objects.count()},
+    )
 
 
 @login_required
@@ -293,33 +294,79 @@ VERTRAG_FILTER = (
 
 @login_required
 def vertraege(request: HttpRequest) -> HttpResponse:
+    """Liste der Verträge im neuen Stil (Review 2, B11): Status als Reiter (dieselbe Zählung
+    wie überall), Suche nach Nummer, Einheit und Mieter; Spalten Miete heute und offen."""
+    heute = _heute()
     gruppe = request.GET.get("status", "laufend")
     if gruppe not in dict(VERTRAG_FILTER):
         gruppe = "laufend"
+    suche = request.GET.get("suche", "").strip()
     auswahl = {
         "laufend": Vertrag.objects.laufend(),
         "entwurf": Vertrag.objects.filter(status=Vertrag.Status.ENTWURF),
         "beendet": Vertrag.objects.filter(status=Vertrag.Status.BEENDET),
         "alle": Vertrag.objects.all(),
     }[gruppe]
-    liste = auswahl.prefetch_related(
-        "einheiten",
-        Prefetch(
-            "vertragsparteien",
-            queryset=Vertragspartei.objects.filter(
-                rolle=Vertragspartei.Rolle.MIETER
-            ).select_related("partei"),
-            to_attr="mieter",
-        ),
-    ).order_by("nummer")
+    for wort in suche.split():
+        auswahl = auswahl.filter(
+            Q(nummer__icontains=wort)
+            | Q(einheiten__nw_id__icontains=wort)
+            | Q(einheiten__bezeichnung__icontains=wort)
+            | Q(vertragsparteien__partei__vorname__icontains=wort)
+            | Q(vertragsparteien__partei__nachname__icontains=wort)
+            | Q(vertragsparteien__partei__firma__icontains=wort)
+        )
+    liste = list(
+        auswahl.distinct()
+        .prefetch_related(
+            "einheiten",
+            "konditionen",
+            Prefetch(
+                "vertragsparteien",
+                queryset=Vertragspartei.objects.filter(
+                    rolle=Vertragspartei.Rolle.MIETER
+                ).select_related("partei"),
+                to_attr="mieter",
+            ),
+        )
+        .order_by("nummer")
+    )
+    offen = einheitenliste.offen_je_vertrag([v.pk for v in liste], heute)
+    zaehlung = Vertrag.objects.zaehlung()
+    zeilen = [
+        {
+            "vertrag": v,
+            "miete": next(
+                (
+                    k.miete
+                    for k in v.konditionen.all()
+                    if k.gueltig_ab <= max(heute, v.beginn)
+                    and (k.gueltig_bis is None or k.gueltig_bis >= max(heute, v.beginn))
+                ),
+                None,
+            ),
+            "offen": offen.get(v.pk, Decimal("0.00")),
+        }
+        for v in liste
+    ]
+    basis = reverse("stammdaten:vertraege")
     return render(
         request,
         "stammdaten/vertraege.html",
         {
-            "vertraege": liste,
+            "zeilen": zeilen,
             "gruppe": gruppe,
-            "filter": VERTRAG_FILTER,
-            "zaehlung": Vertrag.objects.zaehlung(),
+            "suche": suche,
+            "reiter": [
+                {
+                    "schluessel": wert,
+                    "titel": titel,
+                    "url": f"{basis}?status={wert}",
+                    "anzahl": zaehlung[wert],
+                }
+                for wert, titel in VERTRAG_FILTER
+            ],
+            "zaehlung": zaehlung,
         },
     )
 
@@ -338,63 +385,14 @@ def _dokument_melden(request: HttpRequest, ergebnis: schreiben.Ergebnis) -> None
 
 @login_required
 def vertrag_neu(request: HttpRequest) -> HttpResponse:
-    initial: dict[str, Any] = {}
-    if request.GET.get("einheit", "").isdigit():
-        initial["einheit"] = int(request.GET["einheit"])
-    form = f.VertragNeuForm(request.POST or None, initial=initial)
-    if request.method == "POST" and form.is_valid():
-        d = form.cleaned_data
-        try:
-            with transaction.atomic():
-                vertrag = services.vertrag_anlegen(
-                    einheiten=[d["einheit"]],
-                    mieter=[d["mieter"]],
-                    vertragsart=d["vertragsart"] or None,
-                    mandant=d["mandant"],
-                    beginn=d["beginn"],
-                    ende=d["ende"],
-                    miete=d["miete"],
-                    pauschale=d["pauschale"] or Decimal("0.00"),
-                    steuersatz=d["steuersatz"] or Decimal("0.00"),
-                    zahlweise=d["zahlweise"],
-                    kaution=d["kaution"],
-                    kuendigungsregel=d["kuendigungsregel"] or None,
-                )
-                services.checkliste_anlegen("vertrag", vertrag=vertrag)
-                ergebnis = services.vertragsdokument_erzeugen(vertrag)
-                # Review 2, A11: Eine angenommene Buchungsanfrage der Einheit gehört zu diesem
-                # Vertrag, egal ob er von der Anfrage oder der Einheitenseite aus entsteht.
-                anfrage = anbindungen.vertrag_zur_anfrage(vertrag)
-        except (services.StammdatenFehler, anbindungen.AnbindungFehler) as fehler:
-            messages.error(request, str(fehler))
-        else:
-            meldung = format_html("Vertrag {} als Entwurf angelegt.", vertrag.nummer)
-            if anfrage is not None:
-                meldung = format_html(
-                    '{} Mit der angenommenen Buchungsanfrage <a href="{}">#{}</a> verknüpft.',
-                    meldung,
-                    reverse("anbindungen:anfrage", args=[anfrage.pk]),
-                    anfrage.pk,
-                )
-            messages.success(request, meldung)
-            _dokument_melden(request, ergebnis)
-            if services.bonitaet_noetig(vertrag):
-                messages.warning(
-                    request,
-                    "Die Monatsmiete liegt bei 100 € oder darüber: Bitte vor der Unterschrift "
-                    "Selbstauskunft und Bonitätsnachweis prüfen (P8).",
-                )
-            return redirect("stammdaten:vertrag", vertrag.pk)
-    einheit = Einheit.objects.filter(pk=initial.get("einheit") or 0).first() if initial else None
-    return render(
-        request,
-        "stammdaten/neu.html",
-        {
-            "form": form,
-            "titel": "Neuer Vertrag",
-            "angenommene_anfrage": anbindungen.angenommene_anfrage(einheit) if einheit else None,
-        },
-    )
+    """Neuer Vertrag als schmale Seite oder Dialog (``apps.stammdaten.neuer_vertrag``)."""
+    return neuer_vertrag.seite(request)
+
+
+@login_required
+def partei_suche(request: HttpRequest) -> HttpResponse:
+    """Treffer der Parteisuche im Formular „Neuer Vertrag“ (HTMX)."""
+    return neuer_vertrag.partei_suche(request)
 
 
 @login_required
@@ -665,9 +663,13 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
     schluessel = services.schluessel_der_uebergabe(uebergabe)
     gespeichert = {int(e["schluessel"]): int(e["anzahl"]) for e in uebergabe.schluessel}
     einheiten = vertrag.einheiten.all()
+    fehlt_roh = services.uebergabe_fehlt(uebergabe)
     fehlt = [
         (text, reverse("stammdaten:uebergabe", args=[uebergabe.pk, _schritt_nummer(uebergabe, n)]))
-        for text, n in services.uebergabe_fehlt(uebergabe)
+        for text, n in fehlt_roh
+    ]
+    zaehler_zeilen = [
+        (z, stand, davor, f.zaehler_foto_feld(z.pk)) for z, stand, davor in zaehler_zeilen
     ]
     return render(
         request,
@@ -701,8 +703,40 @@ def uebergabe(request: HttpRequest, pk: int, schritt: int) -> HttpResponse:
             "uebersprungen": uebergabe.uebersprungen or {},
             "kaution": getattr(vertrag, "kaution", None),
             "einheiten": einheiten,
+            "fortschritt": _fortschritt(uebergabe, schritt, {n for _, n in fehlt_roh}),
+            "fotos_form": f.UebergabeFotosForm(),
+            "unterschrift_form": f.UebergabeUnterschriftForm(),
+            "zurueck": (
+                reverse("stammdaten:uebergabe", args=[uebergabe.pk, schritt - 1])
+                if schritt > 1
+                else reverse("stammdaten:vertrag", args=[vertrag.pk])
+            ),
         },
     )
+
+
+def _fortschritt(uebergabe: Uebergabe, schritt: int, mit_luecke: set[str]) -> list[dict[str, Any]]:
+    """Fortschrittsleiste der Übergabe (Review 2, B8): je Schritt erledigt, aktuell, mit
+    Lücke (schon besucht, aber es fehlt etwas) oder noch offen."""
+    leiste = []
+    for nummer, (name, titel) in enumerate(schritte_fuer(uebergabe), start=1):
+        if nummer == schritt:
+            zustand = "aktuell"
+        elif nummer > schritt:
+            zustand = "offen"
+        elif name in mit_luecke:
+            zustand = "luecke"
+        else:
+            zustand = "erledigt"
+        leiste.append(
+            {
+                "nummer": nummer,
+                "titel": titel,
+                "zustand": zustand,
+                "url": reverse("stammdaten:uebergabe", args=[uebergabe.pk, nummer]),
+            }
+        )
+    return leiste
 
 
 @login_required

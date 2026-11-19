@@ -1,30 +1,46 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Verträge{% endblock %}
 
 {% block inhalt %}
-<h1>Verträge</h1>
-<p><a class="knopf" href="{% url 'stammdaten:vertrag_neu' %}">Neuer Vertrag</a></p>
-<p class="filter" aria-label="Status">{% for wert, titel in filter %}{% if wert == gruppe %}<strong aria-current="page">{{ titel }} ({% if wert == "entwurf" %}{{ zaehlung.entwurf }}{% elif wert == "beendet" %}{{ zaehlung.beendet }}{% elif wert == "alle" %}{{ zaehlung.alle }}{% else %}{{ zaehlung.laufend }}{% endif %})</strong>{% else %}<a href="?status={{ wert }}">{{ titel }} ({% if wert == "entwurf" %}{{ zaehlung.entwurf }}{% elif wert == "beendet" %}{{ zaehlung.beendet }}{% elif wert == "alle" %}{{ zaehlung.alle }}{% else %}{{ zaehlung.laufend }}{% endif %})</a>{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
-<p class="leise">Laufend heißt aktiv oder gekündigt; diese Zahl steht auf allen Seiten.</p>
-<div class="tabelle-rahmen">
-<table class="karten">
-  <thead><tr><th>Nummer</th><th>Art</th><th>Einheiten</th><th>Mieter</th><th>Beginn</th><th>Ende</th><th>Status</th></tr></thead>
-  <tbody>
-  {% for v in vertraege %}
-  <tr>
-    <td data-titel="Nummer"><a href="{% url 'stammdaten:vertrag' v.pk %}">{{ v.nummer }}</a></td>
-    <td data-titel="Art">{{ v.get_vertragsart_display }}</td>
-    <td data-titel="Einheiten">{% for e in v.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-    <td data-titel="Mieter">{% for vp in v.mieter %}{{ vp.partei.anzeigename }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-    <td data-titel="Beginn">{{ v.beginn|date:"d.m.Y" }}</td>
-    <td data-titel="Ende">{{ v.ende|date:"d.m.Y"|default:"–" }}</td>
-    <td data-titel="Status">{{ v.get_status_display }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="7">Noch keine Verträge.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% url 'stammdaten:vertraege' as basis %}
+{% seitenkopf "Verträge" "Laufend heißt aktiv oder gekündigt; diese Zahl steht auf allen Seiten." %}
+  <a class="knopf knopf-primaer" href="{% url 'stammdaten:vertrag_neu' %}" hx-get="{% url 'stammdaten:vertrag_neu' %}" hx-target="#dialog-inhalt">Neuer Vertrag</a>
+{% endseitenkopf %}
+
+{% include "bausteine/reiter.html" with reiter=reiter aktiv=gruppe beschriftung="Status der Verträge" %}
+
+<form class="filterleiste" method="get" action="{{ basis }}" role="search"
+  hx-get="{{ basis }}" hx-target="#vertraege-liste" hx-select="#vertraege-liste" hx-swap="outerHTML" hx-push-url="true"
+  hx-trigger="input changed delay:300ms from:input[type=search], submit">
+  <input type="hidden" name="status" value="{{ gruppe }}">
+  <input type="search" name="suche" class="feld-eingabe filterleiste-suche" value="{{ suche }}" placeholder="V-Nummer, NW-ID oder Mieter" aria-label="Verträge durchsuchen">
+  <noscript><button type="submit" class="knopf knopf-zweit">Suchen</button></noscript>
+</form>
+
+<div id="vertraege-liste">
+  {% if suche %}<p class="text-3 klein filterleiste-ergebnis">{{ zeilen|length }} Treffer · <a href="{{ basis }}?status={{ gruppe }}">Suche zurücksetzen</a></p>{% endif %}
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Nummer</th><th>Einheiten</th><th>Mieter</th><th class="zahl">Miete</th><th class="zahl">offen</th><th>Beginn</th><th>Ende</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for z in zeilen %}{% with v=z.vertrag %}
+      <tr>
+        <td data-titel="Nummer"><a href="{% url 'stammdaten:vertrag' v.pk %}">{{ v.nummer }}</a> <span class="text-3 klein">{{ v.get_vertragsart_display }}</span></td>
+        <td data-titel="Einheiten">{% for e in v.einheiten.all %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        <td data-titel="Mieter">{% for vp in v.mieter %}{{ vp.partei.anzeigename }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-3">–</span>{% endfor %}</td>
+        <td data-titel="Miete" class="zahl">{{ z.miete|euro|default:"–" }}</td>
+        <td data-titel="offen" class="zahl">{% if z.offen > 0 %}<a class="text-fehler" href="{% url 'stammdaten:vertrag' v.pk %}?reiter=mietkonto">{{ z.offen|euro }}</a>{% else %}{{ z.offen|euro }}{% endif %}</td>
+        <td data-titel="Beginn"><time>{{ v.beginn|date:"d.m.Y" }}</time></td>
+        <td data-titel="Ende">{{ v.ende|date:"d.m.Y"|default:"–" }}</td>
+        <td data-titel="Status">{% badge v.status %}</td>
+      </tr>
+      {% endwith %}{% empty %}
+      {% if suche %}{% include "bausteine/leer.html" with spalten=8 text="Kein Vertrag passt zur Suche." %}{% else %}{% include "bausteine/leer.html" with spalten=8 text="Keine Verträge in diesem Status." %}{% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

@@ -114,7 +114,9 @@ def test_eine_zaehlung_der_vertraege(
     assert re.search(r"<strong>2</strong> laufende Verträge", uebersicht)
     liste = angemeldet.get(reverse("stammdaten:vertraege")).content.decode()
     assert len(re.findall(r'data-titel="Nummer"', liste)) == 2
-    assert "laufend (2)" in liste and "Entwürfe (1)" in liste and "alle (3)" in liste
+    # Review 2, B11: Status als Reiter mit Zahl.
+    for titel, zahl in (("laufend", 2), ("Entwürfe", 1), ("alle", 3)):
+        assert f'{titel} <span class="zaehler">{zahl}</span>' in liste
 
 
 def _vertragstext(vertrag: Vertrag) -> str:

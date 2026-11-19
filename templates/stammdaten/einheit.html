@@ -1,75 +1,25 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Einheit {{ einheit.nw_id }}{% endblock %}
 
 {% block inhalt %}
-<h1>Einheit {{ einheit.nw_id }}</h1>
-<p class="leise">{{ einheit.get_typ_display }} · Objekt {{ einheit.objekt.kuerzel }}{% if einheit.bezeichnung %} · {{ einheit.bezeichnung }}{% endif %}</p>
+{% include "stammdaten/_einheit_kopf.html" %}
 
-{% if einheit.ist_wohnraum %}
-<p class="meldung meldung-warning" id="verwaltio">Wohnraum: {{ einheit.hinweis }}. Hier stehen nur NW-ID und Objekt, ohne Vertrag, Status und Zielmiete.</p>
-{% else %}
-<ul class="kennzahlen">
-  <li>Status heute: <strong>{{ status_heute.get_status_display|default:"nicht erfasst" }}</strong>{% if status_heute %} <span class="leise">seit {{ status_heute.gueltig_ab|date:"d.m.Y" }}</span>{% endif %}</li>
-  <li>Zielmiete heute: <strong>{% if zielmiete_heute %}{{ zielmiete_heute.betrag }} €{% else %}nicht erfasst{% endif %}</strong></li>
-</ul>
-{% if status_heute.status == "frei" %}<p><a class="knopf" href="{% url 'stammdaten:vertrag_neu' %}?einheit={{ einheit.pk }}">Neuer Vertrag für diese Einheit</a></p>{% endif %}
+{% if offenes_formular %}
+{# Ohne JavaScript: das Formular mit seinen Fehlern auf der Seite statt im Dialog. #}
+{% url 'stammdaten:einheit' einheit.pk as basis %}
+{% karte offener_dialog.titel id=offener_dialog.anker %}
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="aktion" value="{{ offene_aktion }}">
+    {% if offenes_formular.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in offenes_formular.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    {% for verborgen in offenes_formular.hidden_fields %}{{ verborgen }}{% endfor %}
+    <div class="felder">{% for feld_ in offenes_formular.visible_fields %}{% feld feld_ %}{% endfor %}</div>
+    <div class="formular-fuss"><a class="knopf knopf-zweit" href="{{ basis }}">Abbrechen</a><button type="submit" class="knopf knopf-primaer">{{ offener_dialog.knopf }}</button></div>
+  </form>
+{% endkarte %}
 {% endif %}
 
-<section id="stammfelder">
-  <h2>Stammfelder</h2>
-  {% include "stammdaten/_formular.html" with form=stammfelder aktion="stammfelder" %}
-</section>
-
-{% if not einheit.ist_wohnraum %}
-<section id="status">
-  <h2>Status</h2>
-  <div class="tabelle-rahmen"><table>
-    <thead><tr><th>Status</th><th>gültig ab</th><th>gültig bis</th><th>Grund</th></tr></thead>
-    <tbody>{% for s in statusstaende %}<tr><td>{{ s.get_status_display }}</td><td>{{ s.gueltig_ab|date:"d.m.Y" }}</td><td>{{ s.gueltig_bis|date:"d.m.Y"|default:"–" }}</td><td>{{ s.grund }}</td></tr>{% empty %}<tr><td colspan="4">Noch kein Status.</td></tr>{% endfor %}</tbody>
-  </table></div>
-  <h3>Neuer Status ab Datum</h3>
-  {% include "stammdaten/_formular.html" with form=status aktion="status" knopf="Status setzen" %}
-</section>
-
-<section id="zielmiete">
-  <h2>Zielmiete</h2>
-  <div class="tabelle-rahmen"><table>
-    <thead><tr><th>Betrag</th><th>gültig ab</th><th>gültig bis</th><th>Begründung</th></tr></thead>
-    <tbody>{% for z in zielmieten %}<tr><td>{{ z.betrag }} €</td><td>{{ z.gueltig_ab|date:"d.m.Y" }}</td><td>{{ z.gueltig_bis|date:"d.m.Y"|default:"–" }}</td><td>{{ z.begruendung }}</td></tr>{% empty %}<tr><td colspan="4">Noch keine Zielmiete.</td></tr>{% endfor %}</tbody>
-  </table></div>
-  <h3>Neue Zielmiete ab Datum</h3>
-  {% include "stammdaten/_formular.html" with form=zielmiete aktion="zielmiete" knopf="Zielmiete setzen" %}
-</section>
-
-<section id="schluessel">
-  <h2>Schlüssel</h2>
-  {% for s, prefix, form in schluessel_formulare %}
-  <details class="posten">
-    <summary>{{ s.anzahl }} × {{ s.get_art_display }}{% if s.bezeichnung %} „{{ s.bezeichnung }}“{% endif %} · bei {% if s.partei %}{{ s.partei.anzeigename }}{% else %}{{ s.get_inhaber_display }}{% endif %}</summary>
-    {% include "stammdaten/_formular.html" with form=form aktion=prefix %}
-  </details>
-  {% empty %}
-  <p class="leise">Noch keine Schlüssel erfasst.</p>
-  {% endfor %}
-  <h3>Schlüssel hinzufügen</h3>
-  {% include "stammdaten/_formular.html" with form=schluessel aktion="schluessel" knopf="Hinzufügen" %}
-</section>
-
-<section id="zaehler">
-  <h2>Zähler</h2>
-  <ul>{% for z in einheit.zaehler.all %}<li><a href="{% url 'zaehler:zaehler' z.pk %}">{{ z.get_art_display }} {{ z.nummer }}</a>{% if z.ausgebaut_am %} · ausgebaut am {{ z.ausgebaut_am|date:"d.m.Y" }}{% endif %}</li>{% empty %}<li class="leise">Kein Zähler.</li>{% endfor %}</ul>
-  <p><a href="{% url 'zaehler:neu' %}?einheit={{ einheit.pk }}">Zähler anlegen</a></p>
-</section>
-
-<section id="vertraege">
-  <h2>Verträge</h2>
-  <ul>{% for v in vertraege %}<li><a href="{% url 'stammdaten:vertrag' v.pk %}">{{ v.nummer }}</a> · {{ v.get_status_display }} · {{ v.beginn|date:"d.m.Y" }} bis {{ v.ende|date:"d.m.Y"|default:"offen" }}</li>{% empty %}<li class="leise">Keine Verträge.</li>{% endfor %}</ul>
-</section>
-
-<section id="checklisten">
-  <h2>Checklisten</h2>
-  {% include "stammdaten/_checklisten.html" %}
-</section>
-{% endif %}
+{% include "stammdaten/_einheit_reiter.html" %}
 {% endblock %}
