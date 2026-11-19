@@ -1,19 +1,33 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
-{% block titel %}Cockpit{% endblock %}
+{% block titel %}Heute{% endblock %}
 
 {% block inhalt %}
-<h1>Hof-Cockpit</h1>
-<ul class="kacheln cockpit">
-  {% for html in kacheln %}{{ html|safe }}{% endfor %}
-  <li id="kachel-protokoll"><a class="kachel" href="{% url 'kern:protokoll' %}"><strong>Protokoll</strong><br><span class="leise">alle Änderungen, mit Rücknahme</span></a></li>
-</ul>
-<h2>Objekte</h2>
-{% if objekte %}
-<ul class="objekte">
-  {% for objekt in objekte %}<li id="objekt-{{ objekt.pk }}"><strong>{{ objekt.kuerzel }}</strong> · {{ objekt.bezeichnung }} <span class="leise">({{ objekt.mandant.get_art_display }})</span></li>{% endfor %}
-</ul>
-{% else %}
-<p class="leise">Noch keine Objekte. Zum Ausprobieren: <code>manage.py testhof --seed 42</code></p>
+{% seitenkopf "Heute" heute|date:"l, d. F Y" %}
+  <a class="knopf knopf-primaer" href="{% url 'kern:arbeitslisten' %}">Arbeitslisten öffnen</a>
+{% endseitenkopf %}
+
+{% if kennzahlen %}
+<div class="kennzahlen-reihe">
+  {% for k in kennzahlen %}{% kennzahl k.titel k.wert art=k.art unter=k.unter link=k.link %}{% endfor %}
+</div>
 {% endif %}
+
+{# Die Kacheln aus dem Register (apps.cockpit.kacheln), in ihrer Reihenfolge. #}
+<ul class="cockpit-raster cockpit">
+  {% for html in kacheln %}{{ html|safe }}{% endfor %}
+  <li id="kachel-protokoll"><a class="kachel" href="{% url 'kern:protokoll' %}"><strong>Protokoll</strong><span class="leise">alle Änderungen, mit Rücknahme</span></a></li>
+</ul>
+
+<section class="karte" id="objekte" style="margin-top: var(--a6)">
+  <header class="karte-kopf"><h2 class="karte-titel">Objekte <span class="zaehler">{{ objekte|length }}</span></h2></header>
+  {% if objekte %}
+  <ul class="liste">
+    {% for objekt in objekte %}<li id="objekt-{{ objekt.pk }}"><span class="liste-haupt"><strong>{{ objekt.kuerzel }}</strong> · {{ objekt.bezeichnung }}</span><span class="liste-neben klein">{{ objekt.mandant.get_art_display }}</span></li>{% endfor %}
+  </ul>
+  {% else %}
+  {% include "bausteine/leer.html" with text="Noch keine Objekte." hilfe="Zum Ausprobieren: manage.py testhof --seed 42" %}
+  {% endif %}
+</section>
 {% endblock %}

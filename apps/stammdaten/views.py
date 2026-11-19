@@ -11,26 +11,23 @@ from typing import Any
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Prefetch
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
 from apps.anbindungen import services as anbindungen
-from apps.anbindungen.models import Buchungsanfrage
 from apps.dokumente.models import Schreiben
-from apps.stammdaten import datenstand, konfiguration, leerstand, schreiben, services
+from apps.stammdaten import datenstand, leerstand, schreiben, services, vertragsseite
 from apps.stammdaten import forms as f
 from apps.stammdaten.models import (
     Checkpunkt,
     Einheit,
     Kaution,
     Kontaktweg,
-    Kuendigung,
     Partei,
     Schluessel,
     Uebergabe,
@@ -400,186 +397,11 @@ def vertrag_neu(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _kuendigung_anfrage(request: HttpRequest, vertrag: Vertrag) -> Buchungsanfrage | None:
-    """Die offene Website-Kündigung, aus der der Dialog vorausgefüllt wird (``?anfrage=`` oder
-    das versteckte Feld beim Speichern). Nur, wenn sie zu einer Einheit des Vertrags gehört."""
-    roh = request.POST.get("kuendigung-anfrage") or request.GET.get("anfrage") or ""
-    if not roh.isdigit():
-        return None
-    return (
-        Buchungsanfrage.objects.filter(
-            pk=int(roh),
-            art=Buchungsanfrage.Art.KUENDIGUNG,
-            status__in=anbindungen.NOCH_OFFEN,
-            einheit__in=vertrag.einheiten.all(),
-        )
-        .select_related("einheit")
-        .first()
-    )
-
-
-def _kuendigung_meldung(kuendigung: Kuendigung, anfrage: Buchungsanfrage | None) -> str:
-    """„Kündigung erfasst · Ende 28.02.2027 · Bestätigung #3 liegt bereit → ansehen“."""
-    brief = (
-        Schreiben.objects.filter(
-            bezug_typ=ContentType.objects.get_for_model(Kuendigung), bezug_id=kuendigung.pk
-        )
-        .order_by("-pk")
-        .first()
-    )
-    teile = [
-        format_html("Aufhebung zum {} erfasst", f"{kuendigung.fristende:%d.%m.%Y}")
-        if kuendigung.aufhebung
-        else format_html("Kündigung erfasst · Ende {}", f"{kuendigung.fristende:%d.%m.%Y}")
-    ]
-    art = "Aufhebungsvertrag" if kuendigung.aufhebung else "Bestätigung"
-    if brief is not None:
-        teile.append(
-            format_html(
-                '{} #{} liegt bereit → <a href="{}">ansehen</a>',
-                art,
-                brief.pk,
-                reverse("dokumente:schreiben", args=[brief.pk]),
-            )
-        )
-    else:
-        teile.append(format_html("{} nicht erzeugt (Arbeitsliste „Schreiben erstellen“)", art))
-    if anfrage is not None:
-        teile.append(
-            format_html(
-                'Anfrage <a href="{}">#{}</a> erledigt',
-                reverse("anbindungen:anfrage", args=[anfrage.pk]),
-                anfrage.pk,
-            )
-        )
-    return format_html_join(" · ", "{}", ((t,) for t in teile))
-
-
 @login_required
 def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
-    vertrag = get_object_or_404(Vertrag.objects.select_related("mandant"), pk=pk)
-    kaution = getattr(vertrag, "kaution", None)
-    formulare: dict[str, forms.Form] = {
-        "stammfelder": _gebunden(request, "stammfelder", f.VertragForm, instance=vertrag),
-        "kondition": _gebunden(request, "kondition", f.KonditionForm),
-        "unterschrift": _gebunden(request, "unterschrift", f.UnterschriftForm),
-        "partei": _gebunden(request, "partei", f.VertragsparteiForm),
-    }
-    if kaution is not None:
-        formulare["kaution"] = _gebunden(request, "kaution", f.KautionForm, instance=kaution)
-        formulare["kaution_abrechnen"] = _gebunden(
-            request, "kaution_abrechnen", f.KautionAbrechnenForm
-        )
-    kuendigung_anfrage = _kuendigung_anfrage(request, vertrag)
-    if vertrag.status == Vertrag.Status.AKTIV:
-        formulare["kuendigung"] = _gebunden(
-            request,
-            "kuendigung",
-            f.KuendigungForm,
-            vertrag=vertrag,
-            initial=(
-                anbindungen.kuendigung_vorschlag(kuendigung_anfrage) if kuendigung_anfrage else {}
-            ),
-        )
-
-    def stammfelder(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
-        services.vertrag_aendern(v, **form.cleaned_data)
-        return "stammfelder"
-
-    def kondition(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
-        d = form.cleaned_data
-        services.kondition_ab(
-            v,
-            d["gueltig_ab"],
-            miete=d["miete"],
-            pauschale=d["pauschale"],
-            steuersatz=d["steuersatz"],
-            zahlweise=d["zahlweise"] or None,
-            grund=d["grund"],
-        )
-        return "kondition"
-
-    def unterschrift(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
-        d = form.cleaned_data
-        services.vertrag_unterschrieben(v, d["unterschrieben_am"], d["scan"])
-        return "unterschrift"
-
-    def partei_hinzu(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
-        services.vertragspartei_hinzufuegen(
-            v, form.cleaned_data["partei"], form.cleaned_data["rolle"]
-        )
-        return "parteien"
-
-    def kaution_speichern(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
-        services.kaution_aendern(v.kaution, **form.cleaned_data)
-        return "kaution"
-
-    def kaution_abrechnen(_: HttpRequest, v: Vertrag, form: forms.Form) -> str:
-        d = form.cleaned_data
-        services.kaution_abrechnen(v.kaution, d["datum"], d["einbehalt"], d["notiz"])
-        return "kaution"
-
-    def kuendigung(_: HttpRequest, v: Vertrag, form: forms.Form) -> tuple[str, str]:
-        d = form.cleaned_data
-        felder: dict[str, Any] = {
-            "von": d["von"],
-            "zum_wunsch": d["zum_wunsch"],
-            "rueckgabetermin": d["rueckgabetermin"],
-            "zugangsweg": d["zugangsweg"] or "",
-            "aufhebung": d["wunsch_wahl"] == f.KuendigungForm.AUFHEBUNG,
-        }
-        if kuendigung_anfrage is not None:
-            try:
-                erfasst = anbindungen.kuendigung_aus_anfrage(
-                    kuendigung_anfrage, v, d["zugang_am"], **felder
-                )
-            except anbindungen.AnbindungFehler as fehler:
-                raise services.StammdatenFehler(str(fehler)) from fehler
-        else:
-            erfasst = services.kuendigung_erfassen(v, d["zugang_am"], **felder)
-        return "kuendigung", _kuendigung_meldung(erfasst, kuendigung_anfrage)
-
-    def kontext() -> dict[str, Any]:
-        heute = _heute()
-        return {
-            "vertrag": vertrag,
-            "kaution_obj": kaution,
-            "heute": heute,
-            "kondition_heute": vertrag.kondition_am(max(heute, vertrag.beginn)),
-            "konditionen": vertrag.konditionen.order_by("-gueltig_ab"),
-            "einheiten": vertrag.einheiten.select_related("objekt"),
-            "vertragsparteien": vertrag.vertragsparteien.select_related("partei"),
-            "kuendigungen": vertrag.kuendigungen.all(),
-            "kuendigung_anfrage": kuendigung_anfrage,
-            "absender_abweichungen": (
-                anbindungen.absender_abweichungen(kuendigung_anfrage, vertrag)
-                if kuendigung_anfrage
-                else []
-            ),
-            "buchungsanfragen": vertrag.buchungsanfragen.order_by("pk"),
-            "kuendigungsregel": services.kuendigungsregel_fuer(vertrag),
-            "uebergaben": vertrag.uebergaben.all(),
-            "checklisten": vertrag.checklisten.prefetch_related("punkte").order_by("-pk"),
-            "bonitaet": services.bonitaet_noetig(vertrag),
-            "bonitaet_ab": konfiguration.laden().bonitaet_ab_miete,
-        }
-
-    return _formular_seite(
-        request,
-        vertrag,
-        formulare,
-        {
-            "stammfelder": stammfelder,
-            "kondition": kondition,
-            "unterschrift": unterschrift,
-            "partei": partei_hinzu,
-            "kaution": kaution_speichern,
-            "kaution_abrechnen": kaution_abrechnen,
-            "kuendigung": kuendigung,
-        },
-        "stammdaten/vertrag.html",
-        kontext,
-    )
+    """Vertragsseite in der neuen Gestaltung: Kopf, Reiter, Aktionen als Dialoge
+    (``apps.stammdaten.vertragsseite``)."""
+    return vertragsseite.seite(request, pk)
 
 
 @login_required

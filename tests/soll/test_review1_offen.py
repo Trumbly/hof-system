@@ -120,7 +120,7 @@ def test_alle_lesen_offen(neuer_vertrag: VertragBauer, angemeldet: Client) -> No
     assert konto.saldo == E("-425.00")
 
     kopf = angemeldet.get(reverse("stammdaten:vertrag", args=[vertrag.pk])).content.decode()
-    assert "425,00 €</strong> in 5 Posten" in kopf
+    assert "425,00\u00a0€</strong> in 5 Posten" in kopf
 
 
 def test_summe_zaehlt_alle_treffer(

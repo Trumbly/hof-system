@@ -2,7 +2,7 @@ from django.urls import path
 
 from apps.cockpit import views as cockpit
 
-from . import views
+from . import stil, views
 
 app_name = "kern"
 
@@ -23,6 +23,9 @@ urlpatterns = [
         name="vorgang_zuruecknehmen",
     ),
     path("laeufe/", views.laeufe, name="laeufe"),
+    # Bausteine der neuen Gestaltung mit Beispielen (Review 2, C3)
+    path("stil/", stil.stilseite, name="stil"),
+    path("stil/dialog/", stil.stil_dialog, name="stil_dialog"),
     # Gesundheits-Endpunkt ohne Anmeldung: nur „ok“ und Version, keine Daten.
     path("gesund", views.gesund, name="gesund"),
 ]

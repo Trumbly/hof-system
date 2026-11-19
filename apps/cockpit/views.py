@@ -1,41 +1,118 @@
-"""Startseite des Hof-Systems: das Hof-Cockpit (H10.1).
+"""Startseite des Hof-Systems: das Hof-Cockpit (H10.1), in der neuen Gestaltung (Review 2, C).
 
 Die Kacheln kommen aus dem Register ``apps.cockpit.kacheln``; jede liest bei jedem Aufruf
-direkt aus der Datenbank. Die Adresse bleibt ``kern:startseite``.
+direkt aus der Datenbank. Die Kennzahlen oben lesen dieselben Kontexte (keine zweite
+Abfrage). Die Adresse bleibt ``kern:startseite``.
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
 
 from apps.cockpit import kacheln
+from apps.kern import zahlen
 from apps.kern.models import Objekt
 
 logger = logging.getLogger(__name__)
 
 
-def _kachel_html(request: HttpRequest, kachel: kacheln.Kachel) -> str:
+def _kachel(request: HttpRequest, kachel: kacheln.Kachel) -> tuple[str, dict[str, Any] | None]:
+    """HTML der Kachel und ihr Kontext (``None``, wenn sie nicht darstellbar ist)."""
     try:
         kontext = kachel.kontext_funktion()
-        return render_to_string(kachel.template, kontext, request=request)
+        return render_to_string(kachel.template, kontext, request=request), kontext
     except Exception:
         # Eine kaputte Kachel nimmt nicht die ganze Startseite mit.
         logger.exception("Kachel %s nicht darstellbar", kachel.name)
-        return render_to_string("cockpit/_kachel_fehler.html", {"kachel": kachel}, request=request)
+        html = render_to_string("cockpit/_kachel_fehler.html", {"kachel": kachel}, request=request)
+        return html, None
+
+
+@dataclass(frozen=True)
+class Kennzahl:
+    titel: str
+    wert: str
+    unter: str = ""
+    art: str = ""
+    link: str = ""
+
+
+def _kennzahlen(kontexte: dict[str, dict[str, Any]]) -> list[Kennzahl]:
+    """Vier Zahlen für den ersten Blick, aus den Kontexten der Kacheln."""
+    zahl: list[Kennzahl] = []
+    if (k := kontexte.get("freigaben")) is not None:
+        zahl.append(
+            Kennzahl(
+                "Offene Freigaben",
+                str(k["summe"]),
+                f"{k['anzahl_arten']} Art{'en' if k['anzahl_arten'] != 1 else ''}",
+                link=reverse("kern:arbeitslisten"),
+            )
+        )
+    if (k := kontexte.get("rueckstaende")) is not None and "anzahl" in k:
+        zahl.append(
+            Kennzahl(
+                "Rückstand",
+                zahlen.euro(k["summe"]),
+                f"{k['anzahl']} Vertr{'äge' if k['anzahl'] != 1 else 'ag'}"
+                + (f" · {k['in_klaerung']} in Klärung" if k.get("in_klaerung") else "")
+                # R1-B: nach dem Datenstand der Bank fällig, noch nicht prüfbar
+                + (
+                    f" · {zahlen.euro(k['nicht_pruefbar'])} nicht prüfbar"
+                    if k.get("nicht_pruefbar")
+                    else ""
+                ),
+                art="fehler" if k["anzahl"] else "",
+                link=reverse("abgleich:rueckstaende"),
+            )
+        )
+    if (k := kontexte.get("fristen")) is not None:
+        zahl.append(
+            Kennzahl(
+                "Fristen überfällig",
+                str(k["ueberfaellig"]),
+                f"{k['bald_anzahl']} in den nächsten {k['tage']} Tagen",
+                art="warnung" if k["ueberfaellig"] else "",
+                link=reverse("fristen:liste") + "?zeitraum=14",
+            )
+        )
+    if (k := kontexte.get("leerstand")) is not None:
+        zahl.append(
+            Kennzahl(
+                "Leerstand",
+                str(k["frei_anzahl"]),
+                f"Einheit{'en' if k['frei_anzahl'] != 1 else ''} frei",
+                link=reverse("stammdaten:leerstand"),
+            )
+        )
+    return zahl
 
 
 @login_required
 def startseite(request: HttpRequest) -> HttpResponse:
+    html: list[str] = []
+    kontexte: dict[str, dict[str, Any]] = {}
+    for kachel in kacheln.kacheln():
+        teil, kontext = _kachel(request, kachel)
+        html.append(teil)
+        if kontext is not None:
+            kontexte[kachel.name] = kontext
     return render(
         request,
         "cockpit/startseite.html",
         {
-            "kacheln": [_kachel_html(request, k) for k in kacheln.kacheln()],
+            "kacheln": html,
+            "kennzahlen": _kennzahlen(kontexte),
+            "heute": timezone.localdate(),
             "objekte": Objekt.objects.filter(aktiv=True).select_related("mandant"),
         },
     )

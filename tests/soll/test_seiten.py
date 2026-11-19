@@ -36,7 +36,7 @@ def test_offene_posten_je_vertrag(neuer_vertrag: VertragBauer, angemeldet: Clien
 
     vertragsseite = angemeldet.get(reverse("stammdaten:vertrag", args=[vertrag.pk]))
     text = vertragsseite.content.decode()
-    assert f'href="{url}"' in text and "85,00 €</strong> in 1 Posten" in text
+    assert f'href="{url}"' in text and "85,00\u00a0€</strong> in 1 Posten" in text
 
 
 def test_gesamtliste_mit_filter(neuer_vertrag: VertragBauer, angemeldet: Client) -> None:

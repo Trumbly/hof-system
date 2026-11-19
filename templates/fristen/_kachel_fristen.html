@@ -1,7 +1,21 @@
-{# Fristen der nächsten 14 Tage (offen, auch überfällige). Nur Datum, Art und Quelle. #}
-<li id="kachel-fristen"><a class="kachel" href="{% url 'fristen:liste' %}?zeitraum=14">
-  <strong>Fristen bis in {{ tage }} Tagen: {{ anzahl }}</strong>{% if ueberfaellig %} <span class="status status-abgebrochen">{{ ueberfaellig }} überfällig</span>{% endif %}
-  {% if naechste %}
-  <span class="kachel-zeilen">{% for frist in naechste %}<span class="kachel-zeile">{{ frist.datum|date:"d.m.Y" }} · {{ frist.get_art_display }} <span class="leise">({{ frist.get_quelle_display }})</span></span>{% endfor %}</span>
-  {% else %}<br><span class="leise">Keine Frist in den nächsten {{ tage }} Tagen.</span>{% endif %}
-</a></li>
+{# Fristen: überfällige und die der nächsten 14 Tage als zwei Listen (Review 1, Punkt 6). Nur Datum, Art und Quelle. #}
+<li id="kachel-fristen" class="kachel-breit"><section class="karte">
+  <header class="karte-kopf">
+    <h2 class="karte-titel">Fristen</h2>
+    <a class="karte-link" href="{% url 'fristen:liste' %}?zeitraum=14">alle Fristen bis in {{ tage }} Tagen</a>
+  </header>
+  <div class="fristen-listen">
+    <div id="fristen-ueberfaellig">
+      <h3 class="liste-titel">Überfällig <span class="zaehler">{{ ueberfaellig }}</span></h3>
+      {% if ueberfaellige %}
+      <ul class="liste">{% for frist in ueberfaellige %}<li><span class="liste-haupt">{{ frist.get_art_display }} <span class="text-3 klein">({{ frist.get_quelle_display }})</span></span><span class="liste-neben"><span class="badge badge-fehler">{{ frist.datum|date:"d.m.Y" }}</span></span></li>{% endfor %}</ul>
+      {% else %}<p class="liste-leer">Keine überfällige Frist.</p>{% endif %}
+    </div>
+    <div id="fristen-bald">
+      <h3 class="liste-titel">Nächste {{ tage }} Tage <span class="zaehler">{{ bald_anzahl }}</span></h3>
+      {% if bald %}
+      <ul class="liste">{% for frist in bald %}<li><span class="liste-haupt">{{ frist.get_art_display }} <span class="text-3 klein">({{ frist.get_quelle_display }})</span></span><span class="liste-neben"><time>{{ frist.datum|date:"d.m.Y" }}</time></span></li>{% endfor %}</ul>
+      {% else %}<p class="liste-leer">Keine Frist in den nächsten {{ tage }} Tagen.</p>{% endif %}
+    </div>
+  </div>
+</section></li>

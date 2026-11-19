@@ -72,7 +72,11 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Stichtag-Band (Review 1, Punkt 14)
+                "apps.kern.kontext.hof",
             ],
+            # |euro und |zahl in jeder Vorlage (apps.kern.zahlen)
+            "builtins": ["apps.kern.templatetags.formate"],
         },
     },
 ]
@@ -172,6 +176,13 @@ ABGLEICH_BEGINN = date.fromisoformat(_abgleich_beginn) if _abgleich_beginn else 
 # Mahnwesen (Review 1, Punkt 10): Ein Rückstand unter dieser Grenze (Euro) löst keine Stufe
 # aus; er wird beim nächsten überfälligen Posten mitgenannt.
 MAHNWESEN_BAGATELLGRENZE = Decimal(env.str("HOF_MAHN_BAGATELLGRENZE", default="20.00"))
+
+# Fester Stichtag (Review 1, Punkt 14): Nur dev und test setzen ihn, auf den Stand des
+# Testhofs (testhof.aufbau.STICHTAG). Dann zeigt jede Seite oben „Testhof · Stichtag …“.
+# Er ist nur eine Anzeige: Gerechnet wird weiter mit dem heutigen Datum. prod.py setzt ihn
+# immer auf None.
+_stichtag = env.str("HOF_STICHTAG", default="")
+HOF_STICHTAG = date.fromisoformat(_stichtag) if _stichtag else None
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

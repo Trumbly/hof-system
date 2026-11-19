@@ -1,0 +1,63 @@
+{% load bausteine %}{% comment %}
+Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog ersetzt (oob).
+{% endcomment %}{% url 'stammdaten:vertrag' vertrag.pk as basis %}
+<div id="vertrag-kopf"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <header class="seitenkopf vertrag-kopf">
+    <div class="seitenkopf-text">
+      <p class="kopf-pfad"><a href="{% url 'stammdaten:vertraege' %}">Verträge</a> / {{ vertrag.get_vertragsart_display }}</p>
+      <h1>{{ vertrag.nummer }} {% badge vertrag.status %}</h1>
+      <p class="seitenkopf-meta">
+        {% for e in einheiten %}<a href="{% url 'stammdaten:einheit' e.pk %}">{{ e.nw_id }}</a>{% if e.bezeichnung %} {{ e.bezeichnung }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}ohne Einheit{% endfor %}
+        · {{ vertrag.mandant.kuerzel }} · seit {{ vertrag.beginn|date:"d.m.Y" }}{% if vertrag.ende %} bis {{ vertrag.ende|date:"d.m.Y" }}{% else %}, unbefristet{% endif %}
+      </p>
+    </div>
+    <div class="seitenkopf-aktionen">
+      <a class="knopf knopf-zweit" href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a>
+      {% if vertrag.status == "aktiv" %}<a class="knopf knopf-zweit" href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a>{% endif %}
+      {% if vertrag.status == "entwurf" %}
+      <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'uebergabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-primaer">Übergabe am Handy</button></form>
+      {% elif vertrag.status == "aktiv" or vertrag.status == "gekuendigt" %}
+      <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit" class="knopf {% if vertrag.status == 'gekuendigt' %}knopf-primaer{% else %}knopf-zweit{% endif %}">Rückgabe am Handy</button></form>
+      {% endif %}
+      <a class="knopf knopf-zweit" href="{{ basis }}?reiter=dokumente">Schreiben erstellen</a>
+      <details class="menue">
+        <summary class="knopf knopf-zweit">mehr ▾</summary>
+        <ul class="menue-liste">
+          <li><a href="{{ basis }}?dialog=unterschrift" hx-get="{{ basis }}?dialog=unterschrift" hx-target="#dialog-inhalt">Unterschrift und Scan erfassen</a></li>
+          <li><a href="{{ basis }}?dialog=partei" hx-get="{{ basis }}?dialog=partei" hx-target="#dialog-inhalt">Partei hinzufügen</a></li>
+          {% if kaution_obj %}<li><a href="{{ basis }}?dialog=kaution" hx-get="{{ basis }}?dialog=kaution" hx-target="#dialog-inhalt">Kaution bearbeiten</a></li>{% endif %}
+          {% if kaution_obj.abrechnung_faellig_am and not kaution_obj.abgerechnet_am %}<li><a href="{{ basis }}?dialog=kaution_abrechnen" hx-get="{{ basis }}?dialog=kaution_abrechnen" hx-target="#dialog-inhalt">Kaution abrechnen</a></li>{% endif %}
+          <li><a href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">Vertragsdaten bearbeiten</a></li>
+          {% if vertrag.status == "entwurf" %}<li><form method="post" action="{% url 'stammdaten:vertragsdokument' vertrag.pk %}">{% csrf_token %}<button type="submit">Vertragsdokument als PDF erzeugen</button></form></li>{% endif %}
+          <li class="menue-trenner" role="separator"></li>
+          <li><a href="{% url 'abgleich:handzahlung' vertrag.pk %}">Handzahlung erfassen</a></li>
+          <li><a href="{% url 'soll:vertrag' vertrag.pk %}">Offene Posten</a></li>
+          <li><a href="{{ basis }}?reiter=verlauf">Verlauf</a></li>
+        </ul>
+      </details>
+    </div>
+  </header>
+
+  <dl class="fakten">
+    <div class="fakt fakt-breit">
+      <dt>{% if mieter %}{{ mieter.0.rolle }}{% else %}Mieter{% endif %}</dt>
+      {% for m in mieter %}{% if forloop.first %}
+      <dd><a class="fakt-name" href="{% url 'stammdaten:partei' m.partei_id %}">{{ m.name }}</a>
+        <span class="fakt-kontakt">{% for t in m.telefon %}<a href="tel:{{ t|cut:' ' }}">{{ t }}</a>{% endfor %}{% for e in m.email %}<a href="mailto:{{ e }}">{{ e }}</a>{% endfor %}{% if not m.telefon and not m.email %}<span class="text-3">kein Kontakt hinterlegt</span>{% endif %}</span>
+        {% if mieter|length > 1 %}<span class="text-3 klein">und {{ mieter|length|add:"-1" }} weitere Partei{{ mieter|length|add:"-1"|pluralize:"en" }}</span>{% endif %}
+      </dd>{% endif %}{% empty %}<dd class="text-3">keine Partei</dd>{% endfor %}
+    </div>
+    <div class="fakt">
+      <dt>Miete heute</dt>
+      <dd>{% if kondition_heute %}<span class="fakt-wert zahl">{{ kondition_heute.miete|euro }}</span><span class="fakt-unter">{% if kondition_heute.pauschale %}+ {{ kondition_heute.pauschale|euro }} Pauschale · {% endif %}{{ kondition_heute.get_zahlweise_display }}</span>{% else %}<span class="text-3">nicht erfasst</span>{% endif %}</dd>
+    </div>
+    <div class="fakt">
+      <dt>Saldo</dt>
+      <dd><a class="fakt-wert zahl{% if saldo.art %} fakt-{{ saldo.art }}{% endif %}" href="{{ basis }}?reiter=mietkonto">{{ saldo.wert|euro }}</a><span class="fakt-unter">{{ saldo.text }}{% if konto.klaerfaelle %} · {{ konto.klaerfaelle|length }} in Klärung{% endif %}</span></dd>
+    </div>
+    <div class="fakt">
+      <dt>Nächste Frist</dt>
+      <dd>{% if naechste_frist %}<span class="fakt-wert{% if frist_ueberfaellig %} fakt-fehler{% endif %}"><time>{{ naechste_frist.datum|date:"d.m.Y" }}</time></span><span class="fakt-unter">{{ naechste_frist.get_art_display }}{% if frist_ueberfaellig %} · überfällig{% endif %}</span>{% else %}<span class="text-3">keine offen</span>{% endif %}</dd>
+    </div>
+  </dl>
+</div>

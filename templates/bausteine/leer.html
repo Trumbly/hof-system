@@ -1,0 +1,3 @@
+{# Leerzustand einer Tabelle oder Liste. In einer Tabelle: {% include "bausteine/leer.html" with spalten=5 text="…" %} #}
+{% if spalten %}<tr class="leer-zeile"><td colspan="{{ spalten }}"><div class="leer"><p class="leer-text">{{ text }}</p>{% if hilfe %}<p class="leer-hilfe">{{ hilfe }}</p>{% endif %}</div></td></tr>
+{% else %}<div class="leer"><p class="leer-text">{{ text }}</p>{% if hilfe %}<p class="leer-hilfe">{{ hilfe }}</p>{% endif %}</div>{% endif %}

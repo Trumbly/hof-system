@@ -21,13 +21,15 @@ from __future__ import annotations
 import datetime
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
 
 from django.template import Context, Engine, Library, Template, TemplateSyntaxError, defaultfilters
 from django.template import defaulttags as dt
 from django.template.base import FilterExpression, Node, Variable, VariableNode
 from django.utils import translation
+
+from apps.kern import zahlen
 
 
 class PlatzhalterFehler(ValueError):
@@ -132,27 +134,11 @@ for _name in FILTER:
     bibliothek.filter(_name, getattr(defaultfilters, _name), is_safe=True)
 
 
-def _tausender(zahl: str) -> str:
-    gruppen: list[str] = []
-    while len(zahl) > 3:
-        gruppen.insert(0, zahl[-3:])
-        zahl = zahl[:-3]
-    gruppen.insert(0, zahl)
-    return ".".join(gruppen)
-
-
 @bibliothek.filter(name="euro", is_safe=True)
 def euro(wert: Any) -> str:
-    """Betrag in deutscher Schreibweise: ``1234.5`` → ``1.234,50 €``."""
-    if wert in (None, ""):
-        return ""
-    try:
-        betrag = Decimal(str(wert)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    except InvalidOperation:
-        return str(wert)  # z. B. ‹betrag.offen› in der Vorschau
-    vorzeichen = "-" if betrag < 0 else ""
-    ganz, _, rest = f"{abs(betrag):.2f}".partition(".")
-    return f"{vorzeichen}{_tausender(ganz)},{rest} €"
+    """Betrag in deutscher Schreibweise: ``1234.5`` → ``1.234,50 €`` (``apps.kern.zahlen``,
+    dieselbe Schreibweise wie auf den Seiten)."""
+    return zahlen.euro(wert)
 
 
 @bibliothek.filter(name="datum", is_safe=True)

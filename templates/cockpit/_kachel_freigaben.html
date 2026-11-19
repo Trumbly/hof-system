@@ -1,7 +1,19 @@
-{# Offene Freigaben je Art (offene Arbeitsposten). Nur Arten und Zähler. #}
-<li id="kachel-freigaben"><a class="kachel" href="{% url 'kern:arbeitslisten' %}">
-  <strong>Offene Freigaben: {{ summe }}</strong>
+{# Offene Freigaben je Art, nach Dringlichkeit; die ersten fünf Arten, der Rest hinter dem Link. Nur Arten und Zähler. #}
+<li id="kachel-freigaben" class="kachel-breit"><section class="karte">
+  <header class="karte-kopf">
+    <h2 class="karte-titel">Offene Freigaben <span class="zaehler">{{ summe }}</span></h2>
+    <a class="karte-link" href="{% url 'kern:arbeitslisten' %}">Arbeitslisten öffnen</a>
+  </header>
   {% if arten %}
-  <span class="kachel-zeilen">{% for a in arten %}<span class="kachel-zeile">{{ a.art }}: <strong>{{ a.anzahl }}</strong></span>{% endfor %}</span>
-  {% else %}<br><span class="leise">Nichts wartet auf dich.</span>{% endif %}
-</a></li>
+  <ul class="liste">
+    {% for a in arten %}
+    <li><a class="liste-zeile" href="{{ a.url }}"><span class="liste-haupt">{{ a.art }}</span><span class="liste-neben">{% if a.ueberfaellig %}<span class="badge badge-fehler">{{ a.ueberfaellig }} überfällig</span> {% elif a.naechste %}<span class="klein text-3">fällig {{ a.naechste|date:"d.m." }}</span> {% endif %}<strong class="zahl">{{ a.anzahl }}</strong></span></a></li>
+    {% endfor %}
+    {% if weitere %}
+    <li><a class="liste-zeile" href="{% url 'kern:arbeitslisten' %}"><span class="liste-haupt">weitere {{ weitere|length }} Art{{ weitere|length|pluralize:"en" }} ansehen</span><span class="liste-neben"><strong class="zahl">{{ weitere_posten }}</strong></span></a></li>
+    {% endif %}
+  </ul>
+  {% else %}
+  <div class="karte-rumpf"><p class="text-3">Nichts wartet auf dich.</p></div>
+  {% endif %}
+</section></li>

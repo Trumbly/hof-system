@@ -1,0 +1,7 @@
+{% comment %} Reiter. ``reiter``: Liste von {schluessel, titel, url, anzahl}; ``aktiv``: Schlüssel.
+   ``ziel``: id des Bereichs, den HTMX beim Wechsel ersetzt (ohne: normaler Link). {% endcomment %}
+<nav class="reiter" aria-label="{{ beschriftung|default:'Bereiche' }}">
+  {% for r in reiter %}
+  <a href="{{ r.url }}"{% if r.schluessel == aktiv %} aria-current="page"{% endif %}{% if ziel %} hx-get="{{ r.url }}" hx-target="#{{ ziel }}" hx-swap="outerHTML" hx-push-url="true"{% endif %}>{{ r.titel }}{% if r.anzahl %} <span class="zaehler">{{ r.anzahl }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>

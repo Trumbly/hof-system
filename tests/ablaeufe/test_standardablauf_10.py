@@ -111,8 +111,13 @@ def test_standardablauf_10_tageslauf(
 
     # Ergebnis: Das Cockpit zeigt den Stand direkt aus der Datenbank.
     html = angemeldet.get(reverse("kern:startseite")).content.decode()
-    freigaben = html.split('id="kachel-freigaben"', 1)[1].split("</li>", 1)[0]
-    assert f"Frist fällig: <strong>{faellig}</strong>" in freigaben
+    freigaben = html.split('id="kachel-freigaben"', 1)[1].split('<li id="kachel-', 1)[0]
+    # Review 1, Punkt 7: Arten nach Dringlichkeit, die ersten fünf in der Kachel.
+    from apps.cockpit import eigene_kacheln
+
+    arten = {a["art"]: a["anzahl"] for a in eigene_kacheln.freigaben()["arten"]}
+    assert arten.get("Frist fällig") == faellig
+    assert "Frist fällig</span>" in freigaben
     laeufe = html.split('id="kachel-laeufe"', 1)[1].split("</li>", 1)[0]
     for name in namen:
         assert name in laeufe

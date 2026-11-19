@@ -1,0 +1,216 @@
+{% extends "base_neu.html" %}
+{% load bausteine %}
+
+{% block titel %}Stil{% endblock %}
+
+{% block inhalt %}
+{% seitenkopf "Bausteine" "Alle Bausteine der neuen Gestaltung mit Beispielen · Werte in static/css/werte.css" %}
+  <a class="knopf knopf-zweit" href="#formular">Zu den Feldern</a>
+  <button type="button" class="knopf knopf-primaer" hx-get="{% url 'kern:stil_dialog' %}" hx-target="#dialog-inhalt">Dialog öffnen</button>
+{% endseitenkopf %}
+
+<section class="stil-abschnitt" id="farben">
+  <h2>Farben</h2>
+  <p class="stil-zweck">Grün bleibt die Farbe des Hofs. Statusfarben nur für Zustände, nie zur Zierde. Alle Paare erreichen WCAG AA (gerechnet).</p>
+  <div class="stil-farben">
+    {% for titel, wert in farben %}
+    <div class="stil-farbe"><div class="stil-farbe-feld" style="background: var({{ wert }})"></div><div class="stil-farbe-text">{{ titel }}<code>{{ wert }}</code></div></div>
+    {% endfor %}
+  </div>
+  <div class="tabelle-box" style="margin-top: var(--a4)">
+    <table class="tab">
+      <thead><tr><th>Paar</th><th class="zahl">hell</th><th class="zahl">dunkel</th></tr></thead>
+      <tbody>{% for paar, hell, dunkel in kontraste %}<tr><td>{{ paar }}</td><td class="zahl">{{ hell }}</td><td class="zahl">{{ dunkel }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="schrift">
+  <h2>Schrift</h2>
+  <p class="stil-zweck">Systemschrift, sechs Größen. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.</p>
+  <div class="karte"><div class="karte-rumpf stil-schrift">
+    {% for g in groessen %}<p style="font-size: {{ g }}px; margin: 0">{{ g }} px · Miete heute 1.250,00 € · NW-G-0017</p>{% endfor %}
+    <p class="text-2">Text 2: Meta-Zeilen und Beschriftungen.</p>
+    <p class="text-3">Text 3: Hilfetexte und Leerzustände.</p>
+  </div></div>
+</section>
+
+<section class="stil-abschnitt" id="abstaende">
+  <h2>Abstände, Radius, Schatten</h2>
+  <p class="stil-zweck">Abstände in Schritten von 4 px. Radius 8 px. Schatten nur für Dialoge und Menüs, sonst Linien.</p>
+  <div class="stil-abstaende">
+    {% for a in abstaende %}<div class="stil-abstand"><span style="width: {{ a }}px; height: {{ a }}px"></span><span>{{ a }}</span></div>{% endfor %}
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="zahlen">
+  <h2>Zahlen und Beträge</h2>
+  <p class="stil-zweck">Filter <code>|euro</code> und <code>|zahl</code> in jeder Vorlage, ohne <code>{% verbatim %}{% load %}{% endverbatim %}</code>. Dieselbe Schreibweise steht in den Schreiben an Mieter.</p>
+  <div class="tabelle-box">
+    <table class="tab">
+      <thead><tr><th>Filter</th><th class="zahl">Wert</th><th class="zahl">Anzeige</th></tr></thead>
+      <tbody>{% for filter, wert, anzeige in beispiele_zahlen %}<tr><td><code>|{{ filter }}</code></td><td class="zahl"><code>{{ wert|stringformat:"s" }}</code></td><td class="zahl">{{ anzeige }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="knoepfe">
+  <h2>Knöpfe</h2>
+  <p class="stil-zweck">Höchstens ein primärer Knopf je Ansicht. Am Handy und mit Finger mindestens 44 px hoch.</p>
+  <div class="stil-reihe">
+    <button type="button" class="knopf knopf-primaer">Kündigung erfassen</button>
+    <button type="button" class="knopf knopf-zweit">Miete ändern</button>
+    <button type="button" class="knopf knopf-text">Abbrechen</button>
+    <button type="button" class="knopf knopf-gefahr">Schreiben verwerfen</button>
+    <button type="button" class="knopf knopf-zweit" disabled>Senden gesperrt</button>
+    <button type="button" class="knopf knopf-zweit knopf-klein">klein</button>
+    <details class="menue">
+      <summary class="knopf knopf-zweit">mehr ▾</summary>
+      <ul class="menue-liste">
+        <li><a href="#knoepfe">Unterschrift erfassen</a></li>
+        <li><a href="#knoepfe">Partei hinzufügen</a></li>
+        <li class="menue-trenner" role="separator"></li>
+        <li><a href="#knoepfe">Im Protokoll ansehen</a></li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="badges">
+  <h2>Status-Badges</h2>
+  <p class="stil-zweck">Ein Wort, eine Farbe. Der Punkt davor hilft, wenn Farben schlecht zu unterscheiden sind.</p>
+  <div class="stil-reihe">{% for schluessel, b in badges %}{% badge schluessel %}{% endfor %}</div>
+  <p class="text-3 klein" style="margin-top: var(--a3)">Weitere Zustände: {% for schluessel, b in alle_badges.items %}{% if forloop.counter > 8 %}{% badge schluessel %} {% endif %}{% endfor %}</p>
+</section>
+
+<section class="stil-abschnitt" id="seitenkopf">
+  <h2>Seitenkopf</h2>
+  <p class="stil-zweck">Titel, Meta-Zeile, Aktionen rechts. Am Handy rutschen die Aktionen unter den Titel.</p>
+  <div class="karte"><div class="karte-rumpf">
+    {% seitenkopf "Vertrag V-0003" "Halle · NW-H-0001 · seit 01.02.2024 · Mandant GbR" %}
+      <button type="button" class="knopf knopf-zweit">Miete ändern</button>
+      <button type="button" class="knopf knopf-primaer">Kündigung erfassen</button>
+    {% endseitenkopf %}
+  </div></div>
+</section>
+
+<section class="stil-abschnitt" id="kennzahlen">
+  <h2>Kennzahl-Kacheln</h2>
+  <p class="stil-zweck">Eine Zahl, ein Titel, eine Zeile Zusammenhang. Ganze Kachel ist der Link.</p>
+  <div class="kennzahlen-reihe">
+    {% kennzahl "Offene Freigaben" 23 unter="7 Arten" link="#kennzahlen" %}
+    {% kennzahl "Rückstand" summe_offen|euro art="fehler" unter="2 Verträge" link="#kennzahlen" %}
+    {% kennzahl "Fristen überfällig" 2 art="warnung" unter="nächste am 05.11.2026" %}
+    {% kennzahl "Leerstand" 5 unter="Einheiten frei" %}
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="karte">
+  <h2>Karte</h2>
+  <p class="stil-zweck">Für Übersichten: Titel mit Zähler, Link rechts, Inhalt als Liste oder Tabelle.</p>
+  <div class="raster raster-2">
+    {% karte "Fristen überfällig" zahl=2 link="#karte" link_text="alle Fristen" %}
+      <ul class="liste">
+        <li><span class="liste-haupt">Kündigungsfrist · V-0002</span><span class="liste-neben"><time>22.10.2026</time></span></li>
+        <li><span class="liste-haupt">Eichfrist · Zähler Z-0007</span><span class="liste-neben"><time>31.10.2026</time></span></li>
+      </ul>
+    {% endkarte %}
+    {% karte "Notiz" %}
+      <p>Karten haben Linien, keinen Schatten. Der Inhalt bestimmt die Höhe.</p>
+    {% endkarte %}
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="tabelle">
+  <h2>Tabelle</h2>
+  <p class="stil-zweck">Dicht, Zeilen-Hover, Zahlen rechtsbündig, Kopf bleibt beim Scrollen stehen. Am Handy mit <code>.tab-karten</code> eine Karte je Zeile.</p>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Vertrag</th><th>Einheit</th><th>Status</th><th class="zahl">Miete</th><th class="zahl">offen</th></tr></thead>
+      <tbody>
+        {% for z in zeilen %}
+        <tr{% if z.offen > 1000 %} class="zeile-markiert"{% endif %}>
+          <td data-titel="Vertrag"><a href="#tabelle">{{ z.nummer }}</a></td>
+          <td data-titel="Einheit">{{ z.einheit }}</td>
+          <td data-titel="Status">{% badge z.status %}</td>
+          <td data-titel="Miete" class="zahl">{{ z.miete|euro }}</td>
+          <td data-titel="offen" class="zahl">{{ z.offen|euro }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="4">Summe</td><td class="zahl">{{ summe_offen|euro }}</td></tr></tfoot>
+    </table>
+  </div>
+  <h3 style="margin: var(--a4) 0 var(--a2)">Leerzustand</h3>
+  <div class="tabelle-box">
+    <table class="tab">
+      <thead><tr><th>Datum</th><th>Art</th><th class="zahl">Betrag</th></tr></thead>
+      <tbody>{% include "bausteine/leer.html" with spalten=3 text="Keine Zahlungen in diesem Zeitraum." hilfe="Zahlungen erscheinen, sobald der Abgleich sie dem Vertrag zuordnet." %}</tbody>
+    </table>
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="reiter">
+  <h2>Reiter</h2>
+  <p class="stil-zweck">Am Handy waagrecht scrollbar. Der aktive Reiter steht in der Adresse, damit Zurück und Neuladen funktionieren.</p>
+  {% include "bausteine/reiter.html" with reiter=reiter aktiv=reiter_aktiv beschriftung="Beispiel-Reiter" %}
+  <p class="text-2">Inhalt des Reiters „{{ reiter_aktiv }}“.</p>
+</section>
+
+<section class="stil-abschnitt" id="aufklapper">
+  <h2>Aufklapper</h2>
+  <p class="stil-zweck">Für Einzelheiten, die man selten braucht. Zugeklappt zeigt er, was drinsteht.</p>
+  {% aufklapper "14 Eichfristen 2027–2033" zahl=14 %}
+    <ul class="liste"><li><span>Z-0001 · Wasser</span><span class="liste-neben">31.12.2027</span></li><li><span>Z-0002 · Strom</span><span class="liste-neben">31.12.2029</span></li></ul>
+  {% endaufklapper %}
+  {% aufklapper "Technische Einzelheiten" offen=True %}
+    <p class="text-2">Ereignis-ID, Prüfsumme und Rohdaten stehen nur hier.</p>
+  {% endaufklapper %}
+</section>
+
+<section class="stil-abschnitt" id="formular">
+  <h2>Formularfelder</h2>
+  <p class="stil-zweck">Label über dem Feld, Hilfetext darunter, Fehler als ganzer Satz direkt am Feld. Auswahl und Datum in voller Breite. Zahlenfelder öffnen am Handy die Zahlentastatur (<code>inputmode="decimal"</code>).</p>
+  <div class="raster raster-2">
+    {% karte "Leer" %}
+      <div class="felder">{% for f in form %}{% feld f %}{% endfor %}</div>
+      <div class="formular-fuss"><button type="button" class="knopf knopf-zweit">Abbrechen</button><button type="button" class="knopf knopf-primaer">Speichern</button></div>
+    {% endkarte %}
+    {% karte "Mit Fehler" %}
+      <div class="formfehler" role="alert"><p>Bitte die markierte Angabe prüfen.</p></div>
+      <div class="felder">{% feld fehlerhaft.miete %}{% feld fehlerhaft.gueltig_ab %}{% feld fehlerhaft.zahlweise %}</div>
+    {% endkarte %}
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="dateien">
+  <h2>Dateiknöpfe</h2>
+  <p class="stil-zweck">Eigene Knöpfe statt der englischen Standardknöpfe des Browsers: „Foto aufnehmen“ öffnet am Handy die Kamera, „Datei wählen“ die Ablage. Gewählte Bilder erscheinen als Vorschau.</p>
+  <div class="karte"><div class="karte-rumpf">{% dateiknoepfe fotos.fotos %}</div></div>
+</section>
+
+<section class="stil-abschnitt" id="dialog-beispiel">
+  <h2>Dialog</h2>
+  <p class="stil-zweck">Aktionen öffnen einen Dialog. HTMX lädt den Inhalt; Speichern ersetzt nur den betroffenen Teil der Seite, die Seite springt nicht. Fehler erscheinen im Dialog am Feld.</p>
+  <div class="karte"><div class="karte-rumpf">
+    {% include "kern/_stil_ergebnis.html" %}
+    <button type="button" class="knopf knopf-zweit" hx-get="{% url 'kern:stil_dialog' %}" hx-target="#dialog-inhalt">Miete ändern …</button>
+  </div></div>
+</section>
+
+<section class="stil-abschnitt" id="toast">
+  <h2>Toast-Meldung</h2>
+  <p class="stil-zweck">Sagt, was passiert ist, und verlinkt auf das Ergebnis. Verschwindet nach acht Sekunden; Fehler bleiben stehen.</p>
+  <div class="stapel" style="max-width: 440px">
+    {% include "bausteine/toast.html" with text="Kündigung erfasst · Ende 28.02.2027 · Bestätigung #3 liegt bereit" link="#toast" link_text="ansehen" art="ok" %}
+    {% include "bausteine/toast.html" with text="Mailserver nicht erreichbar, Schreiben bleibt bereit." art="warnung" link="" %}
+    {% include "bausteine/toast.html" with text="Der Rückgabetermin liegt vor dem Zugang der Kündigung." art="fehler" link="" %}
+  </div>
+</section>
+
+<section class="stil-abschnitt" id="band">
+  <h2>Stichtag-Band</h2>
+  <p class="stil-zweck">Steht über jeder Seite, wenn ein fester Stichtag gesetzt ist (nur dev und test, <code>HOF_STICHTAG</code>). In prod gibt es keinen.</p>
+  <div class="stichtag-band" style="border: 1px solid var(--linie); border-radius: var(--radius)">Testhof · Stichtag {{ stichtag_beispiel|date:"d.m.Y" }}</div>
+</section>
+{% endblock %}

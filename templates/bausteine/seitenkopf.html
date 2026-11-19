@@ -1,0 +1,7 @@
+<header class="seitenkopf"{% if id %} id="{{ id }}"{% endif %}>
+  <div class="seitenkopf-text">
+    <h1>{{ titel }}</h1>
+    {% if meta %}<p class="seitenkopf-meta">{{ meta }}</p>{% endif %}
+  </div>
+  {% if inhalt %}<div class="seitenkopf-aktionen">{{ inhalt }}</div>{% endif %}
+</header>

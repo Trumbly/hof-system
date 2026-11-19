@@ -90,7 +90,8 @@ def test_mietaenderung_gilt_ab_datum_alter_stand_bleibt_sichtbar(
     assert aktiver_vertrag.konditionen.count() == 2
 
     html = angemeldet.get(reverse("stammdaten:vertrag", args=[aktiver_vertrag.pk])).content.decode()
-    assert "85,00 €" in html and "92,50 €" in html
+    # Beträge mit geschütztem Leerzeichen vor „€“ (apps.kern.zahlen, Review 1, Punkt 11)
+    assert "85,00\u00a0€" in html and "92,50\u00a0€" in html
     assert "31.08.2026" in html and "01.09.2026" in html
 
 

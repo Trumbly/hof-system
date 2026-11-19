@@ -77,7 +77,7 @@ def test_abnahme_eine_wahrheit_fuer_offen(nach_tageslauf: Testhof, angemeldet: C
     assert (rueck_kachel["anzahl"], rueck_kachel["summe"]) == (3, SUMME)
     assert rueck_kachel["nicht_pruefbar"] == E("0.00")
     start = angemeldet.get(reverse("kern:startseite")).content.decode()
-    assert "139,05 €" in start
+    assert "139,05\u00a0€" in start  # |euro: geschütztes Leerzeichen
 
     # Seite Offene Posten, Filter überfällig: Zahl und Summe über alle Treffer
     seite = angemeldet.get(reverse("soll:liste"), {"status": "ueberfaellig"})

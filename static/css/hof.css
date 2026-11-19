@@ -875,3 +875,33 @@ tr.aktuell {
     min-width: 6rem;
   }
 }
+
+/* --- Review 2 (R2-4): Ergänzungen für die alten Seiten ------------------------------- */
+
+/* Review 1, Punkt 11: „.zahl“ ist oben ein Zähler-Kreis. In Tabellen machte das jede
+   Zahlenspalte zum Kreis ohne Abstand („BetragoffenStatus“). In Tabellen ist .zahl eine
+   normale, rechtsbündige Zelle mit gleich breiten Ziffern. */
+th.zahl,
+td.zahl {
+  display: table-cell;
+  min-width: 0;
+  padding: 0.5rem;
+  font-size: inherit;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  background: none;
+  border-radius: 0;
+}
+
+/* Review 1, Punkt 14: Band „Testhof · Stichtag …“ (nur dev und test) */
+.stichtag-band {
+  padding: 0.25rem var(--abstand);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--warnung);
+  background: var(--flaeche);
+  border-bottom: 1px solid var(--linie);
+}

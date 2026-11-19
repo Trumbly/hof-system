@@ -65,8 +65,9 @@ _OHNE_SCHREIBEN: contextvars.ContextVar[str] = contextvars.ContextVar(
 
 @contextlib.contextmanager
 def ohne_schreiben(grund: str) -> Iterator[None]:
-    """Legt in diesem Block statt Schreiben nur Arbeitsposten an (z. B. im Testhof, der
-    keine Schreiben anlegt, damit gleicher Seed gleiche Daten ergibt)."""
+    """Legt in diesem Block statt Schreiben nur erledigte Arbeitsposten an (z. B. im
+    Testhof, der keine Schreiben anlegt, damit gleicher Seed gleiche Daten ergibt). Sie
+    stehen im Protokoll, aber in keiner Arbeitsliste und nicht im Cockpit."""
     marke = _OHNE_SCHREIBEN.set(grund)
     try:
         yield
@@ -312,7 +313,9 @@ def _erzeugen(
     """
     grund = _OHNE_SCHREIBEN.get()
     if grund:
-        return _arbeitsposten(vorlagenart, bezug, grund)
+        # Gewollt kein Schreiben (Testhof, Tests): Der Posten hält das nur fest und ist
+        # gleich erledigt; er wartet auf niemanden (Review 1, Punkt 7).
+        return kern.arbeitsposten_erledigen(_arbeitsposten(vorlagenart, bezug, grund))
     try:
         with transaction.atomic():
             try:

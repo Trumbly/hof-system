@@ -1,0 +1,2038 @@
+/* Hof-System: Gerüst und Bausteine der neuen Gestaltung (Review 2, C1, C3, C4).
+ *
+ * Liest nur die Werte aus werte.css. Gilt nur für Seiten auf base_neu.html (body.neu);
+ * die alten Seiten laden weiter hof.css und sehen nichts hiervon.
+ * Ruhig, dicht, gut lesbar: Linien statt Schatten, Schatten nur für Dialoge und Menüs.
+ */
+
+/* --- Grundlage ------------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body.neu {
+  margin: 0;
+  font-family: var(--schrift);
+  font-size: var(--text-15);
+  line-height: var(--zeile);
+  color: var(--text);
+  background: var(--grund);
+  -webkit-font-smoothing: antialiased;
+}
+
+.neu h1,
+.neu h2,
+.neu h3 {
+  margin: 0;
+  line-height: var(--zeile-eng);
+  font-weight: var(--gewicht-fett);
+  letter-spacing: -0.01em;
+}
+
+.neu h1 {
+  font-size: var(--text-24);
+}
+
+.neu h2 {
+  font-size: var(--text-17);
+}
+
+.neu h3 {
+  font-size: var(--text-15);
+}
+
+.neu p {
+  margin: 0 0 var(--a3);
+}
+
+.neu a {
+  color: var(--link);
+  text-underline-offset: 2px;
+}
+
+.neu a:not(:hover) {
+  text-decoration-color: transparent;
+}
+
+.neu :focus-visible {
+  outline: 2px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+.neu img {
+  max-width: 100%;
+}
+
+.neu code {
+  font-family: var(--schrift-mono);
+  font-size: var(--text-13);
+}
+
+/* Zahlen: gleiche Ziffernbreite, damit Spalten bündig stehen */
+.zahl,
+.kennzahl-wert,
+.zaehler,
+.neu time {
+  font-variant-numeric: tabular-nums;
+}
+
+.leise,
+.text-2 {
+  color: var(--text-2);
+}
+
+.text-3 {
+  color: var(--text-3);
+}
+
+.klein {
+  font-size: var(--text-13);
+}
+
+.nur-leser,
+.sprung:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.sprung:focus {
+  position: fixed;
+  z-index: 100;
+  top: var(--a2);
+  left: var(--a2);
+  padding: var(--a2) var(--a3);
+  background: var(--flaeche);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten-menue);
+}
+
+/* --- Stichtag-Band (Review 1, Punkt 14) ------------------------------------------------ */
+
+.stichtag-band {
+  padding: var(--a1) var(--a4);
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  text-align: center;
+  color: var(--band-text);
+  background: var(--band);
+  border-bottom: 1px solid var(--linie);
+}
+
+/* --- Gerüst: Seitenleiste ab 1024 px, am Handy Kopfzeile und Leiste unten --------------- */
+
+.geruest {
+  min-height: 100vh;
+}
+
+@media (min-width: 1024px) {
+  /* Fläche der Seitenleiste über die ganze Seitenhöhe, auch unter dem Ende der Leiste */
+  .geruest {
+    background: linear-gradient(
+      to right,
+      var(--flaeche) calc(var(--breite-leiste) - 1px),
+      var(--linie) calc(var(--breite-leiste) - 1px) var(--breite-leiste),
+      transparent var(--breite-leiste)
+    );
+  }
+}
+
+.haupt {
+  min-width: 0; /* ohne das verbreitert eine breite Tabelle die ganze Seite */
+  padding: var(--a4) var(--a4) calc(var(--hoehe-unten) + var(--a6) + env(safe-area-inset-bottom));
+}
+
+.inhalt-neu {
+  max-width: var(--breite-inhalt);
+  margin: 0 auto;
+}
+
+.inhalt-neu.schmal {
+  max-width: var(--breite-formular);
+}
+
+.marke {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--a2);
+  font-weight: var(--gewicht-fett);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.neu a.marke {
+  color: var(--text);
+}
+
+.marke-zeichen {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: var(--text-15);
+  color: var(--primaer-text);
+  background: var(--primaer);
+  border-radius: var(--radius-klein);
+}
+
+.leiste {
+  display: none;
+}
+
+.kopf-handy {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--a3);
+  height: var(--hoehe-kopf);
+  padding: 0 var(--a4);
+  background: var(--flaeche);
+  border-bottom: 1px solid var(--linie);
+}
+
+.unten {
+  position: fixed;
+  z-index: 20;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--flaeche);
+  border-top: 1px solid var(--linie);
+}
+
+.unten a,
+.unten button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--hoehe-unten);
+  padding: var(--a1) 2px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-2);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.unten [aria-current="page"] {
+  color: var(--primaer);
+  font-weight: var(--gewicht-mittel);
+}
+
+.symbol {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.symbol-klein {
+  width: 16px;
+  height: 16px;
+}
+
+@media (min-width: 1024px) {
+  .geruest {
+    display: grid;
+    grid-template-columns: var(--breite-leiste) minmax(0, 1fr);
+  }
+
+  .leiste {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: var(--a4) var(--a3);
+    overflow-y: auto;
+    background: var(--flaeche);
+    border-right: 1px solid var(--linie);
+  }
+
+  .leiste .marke {
+    padding: var(--a1) var(--a2) var(--a4);
+  }
+
+  .kopf-handy,
+  .unten,
+  #mehr {
+    display: none;
+  }
+
+  .haupt {
+    padding: var(--a6) var(--a8) var(--a12);
+  }
+}
+
+.nav-neu {
+  flex: 1;
+}
+
+.nav-gruppe {
+  margin-bottom: var(--a4);
+}
+
+.nav-gruppe-titel {
+  margin: 0 0 var(--a1);
+  padding: 0 var(--a2);
+  font-size: 11px;
+  font-weight: var(--gewicht-fett);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.nav-neu ul,
+.nav-aufklapper ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-neu a {
+  display: flex;
+  align-items: center;
+  gap: var(--a2);
+  padding: 6px var(--a2);
+  color: var(--text);
+  border-radius: var(--radius-klein);
+  text-decoration: none;
+}
+
+.nav-neu a:hover {
+  background: var(--flaeche-2);
+}
+
+.nav-neu a[aria-current="page"],
+.nav-aufklapper a[aria-current="page"] {
+  font-weight: var(--gewicht-mittel);
+  color: var(--primaer);
+  background: var(--primaer-weich);
+}
+
+.nav-marke {
+  margin-left: auto;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: var(--gewicht-mittel);
+  color: var(--neutral);
+  background: var(--neutral-grund);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-klein);
+}
+
+.leiste-fuss {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--a1);
+  padding: var(--a3) var(--a2) 0;
+  border-top: 1px solid var(--linie);
+}
+
+.leiste-benutzer {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--text-13);
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* „Mehr“ am Handy: alle Gruppen als Aufklapper */
+.nav-aufklapper {
+  border-bottom: 1px solid var(--linie);
+}
+
+.nav-aufklapper summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--ziel);
+  font-weight: var(--gewicht-mittel);
+  cursor: pointer;
+  list-style: none;
+}
+
+.nav-aufklapper summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-aufklapper summary::after {
+  margin-left: auto;
+  content: "▾";
+  color: var(--text-3);
+}
+
+.nav-aufklapper[open] summary::after {
+  content: "▴";
+}
+
+.nav-aufklapper a {
+  display: flex;
+  align-items: center;
+  min-height: var(--ziel);
+  padding: 0 var(--a3);
+  color: var(--text);
+  border-radius: var(--radius-klein);
+  text-decoration: none;
+}
+
+.knopf-voll {
+  width: 100%;
+  margin-top: var(--a4);
+}
+
+/* --- Seitenkopf ---------------------------------------------------------------------- */
+
+.seitenkopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--a3) var(--a6);
+  margin-bottom: var(--a6);
+}
+
+.seitenkopf-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.seitenkopf h1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2) var(--a3);
+}
+
+.seitenkopf-meta {
+  margin: var(--a1) 0 0;
+  color: var(--text-2);
+}
+
+.seitenkopf-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
+}
+
+@media (min-width: 1024px) {
+  .neu h1 {
+    font-size: var(--text-30);
+  }
+}
+
+/* --- Knöpfe: primär (höchstens einer je Ansicht), sekundär, Text, Gefahr --------------- */
+
+.knopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a2);
+  min-height: 36px;
+  padding: 0 var(--a4);
+  font: inherit;
+  font-weight: var(--gewicht-mittel);
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie-stark);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.neu a.knopf {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.knopf:hover {
+  background: var(--flaeche-2);
+}
+
+.knopf:disabled,
+.knopf[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.knopf-primaer,
+.neu a.knopf-primaer {
+  color: var(--primaer-text);
+  background: var(--primaer);
+  border-color: var(--primaer);
+}
+
+.knopf-primaer:hover {
+  background: var(--primaer-stark);
+  border-color: var(--primaer-stark);
+}
+
+.knopf-zweit {
+  background: var(--flaeche);
+}
+
+.knopf-text,
+.neu a.knopf-text {
+  padding: 0 var(--a2);
+  color: var(--link);
+  background: transparent;
+  border-color: transparent;
+}
+
+.knopf-text:hover {
+  background: var(--flaeche-2);
+}
+
+.knopf-gefahr,
+.neu a.knopf-gefahr {
+  color: var(--gefahr-text);
+  background: var(--gefahr);
+  border-color: var(--gefahr);
+}
+
+.knopf-gefahr:hover {
+  filter: brightness(0.92);
+}
+
+.knopf-klein {
+  min-height: 28px;
+  padding: 0 var(--a2);
+  font-size: var(--text-13);
+}
+
+.knopf-symbol {
+  min-width: 36px;
+  padding: 0;
+  font-size: var(--text-20);
+  line-height: 1;
+  color: var(--text-2);
+}
+
+/* Am Handy und mit Finger: Knöpfe und Ziele mindestens 44 px (Review 2, C4) */
+@media (max-width: 1023px), (pointer: coarse) {
+  .knopf,
+  .knopf-klein,
+  .knopf-symbol {
+    min-height: var(--ziel);
+  }
+
+  .knopf-symbol {
+    min-width: var(--ziel);
+  }
+}
+
+/* Menü „mehr ▾“ */
+.menue {
+  position: relative;
+}
+
+.menue > summary {
+  list-style: none;
+}
+
+.menue > summary::-webkit-details-marker {
+  display: none;
+}
+
+.menue-liste {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--a1));
+  right: 0;
+  min-width: 240px;
+  margin: 0;
+  padding: var(--a1);
+  list-style: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten-menue);
+}
+
+.menue-liste li > a,
+.menue-liste li > button,
+.menue-liste li > form > button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  padding: var(--a1) var(--a3);
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-klein);
+  cursor: pointer;
+}
+
+.menue-liste li > a:hover,
+.menue-liste li > button:hover,
+.menue-liste li > form > button:hover {
+  background: var(--flaeche-2);
+}
+
+.menue-liste form {
+  margin: 0;
+}
+
+.menue-trenner {
+  height: 1px;
+  margin: var(--a1) 0;
+  background: var(--linie);
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .menue-liste li > a,
+  .menue-liste li > button,
+  .menue-liste li > form > button {
+    min-height: var(--ziel);
+  }
+}
+
+/* Am Handy: Menü als Blatt über der unteren Leiste, nie breiter als der Bildschirm */
+@media (max-width: 599px) {
+  .menue-liste {
+    position: fixed;
+    top: auto;
+    right: var(--a4);
+    bottom: calc(var(--hoehe-unten) + var(--a3) + env(safe-area-inset-bottom));
+    left: var(--a4);
+    min-width: 0;
+  }
+}
+
+/* --- Karte --------------------------------------------------------------------------- */
+
+.karte {
+  min-width: 0;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.karte-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--a3);
+  padding: var(--a3) var(--a4);
+  border-bottom: 1px solid var(--linie);
+}
+
+.karte-titel {
+  display: flex;
+  align-items: center;
+  gap: var(--a2);
+}
+
+.neu .karte-titel {
+  font-size: var(--text-15);
+}
+
+.karte-link {
+  font-size: var(--text-13);
+}
+
+a.karte-link {
+  white-space: nowrap;
+}
+
+.karte-rumpf {
+  padding: var(--a3) var(--a4);
+}
+
+.karte-rumpf > :last-child {
+  margin-bottom: 0;
+}
+
+.karte-rumpf:has(> .tabelle-box:only-child),
+.karte-rumpf:has(> .liste:only-child) {
+  padding: 0;
+}
+
+.karte-rumpf > .tabelle-box {
+  border: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.raster {
+  display: grid;
+  gap: var(--a4);
+}
+
+@media (min-width: 1024px) {
+  .raster-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .raster-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .raster-2-1 {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.stapel > * + * {
+  margin-top: var(--a4);
+}
+
+/* Liste in einer Karte: Zeilen mit Linie dazwischen */
+.liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.liste > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--a1) var(--a3);
+  padding: var(--a2) var(--a4);
+  border-top: 1px solid var(--linie);
+}
+
+.liste > li:first-child {
+  border-top: 0;
+}
+
+.liste-haupt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.liste-neben {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+a.liste-zeile {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--a3);
+  width: 100%;
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* --- Kennzahl-Kacheln ---------------------------------------------------------------- */
+
+.kennzahlen-reihe {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--a3);
+  margin-bottom: var(--a6);
+}
+
+@media (min-width: 720px) {
+  .kennzahlen-reihe {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+.kennzahl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--a3) var(--a4);
+  color: var(--text);
+  text-decoration: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.neu a.kennzahl {
+  color: var(--text);
+}
+
+a.kennzahl:hover {
+  border-color: var(--linie-stark);
+}
+
+.kennzahl-titel {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.kennzahl-wert {
+  font-size: var(--text-24);
+  font-weight: var(--gewicht-fett);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kennzahl-unter {
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.kennzahl-ok .kennzahl-wert {
+  color: var(--ok);
+}
+
+.kennzahl-hinweis .kennzahl-wert {
+  color: var(--hinweis);
+}
+
+.kennzahl-warnung .kennzahl-wert {
+  color: var(--warnung);
+}
+
+.kennzahl-fehler .kennzahl-wert {
+  color: var(--fehler);
+}
+
+/* --- Status-Badge und Zähler ---------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px var(--a2);
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  line-height: 20px;
+  white-space: nowrap;
+  vertical-align: middle;
+  letter-spacing: 0;
+  border-radius: var(--radius-rund);
+}
+
+.badge::before {
+  width: 6px;
+  height: 6px;
+  content: "";
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.badge-ok {
+  color: var(--ok);
+  background: var(--ok-grund);
+}
+
+.badge-hinweis {
+  color: var(--hinweis);
+  background: var(--hinweis-grund);
+}
+
+.badge-warnung {
+  color: var(--warnung);
+  background: var(--warnung-grund);
+}
+
+.badge-fehler {
+  color: var(--fehler);
+  background: var(--fehler-grund);
+}
+
+.badge-neutral {
+  color: var(--neutral);
+  background: var(--neutral-grund);
+}
+
+.zaehler {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  line-height: 20px;
+  text-align: center;
+  color: var(--text-2);
+  background: var(--flaeche-3);
+  border-radius: var(--radius-rund);
+}
+
+/* --- Tabelle: dicht, Zeilen-Hover, Zahlen rechts, Kopf sticky, Leerzustand -------------- */
+
+.tabelle-box {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.tab {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: separate;
+  font-size: var(--text-15);
+}
+
+.tab th,
+.tab td {
+  padding: var(--a2) var(--a3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--linie);
+}
+
+.tab thead th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  white-space: nowrap;
+  color: var(--text-2);
+  background: var(--flaeche-2);
+}
+
+.tab thead th:first-child {
+  border-top-left-radius: var(--radius);
+}
+
+.tab thead th:last-child {
+  border-top-right-radius: var(--radius);
+}
+
+.tab tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tab tbody tr:hover td {
+  background: var(--flaeche-2);
+}
+
+.tab .zahl {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tab tfoot td {
+  font-weight: var(--gewicht-fett);
+  border-top: 1px solid var(--linie-stark);
+  border-bottom: 0;
+}
+
+.tab tr.zeile-leise td {
+  color: var(--text-3);
+}
+
+.tab tr.zeile-markiert td:first-child {
+  box-shadow: inset 3px 0 0 var(--fehler);
+}
+
+.tab .eng {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.leer {
+  padding: var(--a8) var(--a4);
+  text-align: center;
+}
+
+.leer-text {
+  margin: 0;
+  font-weight: var(--gewicht-mittel);
+  color: var(--text-2);
+}
+
+.leer-hilfe {
+  margin: var(--a1) 0 0;
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.tab tr.leer-zeile:hover td {
+  background: none;
+}
+
+/* Kopf sticky unter der Kopfzeile am Handy; am Handy scrollen breite Tabellen in ihrem
+   Kasten, nicht die Seite. */
+@media (max-width: 1023px) {
+  .tabelle-box {
+    overflow-x: auto;
+  }
+
+  .tab thead th {
+    position: static;
+  }
+
+  /* Tabellen mit .tab-karten werden am Handy zu Karten je Zeile */
+  .tab-karten thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .tab-karten tr {
+    display: block;
+    padding: var(--a2) var(--a3);
+    border-bottom: 1px solid var(--linie);
+  }
+
+  .tab-karten tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .tab-karten td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--a3);
+    padding: 2px 0;
+    border: 0;
+  }
+
+  .tab-karten td[data-titel]::before {
+    content: attr(data-titel);
+    color: var(--text-2);
+    font-size: var(--text-13);
+  }
+
+  .tab-karten td.zahl {
+    text-align: right;
+  }
+
+  .tab-karten tbody tr:hover td {
+    background: none;
+  }
+}
+
+/* --- Reiter --------------------------------------------------------------------------- */
+
+.reiter {
+  display: flex;
+  gap: var(--a1);
+  margin: 0 0 var(--a4);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--linie);
+  scrollbar-width: none;
+}
+
+.reiter a {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--ziel);
+  margin-bottom: -1px;
+  padding: 0 var(--a3);
+  font-weight: var(--gewicht-mittel);
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.reiter a:hover {
+  color: var(--text);
+}
+
+.neu .reiter a[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--primaer);
+}
+
+/* --- Aufklapper ----------------------------------------------------------------------- */
+
+.aufklapper {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.aufklapper + .aufklapper {
+  margin-top: var(--a2);
+}
+
+.aufklapper > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--a2);
+  min-height: var(--ziel);
+  padding: 0 var(--a4);
+  font-weight: var(--gewicht-mittel);
+  cursor: pointer;
+  list-style: none;
+}
+
+.aufklapper > summary::-webkit-details-marker {
+  display: none;
+}
+
+.aufklapper > summary::before {
+  width: 0;
+  height: 0;
+  content: "";
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--text-3);
+  transition: transform 0.15s;
+}
+
+.aufklapper[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.aufklapper-inhalt {
+  padding: 0 var(--a4) var(--a4);
+}
+
+/* --- Formularfeld: Label oben, Hilfetext, Fehler am Feld ------------------------------- */
+
+.felder {
+  display: grid;
+  gap: var(--a4);
+}
+
+@media (min-width: 600px) {
+  .felder-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .felder-2 .feld-breit {
+    grid-column: 1 / -1;
+  }
+}
+
+.feld {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.feld-label {
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  color: var(--text);
+}
+
+.feld-optional {
+  font-weight: var(--gewicht-normal);
+  color: var(--text-3);
+}
+
+.feld-hilfe,
+.neu p.feld-hilfe {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.feld-fehler,
+.neu p.feld-fehler {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  color: var(--fehler);
+}
+
+.feld-fehler::before {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  content: "!";
+  color: var(--flaeche);
+  background: var(--fehler);
+  border-radius: 50%;
+}
+
+.feld-eingabe,
+.feld-auswahl,
+.neu .feld textarea {
+  width: 100%;
+  min-height: var(--feld-hoehe);
+  padding: var(--a2) var(--a3);
+  font: inherit;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--linie-stark);
+  border-radius: var(--radius-klein);
+  appearance: none;
+}
+
+.neu .feld textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.feld-eingabe:hover,
+.feld-auswahl:hover {
+  border-color: var(--text-3);
+}
+
+.feld-eingabe:focus,
+.feld-auswahl:focus,
+.neu .feld textarea:focus {
+  border-color: var(--fokus);
+  outline: 2px solid color-mix(in srgb, var(--fokus) 35%, transparent);
+  outline-offset: 0;
+}
+
+.feld-fehlerhaft .feld-eingabe,
+.feld-fehlerhaft .feld-auswahl,
+.feld-fehlerhaft textarea {
+  border-color: var(--fehler);
+}
+
+/* Gestaltete Auswahl: volle Breite, eigener Pfeil */
+.feld-auswahl {
+  padding-right: var(--a8);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-2) 50%),
+    linear-gradient(135deg, var(--text-2) 50%, transparent 50%);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  cursor: pointer;
+}
+
+.feld-auswahl[multiple] {
+  padding-right: var(--a3);
+  background-image: none;
+}
+
+/* Datumsfelder: gleiche Höhe, Kalender-Symbol in der Textfarbe */
+.feld-eingabe[type="date"],
+.feld-eingabe[type="month"] {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.feld-eingabe::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+.feld-eingabe::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.feld-eingabe[inputmode="decimal"],
+.feld-eingabe[inputmode="numeric"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox mit Label in einer Zeile, Ziel 44 px */
+.haken-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--a3);
+  min-height: var(--ziel);
+  font-weight: var(--gewicht-normal);
+  cursor: pointer;
+}
+
+.feld-haken,
+.neu input[type="checkbox"],
+.neu input[type="radio"] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--primaer);
+  cursor: pointer;
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .feld-eingabe,
+  .feld-auswahl {
+    min-height: var(--ziel);
+    font-size: 16px; /* iOS zoomt sonst beim Antippen */
+  }
+
+  .feld-haken,
+  .neu input[type="checkbox"],
+  .neu input[type="radio"] {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.formfehler {
+  margin-bottom: var(--a4);
+  padding: var(--a3) var(--a4);
+  color: var(--fehler);
+  background: var(--fehler-grund);
+  border-radius: var(--radius-klein);
+}
+
+.formfehler p {
+  margin: 0;
+}
+
+.formular-fuss {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--a2);
+  margin-top: var(--a6);
+}
+
+/* --- Eigene Dateiknöpfe mit Vorschau (C4) ---------------------------------------------- */
+
+.datei-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a2);
+}
+
+.datei-knopf {
+  position: relative;
+  overflow: hidden;
+}
+
+.datei-knopf:focus-within {
+  outline: 2px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+.datei-eingabe {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.datei-vorschau {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: var(--a2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.datei-vorschau li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a1);
+  min-width: 0;
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.datei-vorschau li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.datei-vorschau img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: var(--flaeche-2);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-klein);
+}
+
+.datei-vorschau li.datei-leer {
+  grid-column: 1 / -1;
+  color: var(--text-3);
+}
+
+/* --- Dialog --------------------------------------------------------------------------- */
+
+dialog.dialog,
+dialog.blatt {
+  width: min(560px, calc(100vw - 2 * var(--a4)));
+  max-height: calc(100dvh - 2 * var(--a4));
+  padding: 0;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten-dialog);
+}
+
+dialog.dialog::backdrop,
+dialog.blatt::backdrop {
+  background: var(--schleier);
+}
+
+dialog.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-formular {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: inherit;
+}
+
+.dialog-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a3);
+  padding: var(--a3) var(--a3) var(--a3) var(--a5);
+  border-bottom: 1px solid var(--linie);
+}
+
+.neu .dialog-titel {
+  font-size: var(--text-17);
+}
+
+.dialog-rumpf {
+  padding: var(--a5);
+  overflow-y: auto;
+}
+
+.dialog-hinweis {
+  color: var(--text-2);
+}
+
+.dialog-fuss {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--a2);
+  padding: var(--a3) var(--a5);
+  background: var(--flaeche-2);
+  border-top: 1px solid var(--linie);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* Am Handy: Dialog als Blatt von unten */
+@media (max-width: 599px) {
+  dialog.dialog,
+  dialog.blatt {
+    width: 100vw;
+    max-width: 100vw;
+    margin: auto 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .dialog-fuss {
+    padding-bottom: calc(var(--a3) + env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+
+  .dialog-fuss .knopf {
+    flex: 1;
+  }
+}
+
+/* --- Toast-Meldung mit Link ------------------------------------------------------------ */
+
+.toasts {
+  position: fixed;
+  z-index: 50;
+  right: var(--a4);
+  bottom: calc(var(--hoehe-unten) + var(--a3) + env(safe-area-inset-bottom));
+  left: var(--a4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--a2);
+  pointer-events: none;
+}
+
+@media (min-width: 1024px) {
+  .toasts {
+    bottom: var(--a6);
+    left: auto;
+    width: 440px;
+  }
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--a3);
+  width: 100%;
+  padding: var(--a3) var(--a2) var(--a3) var(--a4);
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-left: 4px solid var(--ok);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten-menue);
+  pointer-events: auto;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.toast-weg {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.toast-hinweis {
+  border-left-color: var(--hinweis);
+}
+
+.toast-warnung {
+  border-left-color: var(--warnung);
+}
+
+.toast-fehler {
+  border-left-color: var(--fehler);
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-link {
+  font-weight: var(--gewicht-mittel);
+  white-space: nowrap;
+}
+
+.toast-zu {
+  flex: none;
+  width: var(--ziel);
+  height: var(--ziel);
+  margin: calc(-1 * var(--a2)) 0;
+  font: inherit;
+  font-size: var(--text-20);
+  color: var(--text-3);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-klein);
+  cursor: pointer;
+}
+
+/* --- Angaben (Begriff: Wert) ---------------------------------------------------------- */
+
+.angaben-neu {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  gap: var(--a2) var(--a4);
+  margin: 0;
+}
+
+.angaben-neu dt {
+  color: var(--text-2);
+}
+
+.angaben-neu dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Kopf einer Detailseite: Kennzeichen in einer Zeile */
+.kopf-fakten {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a1) var(--a5);
+  margin: var(--a2) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+}
+
+.kopf-fakten strong {
+  color: var(--text);
+  font-weight: var(--gewicht-mittel);
+}
+
+/* --- Cockpit: Kacheln aus dem Register (apps.cockpit.kacheln) --------------------------- */
+
+.cockpit-raster {
+  display: grid;
+  align-items: start;
+  gap: var(--a4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 720px) {
+  .cockpit-raster {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row dense;
+  }
+}
+
+@media (min-width: 1280px) {
+  .cockpit-raster {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cockpit-raster > .kachel-breit {
+    grid-column: span 2;
+  }
+}
+
+.cockpit-raster > li {
+  display: flex;
+  min-width: 0;
+}
+
+.cockpit-raster > li > .kachel,
+.cockpit-raster > li > .karte {
+  flex: 1;
+}
+
+/* Die Kacheln der Apps (alte Vorlagen) in der Form einer Karte */
+.cockpit-raster .kachel {
+  display: block;
+  padding: var(--a3) var(--a4);
+  color: var(--text);
+  text-decoration: none;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.neu .cockpit-raster a.kachel {
+  color: var(--text);
+}
+
+.cockpit-raster a.kachel:hover {
+  border-color: var(--linie-stark);
+}
+
+.cockpit-raster .kachel > strong:first-child {
+  display: block;
+  margin-bottom: var(--a1);
+  font-size: var(--text-15);
+  font-weight: var(--gewicht-fett);
+}
+
+.cockpit-raster .kachel br {
+  display: block;
+  content: "";
+  margin-top: 2px;
+}
+
+.cockpit-raster .kachel-zeilen {
+  display: block;
+  margin-top: var(--a1);
+}
+
+.cockpit-raster .kachel-zeile {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--a3);
+  padding: 3px 0;
+  font-size: var(--text-13);
+  color: var(--text-2);
+  border-top: 1px solid var(--linie);
+  overflow-wrap: anywhere;
+}
+
+.cockpit-raster .kachel-zeile strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpit-raster .kachel-fehler {
+  border-style: dashed;
+}
+
+.neu .status {
+  font-weight: var(--gewicht-mittel);
+}
+
+.neu .status-erfolgreich {
+  color: var(--ok);
+}
+
+.neu .status-mit_fehlern,
+.neu .status-laeuft {
+  color: var(--warnung);
+}
+
+.neu .status-abgebrochen {
+  color: var(--fehler);
+}
+
+.neu .leise {
+  color: var(--text-2);
+  font-size: var(--text-13);
+}
+
+/* --- Stilseite --------------------------------------------------------------------------- */
+
+.stil-abschnitt {
+  margin-bottom: var(--a10);
+}
+
+.stil-abschnitt > h2 {
+  margin-bottom: var(--a1);
+  font-size: var(--text-20);
+}
+
+.stil-abschnitt > .stil-zweck {
+  margin-bottom: var(--a4);
+  color: var(--text-2);
+}
+
+.stil-reihe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2) var(--a3);
+}
+
+.stil-farben {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--a3);
+}
+
+.stil-farbe {
+  overflow: hidden;
+  font-size: var(--text-13);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+.stil-farbe-feld {
+  height: 48px;
+  border-bottom: 1px solid var(--linie);
+}
+
+.stil-farbe-text {
+  padding: var(--a2) var(--a3);
+}
+
+.stil-farbe-text code {
+  display: block;
+  color: var(--text-2);
+}
+
+.stil-schrift > * + * {
+  margin-top: var(--a2);
+}
+
+.stil-abstaende {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--a3);
+}
+
+.stil-abstand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--a1);
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.stil-abstand span:first-child {
+  display: block;
+  background: var(--primaer);
+  border-radius: 2px;
+}
+
+/* Cockpit: Fristen als zwei Listen (überfällig, nächste 14 Tage) */
+.fristen-listen {
+  display: grid;
+}
+
+@media (min-width: 720px) {
+  .fristen-listen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fristen-listen > div + div {
+    border-left: 1px solid var(--linie);
+  }
+}
+
+.fristen-listen > div + div {
+  border-top: 1px solid var(--linie);
+}
+
+@media (min-width: 720px) {
+  .fristen-listen > div + div {
+    border-top: 0;
+  }
+}
+
+.neu .liste-titel {
+  display: flex;
+  align-items: center;
+  gap: var(--a2);
+  margin: 0;
+  padding: var(--a2) var(--a4);
+  font-size: var(--text-13);
+  font-weight: var(--gewicht-mittel);
+  color: var(--text-2);
+  background: var(--flaeche-2);
+  border-bottom: 1px solid var(--linie);
+}
+
+.neu .liste-leer {
+  margin: 0;
+  padding: var(--a3) var(--a4);
+  color: var(--text-3);
+}
+
+.liste > li:has(> a.liste-zeile) {
+  padding: 0;
+}
+
+.liste a.liste-zeile {
+  align-items: center;
+  padding: var(--a2) var(--a4);
+}
+
+.liste a.liste-zeile:hover {
+  background: var(--flaeche-2);
+}
+
+.liste-neben .zahl {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
+  color: var(--text);
+}
+
+/* --- Vertragsseite: Kopf mit Fakten (Review 2, B7) ------------------------------------- */
+
+.neu .kopf-pfad {
+  margin: 0 0 var(--a1);
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.vertrag-kopf {
+  margin-bottom: var(--a4);
+}
+
+.fakten {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--a6);
+  overflow: hidden;
+  background: var(--linie);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+}
+
+@media (min-width: 1024px) {
+  .fakten {
+    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  }
+}
+
+.fakt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--a3) var(--a4);
+  background: var(--flaeche);
+}
+
+.fakt-breit {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .fakt-breit {
+    grid-column: auto;
+  }
+}
+
+.fakt dt {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.fakt dd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+}
+
+.neu .fakt-name {
+  font-size: var(--text-17);
+  font-weight: var(--gewicht-mittel);
+  color: var(--text);
+}
+
+.fakt-kontakt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--a3);
+  font-size: var(--text-13);
+  overflow-wrap: anywhere;
+}
+
+.fakt-wert {
+  font-size: var(--text-20);
+  font-weight: var(--gewicht-fett);
+  line-height: 1.25;
+}
+
+.neu a.fakt-wert {
+  color: var(--text);
+}
+
+.neu .fakt-fehler,
+.neu a.fakt-fehler,
+.text-fehler {
+  color: var(--fehler);
+}
+
+.neu .fakt-ok,
+.neu a.fakt-ok {
+  color: var(--ok);
+}
+
+.fakt-unter {
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.tab tr.aktuell td {
+  font-weight: var(--gewicht-mittel);
+}
+
+/* Checklisten (Vorlage stammdaten/_checklisten.html) */
+.neu .checkliste + .checkliste {
+  margin-top: var(--a3);
+}
+
+.neu .checkliste > summary {
+  min-height: var(--ziel);
+  padding: var(--a2) 0;
+  font-weight: var(--gewicht-mittel);
+  cursor: pointer;
+}
+
+.neu .checkpunkte {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.neu .checkpunkte form {
+  display: flex;
+  align-items: center;
+  gap: var(--a3);
+  margin: 0;
+  padding: 2px 0;
+}
+
+.neu button.haken {
+  flex: none;
+  width: var(--ziel);
+  height: var(--ziel);
+  font: inherit;
+  font-size: var(--text-17);
+  color: var(--primaer-text);
+  background: var(--primaer);
+  border: 1px solid var(--primaer);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.neu button.haken.zweitrangig {
+  color: var(--text-3);
+  background: var(--flaeche);
+  border-color: var(--linie-stark);
+}
+
+@media (max-width: 1023px) {
+  /* Kein leeres Feld, wenn die Zahl der Fakten ungerade aufgeht */
+  .fakten > .fakt:last-child:nth-child(even) {
+    grid-column: 1 / -1;
+  }
+
+  .seitenkopf-aktionen {
+    width: 100%;
+  }
+
+  .seitenkopf-aktionen > *,
+  .seitenkopf-aktionen > form > .knopf,
+  .seitenkopf-aktionen > .menue > .knopf {
+    flex: 1 1 auto;
+  }
+
+  .seitenkopf-aktionen > form,
+  .seitenkopf-aktionen > .menue {
+    display: flex;
+  }
+}
+
+@media (max-width: 719px) {
+  .kennzahl-wert {
+    font-size: var(--text-20);
+  }
+}
+
+/* Hinweis als Band (z. B. Bonität P8, abweichender Absender) */
+.neu .hinweis-band {
+  margin: 0 0 var(--a4);
+  padding: var(--a3) var(--a4);
+  color: var(--hinweis);
+  background: var(--hinweis-grund);
+  border-radius: var(--radius-klein);
+}
+
+.neu .hinweis-band.hinweis-warnung {
+  color: var(--warnung);
+  background: var(--warnung-grund);
+}
+
+/* Auswahl als Optionen (RadioSelect), z. B. Wunschtermin vor dem Fristende */
+.feld-optionen > div,
+.feld-optionen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a1);
+}
+
+.feld-optionen label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--a3);
+  min-height: var(--ziel);
+  cursor: pointer;
+}
