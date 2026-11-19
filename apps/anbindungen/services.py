@@ -626,12 +626,24 @@ def angenommene_anfrage(einheit: Einheit) -> Buchungsanfrage | None:
 
 
 @als_vorgang("Vertrag {vertrag.nummer} mit Anfrage #{ergebnis.pk} verknüpft")
-def vertrag_zur_anfrage(vertrag: Vertrag) -> Buchungsanfrage | None:
+def vertrag_zur_anfrage(
+    vertrag: Vertrag, anfrage: Buchungsanfrage | None = None
+) -> Buchungsanfrage | None:
     """Verknüpft einen neu angelegten Vertrag mit der angenommenen Buchungsanfrage seiner
     Einheit (Status „Vertrag angelegt“, Arbeitsposten erledigt). Ohne solche Anfrage: nichts.
 
     Review 2, A11: So finden Anfrage und Vertrag zusammen, egal von welcher Seite der Vertrag
-    angelegt wurde (Anfrage, Einheitenseite, „Neuer Vertrag“)."""
+    angelegt wurde (Anfrage, Einheitenseite, „Neuer Vertrag“).
+
+    Review 2, B5: Mit ``anfrage`` (Knopf „Annehmen und Vertrag anlegen“) wird genau diese
+    Anfrage verknüpft, auch wenn sie noch offen ist; sie muss eine Buchung einer Einheit des
+    Vertrags sein."""
+    if anfrage is not None:
+        if anfrage.art != Buchungsanfrage.Art.BUCHUNG:
+            raise AnbindungFehler(f"Buchungsanfrage #{anfrage.pk} ist keine Buchung.")
+        return buchungsanfrage_entscheiden(
+            anfrage, Buchungsanfrage.Status.VERTRAG_ANGELEGT, vertrag=vertrag
+        )
     for einheit in vertrag.einheiten.order_by("nw_id"):
         anfrage = angenommene_anfrage(einheit)
         if anfrage is not None:
@@ -639,6 +651,43 @@ def vertrag_zur_anfrage(vertrag: Vertrag) -> Buchungsanfrage | None:
                 anfrage, Buchungsanfrage.Status.VERTRAG_ANGELEGT, vertrag=vertrag
             )
     return None
+
+
+def name_teilen(name: str) -> tuple[str, str]:
+    """„Paula Maria Beispiel“ → („Paula Maria“, „Beispiel“); ein Wort ist der Nachname."""
+    teile = name.split()
+    if not teile:
+        return "", ""
+    return " ".join(teile[:-1]), teile[-1]
+
+
+def vertrag_vorschlag(anfrage: Buchungsanfrage, heute: datetime.date) -> dict[str, object]:
+    """Vorbelegung von „Neuer Vertrag“ aus einer Buchungsanfrage (Review 2, B5).
+
+    Einheit der Anfrage, Beginn = Wunschtermin (sonst „buchbar ab“, sonst heute), Miete =
+    Zielmiete am Beginn. Partei: eine vorhandene mit derselben E-Mail-Adresse
+    (``mieter`` = ihre ID), sonst „neu“ mit Name, E-Mail und Telefon aus der Anfrage.
+    Nur für Max' Oberfläche (Namen und Kontakt), nie in Logs oder Hinweise schreiben."""
+    einheit = anfrage.einheit
+    beginn = anfrage.wunsch_ab or buchbar_ab(einheit, heute) or heute
+    zielmiete = einheit.zielmiete_am(beginn) or einheit.zielmiete_am(heute)
+    vorschlag: dict[str, object] = {
+        "einheit": einheit.pk,
+        "beginn": beginn,
+        "miete": zielmiete.betrag if zielmiete else None,
+        "anfrage": anfrage.pk,
+    }
+    partei = stammdaten.partei_zur_email(anfrage.kontakt_email)
+    if partei is not None:
+        return vorschlag | {"mieter": str(partei.pk)}
+    vorname, nachname = name_teilen(anfrage.kontakt_name)
+    return vorschlag | {
+        "mieter": "neu",
+        "neu_vorname": vorname,
+        "neu_nachname": nachname,
+        "neu_email": anfrage.kontakt_email,
+        "neu_telefon": anfrage.kontakt_telefon,
+    }
 
 
 def buchungsanfrage_zum_posten(posten: Arbeitsposten) -> Buchungsanfrage:

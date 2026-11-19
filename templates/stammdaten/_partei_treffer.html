@@ -1,0 +1,8 @@
+{% comment %}
+Treffer der Parteisuche als Auswahl (Review 2, B6). Namen und Kontakt stehen hier, weil Max
+sie zum Wählen braucht (Klarstellung zur KI-Grenze); nie in Logs oder Meldungen.
+{% endcomment %}{% for t in treffer %}
+<label class="partei-treffer"><input type="radio" class="feld-haken" name="mieter" value="{{ t.partei.pk }}"{% if t.partei.pk|stringformat:"s" == gewaehlt %} checked{% endif %}>
+  <span><span class="partei-name">{{ t.partei.anzeigename }}</span>{% if t.partei.ort or t.kontakt %} <span class="text-3 klein">{{ t.partei.ort }}{% if t.partei.ort and t.kontakt %} · {% endif %}{{ t.kontakt }}</span>{% endif %}</span>
+</label>
+{% empty %}{% if suchtext %}<p class="text-3 klein">Keine Partei zu „{{ suchtext }}“. Lege sie unten als neue Partei an.</p>{% endif %}{% endfor %}

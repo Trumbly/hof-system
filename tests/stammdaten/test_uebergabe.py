@@ -228,8 +228,8 @@ def test_uebergabe_am_handy_in_schritten_mit_kamera(
     seite = angemeldet.get(reverse("stammdaten:uebergabe", args=[uebergabe.pk, 3])).content.decode()
     assert 'name="viewport"' in seite
     assert (
-        'type="file" id="fotos" name="fotos" accept="image/*" capture="environment" multiple'
-        in seite
+        # Review 2, B8: Kameraknopf über die Dateiknöpfe (C4)
+        'type="file" name="fotos" accept="image/*" capture="environment" multiple' in seite
     )
     assert "Schritt 3 von 7" in seite
 

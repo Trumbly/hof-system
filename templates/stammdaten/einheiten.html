@@ -1,27 +1,47 @@
-{% extends "base.html" %}
+{% extends "base_neu.html" %}
+{% load bausteine %}
 
 {% block titel %}Einheiten{% endblock %}
 
 {% block inhalt %}
-<h1>Einheiten</h1>
-<p><a class="knopf" href="{% url 'stammdaten:einheit_neu' %}">Neue Einheit</a></p>
-<div class="tabelle-rahmen">
-<table class="karten">
-  <thead><tr><th>NW-ID</th><th>Typ</th><th>Objekt</th><th>Bezeichnung</th><th>Fläche</th><th>Status heute</th></tr></thead>
-  <tbody>
-  {% for einheit in einheiten %}
-  <tr id="einheit-{{ einheit.pk }}">
-    <td data-titel="NW-ID"><a href="{% url 'stammdaten:einheit' einheit.pk %}">{{ einheit.nw_id }}</a></td>
-    <td data-titel="Typ">{{ einheit.get_typ_display }}</td>
-    <td data-titel="Objekt">{{ einheit.objekt.kuerzel }}</td>
-    <td data-titel="Bezeichnung">{{ einheit.bezeichnung }}</td>
-    <td data-titel="Fläche">{% if einheit.flaeche_qm %}{{ einheit.flaeche_qm }} m²{% else %}–{% endif %}</td>
-    <td data-titel="Status">{% if einheit.ist_wohnraum %}<span class="leise">{{ einheit.hinweis }}</span>{% elif einheit.aufgeloest_am %}aufgelöst{% else %}{{ einheit.status_heute.get_status_display|default:"–" }}{% endif %}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="6">Noch keine Einheiten.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% url 'stammdaten:einheiten' as basis %}
+{% seitenkopf "Einheiten" "Garagen, Stellplätze, Lager, Hallen und Flächen; Wohnraum führt Verwaltio." %}
+  <a class="knopf knopf-zweit" href="{% url 'stammdaten:leerstand' %}">Leerstand</a>
+  <a class="knopf knopf-primaer" href="{% url 'stammdaten:einheit_neu' %}">Neue Einheit</a>
+{% endseitenkopf %}
+
+<form class="filterleiste" method="get" action="{{ basis }}" role="search"
+  hx-get="{{ basis }}" hx-target="#einheiten-liste" hx-select="#einheiten-liste" hx-swap="outerHTML" hx-push-url="true"
+  hx-trigger="input changed delay:300ms from:input[type=search], change from:select, submit">
+  <input type="search" name="suche" class="feld-eingabe filterleiste-suche" value="{{ filter.suche }}" placeholder="NW-ID, Bezeichnung oder Mieter" aria-label="Einheiten durchsuchen">
+  <select name="typ" class="feld-auswahl" aria-label="Typ"><option value="">alle Typen</option>{% for wert, titel in typen %}<option value="{{ wert }}"{% if wert == filter.typ %} selected{% endif %}>{{ titel }}</option>{% endfor %}</select>
+  <select name="objekt" class="feld-auswahl" aria-label="Objekt"><option value="">alle Objekte</option>{% for o in objekte %}<option value="{{ o.kuerzel }}"{% if o.kuerzel == filter.objekt %} selected{% endif %}>{{ o.kuerzel }}{% if o.bezeichnung %} · {{ o.bezeichnung }}{% endif %}</option>{% endfor %}</select>
+  <select name="status" class="feld-auswahl" aria-label="Status">{% for wert, titel, anzahl in status_filter %}<option value="{{ wert }}"{% if wert == filter.status %} selected{% endif %}>{{ titel }} ({{ anzahl }})</option>{% endfor %}</select>
+  <noscript><button type="submit" class="knopf knopf-zweit">Filtern</button></noscript>
+</form>
+
+<div id="einheiten-liste">
+  <p class="text-3 klein filterleiste-ergebnis">{{ lagen|length }} von {{ anzahl_alle }} Einheiten{% if gefiltert %} · <a href="{{ basis }}">Filter zurücksetzen</a>{% endif %}{% if summe_offen %} · zusammen {{ summe_offen|euro }} offen{% endif %}</p>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>NW-ID</th><th>Typ</th><th>Objekt</th><th>Status</th><th>Mieter</th><th class="zahl">Miete</th><th class="zahl">offen</th><th>frei ab</th></tr></thead>
+      <tbody>
+      {% for l in lagen %}
+      <tr id="einheit-{{ l.einheit.pk }}">
+        <td data-titel="NW-ID"><a href="{% url 'stammdaten:einheit' l.einheit.pk %}">{{ l.einheit.nw_id }}</a>{% if l.einheit.bezeichnung %} <span class="text-3 klein">{{ l.einheit.bezeichnung }}</span>{% endif %}</td>
+        <td data-titel="Typ">{{ l.einheit.get_typ_display }}</td>
+        <td data-titel="Objekt">{{ l.einheit.objekt.kuerzel }}</td>
+        <td data-titel="Status">{% badge l.badge l.status_text %}{% if l.einheit_status %} <span class="text-3 klein">{{ l.einheit_status }}</span>{% endif %}</td>
+        <td data-titel="Mieter">{% if l.vertrag %}<a href="{% url 'stammdaten:vertrag' l.vertrag.pk %}">{{ l.mieter_text|default:l.vertrag.nummer }}</a>{% elif l.status == "wohnraum" %}<span class="text-3 klein">{{ l.einheit.hinweis }}</span>{% else %}<span class="text-3">–</span>{% endif %}</td>
+        <td data-titel="Miete" class="zahl">{% if l.miete is not None %}{{ l.miete|euro }}{% elif l.zielmiete is not None %}<span class="text-3" title="Zielmiete">Ziel {{ l.zielmiete|euro }}</span>{% else %}–{% endif %}</td>
+        <td data-titel="offen" class="zahl">{% if l.offen > 0 %}<a class="text-fehler" href="{% url 'stammdaten:vertrag' l.vertrag.pk %}?reiter=mietkonto">{{ l.offen|euro }}</a>{% elif l.vertrag %}{{ l.offen|euro }}{% else %}–{% endif %}</td>
+        <td data-titel="frei ab">{% if l.ist_frei %}{% if l.frei_ab %}seit {{ l.frei_ab|date:"d.m.Y" }}{% else %}sofort{% endif %}{% elif l.frei_ab %}<time>{{ l.frei_ab|date:"d.m.Y" }}</time>{% else %}<span class="text-3">–</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      {% if gefiltert %}{% include "bausteine/leer.html" with spalten=8 text="Keine Einheit passt zu diesem Filter." hilfe="Suche oder Filter ändern, oder den Filter zurücksetzen." %}{% else %}{% include "bausteine/leer.html" with spalten=8 text="Noch keine Einheiten." hilfe="Über „Neue Einheit“ die erste Einheit anlegen; die NW-ID vergibt das System." %}{% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

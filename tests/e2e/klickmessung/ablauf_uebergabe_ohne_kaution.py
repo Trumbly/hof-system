@@ -1,15 +1,14 @@
 """Übergabe ohne Kaution: neuer Vertrag (Entwurf) für eine freie Garage, keine Kaution.
 
 Vorbereitung (zählt nicht): Vertrag mit Beginn heute für eine freie Einheit mit einer
-vorhandenen Partei anlegen. Gemessen wird ab der Vertragsseite.
+vorhandenen Partei anlegen (Seite „Neuer Vertrag“, Partei über die Suche, Kaution offen).
+Gemessen wird ab der Vertragsseite.
 
-- ``durchspielen`` (Ziel, Review 2, A10): alles im Assistenten „Übergabe am Handy“. Heute hat
-  er keinen Kautionsschritt und keine Wahl „keine Kaution vereinbart“; der Abschluss wird
-  mit „Die Kaution ist nicht erfasst.“ verweigert → ``Gescheitert``.
-- ``umweg``: zuerst auf der Vertragsseite Kaution 0 € speichern, dann der Assistent: Vorab
-  (unterschrieben anhaken), Zähler, Fotos (ohne Foto), Schlüssel, Unterschrift (Foto der
-  Quittung, das verlangt der Abschluss), Abschluss. Wer erst im Assistenten merkt, dass die
-  Kaution fehlt, muss ihn verlassen; der Assistent verlinkt den Vertrag nicht.
+- ``durchspielen`` (Ziel, Review 2, A10 und B8): alles im Assistenten „Übergabe am Handy“,
+  im Schritt „Kaution“ „keine Kaution vereinbart“ anhaken.
+- ``umweg``: zuerst auf der Vertragsseite Kaution 0 € im Dialog speichern (mehr ▾ → Kaution
+  bearbeiten), dann der Assistent: Vorab (unterschrieben anhaken), Zähler, Fotos (ohne Foto),
+  Schlüssel, Kaution (schon „keine“), Unterschrift (Foto der Quittung), Abschluss.
 """
 
 from __future__ import annotations
@@ -29,26 +28,34 @@ TITEL = "Übergabe ohne Kaution"
 #: Alle Selektoren des Ablaufs.
 SELEKTOREN = {
     # Vorbereitung
-    "einheit": "select[name=einheit]",
-    "mieter": "select[name=mieter]",
-    "beginn": "input[name=beginn]",
-    "miete": "input[name=miete]",
-    "vertrag_anlegen": "main button:has-text('Anlegen')",
-    # Kaution auf der Vertragsseite (Umweg)
-    "kaution_betrag": "input[name=kaution-betrag]",
-    "kaution_speichern": "form:has(input[name=kaution-betrag]) button[type=submit]",
-    # Assistent; „keine Kaution“ gibt es heute nicht (Ziel aus A10)
+    "einheit": "main select[name=einheit]",
+    "partei_suche": "main input[name=partei_suche]",
+    "partei_treffer": "main #partei-treffer input[name=mieter]",
+    "beginn": "main input[name=beginn]",
+    "miete": "main input[name=miete]",
+    "vertrag_anlegen": "main button:has-text('Vertrag anlegen')",
+    # Kaution auf der Vertragsseite (Umweg), als Dialog
+    "mehr": "main summary:has-text('mehr')",
+    "kaution_dialog": "main a:has-text('Kaution bearbeiten')",
+    "kaution_betrag": "dialog[open] input[name=kaution-betrag]",
+    "kaution_speichern": "dialog[open] button[type=submit]",
+    # Assistent
     "starten": "main button:has-text('Übergabe am Handy')",
-    "keine_kaution": "main input[name$=keine_kaution]",
+    "keine_kaution": "main input[name=keine]",
     "unterschrieben": "input[name=vertrag_unterschrieben]",
     "weiter": "main button:has-text('Speichern und weiter')",
+    # Schritt ohne Inhalt (kein Zähler, kein Schlüssel): kurz begründen und überspringen
+    "begruendung": "main input[name=begruendung]",
+    "ueberspringen": "main button:has-text('Überspringen und weiter')",
     "unterschrift": "input[type=file][name=unterschrift]",
     "abschliessen": "main button:has-text('abschließen')",
     "hindernisse": ".hindernisse",
 }
+#: Suchtext für eine vorhandene Partei des Testhofs (Vorbereitung).
+PARTEI_SUCHE = "e"
 #: Übergabe am Tag des Beginns (der Assistent schlägt heute vor; davor lehnt er ab).
 BEGINN = datetime.date.today().isoformat()
-MIETE = "55.00"
+MIETE = "55,00"
 
 
 def vorbereiten(m: Messung, nw_id: str, pfad_neu: str) -> str:
@@ -56,7 +63,9 @@ def vorbereiten(m: Messung, nw_id: str, pfad_neu: str) -> str:
     s = SELEKTOREN
     m.seite.goto(pfad_neu)
     m.waehle(s["einheit"], rf"^{nw_id}\b")
-    m.waehle(s["mieter"], r"\w")  # erste Partei der Liste (nicht „---------“)
+    m.seite.fill(s["partei_suche"], PARTEI_SUCHE)
+    m.seite.wait_for_selector(s["partei_treffer"])
+    m.seite.locator(s["partei_treffer"]).first.check()
     m.tippe(s["beginn"], BEGINN)
     m.tippe(s["miete"], MIETE)
     m.klick(s["vertrag_anlegen"])
@@ -83,7 +92,11 @@ def _assistent(m: Messung, ablage: Path) -> None:
             m.datei(s["unterschrift"], _unterschrift(ablage))
         if m.ergebnis.klicks > 40:
             raise Gescheitert("Der Assistent kommt nicht zum Abschluss.")
-        m.klick(s["weiter"])
+        if m.gibt_es(s["ueberspringen"]):
+            m.tippe(s["begruendung"], "Stellplatz ohne Strom und Schloss", vorbelegt_reicht=True)
+            m.klick(s["ueberspringen"])
+        else:
+            m.klick(s["weiter"])
     try:
         m.klick(s["abschliessen"])
     finally:
@@ -106,6 +119,9 @@ def umweg(m: Messung, adressen: dict[str, Any], ablage: Path) -> None:
     s = SELEKTOREN
     vertrag = vorbereiten(m, adressen["einheiten_frei"][1], adressen["vertrag_neu"])
     m.beginnen(vertrag)
+    m.klick(s["mehr"])
+    m.klick(s["kaution_dialog"])
     m.tippe(s["kaution_betrag"], "0")
     m.klick(s["kaution_speichern"])
+    m.seite.wait_for_selector("#dialog:not([open])", state="attached")  # gespeichert
     _assistent(m, ablage)

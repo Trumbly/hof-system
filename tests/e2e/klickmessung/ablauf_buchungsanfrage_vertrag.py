@@ -1,12 +1,16 @@
 """Buchungsanfrage → Vertrag: Anfrage für NW-G-0004 von der Website annehmen.
 
-Weg heute (v1, „Den Vertrag legst du von Hand an“):
-1. Arbeitslisten → „Anfrage öffnen“, Kontakt ablesen.
-2. Stammdaten → Parteien → „Neue Partei“: Vor- und Nachname tippen, anlegen.
-3. An der Partei zwei Kontaktwege (E-Mail, Telefon) einzeln hinzufügen.
-4. Zurück zur Anfrage (Arbeitslisten → „Anfrage öffnen“) → „Neuer Vertrag für …“: Mieter
-   wählen, Beginn und Miete (Zielmiete) tippen, anlegen.
-5. Zurück zur Anfrage → Vertrag wählen → „Vertrag angelegt“.
+Weg vor R2-7 (v1, „Den Vertrag legst du von Hand an“, 18 Klicks): Anfrage öffnen, Partei
+von Hand anlegen, zwei Kontaktwege einzeln hinzufügen, zurück zur Anfrage, „Neuer Vertrag“,
+Mieter wählen, Beginn und Miete tippen, zurück zur Anfrage, Vertrag wählen, „Vertrag
+angelegt“.
+
+Weg seit R2-7 (Review 2, B5, Ziel 3 Klicks):
+1. Arbeitslisten → „Anfrage öffnen“.
+2. „Annehmen und Vertrag anlegen“ öffnet den Dialog „Neuer Vertrag“, vorausgefüllt: Einheit,
+   Beginn (Wunschtermin), Miete (Zielmiete), Partei (vorhandene mit gleicher E-Mail oder
+   „Neue Partei“ mit den Kontaktdaten der Anfrage).
+3. „Vertrag anlegen“: Vertrag, Partei mit Kontaktwegen, Anfrage verknüpft und erledigt.
 """
 
 from __future__ import annotations
@@ -23,78 +27,52 @@ TITEL = "Buchungsanfrage → Vertrag"
 #: Alle Selektoren des Ablaufs. ``{posten}``: Arbeitsposten „Buchungsanfrage prüfen“.
 SELEKTOREN = {
     "anfrage_oeffnen": "#posten-{posten} a:has-text('Anfrage öffnen')",
-    "nav_stammdaten": "nav a:has-text('Stammdaten')",
-    "nav_arbeitslisten": "nav a:has-text('Arbeitslisten')",
-    "parteien": "main a[href$='/stammdaten/parteien/']",
-    "partei_neu": "main a:has-text('Neue Partei')",
-    "vorname": "input[name=vorname]",
-    "nachname": "input[name=nachname]",
-    "partei_anlegen": "main button:has-text('Anlegen')",
-    "kontakt_art": "select[name=kontaktwege-art]",
-    "kontakt_wert": "input[name=kontaktwege-wert]",
-    "kontakt_hinzufuegen": "main button:has-text('Hinzufügen')",
-    "vertrag_neu": "main a:has-text('Neuer Vertrag für')",
-    "mieter": "select[name=mieter]",
-    "beginn": "input[name=beginn]",
-    "miete": "input[name=miete]",
-    "vertrag_anlegen": "main button:has-text('Anlegen')",
-    "vertrag_waehlen": "select[name=vertrag]",
-    "vertrag_angelegt": "main button:has-text('Vertrag angelegt')",
+    "kontakt_name": "main .fakt-name",
+    "kontakt_email": "main .fakt a[href^='mailto:']",
+    "annehmen": "main a:has-text('Annehmen und Vertrag anlegen')",
+    "mieter_gewaehlt": "dialog[open] input[name=mieter]:checked",
+    "mieter_neu": "dialog[open] input[name=mieter][value=neu]",
+    "neu_vorname": "dialog[open] input[name=neu_vorname]",
+    "neu_nachname": "dialog[open] input[name=neu_nachname]",
+    "neu_email": "dialog[open] input[name=neu_email]",
+    "beginn": "dialog[open] input[name=beginn]",
+    "miete": "dialog[open] input[name=miete]",
+    "vertrag_anlegen": "dialog[open] button:has-text('Vertrag anlegen')",
 }
 
 
-def _kontakt(text: str) -> dict[str, str]:
-    def feld(name: str) -> str:
-        treffer = re.search(rf"{name}:\s*(.+)", text)
-        return treffer[1].strip() if treffer else ""
-
-    wunsch = re.search(r"Gewünscht ab (\d\d\.\d\d\.\d{4})", text)
-    return {
-        "name": feld("Name"),
-        "email": feld("E-Mail"),
-        "telefon": feld("Telefon"),
-        "beginn": datetime.datetime.strptime(wunsch[1], "%d.%m.%Y").date().isoformat()
-        if wunsch
-        else "",
-    }
+def _wunsch(text: str) -> str:
+    treffer = re.search(r"Gewünscht ab\s*(\d\d\.\d\d\.\d{4})", text)
+    if not treffer:
+        return ""
+    return datetime.datetime.strptime(treffer[1], "%d.%m.%Y").date().isoformat()
 
 
 def durchspielen(m: Messung, adressen: dict[str, Any]) -> None:
     s = {k: v.format(posten=adressen["posten"]["anfrage_buchung"]) for k, v in SELEKTOREN.items()}
     m.beginnen(adressen["arbeitslisten"])
     m.klick(s["anfrage_oeffnen"])
-    kontakt = _kontakt(m.text())
-    vorname, _, nachname = kontakt["name"].partition(" ")
+    # Ablesen zählt nicht: Name, E-Mail und Wunschtermin der Anfrage
+    name = m.text(s["kontakt_name"]).strip()
+    email = m.text(s["kontakt_email"]).strip()
+    beginn = _wunsch(m.text())
+    vorname, _, nachname = name.rpartition(" ")
 
-    # Partei anlegen
-    m.klick(s["nav_stammdaten"])
-    m.klick(s["parteien"])
-    m.klick(s["partei_neu"])
-    m.tippe(s["vorname"], vorname)
-    m.tippe(s["nachname"], nachname)
-    m.klick(s["partei_anlegen"])
-    partei = re.search(r"/parteien/(\d+)/", m.seite.url)
-    assert partei, f"Keine Partei angelegt: {m.seite.url}"
-    for art, wert in (("E-Mail", kontakt["email"]), ("Telefon", kontakt["telefon"])):
-        m.waehle(s["kontakt_art"], rf"^{art}$")
-        m.tippe(s["kontakt_wert"], wert)
-        m.klick(s["kontakt_hinzufuegen"])
-
-    # Vertrag aus der Anfrage
-    m.klick(s["nav_arbeitslisten"])
-    m.klick(s["anfrage_oeffnen"])
-    m.klick(s["vertrag_neu"])
-    m.waehle(s["mieter"], rf"#{partei[1]}\b|{re.escape(kontakt['name'])}")
-    m.tippe(s["beginn"], kontakt["beginn"], vorbelegt_reicht=True)
-    m.tippe(s["miete"], adressen["zielmiete_anfrage"], vorbelegt_reicht=True)
+    m.klick(s["annehmen"])
+    if not m.gibt_es(s["mieter_gewaehlt"]):
+        m.haken(s["mieter_neu"])
+    if m.seite.locator(s["mieter_neu"]).is_checked():
+        m.tippe(s["neu_vorname"], vorname, vorbelegt_reicht=True)
+        m.tippe(s["neu_nachname"], nachname, vorbelegt_reicht=True)
+        m.tippe(s["neu_email"], email, vorbelegt_reicht=True)
+    m.tippe(s["beginn"], beginn, vorbelegt_reicht=True)
+    m.tippe(s["miete"], adressen["zielmiete_anfrage"].replace(".", ","), vorbelegt_reicht=True)
     m.klick(s["vertrag_anlegen"])
+    # HTMX leitet per HX-Redirect weiter, sobald Vertrag und PDF stehen (dauert länger als
+    # die Wartezeit der Messung).
+    m.seite.wait_for_url(re.compile(r"/stammdaten/vertraege/\d+/"))
+    m.seite.wait_for_load_state("networkidle")
+    m.anhalten()
     nummer = re.search(r"V-\d{4}", m.seite.title())
     assert nummer, f"Kein Vertrag angelegt: {m.seite.url}"
-
-    # Anfrage mit dem Vertrag verknüpfen
-    m.klick(s["nav_arbeitslisten"])
-    m.klick(s["anfrage_oeffnen"])
-    m.waehle(s["vertrag_waehlen"], rf"^{nummer[0]}\b")
-    m.klick(s["vertrag_angelegt"])
-    m.anhalten()
-    assert "Vertrag angelegt" in m.text(), "Die Anfrage steht nicht auf „Vertrag angelegt“."
+    assert "verknüpft" in m.text("body"), "Die Anfrage ist nicht mit dem Vertrag verknüpft."

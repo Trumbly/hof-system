@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from apps.anbindungen import services
 from apps.anbindungen.models import Abweichung, Buchungsanfrage, Einheitbild, Kennzahl
+from apps.stammdaten import services as stammdaten
 from apps.stammdaten.models import Einheit, Kuendigung, Vertrag
 
 ANZAHL_BEHOBEN = 50
@@ -71,24 +72,48 @@ class EntscheidungFormular(forms.Form):
 def _kuendigung_angebote(anfrage: Buchungsanfrage) -> dict[str, object]:
     """Was die Seite einer Website-Kündigung anbietet (Review 2, A3): „Kündigung anlegen“ je
     passendem Vertrag (mit Hinweisen, wenn der Absender abweicht), und bereits erfasste
-    Kündigungen dieser Einheit zum Verknüpfen."""
+    Kündigungen dieser Einheit zum Verknüpfen.
+
+    Review 2, B (Ziel zwei Klicks): Gibt es genau einen passenden Vertrag, steht das
+    Kündigungsformular vorausgefüllt auf der Seite; „Kündigung anlegen“ speichert es am
+    Vertrag (derselbe Weg wie der Dialog dort) und erledigt die Anfrage."""
+    from apps.stammdaten import forms as stammdaten_formulare
+
     if anfrage.art != Buchungsanfrage.Art.KUENDIGUNG or anfrage.status not in services.NOCH_OFFEN:
         return {}
     vorschlag = services.kuendigung_vorschlag(anfrage)
     anlegen = [
         {
             "vertrag": v,
-            "url": reverse("stammdaten:vertrag", args=[v.pk]) + f"?anfrage={anfrage.pk}#kuendigung",
+            "url": reverse("stammdaten:vertrag", args=[v.pk]) + f"?anfrage={anfrage.pk}",
             "abweichungen": services.absender_abweichungen(anfrage, v),
         }
         for v in services.vertraege_zur_kuendigung(anfrage)
     ]
+    formular = None
+    if len(anlegen) == 1:
+        vertrag = anlegen[0]["vertrag"]
+        formular = stammdaten_formulare.KuendigungForm(
+            prefix="kuendigung", vertrag=vertrag, initial=vorschlag
+        )
+        zugang, wunsch = vorschlag["zugang_am"], vorschlag["zum_wunsch"]
+        ende = stammdaten.wunsch_vor_fristende(vertrag, zugang, wunsch)  # type: ignore[arg-type]
+        if ende is not None:
+            # Wunschtermin vor dem Fristende: die Wahl gleich anbieten, vorgewählt das
+            # Fristende (die gesetzliche Folge; die Aufhebung ist eine eigene Abrede).
+            formular._wahl_setzen(ende, wunsch)
+            formular.initial["wunsch_wahl"] = formular.FRISTENDE
     erfasst = list(
         Kuendigung.objects.filter(vertrag__einheiten=anfrage.einheit)
         .select_related("vertrag")
         .order_by("-zugang_am", "-pk")
     )
-    return {"kuendigung_anlegen": anlegen, "kuendigungen_erfasst": erfasst, "vorschlag": vorschlag}
+    return {
+        "kuendigung_anlegen": anlegen,
+        "kuendigung_formular": formular,
+        "kuendigungen_erfasst": erfasst,
+        "vorschlag": vorschlag,
+    }
 
 
 @login_required
@@ -120,6 +145,9 @@ def anfrage(request: HttpRequest, pk: int) -> HttpResponse:
         # erfassten Kündigung (Review 2, A3).
         entscheidungen = [s for s in entscheidungen if s != Buchungsanfrage.Status.ERLEDIGT]
     vertraege = list(eintrag.einheit.vertraege.order_by("-beginn"))
+    heute = timezone.localdate()
+    einheit = eintrag.einheit
+    partei = stammdaten.partei_zur_email(eintrag.kontakt_email)
     return render(
         request,
         "anbindungen/anfrage.html",
@@ -127,7 +155,16 @@ def anfrage(request: HttpRequest, pk: int) -> HttpResponse:
             "anfrage": eintrag,
             "entscheidungen": [(s, titel[s]) for s in entscheidungen],
             "vertraege": vertraege,
-            "buchbar_ab": services.buchbar_ab(eintrag.einheit, timezone.localdate()),
+            "buchbar_ab": services.buchbar_ab(einheit, heute),
+            "zielmiete": einheit.zielmiete_am(eintrag.wunsch_ab or heute)
+            or einheit.zielmiete_am(heute),
+            "einheit_status": einheit.status_am(heute),
+            "vorhandene_partei": partei,
+            "vertrag_anlegen": (
+                eintrag.art == Buchungsanfrage.Art.BUCHUNG
+                and Buchungsanfrage.Status.VERTRAG_ANGELEGT in entscheidungen
+            ),
+            "vertrag_neu_url": reverse("stammdaten:vertrag_neu") + f"?anfrage={eintrag.pk}",
             **_kuendigung_angebote(eintrag),
         },
     )

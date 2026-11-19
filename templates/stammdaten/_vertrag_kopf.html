@@ -19,7 +19,7 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
       {% elif vertrag.status == "aktiv" or vertrag.status == "gekuendigt" %}
       <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit" class="knopf {% if vertrag.status == 'gekuendigt' %}knopf-primaer{% else %}knopf-zweit{% endif %}">Rückgabe am Handy</button></form>
       {% endif %}
-      <a class="knopf knopf-zweit" href="{{ basis }}?reiter=dokumente">Schreiben erstellen</a>
+      <a class="knopf knopf-zweit" href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a>
       <details class="menue">
         <summary class="knopf knopf-zweit">mehr ▾</summary>
         <ul class="menue-liste">
@@ -32,7 +32,7 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
           <li class="menue-trenner" role="separator"></li>
           <li><a href="{% url 'abgleich:handzahlung' vertrag.pk %}">Handzahlung erfassen</a></li>
           <li><a href="{% url 'soll:vertrag' vertrag.pk %}">Offene Posten</a></li>
-          <li><a href="{{ basis }}?reiter=verlauf">Verlauf</a></li>
+          <li><a href="{{ verlauf_url }}">Verlauf im Protokoll</a></li>
         </ul>
       </details>
     </div>

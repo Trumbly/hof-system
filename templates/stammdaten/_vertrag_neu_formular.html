@@ -1,0 +1,55 @@
+{% load bausteine %}{% comment %}
+Formular „Neuer Vertrag“ (Review 2, B5 und B6), als Dialog (``dialog``) oder auf der schmalen
+Seite. Vorausgefüllt aus Anfrage oder Einheit; Partei per Suche oder neu; Kaution mit
+„keine“; ab der Bonitätsgrenze erscheint der Hinweis (P8). Selten Gebrauchtes ist zugeklappt.
+{% endcomment %}<form class="{% if dialog %}dialog-formular{% else %}formular-neu{% endif %}" method="post" action="{{ url }}"{% if dialog %} hx-post="{{ url }}" hx-target="#dialog-inhalt" hx-swap="innerHTML"{% endif %} id="vertrag-neu">
+  {% csrf_token %}
+  {% if anfrage %}<input type="hidden" name="anfrage" value="{{ anfrage.pk }}">{% endif %}
+  {% if dialog %}
+  <header class="dialog-kopf">
+    <h2 class="dialog-titel" id="dialog-titel">{% if anfrage %}Vertrag aus Anfrage #{{ anfrage.pk }}{% else %}Neuer Vertrag{% endif %}</h2>
+    <button type="button" class="knopf knopf-text knopf-symbol" data-dialog-schliessen aria-label="Schließen">×</button>
+  </header>
+  <div class="dialog-rumpf">
+  {% endif %}
+    {% if anfrage %}<p class="dialog-hinweis">{% if anfrage.status == "angenommen" %}Für {{ anfrage.einheit.nw_id }} liegt die angenommene Buchungsanfrage{% else %}Aus der Buchungsanfrage{% endif %} <a href="{% url 'anbindungen:anfrage' anfrage.pk %}">#{{ anfrage.pk }}</a>{% if anfrage.status == "angenommen" %} vor{% endif %}{% if anfrage.kontakt_name %} ({{ anfrage.kontakt_name }}{% if anfrage.wunsch_ab %}, gewünscht ab {{ anfrage.wunsch_ab|date:"d.m.Y" }}{% endif %}){% endif %}. Nach dem Anlegen ist die Anfrage mit dem Vertrag verknüpft und erledigt.</p>{% endif %}
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder">
+      {% include "stammdaten/_vertrag_neu_einheit.html" %}
+
+      <fieldset class="feld feld-gruppe{% if form.mieter.errors %} feld-fehlerhaft{% endif %}" id="vertrag-neu-mieter">
+        <legend class="feld-label">Mieter</legend>
+        <input type="search" class="feld-eingabe" name="partei_suche" id="id_partei_suche" value="{{ form.partei_suche.value|default:'' }}" placeholder="Name, Ort oder E-Mail suchen" autocomplete="off" aria-label="Partei suchen" aria-controls="partei-treffer"
+          hx-get="{% url 'stammdaten:partei_suche' %}" hx-trigger="input changed delay:250ms, search" hx-target="#partei-treffer" hx-swap="innerHTML">
+        <div class="feld-optionen" id="partei-treffer" aria-live="polite">{% include "stammdaten/_partei_treffer.html" %}</div>
+        <label class="partei-treffer"><input type="radio" class="feld-haken" name="mieter" value="neu"{% if form.mieter_wahl == "neu" %} checked{% endif %}><span><span class="partei-name">Neue Partei anlegen</span>{% if form.mieter_wahl == "neu" and anfrage %} <span class="text-3 klein">aus den Kontaktdaten der Anfrage, keine Partei mit dieser E-Mail-Adresse</span>{% endif %}</span></label>
+        {% if form.mieter.errors %}<p class="feld-fehler" id="id_mieter-fehler">{{ form.mieter.errors|join:" " }}</p>{% endif %}
+        <div class="felder felder-2 feld-einzug" data-wenn="mieter" data-gleich="neu"{% if form.mieter_wahl != "neu" %} hidden{% endif %}>
+          {% feld form.neu_vorname %}{% feld form.neu_nachname %}
+          {% feld form.neu_email %}{% feld form.neu_telefon %}
+          {% feld form.neu_firma breit=True %}
+        </div>
+      </fieldset>
+
+      <div class="felder felder-2">{% feld form.beginn %}{% feld form.miete %}</div>
+      {% if bonitaet_ab is not None %}<p class="hinweis-band hinweis-warnung" role="note" data-wenn="miete" data-ab="{{ bonitaet_ab|stringformat:'s' }}"{% if not bonitaet_sichtbar %} hidden{% endif %}>Monatsmiete ab {{ bonitaet_ab|zahl:0 }} €: Vor der Unterschrift Selbstauskunft und Bonitätsnachweis prüfen (P8).</p>{% endif %}
+
+      <div class="felder felder-2">
+        <div data-wenn="keine_kaution" data-gleich="aus"{% if form.keine_kaution.value %} hidden{% endif %}>{% feld form.kaution %}</div>
+        <div class="feld-unten">{% feld form.keine_kaution %}</div>
+      </div>
+
+      {% aufklapper "Weitere Angaben: Ende, Zahlweise, Pauschale, Umsatzsteuer, Vertragsart, Mandant, Kündigungsfrist" offen=weitere_fehler %}
+        <div class="felder felder-2">{% for f in weitere %}{% feld f %}{% endfor %}{% feld form.kuendigungsregel breit=True %}</div>
+      {% endaufklapper %}
+    </div>
+  {% if dialog %}
+  </div>
+  <footer class="dialog-fuss">
+    <button type="button" class="knopf knopf-zweit" data-dialog-schliessen>Abbrechen</button>
+    <button type="submit" class="knopf knopf-primaer">Vertrag anlegen</button>
+  </footer>
+  {% else %}
+  <div class="formular-fuss"><a class="knopf knopf-zweit" href="{% if anfrage %}{% url 'anbindungen:anfrage' anfrage.pk %}{% else %}{% url 'stammdaten:vertraege' %}{% endif %}">Abbrechen</a><button type="submit" class="knopf knopf-primaer">Vertrag anlegen</button></div>
+  {% endif %}
+</form>

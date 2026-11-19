@@ -1,0 +1,13 @@
+{% load bausteine %}{% comment %}
+Einheit im Formular „Neuer Vertrag“ (Review 2, B6): nur freie Einheiten mit Typ und Zielmiete.
+Der Schalter lädt nur diesen Teil neu (``?teil=einheit``). Die Optionen tragen die Zielmiete
+(``data-werte``); beim Wechsel zieht bausteine.js die Miete nach.
+{% endcomment %}<div id="vertrag-neu-einheit" class="feld-gruppe">
+  {% feld form.einheit %}
+  <label class="haken-label klein" for="{{ form.alle.id_for_label }}">
+    <input type="checkbox" name="alle" id="{{ form.alle.id_for_label }}" class="feld-haken"{% if form.alle_zeigen %} checked{% endif %}
+      hx-get="{% url 'stammdaten:vertrag_neu' %}" hx-vals='{"teil": "einheit"}' hx-include="[name=einheit]"
+      hx-target="#vertrag-neu-einheit" hx-swap="outerHTML">
+    <span>{{ form.alle.label }}</span>
+  </label>
+</div>
