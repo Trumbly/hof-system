@@ -58,6 +58,17 @@
   background: var(--fuellung-knopf-hover);
 }
 
+/* Am Handy nie breiter als der Platz: Ein langer Knopf („Annehmen und Vertrag anlegen“)
+   bricht um, statt bei 320 px mit breiter Schrift (Linux) über den Rand zu ragen. */
+@media (max-width: 599px) {
+  [data-design="apple"] .knopf {
+    max-width: 100%;
+    padding-block: var(--a1);
+    text-align: center;
+    white-space: normal;
+  }
+}
+
 [data-design="apple"] .knopf-primaer {
   color: var(--primaer-text);
   background: var(--primaer);
@@ -176,6 +187,15 @@
   min-height: var(--ziel);
   margin: calc(-1 * var(--a3)) 0;
   font-size: var(--apple-unterzeile);
+}
+
+/* Ein langer Kartenlink („im Kündigungsdialog des Vertrags öffnen“) bricht um, statt die
+   Karte am Handy zu verbreitern. */
+@media (max-width: 599px) {
+  [data-design="apple"] a.karte-link {
+    max-width: 100%;
+    white-space: normal;
+  }
 }
 
 [data-design="apple"] .karte-rumpf {

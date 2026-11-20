@@ -131,11 +131,22 @@ def test_apple_stammdaten(
     assert not alle, f"Stammdaten bei {breite} px ({schema}):\n- " + "\n- ".join(alle)
 
 
+#: Breite Schrift wie unter Linux (Pipeline): Verdana, wie ``test_seiten_r2_8.SCHMAL``.
+VERDANA = "* { font-family: Verdana, sans-serif !important; }"
+
+
+@pytest.mark.parametrize("schrift", ["system", "verdana"])
 def test_apple_stammdaten_320(
-    browser: Browser, anmeldung: Any, server: Server, stammdaten_seiten: dict[str, str]
+    browser: Browser,
+    anmeldung: Any,
+    server: Server,
+    stammdaten_seiten: dict[str, str],
+    schrift: str,
 ) -> None:
     """Apple-Design (PR C): Bei 320 px ragt auf keiner Seite der Stammdaten etwas über den
-    Rand, und in Formularen überlappt nichts."""
+    Rand, und in Formularen überlappt nichts; auch mit breiter Schrift (Verdana), die die
+    Schriften unter Linux nachstellt (Knopf „Annehmen und Vertrag anlegen“, Kartenlink „im
+    Kündigungsdialog des Vertrags öffnen“)."""
     kontext = _kontext(browser, anmeldung, server, SCHMAL, "light")
     seite = kontext.new_page()
     seite.set_default_timeout(15_000)
@@ -145,10 +156,12 @@ def test_apple_stammdaten_320(
             if schluessel not in stammdaten_seiten:
                 continue
             _laden(seite, stammdaten_seiten[schluessel], schluessel)
+            if schrift == "verdana":
+                seite.add_style_tag(content=VERDANA)
             alle += [f"{schluessel}: {b}" for b in pruefen(seite)]
     finally:
         kontext.close()
-    assert not alle, "Stammdaten bei 320 px:\n- " + "\n- ".join(alle)
+    assert not alle, f"Stammdaten bei 320 px ({schrift}):\n- " + "\n- ".join(alle)
 
 
 def test_vertrag_eine_hauptaktion(
