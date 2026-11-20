@@ -26,6 +26,11 @@ body.neu {
   color: var(--text);
   background: var(--grund);
   -webkit-font-smoothing: antialiased;
+  /* Lange Wörter ohne Bruchstelle (Mail-Adressen, Pfade, IDs) brechen um, wenn sie nicht
+     in ihre Zeile passen, statt die Seite am Handy zu verbreitern (Review 3, Abschluss:
+     Schreiben bei 320 px unter Linux). „break-word“ statt „anywhere“: Die Mindestbreite
+     von Tabellenspalten und Flex-Elementen bleibt, wie sie ist. */
+  overflow-wrap: break-word;
 }
 
 .neu h1,
@@ -74,6 +79,9 @@ body.neu {
 .neu code {
   font-family: var(--schrift-mono);
   font-size: var(--text-13);
+  /* Lange Pfade ohne Leerzeichen brechen um, statt die Seite am Handy (320 px) zu
+     verbreitern (Review 3, Abschluss). */
+  overflow-wrap: anywhere;
 }
 
 /* Zahlen: gleiche Ziffernbreite, damit Spalten bündig stehen */

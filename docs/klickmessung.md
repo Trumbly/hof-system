@@ -35,6 +35,39 @@ R2-0 bis R2-9), mit denselben Skripten.
 - **Website-Kündigung:** Ein Umweg von Hand ist nicht mehr nötig. Der direkte Weg erledigt die Anfrage im selben Lauf und verknüpft sie mit der Kündigung.
 - **Übergabe ohne Kaution:** Sie läuft jetzt ganz im Assistenten durch, 8 Schritte mit 11 Klicks. Das eine Tippfeld ist die Begründung „ohne Zähler weiter“, weil die Einheit keinen Zähler hat. Der Umweg über die Vertragsseite wird nicht mehr gebraucht.
 
+## Nach Review 3
+
+Gemessen am 20.11.2026 auf `a7a868a` (main nach Review 3, R3-1 bis R3-5, #35 bis #39) mit
+`make klickmessung`, dieselben Skripte; angepasst sind nur die Selektoren der neuen
+Pflichtwahlen aus Review 3, Punkt 4 und 9 (in R3-4). Alle neun Messungen laufen durch.
+
+| Ablauf | Klicks nachher (R2) | Klicks nach R3 | Seitenwechsel nachher (R2) | Seitenwechsel nach R3 | Tippfelder nachher (R2) | Tippfelder nach R3 | Stand (Commit) nach R3 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Umsatz einordnen (je Umsatz) | 1 | 1 | 0 | 0 | 0 | 0 | `a7a868a` |
+| Klärfall zuordnen | 1 | 1 | 0 | 0 | 0 | 0 | `a7a868a` |
+| Buchungsanfrage → Vertrag | 3 | **4** | 2 | 2 | 0 | 0 | `a7a868a` |
+| Beleg erfassen (aus dem Rechnungspostfach) | 2 | 2 | 2 | 2 | 0 | 0 | `a7a868a` |
+| Beleg erfassen (hochladen, neuer Lieferant) | 4 | 4 | 2 | 2 | 0 | 0 | `a7a868a` |
+| Website-Kündigung übernehmen | 2 | **3** | 2 | 2 | 0 | 0 | `a7a868a` |
+| ↳ Umweg von Hand, ohne Verknüpfung | entfällt | entfällt | – | – | – | – | `a7a868a` |
+| Übergabe ohne Kaution (im Assistenten) | 11 | 11 | 8 | 8 | 1 | 1 | `a7a868a` |
+| ↳ Umweg: Kaution 0 € auf der Vertragsseite | 13 | 13 | 8 | 8 | 2 | 2 | `a7a868a` |
+
+### Abweichungen gegenüber „nachher“
+
+- **Buchungsanfrage → Vertrag, +1 Klick** (jetzt 4, Ziel aus Review 2 waren 3): Seit
+  Review 3, Punkt 4 braucht eine neue Partei einen Namen und entweder die Anschrift oder den
+  Haken „Anschrift folgt“. Die Anfrage der Website bringt keine Anschrift mit; der Haken ist
+  der zusätzliche Klick. Name und E-Mail sind aus der Anfrage vorbelegt. Wer die Anschrift
+  gleich eintippt, spart den Klick, hat aber Tippfelder mehr.
+- **Website-Kündigung übernehmen, +1 Klick** (jetzt 3, Ziel 2): Im Testhof weicht der
+  Absender der Anfrage vom Mieter ab. Seit Review 3, Punkt 9 bleibt „Kündigung anlegen“
+  gesperrt, bis „Vollmacht liegt vor“ oder „Absender ist Vertragspartei“ gewählt ist. Diese
+  Wahl ist der zusätzliche Klick. Stimmt der Absender mit dem Mieter überein, bleibt es bei 2.
+- Alle übrigen Abläufe messen gleich. Kein Ablauf ist neu dazugekommen oder weggefallen; der
+  Umweg von Hand bei der Website-Kündigung bleibt „entfällt“, weil der direkte Weg die
+  Anfrage schon erledigt.
+
 ## Wie gezählt wird
 
 - **Klick**: jedes `click`, `check` oder `select_option`. Eine Datei wählen zählt als ein
