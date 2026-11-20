@@ -1,8 +1,8 @@
 {% load bausteine %}<tr class="frist{% if frist.ist_erledigt %} zeile-leise frist-erledigt{% elif frist.datum < heute %} zeile-markiert frist-ueberfaellig{% endif %}" id="frist-{{ frist.pk }}">
   <td data-titel="Datum" class="eng"><time datetime="{{ frist.datum|date:'Y-m-d' }}">{{ frist.datum|date:"d.m.Y" }}</time>{% if not frist.ist_erledigt and frist.datum < heute %} {% badge "ueberfaellig" %}{% endif %}</td>
-  <td data-titel="Art"><span class="frist-zelle">{{ frist.get_art_display }}{% if frist.hinweis %}<span class="text-3 klein">{{ frist.hinweis|truncatechars:120 }}</span>{% endif %}</span></td>
+  <td data-titel="Art"><span class="zelle-neben">{{ frist.get_art_display }}{% if frist.hinweis %}<span class="text-3 klein">{{ frist.hinweis|truncatechars:120 }}</span>{% endif %}</span></td>
   <td data-titel="Bezug">{% if frist.bezug_url %}<a href="{{ frist.bezug_url }}">{{ frist.bezug_text }}</a>{% else %}{{ frist.bezug_text }}{% endif %}</td>
-  <td data-titel="Quelle"><span class="frist-zelle"><strong class="frist-quelle">{{ frist.get_quelle_display }}</strong>{% if frist.vorlauf_tage %}<span class="text-3 klein">Vorlauf {{ frist.vorlauf_tage }} Tage</span>{% endif %}{% if frist.anzahl_verschoben %}<span class="text-3 klein">{{ frist.anzahl_verschoben }}× verschoben</span>{% endif %}</span></td>
+  <td data-titel="Quelle"><span class="zelle-neben"><strong class="frist-quelle">{{ frist.get_quelle_display }}</strong>{% if frist.vorlauf_tage %}<span class="text-3 klein">Vorlauf {{ frist.vorlauf_tage }} Tage</span>{% endif %}{% if frist.anzahl_verschoben %}<span class="text-3 klein">{{ frist.anzahl_verschoben }}× verschoben</span>{% endif %}</span></td>
   <td data-titel="" class="eng frist-aktionen">
     {% if frist.ist_erledigt %}
     <span{% if gerade_erledigt %} role="status"{% endif %}>Erledigt am {{ frist.erledigt_am|date:"d.m.Y" }}.</span>

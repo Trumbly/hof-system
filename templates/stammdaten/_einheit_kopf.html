@@ -35,7 +35,7 @@ Zielmiete, Zähler. Wird nach jedem Speichern im Dialog ersetzt (oob).
   {% if einheit.ist_wohnraum %}
   <p class="hinweis-band" id="verwaltio" role="note">Wohnraum: {{ einheit.hinweis }}. Hier stehen nur NW-ID und Objekt, ohne Vertrag, Status und Zielmiete.</p>
   {% else %}
-  <dl class="fakten fakten-kacheln">
+  <dl class="fakten">
     <div class="fakt fakt-breit">
       <dt>{% if lage.vertrag %}Vertrag und Mieter{% else %}Vertrag{% endif %}</dt>
       {% if lage.vertrag %}

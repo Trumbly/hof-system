@@ -1,7 +1,7 @@
 """Grundgerüst für alle Seiten (Review 2, C1, C4; Review 1, Punkt 13) und Konto (B15).
 
-R2-5: base.html ist das neue Gerüst, base_neu.html ein Alias; alte Seiten tragen ihr Markup
-im neuen Gerüst (hof.css in der Ebene „alt“). Jedes Dateifeld hat eigene Knöpfe.
+R2-5: base.html ist das Gerüst, base_neu.html ein Alias. Seit PR G (Apple-Design) tragen alle
+Seiten einen Seitenkopf, hof.css ist weg. Jedes Dateifeld hat eigene Knöpfe.
 """
 
 from __future__ import annotations
@@ -24,16 +24,17 @@ WURZEL = Path(__file__).resolve().parents[2]
 
 
 def test_alte_seite_im_neuen_geruest(angemeldet: Client) -> None:
-    """Review 2, C1: Auch eine Seite mit altem Markup steht im neuen Gerüst (Seitenleiste,
-    Leiste unten, Dialog, Toasts); die alte Kopfnavigation mit Scrollleiste ist weg."""
+    """Review 2, C1: Jede Seite steht im Gerüst (Seitenleiste, Leiste unten, Dialog, Toasts);
+    die alte Kopfnavigation mit Scrollleiste ist weg."""
     html = angemeldet.get(reverse("stammdaten:einheiten")).content.decode()
     assert '<body class="neu"' in html
     assert 'class="leiste"' in html and 'class="unten"' in html
     assert 'id="dialog"' in html and 'id="toasts"' in html
     assert 'class="nav-schalter"' not in html and 'class="nav"' not in html
     assert 'class="inhalt-neu"' in html
-    for css in ("werte.css", "hof.css", "bausteine.css"):
+    for css in ("werte.css", "bausteine.css", "apple/basis.css"):
         assert f"css/{css}" in html
+    assert "css/hof.css" not in html
     assert "js/bausteine.js" in html
 
 
@@ -47,19 +48,17 @@ def test_base_neu_ist_alias(angemeldet: Client) -> None:
     assert 'class="leiste"' in html and 'class="seitenkopf"' in html
 
 
-def test_hof_css_nur_fuer_alte_seiten_und_unterlegen() -> None:
-    """Review 2, C1: hof.css liegt in der Kaskadenebene „alt“ (Bausteine gewinnen immer) und
-    gilt nur in Seiten ohne Seitenkopf; die Klammern stimmen (früher schluckten drei
-    fehlende Klammern ganze Abschnitte)."""
-    css = (WURZEL / "static" / "css" / "hof.css").read_text()
-    assert "@layer alt {" in css
-    assert css.count("{") == css.count("}")
-    regeln = [z for z in css.split("\n") if z.startswith("  :where(") or z.startswith("  .")]
-    assert regeln and all(
-        r.startswith("  :where(.inhalt-neu:not(:has(.seitenkopf)))") for r in regeln
-    )
-    for weg in (".nav-schalter", ".nav-knopf", ".kopf {", "\n.inhalt {"):
-        assert weg not in css
+def test_kein_altes_stylesheet_und_klammern_stimmen() -> None:
+    """Review 2, C1 und Apple-Design (PR G): hof.css (alte Seiten in der Ebene „alt“) gibt es
+    nicht mehr, alle Seiten tragen einen Seitenkopf. In jeder Datei stimmen die Klammern
+    (früher schluckten drei fehlende Klammern ganze Abschnitte)."""
+    assert not (WURZEL / "static" / "css" / "hof.css").exists()
+    for pfad in (WURZEL / "static" / "css").rglob("*.css"):
+        css = pfad.read_text()
+        assert css.count("{") == css.count("}"), pfad.name
+        assert "@layer" not in css, pfad.name
+        for weg in (".nav-schalter", ".nav-knopf", "\n.kopf {", "\n.inhalt {"):
+            assert weg not in css, (pfad.name, weg)
 
 
 def test_navigation_system_mit_konto_und_verwaltung_als_admin(db: None) -> None:

@@ -8,7 +8,7 @@
 {% seitenkopf "Bankfreigabe · "|add:konto.bezeichnung konto.bank|add:" · "|add:konto.get_zugang_display %}{% endseitenkopf %}
 {% include "bank/_unternavigation.html" %}
 
-<dl class="fakten geld-fakten">
+<dl class="fakten">
   <div class="fakt fakt-breit"><dt>Aktuelle Freigabe</dt><dd>{% if freigabe %}gilt bis <strong>{{ freigabe.gueltig_bis|date:"d.m.Y" }}</strong>{% else %}{% badge "fehler" "keine" %}{% endif %}</dd></div>
   <div class="fakt"><dt>Mandant</dt><dd>{{ konto.mandant.kuerzel }}</dd></div>
   <div class="fakt"><dt>IBAN</dt><dd><code class="klein">{{ konto.iban }}</code></dd></div>

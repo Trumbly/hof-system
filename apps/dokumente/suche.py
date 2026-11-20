@@ -46,7 +46,7 @@ def belege(a: Anfrage, grenze: int) -> Iterable[Treffer]:
             titel += f" · Rechnung {b.rechnungsnummer}"
         unter = (
             b.lieferant.name if b.lieferant else "Lieferant offen",
-            zahlen.euro(b.betrag) if b.betrag is not None else "",
+            zahlen.euro_anzeige(b.betrag) if b.betrag is not None else "",
             f"{b.dokument.datum:%d.%m.%Y}",
         )
         treffer.append(

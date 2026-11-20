@@ -364,7 +364,7 @@ class EinheitFeld(forms.ModelChoiceField):  # type: ignore[type-arg]
         lage = self.lagen.get(obj.pk)
         if lage is not None:
             if lage.zielmiete is not None:
-                teile.append(f"Ziel {zahlen.euro(lage.zielmiete)}")
+                teile.append(f"Ziel {zahlen.euro_anzeige(lage.zielmiete)}")
             if not lage.ist_frei:
                 teile.append(lage.status_text)
         return " · ".join(teile)

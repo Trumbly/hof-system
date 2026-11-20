@@ -17,7 +17,7 @@
   {{ teile.management_form }}
   {% if teile.non_form_errors %}<div class="formfehler" role="alert">{% for fehler in teile.non_form_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
   {% for teil in teile %}
-  <fieldset class="karte dok-teil">
+  <fieldset class="karte">
     <legend class="karte-titel">Teil {{ forloop.counter }}</legend>
     <div class="karte-rumpf">
       {% if teil.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in teil.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}

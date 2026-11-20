@@ -10,29 +10,13 @@
  * „dok-“, die nur die Vorlagen dieses Bereichs tragen.
  */
 
-/* --- Reiter des Bereichs (Ablage · Rechnungen · …, Schreiben · Vorlagen · …) ----------- */
-/* Unter dem Seitenkopf statt darüber: erst der große Titel, dann die Segmente.
-   Kandidat für Bausteine (Unternavigation unter dem Seitenkopf, auch Geld). */
-
-[data-design="apple"] .seitenkopf + .dok-reiter {
-  margin-top: calc(-1 * var(--a2));
-  margin-bottom: var(--a6);
-}
-
 /* --- Raster: Karten nicht auf die Höhe der Nachbarkarte strecken ---------------------- */
 
 [data-design="apple"] .dok-oben {
   align-items: start;
 }
 
-/* --- Karte mit Hinweiszeile und Liste darunter ----------------------------------------- */
-/* Die Liste läuft bis an den Rand der Karte wie eine gruppierte Liste; der Satz davor bleibt
-   eingerückt. Kandidat für Bausteine (Karte mit Hinweis und Liste). */
-
-[data-design="apple"] .karte-rumpf > .dok-liste-buendig {
-  margin: var(--a2) calc(-1 * var(--a4)) calc(-1 * var(--a4));
-}
-
+/* Leerzustand unter einem Satz in der Karte: weniger Luft als allein */
 [data-design="apple"] .karte-rumpf > .text-2 + .leer {
   padding-top: var(--a6);
   padding-bottom: var(--a6);
@@ -87,23 +71,6 @@
   font-weight: 600;
 }
 
-/* Text einer Vorlage (HTML mit Platzhaltern) als Quelltext */
-[data-design="apple"] .dok-quelltext {
-  font-family: var(--schrift-mono);
-  font-size: var(--apple-fussnote);
-  line-height: 1.55;
-  background: var(--flaeche-2);
-  border: 0;
-}
-
-@media (min-width: 1024px) {
-  /* Am Desktop scrollt ein langer Text in seiner Karte; am Handy läuft er mit der Seite */
-  [data-design="apple"] .dok-quelltext {
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-}
-
 [data-design="apple"] .dok-platzhalter {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
@@ -124,25 +91,7 @@
   line-height: 1.55;
 }
 
-/* --- Beleg aufteilen: je Teil eine Karte (fieldset mit legend als Kartentitel) --------- */
-
-[data-design="apple"] fieldset.dok-teil {
-  min-width: 0;
-  margin-right: 0;
-  margin-left: 0;
-  padding: 0;
-}
-
-[data-design="apple"] .dok-teil > legend {
-  float: left;
-  width: 100%;
-  padding: var(--a4) var(--a4) 0;
-}
-
-[data-design="apple"] .dok-teil > .karte-rumpf {
-  clear: both;
-  padding-top: var(--a3);
-}
+/* --- Beleg aufteilen: je Teil eine Karte (fieldset.karte aus den Bausteinen) ---------- */
 
 [data-design="apple"] .dok-teile > .formular-fuss {
   justify-content: flex-end;

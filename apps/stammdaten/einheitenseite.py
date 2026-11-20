@@ -128,7 +128,8 @@ def _speichern_zielmiete(e: Einheit, form: forms.Form) -> Rueckmeldung:
     d = form.cleaned_data
     z = services.zielmiete_setzen(e, d["betrag"], d["gueltig_ab"], d["begruendung"])
     return Rueckmeldung(
-        f"Zielmiete {zahlen.euro(z.betrag)} ab {z.gueltig_ab:%d.%m.%Y} · alter Stand bleibt lesbar",
+        f"Zielmiete {zahlen.euro_anzeige(z.betrag)} ab {z.gueltig_ab:%d.%m.%Y}"
+        " · alter Stand bleibt lesbar",
         _url(e, anker="zielmiete"),
     )
 

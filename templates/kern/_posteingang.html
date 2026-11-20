@@ -24,7 +24,7 @@
         {% endif %}
       </header>
       {% if eintraege %}
-      <ul class="posten-liste">
+      <ul class="posten-liste zeilen-linien">
         {% for e in eintraege %}
         {% if e.ist_gruppe %}{% include "kern/_posten_gruppe.html" with g=e %}{% else %}{% include "kern/_posten.html" with z=e %}{% endif %}
         {% endfor %}

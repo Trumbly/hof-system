@@ -1,7 +1,7 @@
 """Filter ``|euro`` und ``|zahl`` für jede Vorlage (in den Einstellungen als ``builtins``
 eingetragen, kein ``{% load %}`` nötig). Das Format selbst steht in ``apps.kern.zahlen``.
 
-    {{ summe|euro }}          → 209.533,70 €
+    {{ summe|euro }}          → 209.533,70 € (negativ mit Minuszeichen: −36,50 €)
     {{ stand.wert|zahl }}     → 9.602,7
     {{ flaeche|zahl:1 }}      → 18,0
 """
@@ -19,7 +19,8 @@ register = template.Library()
 
 @register.filter(name="euro", is_safe=True)
 def euro(wert: Any) -> str:
-    return zahlen.euro(wert)
+    """Anzeige auf den Seiten, mit Minuszeichen (``zahlen.euro_anzeige``)."""
+    return zahlen.euro_anzeige(wert)
 
 
 @register.filter(name="zahl", is_safe=True)

@@ -253,7 +253,8 @@ def _speichern_kondition(v: Vertrag, form: forms.Form) -> Rueckmeldung:
         grund=d["grund"],
     )
     return Rueckmeldung(
-        f"Neue Miete {zahlen.euro(k.miete)} ab {k.gueltig_ab:%d.%m.%Y} · alter Stand bleibt lesbar",
+        f"Neue Miete {zahlen.euro_anzeige(k.miete)} ab {k.gueltig_ab:%d.%m.%Y}"
+        " · alter Stand bleibt lesbar",
         _url(v, "mietkonto"),
         "Mietkonto",
     )
@@ -312,7 +313,7 @@ def _speichern_kaution_abrechnen(v: Vertrag, form: forms.Form) -> Rueckmeldung:
     d = form.cleaned_data
     services.kaution_abrechnen(v.kaution, d["datum"], d["einbehalt"], d["notiz"])
     return Rueckmeldung(
-        f"Kaution abgerechnet · Einbehalt {zahlen.euro(d['einbehalt'])}",
+        f"Kaution abgerechnet · Einbehalt {zahlen.euro_anzeige(d['einbehalt'])}",
         _url(v, anker="kaution"),
     )
 

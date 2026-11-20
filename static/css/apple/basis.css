@@ -1,8 +1,7 @@
 /* Hof-System, Apple-Design: Werte, Rahmen und Startseite.
  *
- * Gilt nur, wenn <html> das Attribut data-design="apple" trägt (apps.kern.design). base.html
- * lädt dann nach werte.css, hof.css und bausteine.css die Dateien unter css/apple/ in fester
- * Reihenfolge (apps.kern.design.APPLE_CSS):
+ * Das Apple-Design ist die einzige Gestaltung. base.html lädt nach werte.css und bausteine.css
+ * (Grundlage) die Dateien unter css/apple/ in fester Reihenfolge:
  *
  *   basis.css         Werte (Farben hell/dunkel, Schrift, Formen, Material), Rahmen
  *                     (Seitenleiste, Kopf, Suche, Tab-Leiste, Testhof-Band), Startseite
@@ -10,7 +9,9 @@
  *   arbeitslisten.css, stammdaten.css, geld.css, dokumente.css, system.css
  *                     nur Seitenspezifisches je Bereich
  *
- * Kein @import: Der Browser lädt alle Dateien zugleich.
+ * Kein @import: Der Browser lädt alle Dateien zugleich. Jede Regel beginnt mit
+ * [data-design="apple"]; <html> trägt das Attribut immer (templates/base.html). Es hebt die
+ * Regeln hier um eine Stufe Spezifität über die gleich gebauten Selektoren der Grundlage.
  *
  * Grundlage ist der Skill „apple-design“ (Apples Human Interface Guidelines); Quellen und
  * gerechnete Kontraste in docs/design/apple-review-nachher.md. Kurz:
@@ -392,7 +393,7 @@
 
 /* --- Seitenleiste am Desktop: schwebende Fläche aus Material --------------------------- */
 /* Raster: oben das „H“ (Link zur Startseite) neben der Suche, darunter die Navigation (scrollt
-   nur, wenn nötig), unten Designschalter (nur dev) und Abmelden in einer Zeile. Kein
+   nur, wenn nötig), unten rechts „Abmelden“. Kein
    Schriftzug „Hof-System“: Die Marke steht nicht über jeder Seite (branding.md). Das Konto
    erreicht man über „Konto“ in der Navigation. Das Testhof-Band liegt am Desktop nur über
    der Inhaltsspalte; so hat die Leiste die volle Höhe. */
@@ -418,9 +419,9 @@
   [data-design="apple"] .leiste {
     display: grid;
     grid-template:
-      "marke suche suche" auto
-      "nav nav nav" minmax(0, 1fr)
-      "schalter schalter fuss" auto / auto minmax(0, 1fr) auto;
+      "marke suche" auto
+      "nav nav" minmax(0, 1fr)
+      "fuss fuss" auto / auto minmax(0, 1fr);
     align-items: center;
     column-gap: var(--a2);
     top: var(--a2);
@@ -463,34 +464,16 @@
     mask-image: linear-gradient(to bottom, #000 calc(100% - var(--a4)), transparent);
   }
 
-  [data-design="apple"] .leiste .design-schalter {
-    grid-area: schalter;
-  }
-
+  /* „Abmelden“ rechtsbündig in der letzten Zeile */
   [data-design="apple"] .leiste .leiste-fuss {
     grid-area: fuss;
-    justify-self: end;
-  }
-
-  [data-design="apple"] .leiste .leiste-benutzer {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  [data-design="apple"] .leiste .design-schalter,
-  [data-design="apple"] .leiste .leiste-fuss {
     align-self: stretch;
+    justify-content: flex-end;
     padding: var(--a2) 0 0;
     border-top: 0;
   }
 
-  /* „Design:“ nur für Screenreader (die Gruppe ist danach benannt), damit beide Segmente
-     neben „Abmelden“ passen. */
-  [data-design="apple"] .leiste .design-schalter-titel {
+  [data-design="apple"] .leiste .leiste-benutzer {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -510,14 +493,21 @@
     padding-right: var(--a2);
   }
 
-  /* Ohne Designschalter (prod) nimmt „Abmelden“ die ganze Zeile, rechtsbündig. */
-  [data-design="apple"] .leiste:not(:has(.design-schalter)) .leiste-fuss {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-  }
-
   [data-design="apple"] .haupt {
     padding: var(--a8) var(--a10) var(--a12);
+  }
+}
+
+/* Rahmen ohne Seitenleiste (niemand angemeldet: Anmeldung, zweiter Faktor, Fehler im Konto):
+   Der Inhalt bekommt die ganze Breite, das Testhof-Band liegt über der ganzen Seite. */
+@media (min-width: 1024px) {
+  [data-design="apple"] .geruest:not(:has(> .leiste)) {
+    display: block;
+  }
+
+  [data-design="apple"] body:not(:has(.leiste)) > .stichtag-band {
+    left: 0;
+    border-radius: 0;
   }
 }
 
@@ -610,43 +600,6 @@
   min-height: var(--ziel);
   padding: 0 var(--a3);
   font-size: var(--apple-fussnote);
-}
-
-/* --- Designschalter (nur mit DEBUG): Segmente wie ein Segmented Control ----------------- */
-
-[data-design="apple"] .design-schalter {
-  flex-wrap: nowrap;
-  gap: var(--a2);
-  padding: var(--a2) var(--a1);
-  font-size: var(--apple-fussnote);
-}
-
-[data-design="apple"] .design-schalter-wahl {
-  display: grid;
-  flex: 1;
-  grid-template-columns: 1fr 1fr;
-  padding: 2px;
-  background: var(--fuellung);
-  border-radius: var(--radius-feld);
-}
-
-[data-design="apple"] .design-schalter-trenner {
-  display: none;
-}
-
-[data-design="apple"] .neu .design-schalter a {
-  justify-content: center;
-  min-height: 40px; /* mit 2 px Rand oben und unten: 44 px */
-  font-weight: 500;
-  color: var(--text);
-  text-decoration: none;
-  border-radius: var(--radius-klein);
-}
-
-[data-design="apple"] .neu .design-schalter a[aria-current="true"] {
-  font-weight: 600;
-  background: var(--segment-aktiv);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
 }
 
 /* --- „Mehr“ am Handy ----------------------------------------------------------------- */

@@ -46,7 +46,7 @@ def umsaetze(a: Anfrage, grenze: int) -> Iterable[Treffer]:
         gegenpartei = u.gegenpartei or "ohne Gegenpartei"
         treffer.append(
             Treffer(
-                titel=f"{vorzeichen}{zahlen.euro(u.betrag)} · {gegenpartei}",
+                titel=f"{vorzeichen}{zahlen.euro_anzeige(u.betrag)} · {gegenpartei}",
                 url=reverse("kassenbuch:umsatz", args=[u.pk]),
                 unter=" · ".join(
                     t for t in (f"{u.buchungsdatum:%d.%m.%Y}", u.konto.bezeichnung, zweck) if t

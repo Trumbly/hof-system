@@ -1,7 +1,0 @@
-{# Designschalter des Experiments „Apple-Design“ (apps.kern.design). Nur mit DEBUG eingebunden: unten in der Seitenleiste und im Blatt „Mehr“. Die Wahl merkt sich ein Cookie. #}
-<nav class="design-schalter" aria-label="Design">
-  <span class="design-schalter-titel" id="design-schalter-{{ ort }}">Design:</span>
-  <span class="design-schalter-wahl" role="group" aria-labelledby="design-schalter-{{ ort }}">
-    <a href="{{ request.path }}?design=standard"{% if hof_design == "standard" %} aria-current="true"{% endif %}>Standard</a><span class="design-schalter-trenner" aria-hidden="true"> · </span><a href="{{ request.path }}?design=apple"{% if hof_design == "apple" %} aria-current="true"{% endif %}>Apple</a>
-  </span>
-</nav>

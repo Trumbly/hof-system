@@ -139,23 +139,9 @@ FARBEN = (
     ("neutral", "--neutral"),
 )
 
-#: Kontrast nach WCAG 2.1, gerechnet (siehe static/css/werte.css).
+#: Kontrast nach WCAG 2.1, gerechnet (Werte in static/css/apple/basis.css, Statusfarben aus
+#: static/css/werte.css).
 KONTRASTE = (
-    ("Text auf Fläche", "16,7:1", "14,0:1"),
-    ("Text 2 auf Fläche", "6,8:1", "7,8:1"),
-    ("Text 3 auf Fläche 2", "4,6:1", "5,3:1"),
-    ("Schrift auf Primär (Knopf)", "6,4:1", "7,9:1"),
-    ("Link auf Grund", "6,0:1", "8,6:1"),
-    ("ok auf ok-Grund", "6,2:1", "8,2:1"),
-    ("Hinweis auf Hinweis-Grund", "6,5:1", "8,1:1"),
-    ("Warnung auf Warnung-Grund", "6,6:1", "8,6:1"),
-    ("Fehler auf Fehler-Grund", "6,3:1", "7,9:1"),
-    ("neutral auf neutral-Grund", "6,8:1", "7,7:1"),
-    ("Feldrahmen auf Fläche", "3,1:1", "3,5:1"),
-)
-
-#: Dieselben Paare im Apple-Design (static/css/apple/basis.css), gerechnet wie oben.
-KONTRASTE_APPLE = (
     ("Text auf Fläche", "16,8:1", "15,5:1"),
     ("Text 2 auf Fläche", "6,4:1", "8,3:1"),
     ("Text 3 auf Fläche 2", "4,6:1", "5,5:1"),
@@ -233,22 +219,18 @@ def stilseite(request: HttpRequest) -> HttpResponse:
         {"optionen_fehler-wunsch": "aufhebung"}, prefix="optionen_fehler"
     )
     optionen_fehler.is_valid()
-    apple = getattr(request, "hof_design", "standard") == "apple"
     return render(
         request,
         "kern/stil.html",
         {
             "farben": FARBEN,
             "untertitel": (
-                "Alle Bausteine im Apple-Design mit Beispielen · Werte in static/css/werte.css "
-                "und static/css/apple/basis.css, Bausteine in static/css/apple/bausteine.css"
-                if apple
-                else "Alle Bausteine der neuen Gestaltung mit Beispielen · Werte in "
-                "static/css/werte.css"
+                "Alle Bausteine mit Beispielen · Werte in static/css/werte.css und "
+                "static/css/apple/basis.css, Bausteine in static/css/apple/bausteine.css"
             ),
-            "kontraste": KONTRASTE_APPLE if apple else KONTRASTE,
-            # Apple-Design: Stufen nach den iOS-Textstilen (Beschriftung bis großer Titel)
-            "groessen": (12, 13, 15, 17, 20, 22, 28, 34) if apple else (13, 15, 17, 20, 24, 30),
+            "kontraste": KONTRASTE,
+            # Stufen nach den iOS-Textstilen (Beschriftung bis großer Titel)
+            "groessen": (12, 13, 15, 17, 20, 22, 28, 34),
             "abstaende": (4, 8, 12, 16, 20, 24, 32, 40, 48),
             "badges": [(schluessel, b) for schluessel, b in BADGES.items()][:8],
             "alle_badges": BADGES,
@@ -264,13 +246,23 @@ def stilseite(request: HttpRequest) -> HttpResponse:
             "reiter": _reiter(reiter),
             "reiter_aktiv": reiter,
             "beispiele_zahlen": (
-                ("euro", Decimal("209533.70"), zahlen.euro(Decimal("209533.70"))),
-                ("euro", Decimal("-14.6"), zahlen.euro(Decimal("-14.6"))),
+                ("euro", Decimal("209533.70"), zahlen.euro_anzeige(Decimal("209533.70"))),
+                ("euro", Decimal("-14.6"), zahlen.euro_anzeige(Decimal("-14.6"))),
                 ("zahl", Decimal("9602.7"), zahlen.zahl(Decimal("9602.7"))),
                 ("zahl:2", 1234567, zahlen.zahl(1234567, 2)),
             ),
             "stichtag_beispiel": D(2026, 11, 1),
             "beispiel_betrag": Decimal("48.90"),
+            "langer_text": (
+                "Tageslauf zum Stichtag: Bankabruf übersprungen (Fake), 12 Umsätze eingeordnet, "
+                "3 Arbeitsposten angelegt, Abgleich mit 4 Zuordnungen, Mahnlauf ohne neue Stufe, "
+                "Fristen geprüft, Zählerstände vollständig, Sicherung geprüft, Notion "
+                "aktualisiert, Status-MCP aktualisiert. Dieser Text steht nur als Beispiel hier, "
+                "damit die Kürzung auf drei Zeilen zu sehen ist: Auf dem Server nennt eine "
+                "Meldung nur Nummern und Zähler, nie Namen oder Beträge je Person. Lange Meldungen "
+                "entstehen vor allem im Tageslauf und im Abgleich, wenn viele Teilschritte etwas "
+                "zu sagen haben; die Tabelle bleibt mit der Kürzung trotzdem ruhig und dicht."
+            ),
         },
     )
 
@@ -283,7 +275,9 @@ def stil_dialog(request: HttpRequest) -> HttpResponse:
     form = DialogForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
-        text = f"Neue Miete {zahlen.euro(d['miete'])} ab {d['gueltig_ab']:%d.%m.%Y} (Beispiel)"
+        text = (
+            f"Neue Miete {zahlen.euro_anzeige(d['miete'])} ab {d['gueltig_ab']:%d.%m.%Y} (Beispiel)"
+        )
         teil = render_to_string(
             "kern/_stil_ergebnis.html", {"ergebnis": text, "oob": True}, request=request
         )

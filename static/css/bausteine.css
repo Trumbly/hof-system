@@ -1,8 +1,9 @@
-/* Hof-System: Gerüst und Bausteine der neuen Gestaltung (Review 2, C1, C3, C4).
+/* Hof-System: Gerüst und Bausteine, Grundlage (Review 2, C1, C3, C4).
  *
- * Liest nur die Werte aus werte.css. Gilt für alle Seiten (templates/base.html, body.neu);
- * die Regeln der noch nicht umgestellten Seiten stehen in hof.css (Ebene „alt“).
- * Ruhig, dicht, gut lesbar: Linien statt Schatten, Schatten nur für Dialoge und Menüs.
+ * Liest nur die Werte aus werte.css. Gilt für alle Seiten (templates/base.html, body.neu).
+ * Trägt den Aufbau der Bausteine (Raster, Abstände, Verhalten am Handy); das Aussehen legen
+ * die Dateien unter css/apple/ darüber (Referenz: /stil/). Neues gehört dorthin, nicht hierher.
+ * Was keine Vorlage mehr nutzt, fällt weg (Abdeckung der Klassen, PR G).
  */
 
 /* --- Grundlage ------------------------------------------------------------------------ */
@@ -257,11 +258,6 @@ body.neu {
   stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.symbol-klein {
-  width: 16px;
-  height: 16px;
 }
 
 @media (min-width: 1024px) {
@@ -708,18 +704,21 @@ a.karte-link {
   border-radius: 0 0 var(--radius) var(--radius);
 }
 
+/* Eine Spalte am Handy, nie breiter als der Bildschirm: minmax(0, 1fr) statt der impliziten
+   Spalte „auto“, die so breit wird wie das längste Wort oder die breiteste Tabelle (320 px). */
 .raster {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--a4);
+}
+
+.raster > * {
+  min-width: 0;
 }
 
 @media (min-width: 1024px) {
   .raster-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .raster-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .raster-2-1 {
@@ -1587,22 +1586,6 @@ dialog.dialog[open] {
   overflow-wrap: anywhere;
 }
 
-/* Kopf einer Detailseite: Kennzeichen in einer Zeile */
-.kopf-fakten {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--a1) var(--a5);
-  margin: var(--a2) 0 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-2);
-}
-
-.kopf-fakten strong {
-  color: var(--text);
-  font-weight: var(--gewicht-mittel);
-}
-
 /* --- Cockpit: Kacheln aus dem Register (apps.cockpit.kacheln) --------------------------- */
 
 .cockpit-raster {
@@ -2333,7 +2316,6 @@ fieldset.feld > legend {
   }
 }
 
-
 /* Stilseite: die Trefferliste der Suche als Beispiel, ruhend statt als Menü */
 .suche-treffer.stil-suche {
   position: static;
@@ -2579,12 +2561,16 @@ fieldset.feld > legend {
   margin: 0 0 var(--a4);
 }
 
+/* Felder schmal genug, dass am Desktop fünf Felder, Suche und Knopf in eine Zeile passen und
+   am Handy (390 px) zwei nebeneinander; die Suche (.feld-breit) wächst dreimal so stark. */
 .filterleiste > .feld {
-  flex: 1 1 150px;
+  flex: 1 1 9rem;
+  min-width: 0;
+  margin: 0;
 }
 
 .filterleiste > .feld-breit {
-  flex: 3 1 260px;
+  flex: 3 1 16rem;
 }
 
 .filterleiste-knoepfe {
@@ -2784,11 +2770,6 @@ fieldset.feld > legend {
   gap: var(--a3);
   align-items: end;
   margin-bottom: var(--a4);
-}
-
-.filterleiste > .feld {
-  flex: 1 1 200px;
-  margin: 0;
 }
 
 .filterleiste > .aufklapper {
@@ -3301,33 +3282,4 @@ form.sendet .datei-knoepfe {
 
 .mauerwerk-an > li {
   align-self: start;
-}
-
-/* Designschalter (Apple-Design, apps.kern.design): nur mit DEBUG eingebunden.
-   Die Regeln hier gelten für die bisherige Gestaltung; css/apple/basis.css gestaltet ihn neu. */
-.design-schalter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--a1) var(--a2);
-  padding: var(--a2);
-  font-size: var(--text-13);
-  color: var(--text-2);
-}
-
-.design-schalter a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-}
-
-.neu .design-schalter a[aria-current="true"] {
-  font-weight: var(--gewicht-fett);
-  color: var(--text);
-}
-
-@media (max-width: 1023px), (pointer: coarse) {
-  .design-schalter a {
-    min-height: var(--ziel);
-  }
 }

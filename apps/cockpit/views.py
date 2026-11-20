@@ -57,7 +57,9 @@ def _rueckstand_unter(k: dict[str, Any]) -> SafeString:
     nicht_pruefbar = k.get("nicht_pruefbar")
     if nicht_pruefbar is not None and nicht_pruefbar.summe:
         teile.append(
-            format_html("{} {}", zahlen.euro(nicht_pruefbar.summe), begriff_html("nicht_pruefbar"))
+            format_html(
+                "{} {}", zahlen.euro_anzeige(nicht_pruefbar.summe), begriff_html("nicht_pruefbar")
+            )
         )
     return format_html_join(" · ", "{}", ((teil,) for teil in teile))
 
@@ -78,7 +80,7 @@ def _kennzahlen(kontexte: dict[str, dict[str, Any]]) -> list[Kennzahl]:
         zahl.append(
             Kennzahl(
                 "Rückstand",
-                zahlen.euro(k["summe"]),
+                zahlen.euro_anzeige(k["summe"]),
                 _rueckstand_unter(k),
                 art="fehler" if k["anzahl"] else "",
                 link=reverse("abgleich:rueckstaende"),

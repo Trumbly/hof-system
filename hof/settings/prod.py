@@ -16,9 +16,6 @@ DEBUG = False
 # In prod gibt es keinen festen Stichtag, auch wenn die Umgebung einen setzt.
 HOF_STICHTAG = None
 
-# Gestaltung (apps.kern.design): in prod die bisherige, bis das Apple-Design überall fertig ist.
-HOF_DESIGN_STANDARD = "standard"
-
 # Healthcheck im Container fragt http://127.0.0.1:8000/gesund. Der App-Port ist nur im
 # Docker-Netz offen; von außen kommt jede Anfrage über Caddy mit dem Tailscale-Namen.
 ALLOWED_HOSTS = [*ALLOWED_HOSTS, "127.0.0.1", "localhost"]

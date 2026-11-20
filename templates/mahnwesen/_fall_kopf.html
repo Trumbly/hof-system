@@ -19,7 +19,7 @@
     </div>
   </header>
   {% if fall.sperrgrund %}<p class="hinweis-band hinweis-warnung" role="note">Gesperrt: {{ fall.sperrgrund }}</p>{% endif %}
-  <dl class="fakten geld-fakten">
+  <dl class="fakten">
     <div class="fakt fakt-breit"><dt>Stufe</dt><dd>{{ fall.stufe.titel|default:"noch keine" }}</dd></div>
     <div class="fakt"><dt>belegt am</dt><dd>{{ fall.stufe_belegt_am|date:"d.m.Y"|default:"noch nicht belegt" }}</dd></div>
     <div class="fakt"><dt>nächste Stufe frühestens</dt><dd>{{ fall.naechste_stufe_fruehestens|date:"d.m.Y"|default:"–" }}</dd></div>

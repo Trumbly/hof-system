@@ -164,7 +164,7 @@ def test_anmeldeseite_im_eigenen_layout_und_am_handy(client: Client) -> None:
     html = client.get(reverse("account_login")).content.decode()
 
     assert 'name="viewport"' in html
-    assert "css/hof.css" in html
+    assert "css/apple/basis.css" in html
     assert 'autocomplete="username"' in html
     assert reverse("account_signup") not in html
 
