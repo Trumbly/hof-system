@@ -85,7 +85,7 @@ def test_pdf_mit_altem_briefkopf_bleibt_gesperrt(
     settings.DOKUMENTE = {**vollstaendig, "ABSENDER": dict(UNVOLLSTAENDIG)}
     alt = services.schreiben_erzeugen(mitteilung, objekt, kontext(objekt), Versandweg.MAIL)
     settings.DOKUMENTE = vollstaendig
-    assert "verwerfen und neu erzeugen" in services.senden_gesperrt(alt)
+    assert "„Neu erzeugen“" in services.senden_gesperrt(alt)
     with pytest.raises(services.BriefkopfUnvollstaendig):
         services.schreiben_senden(alt, benutzer, pruefsumme=alt.pdf_sha256)
 

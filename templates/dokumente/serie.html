@@ -13,7 +13,7 @@
   <div class="karte-rumpf">
     {% csrf_token %}
     <input type="hidden" name="pruefsumme" value="{{ pruefsumme }}">
-    {% if gesperrt %}<p class="hinweis-band hinweis-warnung" id="senden-gesperrt" role="status">Senden gesperrt: {{ gesperrt }}</p>{% endif %}
+    {% if gesperrt %}<p class="hinweis-band hinweis-warnung" id="senden-gesperrt" role="status">{{ gesperrt }}</p>{% endif %}
     <div class="formular-fuss">
       <button type="submit" class="knopf knopf-primaer"{% if gesperrt %} disabled aria-describedby="senden-gesperrt"{% endif %}>Alle {{ bereit|length }} senden</button>
     </div>

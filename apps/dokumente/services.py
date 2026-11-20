@@ -359,30 +359,86 @@ def empfaenger_gesperrt(schreiben: Schreiben) -> str:
     )
 
 
-def senden_gesperrt(schreiben: Schreiben) -> str:
-    """Warum sich ein Schreiben wegen des Briefkopfs nicht senden lässt, als ganzer Satz;
-    leer, wenn nichts dagegen spricht (Review 1, Punkt 4).
+def neu_erzeugbar(schreiben: Schreiben) -> bool:
+    """Lässt sich das Schreiben mit denselben Angaben neu erzeugen (Knopf „Neu erzeugen“)?
 
-    Gesperrt ist es, solange Pflichtangaben des Briefkopfs fehlen, und auch dann, wenn sie
-    beim Erzeugen fehlten: Das PDF trägt dann den unvollständigen Briefkopf. Ebenso, wenn
-    einem Brief die Anschrift des Empfängers fehlt (``empfaenger_gesperrt``)."""
-    if gesperrt := empfaenger_gesperrt(schreiben):
-        return gesperrt
+    Ja, wenn es noch bereit ist, seine Angaben gespeichert sind (Schreiben ab Review 3) und
+    eine freigegebene Fassung seiner Vorlage da ist."""
+    return (
+        schreiben.status == Schreiben.Status.BEREIT
+        and schreiben.kontext is not None
+        and _vorlage_fuer_neu(schreiben) is not None
+    )
+
+
+def _vorlage_fuer_neu(schreiben: Schreiben) -> Vorlage | None:
+    """Die freigegebene Fassung der Vorlage des Schreibens (dieselbe oder ihre Nachfolgerin)."""
+    vorlage = schreiben.vorlage
+    if vorlage.status == Vorlage.Status.FREIGEGEBEN:
+        return vorlage
+    return (
+        Vorlage.objects.filter(
+            name=vorlage.name, art=vorlage.art, status=Vorlage.Status.FREIGEGEBEN
+        )
+        .order_by("-version")
+        .first()
+    )
+
+
+#: Der Anfang jedes Hinweises, warum Senden gesperrt ist. Er steht genau einmal davor
+#: (Review 3, Punkt 6): ``sperrsatz`` setzt ihn, die Seiten zeigen den Satz unverändert.
+SPERRE_ANFANG = "Senden ist gesperrt: "
+_SPERRE_ALT = re.compile(r"^\s*(?:Senden (?:ist )?gesperrt\s*:\s*)+", re.IGNORECASE)
+
+
+def sperrsatz(gruende: Iterable[str]) -> str:
+    """Die einzige Stelle, an der der Hinweis „Senden ist gesperrt: …“ entsteht.
+
+    Nimmt die Gründe ohne Anfang (ein Grund, der ihn schon trägt, verliert ihn) und setzt
+    „Senden ist gesperrt: “ genau einmal davor; leer, wenn es keinen Grund gibt. So lautet
+    der Hinweis nie „Senden gesperrt: Senden ist gesperrt: …“, auch wenn weitere Sperren
+    (etwa eine fehlende Empfängeranschrift) dazukommen."""
+    teile = [_SPERRE_ALT.sub("", g).strip() for g in gruende]
+    teile = [t[:1].upper() + t[1:] for t in teile if t]
+    return SPERRE_ANFANG + " ".join(teile) if teile else ""
+
+
+def _briefkopf_gruende(schreiben: Schreiben) -> list[str]:
+    """Gründe aus dem Briefkopf, ohne den Anfang „Senden ist gesperrt: “."""
     luecken = briefkopf_luecken()
     if luecken:
         satz = (
-            f"Senden ist gesperrt: Im Briefkopf fehlt {_aufzaehlen(luecken)}. Bitte in den "
-            "Einstellungen des Servers eintragen"
+            f"Im Briefkopf fehlt {_aufzaehlen(luecken)}. Bitte in den Einstellungen des "
+            "Servers eintragen"
         )
         if schreiben.absender_luecken:
-            return satz + ", danach dieses Schreiben verwerfen und neu erzeugen."
-        return satz + "."
+            return [satz + ", danach dieses Schreiben neu erzeugen."]
+        return [satz + "."]
     if schreiben.absender_luecken:
-        return (
-            "Senden ist gesperrt: Das PDF entstand mit unvollständigem Briefkopf (es fehlte "
-            f"{schreiben.absender_luecken}). Bitte dieses Schreiben verwerfen und neu erzeugen."
+        anfang = (
+            "Das PDF entstand mit unvollständigem Briefkopf (es fehlte "
+            f"{schreiben.absender_luecken})."
         )
-    return ""
+        if neu_erzeugbar(schreiben):
+            return [
+                f"{anfang} Der Briefkopf ist jetzt vollständig: „Neu erzeugen“ erstellt das "
+                "Schreiben mit denselben Angaben."
+            ]
+        return [anfang + " Bitte dieses Schreiben verwerfen und neu erzeugen."]
+    return []
+
+
+def senden_gesperrt(schreiben: Schreiben) -> str:
+    """Warum sich ein Schreiben nicht senden lässt, als ein Hinweis; leer, wenn nichts
+    dagegen spricht (Review 1, Punkt 4). Der Satz entsteht in ``sperrsatz``; die Seiten
+    setzen nichts davor (Review 3, Punkt 6).
+
+    Gesperrt ist es, solange Pflichtangaben des Briefkopfs fehlen, und auch dann, wenn sie
+    beim Erzeugen fehlten: Das PDF trägt dann den unvollständigen Briefkopf. Ebenso, wenn
+    einem Brief die Anschrift des Empfängers fehlt (``empfaenger_gesperrt``). Weitere
+    Sperren hängen ihren Grund an die Liste an."""
+    gruende = [empfaenger_gesperrt(schreiben), *_briefkopf_gruende(schreiben)]
+    return sperrsatz(gruende)
 
 
 def _anschriftfeld(kontext: Mapping[str, Any]) -> str:
@@ -479,6 +535,36 @@ def _sha256(daten: bytes) -> str:
     return hashlib.sha256(daten).hexdigest()
 
 
+#: Kennzeichen für Werte, die JSON nicht kennt (Kontext eines Schreibens, Review 3, Punkt 6).
+_ART_DECIMAL = "__decimal__"
+_ART_DATUM = "__datum__"
+
+
+def _kontext_ablegen(wert: Any) -> Any:
+    """Kontext als JSON: Decimal und Datum behalten ihren Typ (für ``|euro`` und ``|date``)."""
+    if isinstance(wert, Decimal):
+        return {_ART_DECIMAL: str(wert)}
+    if isinstance(wert, datetime.date) and not isinstance(wert, datetime.datetime):
+        return {_ART_DATUM: wert.isoformat()}
+    if isinstance(wert, Mapping):
+        return {str(k): _kontext_ablegen(v) for k, v in wert.items()}
+    if isinstance(wert, list | tuple):
+        return [_kontext_ablegen(v) for v in wert]
+    return wert
+
+
+def _kontext_laden(wert: Any) -> Any:
+    if isinstance(wert, dict):
+        if set(wert) == {_ART_DECIMAL}:
+            return Decimal(wert[_ART_DECIMAL])
+        if set(wert) == {_ART_DATUM}:
+            return datetime.date.fromisoformat(wert[_ART_DATUM])
+        return {k: _kontext_laden(v) for k, v in wert.items()}
+    if isinstance(wert, list):
+        return [_kontext_laden(v) for v in wert]
+    return wert
+
+
 def schreiben_erzeugen(
     vorlage: Vorlage,
     bezug: models.Model,
@@ -547,6 +633,10 @@ def schreiben_erzeugen(
             empfaenger_email=str(voll["empfaenger"].get("email") or "").strip(),
             absender_luecken=luecken[:300],
             empfaenger_luecken=empfaenger_luecken[:300],
+            # Ohne Absender, Datum und Zeichen: Die setzt ``schreiben_neu_erzeugen`` frisch.
+            kontext=_kontext_ablegen(
+                {k: v for k, v in kontext.items() if k not in ("absender", "datum", "zeichen")}
+            ),
         )
         schreiben.save()
         voll["zeichen"] = f"S-{schreiben.pk}"
@@ -733,13 +823,29 @@ def mail_text(schreiben: Schreiben) -> str:
 
 
 def _mail_text(schreiben: Schreiben) -> str:
-    """Der Text des Schreibens als reiner Text. Tabellen (etwa die Aufstellung der offenen
-    Posten) bleiben lesbar: eine Zeile je Tabellenzeile, Zellen mit „ · “ getrennt (Review 2,
-    B13: vorher klebten die Zellen aneinander, „10/202605.10.202676,73 €“)."""
-    roh = re.sub(r"<br\s*/?>|</p>|</tr>|</h\d>|</li>|</div>", "\n", schreiben.inhalt_html)
-    roh = re.sub(r"</t[dh]>", " · ", roh)
+    return html_zu_text(schreiben.inhalt_html)
+
+
+def html_zu_text(inhalt: str) -> str:
+    """Der Text eines Schreibens als Klartext für die Mail, für alle Vorlagenarten.
+
+    - Zeilenumbrüche im Quelltext zählen nicht (wie im Browser); ``<br>`` ist ein
+      Zeilenumbruch, jeder Absatz (``</p>``, Überschrift, Liste, Tabelle) endet mit einer
+      Leerzeile (Review 3: Mailtext).
+    - Tabellen (etwa die Aufstellung der offenen Posten) bleiben lesbar: eine Zeile je
+      Tabellenzeile, Zellen mit „ · “ getrennt (Review 2, B13).
+    - Tags fallen weg, Entities werden aufgelöst (``&amp;`` → ``&``); geschützte
+      Leerzeichen (etwa in „120,50 €“) bleiben.
+    """
+    roh = re.sub(r"[ \t\r\n]+", " ", inhalt)
+    roh = re.sub(r"(?i)<br\s*/?>", "\n", roh)
+    roh = re.sub(r"(?i)</t[dh]>", " · ", roh)
+    roh = re.sub(r"(?i)</tr>|</li>", "\n", roh)
+    roh = re.sub(r"(?i)</p>|</h\d>|</div>|</table>|</ul>|</ol>|</blockquote>", "\n\n", roh)
     text = html.unescape(strip_tags(roh))
-    zeilen = [re.sub(r"\s+", " ", z).strip().removesuffix(" ·").strip() for z in text.splitlines()]
+    zeilen = [
+        re.sub(r"[ \t]+", " ", z).strip().removesuffix(" ·").strip() for z in text.split("\n")
+    ]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(zeilen)).strip() + "\n"
 
 
@@ -897,6 +1003,45 @@ def serie_senden(serie: uuid.UUID, benutzer: Benutzer, *, pruefsumme: str) -> Se
                 ergebnis.fehler[schreiben.pk] = str(fehler)
                 logger.warning("Schreiben #%s nicht gesendet: %s", schreiben.pk, fehler)
     return ergebnis
+
+
+@als_vorgang("Schreiben #{schreiben.pk} neu erzeugt")
+def schreiben_neu_erzeugen(schreiben: Schreiben) -> Schreiben:
+    """Erzeugt ein bereites Schreiben mit denselben Angaben neu und verwirft das alte, in
+    einem Schritt (Review 3, Punkt 6: Knopf „Neu erzeugen“, etwa nach dem Nachtragen des
+    Briefkopfs). Absender, Datum und Zeichen sind neu; Bezug, Serie, Versandweg und alle
+    übrigen Werte bleiben.
+
+    Raises:
+        SchreibenFehler: Das Schreiben ist nicht mehr bereit, hat keine gespeicherten
+            Angaben (vor Review 3 erzeugt) oder seine Vorlage ist nicht mehr freigegeben.
+    """
+    if schreiben.status != Schreiben.Status.BEREIT:
+        raise SchreibenFehler(f"Schreiben #{schreiben.pk} ist nicht mehr bereit.")
+    if schreiben.kontext is None:
+        raise SchreibenFehler(
+            f"Schreiben #{schreiben.pk} hat keine gespeicherten Angaben; bitte verwerfen und "
+            "dort neu erzeugen, wo es entstanden ist."
+        )
+    vorlage = _vorlage_fuer_neu(schreiben)
+    if vorlage is None:
+        raise VorlageNichtFreigegeben(
+            f"Zu Schreiben #{schreiben.pk} gibt es keine freigegebene Vorlage mehr."
+        )
+    bezug = schreiben.bezug
+    if bezug is None:
+        raise SchreibenFehler(f"Der Bezug von Schreiben #{schreiben.pk} fehlt.")
+    with transaction.atomic():
+        neu = schreiben_erzeugen(
+            vorlage,
+            bezug,
+            _kontext_laden(schreiben.kontext),
+            schreiben.versandweg,
+            serie=schreiben.serie,
+        )
+        schreiben_verwerfen(schreiben)
+    logger.info("Schreiben #%s neu erzeugt als #%s", schreiben.pk, neu.pk)
+    return neu
 
 
 @als_vorgang("Schreiben #{schreiben.pk} verworfen")

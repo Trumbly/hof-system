@@ -22,7 +22,7 @@ from django.db import transaction
 from apps.bank import enablebanking, services
 from apps.bank.models import Bankabruf, Bankkonto
 from apps.kern import zeit
-from apps.kern.laeufe import LaufBefehl
+from apps.kern.laeufe import DEV_UEBERSPRUNGEN, LaufBefehl
 
 #: So viele Tage überlappt ein Abruf mit dem letzten gespeicherten Umsatz.
 UEBERLAPPUNG_TAGE = 7
@@ -54,6 +54,7 @@ class Command(LaufBefehl):
 
         client: enablebanking.BankClient | None = None
         meldungen = []
+        dev_konten: list[str] = []
         for konto in konten_liste:
             try:
                 if client is None:
@@ -62,6 +63,11 @@ class Command(LaufBefehl):
                     abruf = self._abrufen(client, konto, heute, optionen)
                 meldungen.append(f"Konto #{konto.pk}: Abruf #{abruf.pk}, {abruf.neu} neu")
             except (enablebanking.EnableBankingFehler, enablebanking.UmsatzUngueltig) as fehler:
+                if self.in_dev_ueberspringen():
+                    # Review 3, Punkt 10: In der Entwicklung gibt es keine echte Bank (Fake,
+                    # Freigabe des Testhofs): kein Fehler und kein Arbeitsposten.
+                    dev_konten.append(f"#{konto.pk}")
+                    continue
                 grund = (
                     f"Umsatz der Bank unlesbar ({fehler})"
                     if isinstance(fehler, enablebanking.UmsatzUngueltig)
@@ -77,6 +83,11 @@ class Command(LaufBefehl):
             )
         self.koerbe.arbeitsposten += len(services.freigaben_pruefen(heute, lauf=self.lauf))
         self.koerbe.arbeitsposten += len(services.zulieferung_pruefen(heute, lauf=self.lauf))
+        if dev_konten:
+            meldungen.insert(
+                0,
+                f"{DEV_UEBERSPRUNGEN}: kein Abruf ohne echte Bank (Konto {', '.join(dev_konten)})",
+            )
         return "; ".join(meldungen) or "Kein Konto mit Enable Banking."
 
     def _gescheitert(self, konto: Bankkonto, grund: str) -> None:

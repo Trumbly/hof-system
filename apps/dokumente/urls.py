@@ -43,6 +43,11 @@ urlpatterns = [
     path("schreiben/<int:pk>/senden/", views.schreiben_senden, name="schreiben_senden"),
     path("schreiben/<int:pk>/verwerfen/", views.schreiben_verwerfen, name="schreiben_verwerfen"),
     path(
+        "schreiben/<int:pk>/neu-erzeugen/",
+        views.schreiben_neu_erzeugen,
+        name="schreiben_neu_erzeugen",
+    ),
+    path(
         "schreiben/<int:pk>/abschliessen/",
         views.schreiben_abschliessen,
         name="schreiben_abschliessen",

@@ -292,6 +292,11 @@ HOF_NOTION_ARTEN: dict[str, tuple[str, str]] = {
 HOF_BACKUP_STATUS = env.str("HOF_BACKUP_STATUS", default="/var/lib/hof/backup-status.json")
 HOF_BACKUP_HOECHSTALTER_STUNDEN = env.int("HOF_BACKUP_HOECHSTALTER_STUNDEN", default=26)
 
+# Review 3, Punkt 10: In der Entwicklung (dev.py) enden Läufe, die dort nicht laufen können
+# (bank_abruf ohne echte Bank, sicherung_pruefen ohne Statusdatei), „übersprungen (dev)“
+# statt „mit Fehlern“. Mit DJANGO_ENV=prod gilt das nie (apps.kern.laeufe.dev_ueberspringen).
+HOF_DEV_LAEUFE = env.bool("HOF_DEV_LAEUFE", default=False)
+
 # Anbindungen (Schritt 10): Website und Verwaltio. Die Clients sind austauschbar; in
 # Entwicklung und Tests stehen hier die Fakes (hof/settings/dev.py, test.py). Ohne Adresse
 # und Token melden die echten Clients „nicht eingerichtet“, und die Läufe überspringen sie.

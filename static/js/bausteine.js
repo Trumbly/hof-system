@@ -517,4 +517,108 @@
       }
     });
   });
+
+  // Abweichung am Feld (Review 3, Punkt 7): Ein Betragsfeld mit
+  // data-vergleich='[{"betrag": "119.00", "text": "vom gelesenen PDF-Betrag"}]' zeigt sofort
+  // unter sich, wenn der eingetippte Betrag abweicht, nicht erst nach dem Absenden. Eine
+  // gewählte Option im selben Formular mit data-vergleich-betrag und data-vergleich-text
+  // (etwa die vorgeschlagene Abbuchung) zählt mit.
+  function cent(wert) {
+    var zahl = zahlLesen(wert);
+    return isNaN(zahl) ? null : Math.round(zahl * 100);
+  }
+
+  function euroText(c) {
+    return (c / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  }
+
+  function abweichungPruefen(feld) {
+    var form = feld.closest("form") || document;
+    var vergleiche = [];
+    try {
+      vergleiche = JSON.parse(feld.getAttribute("data-vergleich") || "[]");
+    } catch (fehler) {
+      vergleiche = [];
+    }
+    form.querySelectorAll("input[data-vergleich-betrag]:checked").forEach(function (wahl) {
+      vergleiche.push({ betrag: wahl.getAttribute("data-vergleich-betrag"), text: wahl.getAttribute("data-vergleich-text") });
+    });
+    var eingabe = cent(feld.value);
+    var saetze = [];
+    if (eingabe !== null) {
+      vergleiche.forEach(function (v) {
+        var soll = cent(v.betrag);
+        if (soll !== null && soll !== eingabe) {
+          saetze.push("Der Betrag weicht " + v.text + " (" + euroText(soll) + ") ab.");
+        }
+      });
+    }
+    var huelle = feld.closest(".feld") || feld.parentNode;
+    var hinweis = huelle.querySelector(".feld-abweichung");
+    if (!saetze.length) {
+      if (hinweis) {
+        hinweis.remove();
+      }
+      feld.removeAttribute("data-weicht-ab");
+      return;
+    }
+    if (!hinweis) {
+      hinweis = document.createElement("p");
+      hinweis.className = "feld-abweichung";
+      hinweis.id = (feld.id || feld.name) + "-abweichung";
+      hinweis.setAttribute("role", "status");
+      huelle.appendChild(hinweis);
+    }
+    hinweis.textContent = saetze.join(" ");
+    feld.setAttribute("data-weicht-ab", "1");
+  }
+
+  function abweichungenPruefen(e) {
+    var ziel = e && e.target && e.target.closest ? e.target : null;
+    var bereich = (ziel && ziel.closest("form")) || document;
+    bereich.querySelectorAll("input[data-vergleich]").forEach(abweichungPruefen);
+  }
+  document.addEventListener("input", abweichungenPruefen);
+  document.addEventListener("change", abweichungenPruefen);
+  document.addEventListener("DOMContentLoaded", abweichungenPruefen);
+  document.addEventListener("htmx:afterSettle", function () { abweichungenPruefen(); });
+
+  // Mauerwerk (Review 3, Punkt 10): Ein Raster mit [data-mauerwerk] (Cockpit) schließt die
+  // Lücken unter kurzen Kacheln. Jede Kachel belegt so viele 4-px-Zeilen, wie sie hoch ist;
+  // „dense“ füllt die Löcher. Ohne JavaScript bleibt es ein gewöhnliches Raster, in einer
+  // Spalte (Handy) ebenso.
+  var ZEILE = 4;
+
+  function mauern(raster) {
+    var stil = window.getComputedStyle(raster);
+    var spalten = stil.gridTemplateColumns.split(" ").filter(Boolean).length;
+    var kinder = Array.prototype.slice.call(raster.children);
+    if (spalten < 2) {
+      raster.classList.remove("mauerwerk-an");
+      kinder.forEach(function (k) { k.style.gridRowEnd = ""; });
+      return;
+    }
+    raster.classList.add("mauerwerk-an");
+    var luecke = parseFloat(stil.columnGap) || 0;
+    kinder.forEach(function (k) {
+      var hoehe = k.getBoundingClientRect().height;
+      k.style.gridRowEnd = "span " + Math.max(1, Math.ceil((hoehe + luecke) / ZEILE));
+    });
+  }
+
+  function mauerwerkStarten() {
+    document.querySelectorAll("[data-mauerwerk]:not([data-mauerwerk-an])").forEach(function (raster) {
+      raster.setAttribute("data-mauerwerk-an", "1");
+      mauern(raster);
+      if (window.ResizeObserver) {
+        var beobachter = new ResizeObserver(function () { mauern(raster); });
+        beobachter.observe(raster);
+        Array.prototype.forEach.call(raster.children, function (k) { beobachter.observe(k); });
+      } else {
+        window.addEventListener("resize", function () { mauern(raster); });
+      }
+    });
+  }
+  document.addEventListener("DOMContentLoaded", mauerwerkStarten);
+  document.addEventListener("htmx:afterSettle", mauerwerkStarten);
 })();

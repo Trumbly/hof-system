@@ -183,6 +183,14 @@ class Schreiben(ProtokolliertesModell):
         blank=True,
         help_text="z. B. Stand der Sendungsverfolgung oder Einwurf durch Boten.",
     )
+    kontext = models.JSONField(
+        "Angaben beim Erzeugen",
+        null=True,
+        blank=True,
+        help_text="Die Werte der Platzhalter ohne Absender, Datum und Zeichen. Damit lässt "
+        "sich das Schreiben mit denselben Angaben neu erzeugen, etwa nachdem der Briefkopf "
+        "nachgetragen ist (Review 3, Punkt 6).",
+    )
     absender_luecken = models.CharField(
         "Briefkopf beim Erzeugen unvollständig",
         max_length=300,
@@ -216,6 +224,13 @@ class Schreiben(ProtokolliertesModell):
 
     def __str__(self) -> str:
         return f"Schreiben #{self.pk} ({self.art})"
+
+    def protokoll_titel(self) -> str:
+        """Klartext im Protokoll (Review 3, Punkt 10): „Schreiben Zahlungserinnerung“."""
+        try:
+            return f"Schreiben {vorlagenarten.holen(self.art).titel}"
+        except vorlagenarten.UnbekannteVorlagenart:
+            return ""
 
     @property
     def hat_zustellnachweis(self) -> bool:
@@ -315,6 +330,10 @@ class Dokument(ProtokolliertesModell):
 
     def __str__(self) -> str:
         return f"Dokument #{self.pk} ({self.art})"
+
+    def protokoll_titel(self) -> str:
+        """Klartext im Protokoll (Review 3, Punkt 10): „Dokument Rechnung“."""
+        return f"Dokument {self.dokumentart.titel}"
 
     @property
     def dokumentart(self) -> dokumentarten.Dokumentart:
@@ -540,6 +559,8 @@ class Eingangsrechnung(ProtokolliertesModell):
 personenfelder.unbedenklich(Vorlage, ["name", "art", "betreff", "text", "status", "herkunft"])
 personenfelder.register(Schreiben, ["betreff", "inhalt_html", "empfaenger_email"])
 personenfelder.register(Schreiben, ["zustellnachweis_vermerk"])
+# Review 3, Punkt 6: Name, Anschrift und Beträge des Empfängers stehen im Kontext.
+personenfelder.register(Schreiben, ["kontext"])
 # Name der Person, die eine Vorlage freigibt (Review 1, Punkt 4).
 personenfelder.register(Vorlage, ["freigabe_durch"])
 # Nur die Bezeichnungen fehlender Briefkopf-Angaben, nie die Angaben selbst.

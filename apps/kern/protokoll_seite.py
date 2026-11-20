@@ -245,17 +245,15 @@ def vorgang_zuruecknehmen(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
         if vorgaenge.vorgang_lesen(pk) is None:
             return redirect("kern:protokoll")
         return redirect("kern:vorgang", pk=pk)
-    kurz = vorgaenge.zusammenfassen(s.text for s in bericht.schritte)
-    schritte = " · ".join(kurz[:8])
-    if len(kurz) > 8:
-        schritte += f" · und {len(kurz) - 8} weitere"
+    # Review 3, Punkt 10: kurz, „Kündigung V-0002 zurückgenommen · 12 Änderungen → ansehen“;
+    # die einzelnen Schritte stehen auf der Seite der Rücknahme.
+    anzahl = bericht.ereignisse
     messages.success(
         request,
         format_html(
-            '„{}“ zurückgenommen{}{} → <a href="{}">Rücknahme ansehen</a>',
-            bericht.titel,
-            ": " if schritte else ".",
-            schritte,
+            '{} · {} → <a href="{}">ansehen</a>',
+            vorgaenge.ruecknahme_titel(bericht.titel),
+            f"{anzahl} Änderung" if anzahl == 1 else f"{anzahl} Änderungen",
             reverse("kern:vorgang", args=[bericht.ruecknahme_id]),
         ),
     )

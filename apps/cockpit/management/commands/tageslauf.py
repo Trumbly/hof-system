@@ -30,7 +30,7 @@ from django.core.management.base import BaseCommand, CommandParser
 
 from apps.cockpit import tageslauf
 from apps.kern import zeit
-from apps.kern.laeufe import LaufBefehl
+from apps.kern.laeufe import DEV_UEBERSPRUNGEN, LaufBefehl, dev_ueberspringen
 from apps.kern.models import Lauf
 
 GESCHEITERT = (Lauf.Status.ABGEBROCHEN, Lauf.Status.MIT_FEHLERN)
@@ -63,6 +63,7 @@ class Command(LaufBefehl):
         stichtag: datetime.date = optionen.get("stichtag") or zeit.heute()
         ohne = set(optionen.get("ohne") or [])
         gescheitert: set[str] = set()
+        uebersprungen: list[str] = []
         zeilen = []
         for schritt in tageslauf.schritte_am(stichtag):
             if schritt.name in ohne:
@@ -75,11 +76,27 @@ class Command(LaufBefehl):
             if status in GESCHEITERT or status is None:
                 gescheitert.add(schritt.name)
                 self.fehler()
+            elif status == Lauf.Status.UEBERSPRUNGEN and self._dev_uebersprungen(schritt.befehl):
+                uebersprungen.append(schritt.name)
             zeilen.append(zeile)
         kopf = f"Stichtag {stichtag:%d.%m.%Y}, {len(zeilen)} Schritte"
         if gescheitert:
             kopf += f", gescheitert: {', '.join(sorted(gescheitert))}"
+        elif uebersprungen and dev_ueberspringen():
+            # Review 3, Punkt 10: Ist in der Entwicklung ein Schritt an einem echten Fehler
+            # gescheitert und deshalb „übersprungen (dev)“ (etwa sicherung_pruefen ohne
+            # Statusdatei), ist der Tageslauf nicht „mit Fehlern“, sondern ebenfalls
+            # „übersprungen (dev)“. Andere „übersprungen“ (benachrichtigen ohne Kanal) zählen
+            # nicht. Die übrigen Schritte stehen mit ihrem Ergebnis in der Meldung.
+            self.ueberspringen()
+            kopf = f"{DEV_UEBERSPRUNGEN}: {', '.join(uebersprungen)}. {kopf}"
         return kopf + ". " + "; ".join(zeilen) + "."
+
+    def _dev_uebersprungen(self, name: str) -> bool:
+        """Endete der letzte Lauf dieses Schritts „übersprungen (dev)“ (ein echter Fehler, den
+        die Entwicklung überspringt)?"""
+        lauf = Lauf.objects.filter(name=name, pk__gt=self.lauf.pk).order_by("-pk").first()
+        return lauf is not None and lauf.meldung.startswith(DEV_UEBERSPRUNGEN)
 
     def _schritt(
         self, schritt: tageslauf.Schritt, stichtag: datetime.date

@@ -457,4 +457,17 @@ Mit freundlichen Grüßen</pre>{% endkarte %}
   <p class="stil-zweck">Mit <code>sofort=True</code> sendet die Wahl einer Datei das Formular gleich ab (ein Klick statt zwei, etwa „Beleg hochladen“). Hier ohne Wirkung.</p>
   <form class="karte" onsubmit="return false"><div class="karte-rumpf">{% dateiknoepfe fotos.fotos sofort=True %}</div></form>
 </section>
+
+<section class="stil-abschnitt" id="gelesen-abweichung">
+  <h2>Gelesen und Abweichung am Feld</h2>
+  <p class="stil-zweck">Aus dem PDF gelesene, noch nicht bestätigte Werte stehen grau mit „gelesen“ (<code>bausteine/gelesen.html</code>). Ein Betragsfeld mit <code>data-vergleich</code> zeigt sofort unter sich, wenn der eingetippte Betrag abweicht; eine gewählte Option mit <code>data-vergleich-betrag</code> zählt mit (Beleg und Abbuchung). Zum Ausprobieren den Betrag ändern.</p>
+  <p>Lieferant: {% include "bausteine/gelesen.html" with wert="Erfundene Lieferant GmbH" %} · Betrag: {% include "bausteine/gelesen.html" with wert="119,00 €" %}</p>
+  <form class="karte" onsubmit="return false"><div class="karte-rumpf">
+    <div class="feld"><label class="feld-label" for="stil-betrag">Betrag (Euro)</label><input class="feld-eingabe" id="stil-betrag" name="stil_betrag" inputmode="decimal" value="119,00" data-vergleich='[{"betrag": "119.00", "text": "vom gelesenen PDF-Betrag"}]'></div>
+    <fieldset class="feld"><legend class="feld-label">Passende Abbuchung</legend>
+      <label class="wahl-zeile"><input type="radio" name="stil_buchung" value="1" data-vergleich-betrag="118.00" data-vergleich-text="von der gewählten Abbuchung"><span>verknüpfen mit 03.11.2026 · 118,00 €</span></label>
+      <label class="wahl-zeile"><input type="radio" name="stil_buchung" value="" checked><span>nicht verknüpfen</span></label>
+    </fieldset>
+  </div></form>
+</section>
 {% endblock %}

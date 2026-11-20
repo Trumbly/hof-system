@@ -77,7 +77,7 @@ class SerieForm(forms.Form):
         required=False,
         max_length=4000,
         widget=forms.Textarea(attrs={"rows": 5}),
-        help_text="Steht im Schreiben an der Stelle {{ mitteilung.text }} der Vorlage. "
+        help_text="Erscheint im Schreiben an der Stelle des Mitteilungstexts. "
         "Namen, Anschrift und Beträge setzt das System selbst ein.",
     )
     auswahl = forms.MultipleChoiceField(

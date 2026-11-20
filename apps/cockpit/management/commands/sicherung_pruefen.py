@@ -14,13 +14,17 @@ from typing import Any
 from django.utils import timezone
 
 from apps.cockpit import services
-from apps.kern.laeufe import LaufBefehl
+from apps.kern.laeufe import DEV_UEBERSPRUNGEN, LaufBefehl
 
 
 class Command(LaufBefehl):
     help = "Prüft die Statusdatei der letzten Sicherung (Alter höchstens 26 Stunden, Ergebnis ok)."
 
     def ausfuehren(self, **optionen: Any) -> str:
+        vorab = services.sicherung_lesen()
+        if vorab.grund == services.GRUND_OHNE_STATUSDATEI and self.in_dev_ueberspringen():
+            # Review 3, Punkt 10: In der Entwicklung läuft keine Sicherung; kein Arbeitsposten.
+            return f"{DEV_UEBERSPRUNGEN}: keine Statusdatei der Sicherung ({vorab.pfad})."
         pruefung = services.sicherung_pruefen(lauf=self.lauf)
         stand = pruefung.stand
         if pruefung.neuer_posten is not None:

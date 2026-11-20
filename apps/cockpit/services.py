@@ -43,6 +43,8 @@ from apps.kern.models import Arbeitsposten, Lauf, Objekt
 logger = logging.getLogger(__name__)
 
 ART_SICHERUNG = "Sicherung prüfen"
+#: Grund, wenn scripts/backup.sh noch nie gelaufen ist (in der Entwicklung immer).
+GRUND_OHNE_STATUSDATEI = "Statusdatei fehlt"
 
 #: So viele Kennungen stehen höchstens im Text einer Aufgabe.
 KENNUNGEN_GRENZE = 60
@@ -360,7 +362,7 @@ def sicherung_lesen(
     try:
         daten = json.loads(pfad.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        return Sicherungsstand(pfad=str(pfad), grund="Statusdatei fehlt")
+        return Sicherungsstand(pfad=str(pfad), grund=GRUND_OHNE_STATUSDATEI)
     except (OSError, ValueError):
         return Sicherungsstand(pfad=str(pfad), grund="Statusdatei unlesbar")
     if not isinstance(daten, dict):

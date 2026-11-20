@@ -309,13 +309,22 @@ def wert_text(modell: type[models.Model], schluessel: str, wert: Any) -> str:
 def objekt_titel(modell: type[models.Model], daten: dict[str, Any]) -> str:
     """Lesbarer Name eines Objekts aus seinen Daten: „Vertrag V-0002“, „Kündigung #3“.
 
-    Nutzt ``__str__`` des Modells; das nennt im Hof-System nur Nummern und IDs.
+    Nutzt ``__str__`` des Modells; das nennt im Hof-System nur Nummern und IDs. Trägt
+    ``__str__`` einen internen Schlüssel (``Checkliste #18 rueckgabe``), gibt das Modell mit
+    ``protokoll_titel()`` den Klartext dazu (Review 3, Punkt 10: „Checkliste Rückgabe“).
+    Auch der enthält keine Personendaten, nur Art, Phase oder Rolle.
     """
     name = str(modell._meta.verbose_name)
     pk = daten.get(modell._meta.pk.attname)
     erlaubt = {f.attname for f in modell._meta.concrete_fields}
     try:
-        text = str(modell(**{k: v for k, v in daten.items() if k in erlaubt}))
+        objekt = modell(**{k: v for k, v in daten.items() if k in erlaubt})
+        klartext = getattr(objekt, "protokoll_titel", None)
+        if callable(klartext):
+            titel = str(klartext())
+            if titel:
+                return titel
+        text = str(objekt)
     except Exception:  # __str__ darf hier nie die Seite kippen
         text = ""
     if not text or "object (" in text:
@@ -681,6 +690,22 @@ def _zeilen(
             )
         )
     return zeilen
+
+
+#: Titel, die nur sagen, dass etwas entstand: Die Rücknahme nennt dann nur den Gegenstand.
+_ANGELEGT = re.compile(r"^(?P<gegenstand>.+?) (?:erfasst|angelegt)$")
+
+
+def ruecknahme_titel(titel: str) -> str:
+    """Kurzer Satz nach einer Rücknahme (Review 3, Punkt 10).
+
+    „Kündigung V-0002 erfasst“ wird „Kündigung V-0002 zurückgenommen“. Andere Titel stehen
+    in Anführungszeichen („„Miete V-0002 ab 01.12.2026 geändert“ zurückgenommen“), damit
+    nicht der Eindruck entsteht, der Vertrag selbst sei zurückgenommen."""
+    treffer = _ANGELEGT.match(titel.strip())
+    if treffer is not None:
+        return f"{treffer['gegenstand']} zurückgenommen"
+    return f"„{titel.strip()}“ zurückgenommen"
 
 
 _NUMMERIERT = re.compile(r"^(?P<wort>\S+) #(?P<nr>\d+)(?P<rest>.*)$")

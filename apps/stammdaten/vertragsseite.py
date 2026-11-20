@@ -437,6 +437,8 @@ def kopf_kontext(vertrag: Vertrag) -> dict[str, Any]:
         "einheiten": list(vertrag.einheiten.select_related("objekt")),
         "mieter": _mieter(vertrag),
         "kondition_heute": vertrag.kondition_am(max(heute, vertrag.beginn)),
+        # Review 3, Punkt 5: Beginnt der Vertrag erst, heißt es „ab“ und „Miete ab Beginn“.
+        "beginn_kuenftig": vertrag.beginn > heute,
         "konto": konto,
         "saldo": _saldo(konto),
         "naechste_frist": naechste,

@@ -15,6 +15,9 @@
     <form method="post" action="{% url 'dokumente:schreiben_verwerfen' schreiben.pk %}">
       {% csrf_token %}<button type="submit" class="knopf knopf-text">Verwerfen</button>
     </form>
+    {% if neu_erzeugen %}<form method="post" action="{% url 'dokumente:schreiben_neu_erzeugen' schreiben.pk %}">
+      {% csrf_token %}<button type="submit" class="knopf knopf-primaer">Neu erzeugen</button>
+    </form>{% endif %}
   </div>
   {% endif %}
 </header>
@@ -25,7 +28,7 @@
     {% csrf_token %}
     <input type="hidden" name="pruefsumme" value="{{ schreiben.pdf_sha256 }}">
     {% if anwalt %}<div class="feld feld-haken-zeile"><label class="haken-label"><input class="feld-haken" type="checkbox" name="anwalt_gesehen" value="1" required><span>Der Anwalt hat diese Kündigung gesehen und freigegeben.</span></label></div>{% endif %}
-    {% if gesperrt %}<p class="hinweis-band hinweis-warnung" id="senden-gesperrt" role="status">Senden gesperrt: {{ gesperrt }}</p>{% endif %}
+    {% if gesperrt %}<p class="hinweis-band hinweis-warnung" id="senden-gesperrt" role="status">{{ gesperrt }}</p>{% endif %}
     <div class="formular-fuss">
       <span class="text-2">Erst das PDF prüfen; gesendet wird genau dieses PDF.</span>
       <button type="submit" class="knopf knopf-primaer"{% if gesperrt %} disabled aria-describedby="senden-gesperrt"{% endif %}>Senden ({{ versandweg }})</button>
