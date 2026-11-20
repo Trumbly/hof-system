@@ -12,17 +12,23 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
       </p>
     </div>
     <div class="seitenkopf-aktionen">
-      <a class="knopf knopf-zweit" href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a>
-      {% if vertrag.status == "aktiv" %}<a class="knopf knopf-zweit" href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a>{% endif %}
+      {% comment %} Eine Hauptaktion je Status, alles Weitere unter „mehr ▾“ (Apple-Design, PR C):
+      Entwurf → Übergabe, gekündigt → Rückgabe, sonst „Schreiben erstellen“. {% endcomment %}
       {% if vertrag.status == "entwurf" %}
       <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'uebergabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-primaer">Übergabe am Handy</button></form>
-      {% elif vertrag.status == "aktiv" or vertrag.status == "gekuendigt" %}
-      <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit" class="knopf {% if vertrag.status == 'gekuendigt' %}knopf-primaer{% else %}knopf-zweit{% endif %}">Rückgabe am Handy</button></form>
+      {% elif vertrag.status == "gekuendigt" %}
+      <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-primaer">Rückgabe am Handy</button></form>
+      {% else %}
+      <a class="knopf knopf-primaer" href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a>
       {% endif %}
-      <a class="knopf knopf-zweit" href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a>
       <details class="menue">
         <summary class="knopf knopf-zweit">mehr ▾</summary>
         <ul class="menue-liste">
+          <li><a href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a></li>
+          {% if vertrag.status == "aktiv" %}<li><a href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a></li>
+          <li><form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit">Rückgabe am Handy</button></form></li>{% endif %}
+          {% if vertrag.status == "entwurf" or vertrag.status == "gekuendigt" %}<li><a href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a></li>{% endif %}
+          <li class="menue-trenner" role="separator"></li>
           <li><a href="{{ basis }}?dialog=unterschrift" hx-get="{{ basis }}?dialog=unterschrift" hx-target="#dialog-inhalt">Unterschrift und Scan erfassen</a></li>
           <li><a href="{{ basis }}?dialog=partei" hx-get="{{ basis }}?dialog=partei" hx-target="#dialog-inhalt">Partei hinzufügen</a></li>
           {% if kaution_obj %}<li><a href="{{ basis }}?dialog=kaution" hx-get="{{ basis }}?dialog=kaution" hx-target="#dialog-inhalt">Kaution bearbeiten</a></li>{% endif %}
@@ -38,7 +44,7 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
     </div>
   </header>
 
-  <dl class="fakten">
+  <dl class="fakten fakten-kacheln">
     <div class="fakt fakt-breit">
       <dt>{% if mieter %}{{ mieter.0.rolle }}{% else %}Mieter{% endif %}</dt>
       {% for m in mieter %}{% if forloop.first %}

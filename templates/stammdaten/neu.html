@@ -1,9 +1,14 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}{{ titel }}{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>{{ titel }}</h1>
-{% if angenommene_anfrage %}<p class="meldung">Für {{ angenommene_anfrage.einheit.nw_id }} liegt die angenommene Buchungsanfrage <a href="{% url 'anbindungen:anfrage' angenommene_anfrage.pk %}">#{{ angenommene_anfrage.pk }}</a> vor ({{ angenommene_anfrage.kontakt_name|default:"ohne Namen" }}{% if angenommene_anfrage.wunsch_ab %}, gewünscht ab {{ angenommene_anfrage.wunsch_ab|date:"d.m.Y" }}{% endif %}). Der neue Vertrag wird mit ihr verknüpft.</p>{% endif %}
-{% include "stammdaten/_formular.html" with form=form aktion="neu" knopf="Anlegen" %}
+{% seitenkopf titel "Die NW-ID vergibt das System." %}{% endseitenkopf %}
+{% if angenommene_anfrage %}<p class="hinweis-band" role="note">Für {{ angenommene_anfrage.einheit.nw_id }} liegt die angenommene Buchungsanfrage <a href="{% url 'anbindungen:anfrage' angenommene_anfrage.pk %}">#{{ angenommene_anfrage.pk }}</a> vor ({{ angenommene_anfrage.kontakt_name|default:"ohne Namen" }}{% if angenommene_anfrage.wunsch_ab %}, gewünscht ab {{ angenommene_anfrage.wunsch_ab|date:"d.m.Y" }}{% endif %}). Der neue Vertrag wird mit ihr verknüpft.</p>{% endif %}
+{% url 'stammdaten:einheiten' as abbrechen %}
+{% karte %}
+  {% include "bausteine/formular.html" with form=form aktion="neu" knopf="Anlegen" abbrechen=abbrechen %}
+{% endkarte %}
 {% endblock %}

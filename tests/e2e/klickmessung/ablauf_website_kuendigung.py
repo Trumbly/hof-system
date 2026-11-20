@@ -32,7 +32,7 @@ SELEKTOREN = {
     "absender": "input[name=kuendigung-absender][value=vertragspartei]",
     # Umweg von Hand
     "vertrag": "main a:has-text('{vertrag}')",
-    "kuendigung_dialog": "main a:has-text('Kündigung erfassen')",
+    "kuendigung_dialog": "main #kuendigung a:has-text('Kündigung erfassen')",
     "zugang_am": "dialog[open] input[name=kuendigung-zugang_am]",
     "von": "dialog[open] select[name=kuendigung-von]",
     "zum_wunsch": "dialog[open] input[name=kuendigung-zum_wunsch]",

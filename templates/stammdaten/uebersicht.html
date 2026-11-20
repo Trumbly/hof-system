@@ -1,15 +1,23 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Stammdaten{% endblock %}
 
 {% block inhalt %}
-<h1>Stammdaten</h1>
-<ul class="kacheln">
-  <li><a class="kachel" href="{% url 'stammdaten:einheiten' %}"><strong>{{ einheiten }}</strong> Einheiten</a></li>
-  <li><a class="kachel" href="{% url 'stammdaten:parteien' %}"><strong>{{ parteien }}</strong> Parteien</a></li>
-  <li><a class="kachel" href="{% url 'stammdaten:vertraege' %}"><strong>{{ zaehlung.laufend }}</strong> laufende Verträge{% if zaehlung.entwurf %} <span class="leise">· {{ zaehlung.entwurf }} Entw{{ zaehlung.entwurf|pluralize:"urf,ürfe" }}</span>{% endif %}</a></li>
-  <li><a class="kachel" href="{% url 'stammdaten:leerstand' %}">Leerstand und entgangener Ertrag</a></li>
-  <li><a class="kachel" href="{% url 'stammdaten:datenstand' %}">Datenstand: <strong>{{ luecken }}</strong> fehlende Pflichtfelder</a></li>
-  <li><a class="kachel" href="{% url 'stammdaten:vertrag_neu' %}">Neuer Vertrag</a></li>
-</ul>
+{% seitenkopf "Stammdaten" %}
+  <a class="knopf knopf-primaer" href="{% url 'stammdaten:vertrag_neu' %}" hx-get="{% url 'stammdaten:vertrag_neu' %}" hx-target="#dialog-inhalt">Neuer Vertrag</a>
+{% endseitenkopf %}
+
+<div class="kennzahlen-reihe stammdaten-zahlen">
+  <a class="kennzahl" href="{% url 'stammdaten:einheiten' %}"><span class="kennzahl-titel">Einheiten</span><span class="kennzahl-wert"><strong>{{ einheiten }}</strong></span></a>
+  <a class="kennzahl" href="{% url 'stammdaten:parteien' %}"><span class="kennzahl-titel">Parteien</span><span class="kennzahl-wert"><strong>{{ parteien }}</strong></span></a>
+  <a class="kennzahl" href="{% url 'stammdaten:vertraege' %}"><span class="kennzahl-titel">Verträge</span><span class="kennzahl-wert"><strong>{{ zaehlung.laufend }}</strong> <span class="kennzahl-einheit">laufend</span></span>{% if zaehlung.entwurf %}<span class="kennzahl-unter">{{ zaehlung.entwurf }} Entw{{ zaehlung.entwurf|pluralize:"urf,ürfe" }}</span>{% endif %}</a>
+  <a class="kennzahl{% if luecken %} kennzahl-warnung{% endif %}" href="{% url 'stammdaten:datenstand' %}"><span class="kennzahl-titel">Datenstand</span><span class="kennzahl-wert"><strong>{{ luecken }}</strong></span><span class="kennzahl-unter">fehlende Pflichtfelder</span></a>
+</div>
+
+{% karte %}
+  <ul class="liste">
+    <li><a class="liste-zeile" href="{% url 'stammdaten:leerstand' %}"><span class="liste-haupt">Leerstand und entgangener Ertrag</span></a></li>
+  </ul>
+{% endkarte %}
 {% endblock %}

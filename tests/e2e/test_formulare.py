@@ -73,7 +73,9 @@ def _pruefen(
 
 def _kuendigungsdialog(seite: Page, adressen: dict[str, Any]) -> Locator:
     seite.goto(adressen["vertrag_smoke"], wait_until="networkidle")
-    seite.click("main a:has-text('Kündigung erfassen')")
+    # Apple-Design (PR C): Im Kopf steht „Kündigung erfassen“ unter „mehr ▾“; die Karte
+    # „Kündigung“ hat denselben Link sichtbar.
+    seite.click("main #kuendigung a:has-text('Kündigung erfassen')")
     formular = seite.locator(f"{DIALOG} form")
     formular.wait_for(state="visible")
     return formular
