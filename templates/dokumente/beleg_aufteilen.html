@@ -1,24 +1,36 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Beleg #{{ beleg.pk }} aufteilen{% endblock %}
 
 {% block inhalt %}
+<header class="seitenkopf">
+  <div class="seitenkopf-text">
+    <h1>Sammelrechnung aufteilen</h1>
+    <p class="seitenkopf-meta">Beleg #{{ beleg.pk }}{% if beleg.betrag %} über {{ beleg.betrag|euro }}{% endif %}: ein Teil je Objekt oder Kostenart. Die Teile ergeben zusammen den Gesamtbetrag.</p>
+  </div>
+</header>
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Sammelrechnung aufteilen</h1>
-<p class="leise">Beleg #{{ beleg.pk }}{% if beleg.betrag %} über {{ beleg.betrag|floatformat:"2g" }} €{% endif %}: ein Teil je Objekt oder Kostenart. Die Teile ergeben zusammen den Gesamtbetrag.</p>
-<form method="post" class="formular">
+
+<form method="post" class="stapel dok-teile">
   {% csrf_token %}
   {{ teile.management_form }}
-  {% if teile.non_form_errors %}<p class="formfehler">{{ teile.non_form_errors|join:" " }}</p>{% endif %}
+  {% if teile.non_form_errors %}<div class="formfehler" role="alert">{% for fehler in teile.non_form_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
   {% for teil in teile %}
-  <fieldset>
-    <legend>Teil {{ forloop.counter }}</legend>
-    {{ teil.as_p }}
+  <fieldset class="karte dok-teil">
+    <legend class="karte-titel">Teil {{ forloop.counter }}</legend>
+    <div class="karte-rumpf">
+      {% if teil.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in teil.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+      {% for verborgen in teil.hidden_fields %}{{ verborgen }}{% endfor %}
+      <div class="felder felder-2">
+        {% for f in teil.visible_fields %}{% feld f %}{% endfor %}
+      </div>
+    </div>
   </fieldset>
   {% endfor %}
-  <div class="aktionen">
-    <button type="submit">Aufteilen</button>
-    <a class="knopf zweitrangig" href="{% url 'dokumente:beleg' beleg.pk %}">Zurück</a>
+  <div class="formular-fuss">
+    <a class="knopf knopf-zweit" href="{% url 'dokumente:beleg' beleg.pk %}">Zurück</a>
+    <button type="submit" class="knopf knopf-primaer">Aufteilen</button>
   </div>
 </form>
 {% endblock %}

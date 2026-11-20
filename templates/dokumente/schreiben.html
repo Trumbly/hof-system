@@ -4,7 +4,6 @@
 {% block titel %}Schreiben #{{ schreiben.pk }}{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_reiter.html" %}
 <header class="seitenkopf">
   <div class="seitenkopf-text">
     <h1>{{ titel }}</h1>
@@ -21,7 +20,9 @@
   </div>
   {% endif %}
 </header>
+{% include "dokumente/_reiter.html" %}
 
+<div class="stapel">
 {% if schreiben.status == "bereit" %}
 <form method="post" action="{% url 'dokumente:schreiben_senden' schreiben.pk %}" class="karte senden" id="senden">
   <div class="karte-rumpf">
@@ -92,5 +93,6 @@
     {% endkarte %}
     {% endif %}
   </div>
+</div>
 </div>
 {% endblock %}

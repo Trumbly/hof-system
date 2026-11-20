@@ -1,5 +1,5 @@
 {% with seite=request.resolver_match.url_name %}
-<nav class="reiter" aria-label="Dokumente">
+<nav class="reiter dok-reiter" aria-label="Dokumente">
   <a href="{% url 'dokumente:schreiben_liste' %}"{% if seite == 'schreiben_liste' or seite == 'schreiben' %} aria-current="page"{% endif %}>Schreiben</a>
   <a href="{% url 'dokumente:vorlagen' %}"{% if 'vorlage' in seite %} aria-current="page"{% endif %}>Vorlagen</a>
   <a href="{% url 'dokumente:serie_neu' %}"{% if 'serie' in seite %} aria-current="page"{% endif %}>Serienmitteilung</a>

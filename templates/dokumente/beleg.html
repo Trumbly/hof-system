@@ -4,7 +4,6 @@
 {% block titel %}Beleg #{{ beleg.pk }}{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_ablage_reiter.html" %}
 {% seitenkopf kopf_titel kopf_meta %}
   {% if naechster %}<a class="knopf knopf-zweit" href="{% url 'dokumente:beleg' naechster.pk %}">Nächster offener Beleg →</a>{% endif %}
   {% if beleg.status != "verworfen" %}
@@ -21,6 +20,7 @@
   </details>
   {% endif %}
 {% endseitenkopf %}
+{% include "dokumente/_ablage_reiter.html" %}
 
 <div class="geteilt">
   <div class="geteilt-vorschau">

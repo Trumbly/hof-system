@@ -4,28 +4,32 @@
 {% block titel %}Schreiben{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_reiter.html" %}
 {% seitenkopf "Schreiben" "Nichts geht ohne Klick hinaus: Schreiben öffnen, PDF prüfen, dann senden." %}
   <a class="knopf knopf-zweit" href="{% url 'dokumente:serie_neu' %}">Serienmitteilung</a>
 {% endseitenkopf %}
+{% include "dokumente/_reiter.html" %}
 
 <div class="stapel">
 {% karte "Bereit zum Senden" zahl=bereit|length %}
+  {% if bereit %}
   <div class="tabelle-box">
   <table class="tab tab-karten">
     <thead><tr><th>Schreiben</th><th>Versandweg</th><th>Status</th><th>erzeugt</th></tr></thead>
-    <tbody>{% for s in bereit %}{% include "dokumente/_schreiben.html" %}{% empty %}{% include "bausteine/leer.html" with spalten=4 text="Nichts bereit." %}{% endfor %}</tbody>
+    <tbody>{% for s in bereit %}{% include "dokumente/_schreiben.html" %}{% endfor %}</tbody>
   </table>
   </div>
+  {% else %}{% include "bausteine/leer.html" with text="Nichts bereit." hilfe="Neue Schreiben entstehen am Vertrag, im Mahnwesen oder als Serienmitteilung." %}{% endif %}
 {% endkarte %}
 
 {% karte "Unterwegs" zahl=unterwegs|length %}
+  {% if unterwegs %}
   <div class="tabelle-box">
   <table class="tab tab-karten">
     <thead><tr><th>Schreiben</th><th>Versandweg</th><th>Status</th><th>erzeugt</th></tr></thead>
-    <tbody>{% for s in unterwegs %}{% include "dokumente/_schreiben.html" %}{% empty %}{% include "bausteine/leer.html" with spalten=4 text="Nichts unterwegs." %}{% endfor %}</tbody>
+    <tbody>{% for s in unterwegs %}{% include "dokumente/_schreiben.html" %}{% endfor %}</tbody>
   </table>
   </div>
+  {% else %}{% include "bausteine/leer.html" with text="Nichts unterwegs." hilfe="Gesendete Schreiben stehen hier, bis die Zustellung festgehalten ist." %}{% endif %}
 {% endkarte %}
 
 {% if erledigt %}

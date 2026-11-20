@@ -4,10 +4,10 @@
 {% block titel %}Belegmappe{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_ablage_reiter.html" %}
 {% seitenkopf "Belegmappe" "Je Objekt und Leistungsjahr: Inhaltsverzeichnis, Summen je Kostenart im Vergleich zum Kassenbuch, dahinter die Belege" %}
   {% if mappe %}<a class="knopf knopf-primaer" href="{% url 'dokumente:belegmappe_pdf' %}?objekt={{ mappe.objekt.pk }}&amp;jahr={{ mappe.jahr }}" target="_blank" rel="noopener">Belegmappe als PDF</a>{% endif %}
 {% endseitenkopf %}
+{% include "dokumente/_ablage_reiter.html" %}
 
 <form method="get" class="filterleiste">
   {% feld form.objekt %}

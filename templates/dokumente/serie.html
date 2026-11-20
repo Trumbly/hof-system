@@ -4,8 +4,8 @@
 {% block titel %}Serie{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_reiter.html" %}
 {% seitenkopf "Serie" "Vor dem Senden jedes PDF ansehen. „Alle senden“ sendet genau die Schreiben, die hier stehen." %}{% endseitenkopf %}
+{% include "dokumente/_reiter.html" %}
 
 <div class="stapel">
 {% if bereit %}
