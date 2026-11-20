@@ -4,8 +4,8 @@
 {% block titel %}Katalog der Website{% endblock %}
 
 {% block inhalt %}
-{% include "anbindungen/_unternavigation.html" %}
 {% seitenkopf "Katalog der Website" "" %}{% endseitenkopf %}
+{% include "anbindungen/_unternavigation.html" %}
 <p class="text-2">{{ im_katalog }} von {{ anzahl_alle }} vermarkteten Einheiten sind buchbar und stehen im Katalog. Buchbar ist eine Einheit, wenn sie eine Fläche hat, (ab einem Tag) frei ist, kein Vertrag sie bindet und keine angenommene Anfrage auf ihr liegt. Was dem Katalog fehlt, steht im <a href="{% url 'stammdaten:datenstand' %}#bereich-katalog">Datenstand</a>. Eine Rückgabe macht sie von selbst wieder buchbar.</p>
 
 {% include "bausteine/reiter.html" with reiter=schalter aktiv=alle|yesno:"alle,buchbar" beschriftung="Einheiten zeigen" %}

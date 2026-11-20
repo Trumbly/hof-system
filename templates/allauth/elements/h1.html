@@ -1,0 +1,5 @@
+{% comment %} Überschrift einer allauth-Seite als Seitenkopf (Baustein {% seitenkopf %}). Die Elemente
+   unter templates/allauth/elements/ setzen alle Seiten von allauth (Anmeldung, zweiter Faktor,
+   Passwort, Wiederherstellungscodes) aus den Bausteinen des Hof-Systems zusammen. {% endcomment %}{% load allauth %}<header class="seitenkopf">
+  <div class="seitenkopf-text"><h1>{% slot %}{% endslot %}</h1></div>
+</header>

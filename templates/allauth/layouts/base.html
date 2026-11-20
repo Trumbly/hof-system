@@ -1,11 +1,16 @@
 {% extends "base.html" %}
 {% comment %}
   Alle Seiten von django-allauth (Anmeldung, zweiter Faktor, Konto) im Layout des
-  Hof-Systems. allauth füllt die Blöcke head_title und content.
+  Hof-Systems. allauth füllt die Blöcke head_title und content; die Elemente darin
+  (Überschrift, Formular, Feld, Knopf, Abschnitt) stehen unter templates/allauth/elements/ und
+  rendern in die Bausteine. Seiten vor der Anmeldung (entrance.html) stehen ohne Seitenleiste
+  als Karte in der Mitte, mit dem „H“ darüber.
 {% endcomment %}
 {% block titel %}{% block head_title %}{% endblock head_title %}{% endblock titel %}
+{% block breite %} schmal{% endblock %}
 {% block inhalt %}
-<div class="konto">
+<div class="konto{% block konto_art %}{% endblock %}">
+  {% block konto_marke %}{% endblock %}
   {% block body %}{% block content %}{% endblock content %}{% endblock body %}
 </div>
 {% block extra_body %}{% endblock extra_body %}

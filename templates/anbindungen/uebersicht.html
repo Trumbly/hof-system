@@ -20,15 +20,15 @@
 <div class="raster raster-2">
 {% url 'kern:laeufe' as laeufe_url %}
 {% karte "Läufe der Anbindungen" link=laeufe_url link_text="alle Läufe" %}
-  <ul class="liste">
+  <ul class="liste anbindungen-laeufe">
     {% for name, lauf in laeufe %}
-    <li><span class="liste-haupt"><strong>{{ name }}</strong><br><span class="text-3 klein">{% if lauf %}{% badge lauf.status %} <a href="{{ laeufe_url }}#lauf-{{ lauf.pk }}">{{ lauf.gestartet_am|date:"d.m.Y H:i" }}</a>{% else %}noch nie gelaufen{% endif %}</span></span>
+    <li><span class="liste-haupt"><strong>{{ name }}</strong><span class="text-3 klein lauf-zuletzt">{% if lauf %}{% badge lauf.status %} <a href="{{ laeufe_url }}#lauf-{{ lauf.pk }}">{{ lauf.gestartet_am|date:"d.m.Y H:i" }}</a>{% else %}noch nie gelaufen{% endif %}</span></span>
       {% include "kern/_lauf_knopf.html" with name=name titel="" primaer=False ausserhalb=True %}</li>
     {% endfor %}
   </ul>
 {% endkarte %}
 {% karte "Schnittstellen" %}
-  <ul class="liste">
+  <ul class="liste anbindungen-schnittstellen">
     <li><span class="liste-haupt">Die Website liest den Katalog über <code>/api/website/katalog</code> und meldet Buchungen und Kündigungen über <code>/api/website/ereignis</code>.</span></li>
     <li><span class="liste-haupt">Token für die Website: <code>manage.py website_token</code>.</span></li>
     <li><span class="liste-haupt">Verwaltio liefert nachts nur Kennzahlen mit NW-ID; Namen und Einzelheiten bleiben in Verwaltio.</span></li>
