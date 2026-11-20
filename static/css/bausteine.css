@@ -3303,8 +3303,8 @@ form.sendet .datei-knoepfe {
   align-self: start;
 }
 
-/* Designschalter (Experiment „Apple-Design“, apps.kern.design): nur mit DEBUG eingebunden.
-   Die Regeln hier gelten für die bisherige Gestaltung; design-apple.css gestaltet ihn neu. */
+/* Designschalter (Apple-Design, apps.kern.design): nur mit DEBUG eingebunden.
+   Die Regeln hier gelten für die bisherige Gestaltung; css/apple/basis.css gestaltet ihn neu. */
 .design-schalter {
   display: flex;
   flex-wrap: wrap;

@@ -26,9 +26,9 @@ from .base import *  # noqa: F403
 
 DEBUG = True
 
-# Experiment „Apple-Design“ (apps.kern.design): in dev voreingestellt; umschalten über den
-# Schalter unten in der Seitenleiste oder ?design=standard. HOF_DESIGN=standard schaltet ab.
-HOF_DESIGN = os.environ.get("HOF_DESIGN", "apple")
+# Apple-Design (apps.kern.design) in dev voreingestellt; umschalten über den Schalter unten in
+# der Seitenleiste oder ?design=standard.
+HOF_DESIGN_STANDARD = os.environ.get("HOF_DESIGN_STANDARD", "apple")
 
 if EMAIL_BACKEND == "django.core.mail.backends.filebased.EmailBackend":  # noqa: F405
     # Relativ zum Projekt, nicht zum Arbeitsverzeichnis (``filemail:///tmp/mails``).

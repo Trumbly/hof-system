@@ -194,9 +194,9 @@ MAHNWESEN_BAGATELLGRENZE = Decimal(env.str("HOF_MAHN_BAGATELLGRENZE", default="2
 _stichtag = env.str("HOF_STICHTAG", default="")
 HOF_STICHTAG = date.fromisoformat(_stichtag) if _stichtag else None
 
-# Gestaltung (Experiment „Apple-Design“, apps.kern.design): „standard“ oder „apple“.
-# Überall „standard“; dev.py stellt „apple“ voreingestellt, nur dort gibt es den Schalter.
-HOF_DESIGN = "standard"
+# Gestaltung (apps.kern.design): „standard“ (bisher) oder „apple“. Hier und in Tests und prod
+# „standard“; dev.py und e2e.py stellen „apple“ ein. Umschalten nur mit DEBUG (Schalter).
+HOF_DESIGN_STANDARD = "standard"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

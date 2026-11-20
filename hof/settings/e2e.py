@@ -10,6 +10,7 @@ import os
 from .dev import *  # noqa: F403
 
 DEBUG = False
-# Wie auf dem Server: die bisherige Gestaltung. Nur der Fall „Apple-Design“
-# (tests/e2e/test_design_apple.py) startet einen zweiten Server mit HOF_DESIGN=apple.
-HOF_DESIGN = os.environ.get("HOF_DESIGN", "standard")
+# Die Oberflächentests laufen im Apple-Design. Nur der Fall „bisherige Gestaltung“
+# (tests/e2e/test_design_standard.py) startet einen zweiten Server mit
+# HOF_DESIGN_STANDARD=standard.
+HOF_DESIGN_STANDARD = os.environ.get("HOF_DESIGN_STANDARD", "apple")

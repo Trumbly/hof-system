@@ -1,14 +1,15 @@
-"""Designschalter für das Experiment „Apple-Design“ (prompts/15, nur Gestaltung).
+"""Designschalter: bisherige Gestaltung („standard“) oder Apple-Design („apple“).
 
 Zwei Gestaltungen liegen nebeneinander: ``standard`` (werte.css, bausteine.css) und ``apple``
-(zusätzlich static/css/design-apple.css, am ``<html data-design="apple">``).
+(zusätzlich die Dateien unter static/css/apple/, am ``<html data-design="apple">``; Liste in
+``APPLE_CSS``, base.html lädt sie in dieser Reihenfolge).
 
-- Voreingestellt ist ``settings.HOF_DESIGN``: in dev ``apple``, in Tests, E2E und prod
-  ``standard``.
+- Voreingestellt ist ``settings.HOF_DESIGN_STANDARD``: in dev und E2E ``apple``, in Tests und
+  prod ``standard``.
 - Nur mit ``DEBUG`` lässt sich umschalten: ``?design=standard`` bzw. ``?design=apple`` setzt
   die Wahl und merkt sie im Cookie ``hof_design``; der Schalter steht unten in der
   Seitenleiste und im Blatt „Mehr“. Ohne ``DEBUG`` gibt es weder Schalter noch Parameter
-  noch Cookie, es gilt allein ``HOF_DESIGN``.
+  noch Cookie, es gilt allein ``HOF_DESIGN_STANDARD``.
 """
 
 from __future__ import annotations
@@ -24,9 +25,22 @@ COOKIE = "hof_design"
 #: Ein Jahr: Die Wahl bleibt, bis man sie ändert.
 COOKIE_DAUER = 365 * 24 * 60 * 60
 
+#: Stylesheets des Apple-Designs in fester Reihenfolge, nach werte.css, hof.css und
+#: bausteine.css: Werte und Rahmen, Bausteine, dann je Bereich eine Datei. Kein @import,
+#: damit der Browser alle zugleich lädt.
+APPLE_CSS = (
+    "css/apple/basis.css",
+    "css/apple/bausteine.css",
+    "css/apple/arbeitslisten.css",
+    "css/apple/stammdaten.css",
+    "css/apple/geld.css",
+    "css/apple/dokumente.css",
+    "css/apple/system.css",
+)
+
 
 def voreinstellung() -> str:
-    design = getattr(settings, "HOF_DESIGN", "standard")
+    design = getattr(settings, "HOF_DESIGN_STANDARD", "standard")
     return design if design in DESIGNS else "standard"
 
 
@@ -65,4 +79,5 @@ def design(request: HttpRequest) -> dict[str, Any]:
         "hof_design": getattr(request, "hof_design", voreinstellung()),
         "hof_design_schalter": schalter_an(),
         "hof_designs": DESIGNS,
+        "hof_apple_css": APPLE_CSS,
     }

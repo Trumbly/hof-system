@@ -1,16 +1,19 @@
 # Design-Review „nachher“: Startseite und Rahmen im Apple-Design
 
-Stand: Branch `experiment-apple-design`. Zweite Gestaltung in
-`static/css/design-apple.css` über `werte.css`; die bisherige Gestaltung ist unverändert.
+Stand: Branch `experiment-apple-design`, fortgeschrieben in PR A (`apple-a-grundlage`).
+Zweite Gestaltung unter `static/css/apple/` über `werte.css` (seit PR A: `basis.css` mit
+Werten, Rahmen und Startseite, `bausteine.css` mit allen Bausteinen, dazu je Bereich eine
+Datei); die bisherige Gestaltung ist unverändert.
 Geprüft mit dem Skill `apple-design` an denselben Stellen wie in
 [apple-review-vorher.md](apple-review-vorher.md). Quellen als `Datei › Abschnitt`, Inhalt in
 eigenen Worten.
 
-**Umschalten (nur dev, `DEBUG = True`):** In dev ist das Apple-Design voreingestellt
-(`HOF_DESIGN` in `hof/settings/dev.py`). Unten in der Seitenleiste (am Handy im Blatt „Mehr“)
-steht „Design: Standard · Apple“; die Wahl merkt ein Cookie. Direkt geht es mit
-`/?design=standard` oder `/?design=apple`. Ohne `DEBUG` (Tests, E2E, prod) gibt es weder
-Schalter noch Parameter, es gilt „standard“.
+**Umschalten (nur dev, `DEBUG = True`):** In dev und in den Oberflächentests ist das
+Apple-Design voreingestellt (`HOF_DESIGN_STANDARD` in `hof/settings/dev.py` und `e2e.py`), in
+Tests und prod die bisherige Gestaltung. Unten in der Seitenleiste (am Handy im Blatt „Mehr“)
+steht der Schalter „Standard · Apple“; die Wahl merkt ein Cookie. Direkt geht es mit
+`/?design=standard` oder `/?design=apple`. Ohne `DEBUG` gibt es weder Schalter noch
+Parameter noch Cookie.
 
 **Screenshots** (`screens/`, Playwright, Chromium):
 
@@ -108,7 +111,7 @@ Stand der 15 Befunde von vorher; das sind keine neuen Befunde.
 | 2 | Schrift in festen Pixeln | Erledigt für Rahmen und Startseite: alle Größen in rem, kleinste 0,75 rem. | `accessibility.md › Vision` |
 | 3 | Fließtext am Handy 15 px | Erledigt: 17 px am Handy, 15 px am Desktop. | `typography.md › Ensuring legibility` |
 | 4 | Keine Rangfolge | Erledigt: Stufen 34 / 28 (Kennzahl) / 17 / 15 / 13. Kennzahlen mit farbigem Titel und großer Zahl als Zusammenfassung. Die Reihenfolge der Kacheln kommt aus dem Register der Apps und bleibt. | `typography.md › Conveying hierarchy`, `layout.md › Visual hierarchy` |
-| 5 | Ziele unter 44 px | Erledigt: Seitenleiste, Suchfeld, Abmelden, Marke im Kopf, Tabs, Listenzeilen, Kartenlinks und Knöpfe mindestens 44 px, bei 390 und 1440 px (E2E-Prüfung). | `accessibility.md › Mobility` |
+| 5 | Ziele unter 44 px | Erledigt: Suchfeld, Abmelden, Marke, Tabs, Listenzeilen, Kartenlinks, Reiter, Felder und Knöpfe mindestens 44 px, bei 390 und 1440 px (E2E-Prüfung). Ausnahme seit PR A: Zeilen der Seitenleiste mit Maus 36 px (Befund D). | `accessibility.md › Mobility` |
 | 6 | Weiterführende Zeilen ohne Hinweis | Erledigt: Pfeil „›“ an jeder Link-Zeile und Kachel. | `lists-and-tables.md › Platform considerations › Mobile` |
 | 7 | Dunkel ohne Tiefe | Erledigt: Grund dunkler, Karten heller, keine Rahmen. | `dark-mode.md › Platform considerations › Mobile` |
 | 8 | Rahmen überall | Erledigt: Karten ohne Rahmen, Haarlinien nur zwischen Zeilen und eingerückt wie in einer gruppierten Liste. | `lists-and-tables.md › Style` |
@@ -148,15 +151,23 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
 - **Quelle:** `lists-and-tables.md › Content`: Zeilentext kurz halten.
 - **Vorschlag:** Anzeigenamen der Läufe statt der Befehlsnamen (Vorlage der Kachel).
 
-### D. Seitenleiste scrollt bei 900 px Höhe (Low)
+### D. Seitenleiste bei 900 px Höhe (erledigt in PR A)
 
-- **Was:** Mit 44-px-Zeilen passen bei 1440 × 900 nicht alle 18 Einträge; „Schreiben“ und die
-  Gruppe „System“ liegen unter der Blende.
-- **Quelle:** `accessibility.md › Mobility` (Apple nennt am Desktop 28 pt als Standard; die
-  44 px sind die Vorgabe dieses Experiments). `sidebars.md › Platform considerations ›
-  Desktop`: keine kritischen Aktionen am unteren Rand.
-- **Abwägung:** Entweder 44 px und Scrollen (so umgesetzt) oder am Desktop mit Maus 36 px
-  und alles sichtbar. Das entscheidet Max.
+- **Was (Experiment):** Mit 44-px-Zeilen passten bei 1440 × 900 nicht alle Einträge;
+  „Schreiben“ und die Gruppe „System“ lagen unter der Blende.
+- **Entscheidung von Max (PR A):** Mit Maus (`pointer: fine`) sind die Zeilen der
+  Seitenleiste 36 px hoch; mit Finger (`pointer: coarse`) und am Handy bleiben es 44 px.
+  Knöpfe und alle übrigen Klickflächen bleiben überall mindestens 44 px.
+- **Umsetzung:** Damit bei 1440 × 900 alles sichtbar ist (auch mit Testhof-Band und
+  Designschalter in dev), steht am Desktop das „H“ neben der Suche statt einer eigenen Zeile
+  mit dem Schriftzug, „Abmelden“ und der Schalter teilen sich die letzte Zeile, das Konto
+  erreicht man über „Konto“ in der Navigation, und das Testhof-Band liegt nur über der
+  Inhaltsspalte. Gemessen: Navigation 765 px Inhalt bei 765 px Platz, kein Scrollen
+  (E2E: `test_seitenleiste_passt_bei_1440_mal_900`).
+- **Quelle:** `accessibility.md › Mobility` (Apple nennt am Desktop 28 pt als Standard, also
+  liegen 36 px darüber). `branding.md › Best practices`: das Logo nicht auf jeder Seite
+  wiederholen. `sidebars.md › Platform considerations › Desktop`: keine kritischen Aktionen
+  am unteren Rand (Abmelden und der Schalter sind es nicht).
 
 ### E. Uneinheitliche Kacheltitel (Low, offen aus vorher 13)
 
@@ -202,6 +213,6 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
 | Seitenleiste ein- und ausblendbar | `sidebars.md › Best practices` | Braucht Logik und eine Einstellung je Benutzer. |
 | Gruppen der Seitenleiste als Aufklapper | `sidebars.md › Best practices` | Kostet Klicks (Klickmessung aus Review 2). |
 | Suche am Handy unten | `search-fields.md › Platform considerations › Phone` | Unten liegt die Tab-Leiste; die Suche bleibt oben. |
-| Desktop-Ziele 28 pt | `accessibility.md › Mobility` | Vorgabe von Max: 44 px. Siehe Befund D. |
+| Desktop-Ziele 28 pt | `accessibility.md › Mobility` | Vorgabe von Max: 44 px, nur die Seitenleiste mit Maus 36 px. Siehe Befund D. |
 | Abwechselnde Zeilenfarben in Tabellen | `lists-and-tables.md › Platform considerations › Desktop` | Auf der Startseite gibt es keine mehrspaltige Tabelle; Thema für die übrigen Seiten. |
 | Titelschreibung (Title Case) | `lists-and-tables.md › Content`, `writing.md › Best practices` | Gilt fürs Englische. |

@@ -154,6 +154,24 @@ KONTRASTE = (
     ("Feldrahmen auf Fläche", "3,1:1", "3,5:1"),
 )
 
+#: Dieselben Paare im Apple-Design (static/css/apple/basis.css), gerechnet wie oben.
+KONTRASTE_APPLE = (
+    ("Text auf Fläche", "16,8:1", "15,5:1"),
+    ("Text 2 auf Fläche", "6,4:1", "8,3:1"),
+    ("Text 3 auf Fläche 2", "4,6:1", "5,5:1"),
+    ("Schrift auf Primär (Knopf)", "5,3:1", "8,1:1"),
+    ("Schrift auf sekundärem Knopf", "13,3:1", "11,7:1"),
+    ("Link auf Grund", "4,8:1", "10,2:1"),
+    ("Auswahl (Seitenleiste)", "5,9:1", "8,3:1"),
+    ("Text 2 auf Material", "6,0:1", "8,3:1"),
+    ("ok auf ok-Grund", "6,2:1", "8,2:1"),
+    ("Hinweis auf Hinweis-Grund", "6,5:1", "8,1:1"),
+    ("Warnung auf Warnung-Grund", "6,6:1", "8,6:1"),
+    ("Fehler auf Fehler-Grund", "6,3:1", "7,9:1"),
+    ("neutral auf neutral-Grund", "6,8:1", "7,7:1"),
+    ("Feldrahmen auf Fläche", "3,4:1", "3,7:1"),
+)
+
 BEISPIEL_ZEILEN = (
     {
         "nummer": "V-0001",
@@ -215,13 +233,22 @@ def stilseite(request: HttpRequest) -> HttpResponse:
         {"optionen_fehler-wunsch": "aufhebung"}, prefix="optionen_fehler"
     )
     optionen_fehler.is_valid()
+    apple = getattr(request, "hof_design", "standard") == "apple"
     return render(
         request,
         "kern/stil.html",
         {
             "farben": FARBEN,
-            "kontraste": KONTRASTE,
-            "groessen": (13, 15, 17, 20, 24, 30),
+            "untertitel": (
+                "Alle Bausteine im Apple-Design mit Beispielen · Werte in static/css/werte.css "
+                "und static/css/apple/basis.css, Bausteine in static/css/apple/bausteine.css"
+                if apple
+                else "Alle Bausteine der neuen Gestaltung mit Beispielen · Werte in "
+                "static/css/werte.css"
+            ),
+            "kontraste": KONTRASTE_APPLE if apple else KONTRASTE,
+            # Apple-Design: Stufen nach den iOS-Textstilen (Beschriftung bis großer Titel)
+            "groessen": (12, 13, 15, 17, 20, 22, 28, 34) if apple else (13, 15, 17, 20, 24, 30),
             "abstaende": (4, 8, 12, 16, 20, 24, 32, 40, 48),
             "badges": [(schluessel, b) for schluessel, b in BADGES.items()][:8],
             "alle_badges": BADGES,

@@ -1,0 +1,9 @@
+/* Apple-Design, Bereich Geld.
+ *
+ * Bank (Konten, Umsätze, Import, Freigabe), Kassenbuch, Offene Posten, Mahnwesen, Abgleich
+ * (Klärfall, Zuordnen, Aufteilen, Mietkonto, Zahlerregeln, Rückstände).
+ *
+ * Nur Seitenspezifisches: Was mehr als ein Bereich braucht, gehört nach apple/bausteine.css
+ * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
+ * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
+ */

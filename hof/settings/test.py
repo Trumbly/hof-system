@@ -23,6 +23,9 @@ os.environ.setdefault("HOF_STICHTAG", "2026-11-01")
 from .base import *  # noqa: F403
 
 DEBUG = False
+# Gestaltung (apps.kern.design): Tests prüfen das Markup der bisherigen; das Apple-Design
+# ändert nur Stylesheets und prüft sich in tests/kern/test_design.py und den E2E-Tests.
+HOF_DESIGN_STANDARD = "standard"
 ALLOWED_HOSTS = ["testserver", "localhost"]
 
 # Schnelles Hashing, Mails nur im Speicher: In Tests geht nichts hinaus.
