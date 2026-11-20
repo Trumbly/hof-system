@@ -5,6 +5,11 @@ und „Seite nicht gefunden“ sehen aus wie auf dem Server. Statische Dateien l
 ``runserver --insecure`` aus. Gestartet wird der Server von ``tests/e2e/server.py``.
 """
 
+import os
+
 from .dev import *  # noqa: F403
 
 DEBUG = False
+# Wie auf dem Server: die bisherige Gestaltung. Nur der Fall „Apple-Design“
+# (tests/e2e/test_design_apple.py) startet einen zweiten Server mit HOF_DESIGN=apple.
+HOF_DESIGN = os.environ.get("HOF_DESIGN", "standard")
