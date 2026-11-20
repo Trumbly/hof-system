@@ -187,8 +187,8 @@ def test_fristen_zeile_mit_erledigt_bleibt_flach(
 ) -> None:
     """Befund System (PR A): Fristen-Zeilen mit „Erledigt“ werden nicht höher als nötig.
 
-    Der Knopf bleibt 44 px. Eine Zeile ist nie höher als das Größere von Knopf (mit 2 px
-    Rand je Seite) und dem höchsten Text ihrer Zellen (mit dem Innenabstand der Zelle):
+    Der Knopf bleibt 44 px. Eine Zeile ist nie höher als das Größere von Knopf und höchstem
+    Text ihrer Zellen, jeweils mit Innenabstand und Rahmen der Zelle (3 px Toleranz):
     Zweizeiliger Inhalt (Art mit Hinweis, Datum mit Badge) darf die Zeile höher machen, der
     Knopf nicht. Zeilen mit nur einzeiligem Text sind höchstens 52 px hoch. Die Aktionen
     passen in ihre Zelle, und die Spalten stehen in allen Gruppen gleich. Mit Verdana als
@@ -205,19 +205,24 @@ def test_fristen_zeile_mit_erledigt_bleibt_flach(
             r.selectNodeContents(td);
             return r.getBoundingClientRect().height;
         };
+        // Innenabstand und Rahmen einer Zelle, wie der Browser sie rechnet
+        const rand = (td) => {
+            const s = getComputedStyle(td);
+            return parseFloat(s.paddingTop) + parseFloat(s.paddingBottom)
+                + parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth);
+        };
         const zeile = (z) => {
             const zellen = [...z.children].filter(td => !td.classList.contains('frist-aktionen'));
-            const td = zellen[0], s = getComputedStyle(td);
-            const rand = parseFloat(s.paddingTop) + parseFloat(s.paddingBottom);
-            const hoch = Math.max(...zellen.map(text));
             const aktionen = z.querySelector('.frist-aktionen');
+            const knopf = aktionen.querySelector('.knopf').getBoundingClientRect().height;
             const knoepfe = aktionen.querySelector('.zeilen-aktionen').getBoundingClientRect();
             return {
                 hoehe: z.getBoundingClientRect().height,
-                text: hoch + rand,
-                zeilenhoehe: parseFloat(s.lineHeight),
-                hochster_text: hoch,
-                knopf: aktionen.querySelector('.knopf').getBoundingClientRect().height,
+                text: Math.max(...zellen.map(td => text(td) + rand(td))),
+                knopfzeile: knopf + rand(aktionen),
+                zeilenhoehe: parseFloat(getComputedStyle(zellen[0]).lineHeight),
+                hochster_text: Math.max(...zellen.map(text)),
+                knopf,
                 passt: knoepfe.right <= aktionen.getBoundingClientRect().right + 0.5,
             };
         };
@@ -230,7 +235,9 @@ def test_fristen_zeile_mit_erledigt_bleibt_flach(
     assert zeilen, mass
     for z in zeilen:
         assert z["knopf"] >= ZIEL_PX - 0.5, z
-        assert z["hoehe"] <= max(z["knopf"] + 4, z["text"]) + 1, z
+        # Toleranz 3 px: Die Textbox einer Zeile ist etwas niedriger als ihre Zeilenhöhe
+        # (Durchschuss), und Browser runden Zeilenhöhen unterschiedlich.
+        assert z["hoehe"] <= max(z["knopfzeile"], z["text"]) + 3, z
         assert z["passt"], z
     einzeilig = [z for z in zeilen if z["hochster_text"] <= 1.5 * z["zeilenhoehe"]]
     assert einzeilig and max(z["hoehe"] for z in einzeilig) <= 52, zeilen
