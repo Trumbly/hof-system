@@ -62,22 +62,31 @@ def test_seite_r2_8(
     assert not befunde, f"{schluessel} ({pfad}) bei {breite} px:\n- " + "\n- ".join(befunde)
 
 
-#: Schmalste Breite, die Max prüft (Review 3, Abschluss): kleine Handys.
-SCHMAL = {"width": 320, "height": 700}
+#: Schmale Breiten (Review 3, Abschluss): 320 px wie gesehen, 300 px mit breiter Schrift
+#: (Verdana) als Ersatz für die breiteren Schriften der Pipeline unter Linux.
+SCHMAL = {
+    "320": (320, ""),
+    "300-breit": (300, "* { font-family: Verdana, sans-serif !important; }"),
+}
 
 
+@pytest.mark.parametrize("breite", list(SCHMAL))
 @pytest.mark.parametrize("schluessel", ["stil", "schreiben"])
-def test_seite_bei_320(seite: Page, adressen: dict[str, Any], schluessel: str) -> None:
+def test_seite_schmal(seite: Page, adressen: dict[str, Any], schluessel: str, breite: str) -> None:
     """Review 3, Abschluss: ``/stil/`` und die Seite eines Schreibens laufen auch bei 320 px
-    nicht über den Rand. Auf ``/stil/`` machten lange Pfade in ``<code>`` (Abschnitt
-    „Dateien“) die Seite 344 px breit; die Reiter scrollen in ihrer eigenen Leiste."""
+    und bei 300 px mit breiter Schrift nicht über den Rand. Auf ``/stil/`` machten lange
+    Pfade in ``<code>`` die Seite 344 px breit, beim Schreiben die Mail-Adresse in „Betreff …
+    an …“ und im Seitenkopf (329 px in der Pipeline). Die Reiter scrollen in ihrer Leiste."""
     pfad = adressen["seiten_r2_8"].get(schluessel)
     if pfad is None:
         pytest.skip(f"Keine Seite {schluessel} im Testhof.")
-    seite.set_viewport_size(SCHMAL)
+    px, stil = SCHMAL[breite]
+    seite.set_viewport_size({"width": px, "height": 700})
     seite.goto(pfad, wait_until="networkidle")
-    ziel = ZIEL / "320" / f"{schluessel}.png"
+    if stil:
+        seite.add_style_tag(content=stil)
+    ziel = ZIEL / breite / f"{schluessel}.png"
     ziel.parent.mkdir(parents=True, exist_ok=True)
     seite.screenshot(path=ziel, full_page=True)
     befunde = pruefen(seite)
-    assert not befunde, f"{schluessel} ({pfad}) bei 320 px:\n- " + "\n- ".join(befunde)
+    assert not befunde, f"{schluessel} ({pfad}) bei {breite} px:\n- " + "\n- ".join(befunde)

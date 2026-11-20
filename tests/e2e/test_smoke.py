@@ -107,20 +107,46 @@ def uebergabe_url(browser: Browser, anmeldung: Any, server: Server) -> str:
 
 
 def _ueberstehende_elemente(seite: Page) -> list[str]:
-    """Die (äußersten) Elemente, die rechts über die Breite des Fensters ragen."""
+    """Die (äußersten) Elemente und Texte, die rechts über die Breite des Fensters ragen.
+
+    Was in einem Vorfahren mit eigenem Scrollen oder Abschneiden liegt (Reiterleiste,
+    Tabellenkasten), verbreitert die Seite nicht und bleibt außen vor. Texte zählen mit: Ein
+    langes Wort (Mail-Adresse, Pfad) ragt aus seinem Kasten, ohne dass der Kasten selbst
+    übersteht (Review 3, Abschluss)."""
     return seite.evaluate(
         """() => {
         const breite = document.documentElement.clientWidth;
         const treffer = [];
+        const eingefasst = (e) => {
+            for (let v = e.parentElement; v && v !== document.body; v = v.parentElement) {
+                if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(v).overflowX))
+                    return true;
+            }
+            return false;
+        };
+        const name = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '')
+            + (e.className && typeof e.className === 'string'
+               ? '.' + e.className.trim().split(/\\s+/).join('.') : '');
         for (const e of document.body.querySelectorAll('*')) {
             const r = e.getBoundingClientRect();
             if (r.width === 0 || r.right <= breite) continue;
             if (e.parentElement && e.parentElement.getBoundingClientRect().right > breite
                 && e.parentElement !== document.body) continue;
-            const name = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '')
-                + (e.className && typeof e.className === 'string'
-                   ? '.' + e.className.trim().split(/\\s+/).join('.') : '');
-            treffer.push(`${name} (bis ${Math.round(r.right)} px)`);
+            if (eingefasst(e)) continue;
+            treffer.push(`${name(e)} (bis ${Math.round(r.right)} px)`);
+            if (treffer.length >= 5) return treffer;
+        }
+        const gang = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let t = gang.nextNode(); t; t = gang.nextNode()) {
+            const bereich = document.createRange();
+            bereich.selectNodeContents(t);
+            const r = bereich.getBoundingClientRect();
+            const e = t.parentElement;
+            if (!e || r.width === 0 || r.right <= breite) continue;
+            // eingefasst(t): auch das Element des Texts selbst darf abschneiden (.nur-leser)
+            if (e.getBoundingClientRect().right > breite || eingefasst(t)) continue;
+            const text = t.textContent.trim().replace(/\\s+/g, ' ').slice(0, 40);
+            treffer.push(`Text „${text}“ in ${name(e)} (bis ${Math.round(r.right)} px)`);
             if (treffer.length >= 5) break;
         }
         return treffer;
