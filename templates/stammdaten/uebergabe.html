@@ -59,7 +59,7 @@ Zusammenfassung mit allem, was fehlt, und je einem Link dorthin.
       <div class="feld feld-haken-zeile"><label class="haken-label" for="{{ feld_.id_for_label }}">{{ feld_ }}<span>{{ feld_.label }}</span></label></div>
       {% endif %}{% endfor %}
     </div>
-    {% if hindernisse %}<ul class="hindernisse liste" id="hindernisse">{% for h in hindernisse %}<li{% if "unterschrieben" in h %} data-unterschrift{% endif %}>{% badge "warnung" "fehlt" %} {{ h }}</li>{% endfor %}</ul>{% endif %}
+    {% if hindernisse %}<ul class="hindernisse liste" id="hindernisse">{% for h in hindernisse %}<li{% if "unterschrieben" in h %} data-unterschrift{% endif %}><span class="liste-haupt">{% badge "warnung" "fehlt" %} {{ h }}</span></li>{% endfor %}</ul>{% endif %}
     {% if uebergabe.art == "uebergabe" %}
     <script>
       // Review 2, A10: Die Warnung verschwindet sofort beim Anhaken.
@@ -148,7 +148,7 @@ Zusammenfassung mit allem, was fehlt, und je einem Link dorthin.
     </dl>
     {% if fehlt %}
     <h3 class="zusammenfassung-titel">Was noch fehlt</h3>
-    <ul class="hindernisse liste">{% for text, url in fehlt %}<li><span class="liste-haupt">{{ text }}</span><span class="liste-neben"><a href="{{ url }}">nachholen</a></span></li>{% endfor %}</ul>
+    <ul class="hindernisse liste">{% for text, url in fehlt %}<li><a class="liste-zeile" href="{{ url }}"><span class="liste-haupt">{{ text }}</span><span class="liste-neben">nachholen</span></a></li>{% endfor %}</ul>
     {% if hindernisse %}<p class="hinweis-band hinweis-warnung">Ohne Unterschrift und Kaution gibt es keinen Schlüssel (SOP, Grundregel 5); der Abschluss geht erst danach.</p>{% endif %}
     {% else %}
     <p>{% badge "ok" "vollständig" %} Alles erfasst.</p>

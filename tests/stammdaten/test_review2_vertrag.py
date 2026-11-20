@@ -111,7 +111,7 @@ def test_eine_zaehlung_der_vertraege(
     assert Vertrag.objects.bindend().count() == 3
 
     uebersicht = angemeldet.get(reverse("stammdaten:uebersicht")).content.decode()
-    assert re.search(r"<strong>2</strong> laufende Verträge", uebersicht)
+    assert re.search(r"<strong>2</strong> <span class=\"kennzahl-einheit\">laufend", uebersicht)
     liste = angemeldet.get(reverse("stammdaten:vertraege")).content.decode()
     assert len(re.findall(r'data-titel="Nummer"', liste)) == 2
     # Review 2, B11: Status als Reiter mit Zahl.

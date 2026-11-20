@@ -14,10 +14,10 @@ Zielmiete, Zähler. Wird nach jedem Speichern im Dialog ersetzt (oob).
       <a class="knopf knopf-zweit" href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">Bearbeiten</a>
       {% else %}
       {% if lage.ist_frei %}<a class="knopf knopf-primaer" href="{% url 'stammdaten:vertrag_neu' %}?einheit={{ einheit.pk }}" hx-get="{% url 'stammdaten:vertrag_neu' %}?einheit={{ einheit.pk }}" hx-target="#dialog-inhalt">Neuer Vertrag</a>{% elif lage.vertrag %}<a class="knopf knopf-zweit" href="{% url 'stammdaten:vertrag' lage.vertrag.pk %}">Vertrag {{ lage.vertrag.nummer }}</a>{% endif %}
-      <a class="knopf knopf-zweit" href="{{ basis }}?dialog=zielmiete" hx-get="{{ basis }}?dialog=zielmiete" hx-target="#dialog-inhalt">Zielmiete ändern</a>
       <details class="menue">
         <summary class="knopf knopf-zweit">mehr ▾</summary>
         <ul class="menue-liste">
+          <li><a href="{{ basis }}?dialog=zielmiete" hx-get="{{ basis }}?dialog=zielmiete" hx-target="#dialog-inhalt">Zielmiete ändern</a></li>
           <li><a href="{{ basis }}?dialog=status" hx-get="{{ basis }}?dialog=status" hx-target="#dialog-inhalt">Status setzen</a></li>
           <li><a href="{{ basis }}?dialog=stammfelder" hx-get="{{ basis }}?dialog=stammfelder" hx-target="#dialog-inhalt">Einheit bearbeiten</a></li>
           <li><a href="{{ basis }}?dialog=schluessel" hx-get="{{ basis }}?dialog=schluessel" hx-target="#dialog-inhalt">Schlüssel hinzufügen</a></li>
@@ -35,7 +35,7 @@ Zielmiete, Zähler. Wird nach jedem Speichern im Dialog ersetzt (oob).
   {% if einheit.ist_wohnraum %}
   <p class="hinweis-band" id="verwaltio" role="note">Wohnraum: {{ einheit.hinweis }}. Hier stehen nur NW-ID und Objekt, ohne Vertrag, Status und Zielmiete.</p>
   {% else %}
-  <dl class="fakten">
+  <dl class="fakten fakten-kacheln">
     <div class="fakt fakt-breit">
       <dt>{% if lage.vertrag %}Vertrag und Mieter{% else %}Vertrag{% endif %}</dt>
       {% if lage.vertrag %}

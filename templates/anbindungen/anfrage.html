@@ -29,7 +29,7 @@ Namen und Kontakt stehen hier für Max' Arbeit; Arbeitsposten und Logs nennen nu
   {% endif %}
 </header>
 
-<dl class="fakten">
+<dl class="fakten fakten-kacheln">
   <div class="fakt fakt-breit">
     <dt>Kontakt</dt>
     <dd><span class="fakt-name">{{ anfrage.kontakt_name|default:"ohne Namen" }}</span>
@@ -51,7 +51,7 @@ Namen und Kontakt stehen hier für Max' Arbeit; Arbeitsposten und Logs nennen nu
   </div>
 </dl>
 
-<div class="raster raster-2-1">
+<div class="raster raster-2-1 anfrage-raster">
   <div class="stapel">
     {% if kuendigung_formular %}
     {% with k=kuendigung_anlegen.0 %}

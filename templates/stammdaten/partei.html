@@ -1,33 +1,74 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Partei #{{ partei.pk }}{% endblock %}
 
 {% block inhalt %}
-<h1>{{ partei.anzeigename }} <span class="leise">Partei #{{ partei.pk }}</span></h1>
+{% comment %}
+Partei (Apple-Design, PR C): Kopf mit Name, links Name und Anschrift als Formular, rechts
+Kontaktwege und Verträge. Namen und Kontakt stehen hier für Max' Arbeit (Klarstellung zur
+KI-Grenze), nie in Logs oder Meldungen.
+{% endcomment %}
+{% url 'stammdaten:partei' partei.pk as basis %}
+<header class="seitenkopf">
+  <div class="seitenkopf-text">
+    <p class="kopf-pfad"><a href="{% url 'stammdaten:parteien' %}">Parteien</a> / Partei #{{ partei.pk }}</p>
+    <h1>{{ partei.anzeigename|default:"(ohne Namen)" }}</h1>
+    <p class="seitenkopf-meta">Partei #{{ partei.pk }}{% if partei.ort %} · {{ partei.ort }}{% endif %}</p>
+  </div>
+</header>
 
-<section id="stammfelder">
-  <h2>Name und Anschrift</h2>
-  {% include "stammdaten/_formular.html" with form=stammfelder aktion="stammfelder" %}
-</section>
+<div class="raster raster-2-1">
+  <div class="stapel">
+    {% karte "Name und Anschrift" id="stammfelder" %}
+      <form class="formular-neu" method="post" action="{{ basis }}">
+        {% csrf_token %}
+        <input type="hidden" name="aktion" value="stammfelder">
+        {% if stammfelder.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in stammfelder.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+        {% for verborgen in stammfelder.hidden_fields %}{{ verborgen }}{% endfor %}
+        <div class="felder">
+          <div class="felder felder-2">{% feld stammfelder.art %}{% feld stammfelder.anrede %}</div>
+          <div class="felder felder-2">{% feld stammfelder.vorname %}{% feld stammfelder.nachname %}</div>
+          {% feld stammfelder.firma breit=True %}
+          {% feld stammfelder.adresszusatz breit=True %}
+          {% feld stammfelder.strasse breit=True %}
+          <div class="felder felder-2">{% feld stammfelder.plz %}{% feld stammfelder.ort %}</div>
+          {% feld stammfelder.anschrift_folgt %}
+          {% feld stammfelder.notiz breit=True %}
+        </div>
+        <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer">Speichern</button></div>
+      </form>
+    {% endkarte %}
+  </div>
 
-<section id="kontaktwege">
-  <h2>Kontaktwege</h2>
-  <ul class="posten-liste">
-    {% for k in kontaktwege_liste %}
-    <li class="posten">
-      {{ k.get_art_display }}: {{ k.wert }}{% if k.bevorzugt %} <span class="leise">(bevorzugt)</span>{% endif %}
-      <form method="post" action="{% url 'stammdaten:kontaktweg_entfernen' k.pk %}" class="aktionen">{% csrf_token %}<button type="submit" class="zweitrangig">Entfernen</button></form>
-    </li>
-    {% empty %}
-    <li class="leise">Noch kein Kontaktweg.</li>
-    {% endfor %}
-  </ul>
-  <h3>Kontaktweg hinzufügen</h3>
-  {% include "stammdaten/_formular.html" with form=kontaktwege aktion="kontaktwege" knopf="Hinzufügen" %}
-</section>
+  <div class="stapel">
+    <section class="karte" id="kontaktwege">
+      <header class="karte-kopf"><h2 class="karte-titel">Kontaktwege <span class="zaehler">{{ kontaktwege_liste|length }}</span></h2></header>
+      <ul class="liste">
+        {% for k in kontaktwege_liste %}
+        <li>
+          <span class="liste-haupt"><span class="text-3 klein">{{ k.get_art_display }}</span> {% if k.art == "email" %}<a href="mailto:{{ k.wert }}">{{ k.wert }}</a>{% else %}<a href="tel:{{ k.wert|cut:' ' }}">{{ k.wert }}</a>{% endif %}{% if k.bevorzugt %} {% badge "neutral" "bevorzugt" %}{% endif %}</span>
+          <span class="liste-neben"><form method="post" action="{% url 'stammdaten:kontaktweg_entfernen' k.pk %}">{% csrf_token %}<button type="submit" class="knopf knopf-text knopf-klein">Entfernen</button></form></span>
+        </li>
+        {% empty %}
+        <li class="liste-leer text-3">Noch kein Kontaktweg.</li>
+        {% endfor %}
+      </ul>
+      <div class="karte-rumpf kontaktweg-neu">
+        <h3>Kontaktweg hinzufügen</h3>
+        {% include "bausteine/formular.html" with form=kontaktwege aktion="kontaktwege" knopf="Hinzufügen" url=basis zweit=True %}
+      </div>
+    </section>
 
-<section id="vertraege">
-  <h2>Verträge</h2>
-  <ul>{% for vp in vertragsparteien %}<li><a href="{% url 'stammdaten:vertrag' vp.vertrag.pk %}">{{ vp.vertrag.nummer }}</a> · {{ vp.get_rolle_display }} · {{ vp.vertrag.get_status_display }}</li>{% empty %}<li class="leise">Keine Verträge.</li>{% endfor %}</ul>
-</section>
+    {% karte "Verträge" zahl=vertragsparteien|length id="vertraege" %}
+      <ul class="liste">
+        {% for vp in vertragsparteien %}
+        <li><a class="liste-zeile" href="{% url 'stammdaten:vertrag' vp.vertrag.pk %}"><span class="liste-haupt"><strong>{{ vp.vertrag.nummer }}</strong> <span class="text-3 klein">{{ vp.get_rolle_display }}</span></span><span class="liste-neben">{% badge vp.vertrag.status %}</span></a></li>
+        {% empty %}
+        <li class="liste-leer text-3">Keine Verträge.</li>
+        {% endfor %}
+      </ul>
+    {% endkarte %}
+  </div>
+</div>
 {% endblock %}

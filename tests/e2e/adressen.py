@@ -128,6 +128,8 @@ def sammeln() -> dict[str, Any]:
         },
         # Weitere Seiten aus R2-8 (Belege, Fristen, Listen, Datenstand, Schreiben)
         "seiten_r2_8": _seiten_r2_8(beleg),
+        # Stammdaten im Apple-Design (PR C, tests/e2e/test_apple_stammdaten.py)
+        "seiten_stammdaten": _seiten_stammdaten(vertrag, einheit, anfrage_buchung),
         "login": reverse("account_login"),
         "gesund": reverse("kern:gesund"),
         "arbeitslisten": reverse("kern:arbeitslisten"),
@@ -186,6 +188,32 @@ def _seiten_r2_8(beleg: Beleg) -> dict[str, str]:
     }
     if schreiben is not None:
         seiten["schreiben"] = reverse("dokumente:schreiben", args=[schreiben.pk])
+    return seiten
+
+
+def _seiten_stammdaten(
+    vertrag: Vertrag, einheit: Einheit, anfrage_buchung: Buchungsanfrage
+) -> dict[str, str]:
+    mieter = vertrag.vertragsparteien.order_by("pk").first()
+    anfrage_kuendigung = Buchungsanfrage.objects.get(art=Buchungsanfrage.Art.KUENDIGUNG)
+    seiten = {
+        "uebersicht": reverse("stammdaten:uebersicht"),
+        "einheiten": reverse("stammdaten:einheiten"),
+        "einheit": reverse("stammdaten:einheit", args=[einheit.pk]),
+        "einheit_neu": reverse("stammdaten:einheit_neu"),
+        "leerstand": reverse("stammdaten:leerstand"),
+        "vertraege": reverse("stammdaten:vertraege"),
+        "vertrag": reverse("stammdaten:vertrag", args=[vertrag.pk]),
+        "vertrag_neu": reverse("stammdaten:vertrag_neu"),
+        "parteien": reverse("stammdaten:parteien"),
+        "partei_neu": reverse("stammdaten:partei_neu"),
+        "uebergaben": reverse("stammdaten:uebergaben"),
+        "anfragen": reverse("anbindungen:anfragen"),
+        "anfrage_buchung": reverse("anbindungen:anfrage", args=[anfrage_buchung.pk]),
+        "anfrage_kuendigung": reverse("anbindungen:anfrage", args=[anfrage_kuendigung.pk]),
+    }
+    if mieter is not None:
+        seiten["partei"] = reverse("stammdaten:partei", args=[mieter.partei_id])
     return seiten
 
 
