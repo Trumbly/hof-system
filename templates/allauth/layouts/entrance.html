@@ -1,0 +1,5 @@
+{% extends "allauth/layouts/base.html" %}
+{% comment %} Seiten vor der Anmeldung (Anmelden, zweiter Faktor, Passwort vergessen): ohne
+   Seitenleiste, als Karte in der Mitte. {% endcomment %}
+{% block konto_art %} konto-eingang{% endblock %}
+{% block konto_marke %}<p class="anmeldung-marke" aria-hidden="true">H</p>{% endblock %}

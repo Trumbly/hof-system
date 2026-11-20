@@ -2,6 +2,9 @@
 Grundgerüst der Fehlerseiten (400, 403, 404, 500). Eigenständig: kein static, keine
 Navigation, keine Datenbank. Die Seite 500 bekommt keinen Kontext; sie muss auch dann
 erscheinen, wenn sonst nichts mehr geht.
+Aussehen wie das Apple-Design (static/css/apple/basis.css): gruppierter Grund, Karte ohne
+Rahmen, Knopf als Kapsel, hell und dunkel. Die Werte stehen hier, weil die Seite kein
+Stylesheet laden darf; sie sind dieselben wie in basis.css (Kontraste dort gerechnet).
 {% endcomment %}<!doctype html>
 <html lang="de">
 <head>
@@ -10,25 +13,43 @@ erscheinen, wenn sonst nichts mehr geht.
   <meta name="robots" content="noindex">
   <title>{% block titel %}Fehler{% endblock %} · Hof-System</title>
   <style>
-    :root { --text: #1d2321; --leise: #5a645f; --grund: #fbfaf7; --akzent: #2f5d46; color-scheme: light dark; }
-    @media (prefers-color-scheme: dark) { :root { --text: #e8ebe9; --leise: #a3aca7; --grund: #161a18; --akzent: #7fbf9d; } }
-    body { margin: 0; padding: 2rem 1rem; background: var(--grund); color: var(--text);
-           font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-    main { max-width: 36rem; margin: 0 auto; }
-    h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
-    code { overflow-wrap: anywhere; }
-    .code { color: var(--leise); margin: 0 0 0.25rem; }
-    a { color: var(--akzent); }
-    .knopf { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 1rem;
-             border: 1px solid var(--akzent); border-radius: 6px; text-decoration: none; }
+    :root { --grund: #f2f3f0; --flaeche: #ffffff; --text: #1b1e1c; --text-2: #5a605c;
+            --primaer: #217a4f; --primaer-text: #ffffff; --flaeche-2: #e9ebe7;
+            color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) {
+      :root { --grund: #0d0f0e; --flaeche: #1a1d1b; --text: #f3f5f4; --text-2: #b0b7b3;
+              --primaer: #3fbf7f; --primaer-text: #03140b; --flaeche-2: #2a2d2b; }
+    }
+    body { margin: 0; padding: clamp(1.5rem, 10vh, 6rem) 1rem 2rem; background: var(--grund);
+           color: var(--text);
+           font: 1.0625rem/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+                 "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 32rem; margin: 0 auto; }
+    .marke { display: flex; align-items: center; justify-content: center; width: 56px;
+             height: 56px; margin: 0 auto 1rem; border-radius: 12px; font-size: 1.375rem;
+             font-weight: 700; color: var(--primaer-text); background: var(--primaer); }
+    .karte { padding: 1.5rem 1.25rem; background: var(--flaeche); border-radius: 14px; }
+    .code { margin: 0 0 0.25rem; font-size: 0.8125rem; font-weight: 600; color: var(--text-2); }
+    h1 { margin: 0 0 0.75rem; font-size: 1.375rem; line-height: 1.25; }
+    p { margin: 0 0 1rem; }
+    code { overflow-wrap: anywhere; padding: 0 0.25rem; background: var(--flaeche-2);
+           border-radius: 4px; font-size: 0.9em; }
+    a { color: var(--primaer); }
+    .knopf { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1.25rem;
+             font-size: 0.9375rem; font-weight: 600; color: var(--primaer-text);
+             background: var(--primaer); border-radius: 999px; text-decoration: none; }
+    .karte > :last-child { margin-bottom: 0; }
   </style>
 </head>
 <body>
   <main>
-    <p class="code">Hof-System · Fehler {% block code %}{% endblock %}</p>
-    <h1>{% block ueberschrift %}{% endblock %}</h1>
-    {% block text %}{% endblock %}
-    <p><a class="knopf" href="/">Zur Startseite</a></p>
+    <p class="marke" aria-hidden="true">H</p>
+    <div class="karte">
+      <p class="code">Hof-System · Fehler {% block code %}{% endblock %}</p>
+      <h1>{% block ueberschrift %}{% endblock %}</h1>
+      {% block text %}{% endblock %}
+      <p><a class="knopf" href="/">Zur Startseite</a></p>
+    </div>
   </main>
 </body>
 </html>

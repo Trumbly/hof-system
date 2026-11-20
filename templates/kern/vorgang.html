@@ -8,7 +8,7 @@
 {% seitenkopf v.titel %}
   {% if vorschau and not sperren and v.zuruecknehmbar %}<a class="knopf knopf-zweit" href="#ruecknahme">Zurücknehmen …</a>{% endif %}
 {% endseitenkopf %}
-<dl class="fakten">
+<dl class="fakten" id="vorgang-fakten">
   <div class="fakt fakt-breit"><dt>Wer</dt><dd>{{ v.wer }}</dd></div>
   <div class="fakt"><dt>Zeit</dt><dd>{{ v.zeit|date:"d.m.Y H:i" }}</dd></div>
   <div class="fakt"><dt>Art</dt><dd>{{ v.art_titel }}</dd></div>
@@ -20,7 +20,7 @@
 {% endif %}
 
 <div class="stapel">
-{% karte "Änderungen" zahl=v.anzahl %}
+{% karte "Änderungen" zahl=v.anzahl id="vorgang-aenderungen" %}
   <div class="vorgang">{% include "kern/_vorgang_eintraege.html" %}</div>
 {% endkarte %}
 

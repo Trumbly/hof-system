@@ -5,4 +5,569 @@
  * Nur Seitenspezifisches: Was mehr als ein Bereich braucht, gehört nach apple/bausteine.css
  * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
  * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
+ *
+ * Inhalt: Faktenkopf (Zähler, Vorgang) · Fristen · Läufe · Protokoll und Vorgang ·
+ * Anbindungen (Anfragen, Bilder, Übersicht) · Zähler · Suche · Konto und Anmeldung (allauth).
  */
+
+/* === Faktenkopf (Zähler, Vorgang) ===================================================== */
+/* Wie die Zusammenfassung einer Detailseite: eine Karte ohne Rahmen, die Fakten in
+   Spalten, ohne Trennlinien. Kandidat für Bausteine (.fakten hat auch der Vertrag). */
+
+[data-design="apple"] #zaehler-kopf .fakten,
+[data-design="apple"] #vorgang-fakten {
+  gap: var(--a4) var(--a5);
+  padding: var(--a4);
+  background: var(--flaeche);
+  border: 0;
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] #zaehler-kopf .fakt,
+[data-design="apple"] #vorgang-fakten .fakt {
+  padding: 0;
+  background: none;
+}
+
+[data-design="apple"] #zaehler-kopf .fakt dt,
+[data-design="apple"] #vorgang-fakten .fakt dt {
+  font-size: var(--apple-fussnote);
+  color: var(--text-2);
+}
+
+[data-design="apple"] #zaehler-kopf .fakt dd,
+[data-design="apple"] #vorgang-fakten .fakt dd {
+  font-size: var(--apple-kopfzeile);
+}
+
+[data-design="apple"] #zaehler-kopf .fakt-wert {
+  font-size: var(--apple-titel-2);
+  font-weight: 600;
+}
+
+[data-design="apple"] #zaehler-kopf .fakt-unter {
+  font-size: var(--apple-fussnote);
+}
+
+[data-design="apple"] #zaehler-kopf .hinweis-band {
+  margin-bottom: var(--a4);
+}
+
+/* === Fristen ========================================================================== */
+/* Spalten in allen Gruppen gleich breit, Zeilen mittig: Mit „Erledigt“ (44 px) wird die
+   Zeile nicht höher als nötig. Art und Quelle mit Nebenzeile stehen untereinander. */
+
+[data-design="apple"] .frist-zelle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-design="apple"] .frist-quelle {
+  font-weight: 500;
+}
+
+[data-design="apple"] .frist-zelle > .klein {
+  font-size: var(--apple-fussnote);
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] #fristen .tab {
+    table-layout: fixed;
+  }
+
+  [data-design="apple"] #fristen .tab th:nth-child(1),
+  [data-design="apple"] #fristen .tab td:nth-child(1):not(.buendel) {
+    width: 12rem;
+  }
+
+  [data-design="apple"] #fristen .tab th:nth-child(3) {
+    width: 24%;
+  }
+
+  [data-design="apple"] #fristen .tab th:nth-child(4) {
+    width: 16%;
+  }
+
+  [data-design="apple"] #fristen .tab th:nth-child(5) {
+    width: 13.5rem;
+  }
+
+  [data-design="apple"] #fristen tr.frist > td {
+    vertical-align: middle;
+  }
+
+  /* Die Aktionen tragen ihre 44 px selbst; die Zelle legt nichts dazu. */
+  [data-design="apple"] #fristen td.frist-aktionen {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  [data-design="apple"] #fristen td.frist-aktionen .zeilen-aktionen {
+    justify-content: flex-end;
+  }
+
+  [data-design="apple"] #fristen tr.frist-erledigt td.frist-aktionen {
+    font-size: var(--apple-fussnote);
+    color: var(--text-2);
+    text-align: right;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Am Handy: Wert und Nebenzeile rechtsbündig untereinander */
+  [data-design="apple"] .tab-karten .frist-zelle {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  [data-design="apple"] #fristen td.frist-aktionen {
+    padding-top: var(--a1);
+  }
+
+  [data-design="apple"] #fristen td.frist-aktionen .zeilen-aktionen {
+    justify-content: flex-end;
+  }
+}
+
+/* === Läufe ============================================================================ */
+/* Lange Meldungen (Tageslauf, Abgleich) stehen auf drei Zeilen gekürzt; „ganze Meldung“
+   zeigt sie ganz. Kurze Meldungen bleiben, wie sie sind. */
+
+[data-design="apple"] .laeufe .lauf-meldung {
+  font-size: var(--apple-unterzeile);
+}
+
+[data-design="apple"] .lauf-meldung-lang:not(:has(> .lauf-meldung-mehr[open])) > .lauf-meldung {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+[data-design="apple"] .lauf-meldung-mehr > summary {
+  min-height: var(--ziel);
+  margin-left: calc(-1 * var(--a3));
+  list-style: none;
+  cursor: pointer;
+}
+
+[data-design="apple"] .lauf-meldung-mehr > summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-design="apple"] .lauf-meldung-mehr:not([open]) .lauf-meldung-weniger,
+[data-design="apple"] .lauf-meldung-mehr[open] .lauf-meldung-ganz {
+  display: none;
+}
+
+[data-design="apple"] .laeufe td > .aufklapper {
+  margin-top: var(--a1);
+  background: none;
+  box-shadow: none;
+}
+
+[data-design="apple"] .laeufe td > .aufklapper > summary {
+  padding: 0;
+  font-size: var(--apple-unterzeile);
+  font-weight: 500;
+}
+
+[data-design="apple"] .laeufe td > .aufklapper .aufklapper-inhalt {
+  padding: 0;
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .laeufe td[data-titel="Lauf"] > span {
+    white-space: nowrap;
+  }
+
+  /* Zahlen, Start und Status so schmal wie ihr Inhalt; der Rest gehört der Meldung */
+  [data-design="apple"] .laeufe th.zahl,
+  [data-design="apple"] .laeufe td.zahl,
+  [data-design="apple"] .laeufe td.eng,
+  [data-design="apple"] .laeufe th:nth-child(2),
+  [data-design="apple"] .laeufe th:nth-child(3) {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  [data-design="apple"] .laeufe td[data-titel="Meldung"] {
+    width: 45%;
+  }
+
+  [data-design="apple"] .lauf-meldung-mehr > summary {
+    margin-top: calc(-1 * var(--a2));
+    margin-bottom: calc(-1 * var(--a2));
+  }
+
+  [data-design="apple"] .laeufe td[data-titel="Lauf"] .text-3,
+  [data-design="apple"] .laeufe td[data-titel="Start"] .text-3 {
+    font-size: var(--apple-fussnote);
+  }
+}
+
+/* === Protokoll ======================================================================== */
+/* Filter in einer Zeile: Suchfeld breit, die übrigen schmal, „Filtern“ am Ende. Am Handy
+   zwei Spalten (Wer und Betrifft, von und bis nebeneinander). */
+
+[data-design="apple"] #protokoll-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--a3);
+}
+
+[data-design="apple"] #protokoll-filter > .feld {
+  min-width: 0;
+}
+
+[data-design="apple"] #protokoll-filter > .feld-breit,
+[data-design="apple"] #protokoll-filter > .filterleiste-knoepfe {
+  grid-column: 1 / -1;
+}
+
+[data-design="apple"] #protokoll-filter > .feld:nth-of-type(2) {
+  order: 1;
+}
+
+[data-design="apple"] #protokoll-filter > .feld:nth-of-type(5) {
+  order: 2;
+}
+
+[data-design="apple"] #protokoll-filter > .feld:nth-of-type(3) {
+  order: 3;
+}
+
+[data-design="apple"] #protokoll-filter > .feld:nth-of-type(4) {
+  order: 4;
+}
+
+[data-design="apple"] #protokoll-filter > .filterleiste-knoepfe {
+  order: 5;
+}
+
+[data-design="apple"] #protokoll-filter .feld-eingabe,
+[data-design="apple"] #protokoll-filter .feld-auswahl {
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 1200px) {
+  [data-design="apple"] #protokoll-filter {
+    grid-template-columns: minmax(16rem, 2fr) repeat(4, minmax(8.5rem, 1fr)) auto;
+  }
+
+  [data-design="apple"] #protokoll-filter > .feld-breit,
+  [data-design="apple"] #protokoll-filter > .filterleiste-knoepfe {
+    grid-column: auto;
+  }
+
+  [data-design="apple"] #protokoll-filter > * {
+    order: 0 !important;
+  }
+}
+
+/* Vorgänge: Aufklapper „n Änderungen“ ohne eigene Fläche, bündig unter dem Titel */
+[data-design="apple"] .protokoll td .aufklapper,
+[data-design="apple"] #vorgang-aenderungen .aenderungen .aufklapper {
+  background: none;
+  box-shadow: none;
+}
+
+[data-design="apple"] .protokoll td .aufklapper > summary {
+  padding: 0;
+  font-size: var(--apple-unterzeile);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .protokoll td .aufklapper-inhalt {
+  padding: 0 0 var(--a2);
+}
+
+/* „Zurücknehmen …“ steht mit dem Text der Zeile auf einer Linie (44 px Ziel bleibt) */
+@media (min-width: 1024px) {
+  [data-design="apple"] .protokoll td > .knopf-klein {
+    margin: -11px 0 -11px calc(-1 * var(--a3));
+  }
+
+  [data-design="apple"] .protokoll td[data-titel="Zeit"],
+  [data-design="apple"] .protokoll td[data-titel="Wer"] {
+    white-space: nowrap;
+  }
+}
+
+/* Vorgang: Änderungen als gruppierte Liste; „technische Angaben“ leise rechts */
+[data-design="apple"] #vorgang-aenderungen .karte-rumpf {
+  padding: 0 0 var(--a3);
+}
+
+[data-design="apple"] #vorgang-aenderungen .karte-rumpf > .vorgang > .text-3 {
+  padding: var(--a2) var(--a4) 0;
+}
+
+[data-design="apple"] .aenderungen > li {
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+[data-design="apple"] .aenderungen .liste-haupt {
+  padding: var(--a2) 0;
+}
+
+[data-design="apple"] .aenderungen .aufklapper > summary {
+  padding: 0;
+  font-size: var(--apple-fussnote);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .aenderungen .aufklapper[open] {
+  flex: 1 1 100%;
+}
+
+[data-design="apple"] .aenderungen .aufklapper-inhalt {
+  padding: 0 0 var(--a2);
+}
+
+[data-design="apple"] .aenderungen .aufklapper-inhalt .liste > li {
+  min-height: 0;
+  padding: var(--a1) 0;
+}
+
+[data-design="apple"] .aenderungen .aufklapper-inhalt .liste > li::before {
+  left: 0;
+}
+
+/* Gründe, warum ein Vorgang sich nicht zurücknehmen lässt */
+[data-design="apple"] #ruecknahme .liste {
+  margin: var(--a2) calc(-1 * var(--a4)) 0;
+}
+
+/* === Anbindungen ====================================================================== */
+
+/* Übersicht: Lauf mit Status und Knopf in einer Zeile, Knopf rechts */
+[data-design="apple"] .anbindungen-laeufe > li {
+  align-items: center;
+}
+
+[data-design="apple"] .anbindungen-laeufe > li > form,
+[data-design="apple"] .anbindungen-laeufe > li > .knopf {
+  margin-left: auto;
+}
+
+[data-design="apple"] .anbindungen-laeufe .liste-haupt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-design="apple"] .anbindungen-laeufe .lauf-zuletzt {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2);
+  font-size: var(--apple-fussnote);
+}
+
+[data-design="apple"] .anbindungen-schnittstellen code {
+  overflow-wrap: anywhere;
+}
+
+/* Bilder einer Einheit: Raster aus Karten mit Bild, Beschreibung und Aktion */
+[data-design="apple"] .bilder-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--a4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-design="apple"] .bild-karte {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--flaeche);
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] .bild-karte img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--flaeche-2);
+}
+
+[data-design="apple"] .bild-karte-text {
+  flex: 1;
+  padding: var(--a3) var(--a4) 0;
+}
+
+[data-design="apple"] .bild-karte form {
+  margin: 0;
+  padding: var(--a2) var(--a4) var(--a3);
+}
+
+/* === Zähler =========================================================================== */
+
+[data-design="apple"] .ablesung .karte-rumpf > .text-2:first-child {
+  margin-top: 0;
+}
+
+/* === Suche (Ergebnisseite) ============================================================ */
+
+[data-design="apple"] .suche-seite {
+  display: flex;
+  gap: var(--a2);
+  margin-bottom: var(--a6);
+}
+
+[data-design="apple"] .suche-seite .feld-eingabe {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--ziel);
+  border-radius: var(--radius-rund);
+  padding-inline: var(--a4);
+}
+
+/* === Konto und Anmeldung (allauth) ==================================================== */
+/* Alle Seiten von allauth rendern über templates/allauth/elements/ in die Bausteine
+   (Seitenkopf, Karte, Felder, Knöpfe). Hier nur, was es nur dort gibt. */
+
+/* Ohne Anmeldung gibt es keine Seitenleiste: Der Inhalt bekommt die ganze Breite, das
+   Testhof-Band liegt über der ganzen Seite (sonst nur über der Inhaltsspalte). */
+@media (min-width: 1024px) {
+  [data-design="apple"] .geruest:not(:has(> .leiste)) {
+    display: block;
+  }
+
+  [data-design="apple"] body:not(:has(.leiste)) > .stichtag-band {
+    left: 0;
+    border-radius: 0;
+  }
+}
+
+/* Anmeldung und zweiter Faktor ohne Seitenleiste: eine Karte in der Mitte */
+[data-design="apple"] .konto-eingang {
+  width: 100%;
+  max-width: 26rem;
+  margin: clamp(var(--a6), 10vh, 6rem) auto var(--a8);
+}
+
+[data-design="apple"] .konto-eingang .anmeldung-marke {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--a4);
+  font-size: var(--apple-titel-2);
+  font-weight: 700;
+  color: var(--primaer-text);
+  background: var(--primaer);
+  border-radius: var(--radius);
+}
+
+[data-design="apple"] .konto-eingang .seitenkopf {
+  justify-content: center;
+  margin-bottom: var(--a5);
+  text-align: center;
+}
+
+[data-design="apple"] .konto-eingang .seitenkopf-text {
+  width: 100%;
+}
+
+[data-design="apple"] .konto-eingang > p.text-2 {
+  text-align: center;
+}
+
+[data-design="apple"] .konto-eingang .seitenkopf h1 {
+  font-size: var(--apple-titel-2);
+  text-align: center;
+}
+
+[data-design="apple"] .konto-eingang .seitenkopf-meta {
+  font-size: var(--apple-unterzeile);
+}
+
+[data-design="apple"] .konto-eingang .karte-rumpf {
+  padding: var(--a5) var(--a4);
+}
+
+[data-design="apple"] .konto-eingang .formular-fuss {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+[data-design="apple"] .konto-eingang .formular-fuss .knopf {
+  width: 100%;
+}
+
+[data-design="apple"] .konto-eingang .konto-unten {
+  margin-top: var(--a4);
+  font-size: var(--apple-unterzeile);
+  color: var(--text-2);
+  text-align: center;
+}
+
+[data-design="apple"] .konto-eingang .konto-unten a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ziel);
+}
+
+/* QR-Code beim Einrichten der Authenticator-App: immer auf hellem Grund (Systemfarbe
+   „Canvas“ im hellen Schema), damit die App ihn auch im Dunkeln liest */
+[data-design="apple"] .konto-qr {
+  color-scheme: light;
+  display: block;
+  width: 12rem;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto var(--a4);
+  padding: var(--a2);
+  background: Canvas;
+  border-radius: var(--radius-klein);
+}
+
+/* Wiederherstellungscodes: Ziffern gleich breit, ohne Umbruch */
+[data-design="apple"] .konto textarea.feld-eingabe {
+  min-height: 10rem;
+  font-family: var(--schrift-mono);
+  font-size: var(--apple-kopfzeile);
+  line-height: 1.6;
+}
+
+[data-design="apple"] .konto .karte + .karte {
+  margin-top: var(--a5);
+}
+
+/* Hilfe zum neuen Passwort (Liste der Regeln von Django) klein unter dem Feld; der leere
+   Absatz davor, den die Liste aus der Hilfe drängt, fällt weg. */
+[data-design="apple"] .konto .feld > ul {
+  margin: var(--a1) 0 0;
+  padding-left: 1.2rem;
+  font-size: var(--apple-fussnote);
+  color: var(--text-2);
+}
+
+[data-design="apple"] .konto .feld > .feld-hilfe:empty {
+  display: none;
+}
+
+/* Lange Knopftexte von allauth („Verwenden Sie eine Authentifizierungs-App“) brechen um,
+   statt über den Rand zu laufen */
+[data-design="apple"] .konto .knopf {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}

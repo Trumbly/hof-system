@@ -1,0 +1,8 @@
+{% load allauth %}{# Abschnitt von allauth (z. B. „Authenticator-App“) als Karte, Aktionen unten rechts #}
+<section class="karte">
+  <header class="karte-kopf"><h2 class="karte-titel">{% slot title %}{% endslot %}</h2></header>
+  <div class="karte-rumpf">
+    {% slot body %}{% endslot %}
+    {% if slots.actions %}<div class="formular-fuss">{% for action in slots.actions %}{{ action }}{% endfor %}</div>{% endif %}
+  </div>
+</section>

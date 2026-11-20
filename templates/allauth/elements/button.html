@@ -1,0 +1,9 @@
+{% load allauth %}{% comment %} Knopf von allauth als .knopf: Absenden ist die Hauptaktion, Links und „secondary“
+   sind sekundär, „link“ ist ein Textknopf, „danger“ beim Absenden ein Gefahr-Knopf.
+   Die Reihenfolge im DOM bleibt die von allauth (Hauptaktion zuerst). {% endcomment %}{% spaceless %}
+{% if "link" in attrs.tags %}{% firstof "knopf-text" as art %}
+{% elif "danger" in attrs.tags and not attrs.href %}{% firstof "knopf-gefahr" as art %}
+{% elif "secondary" in attrs.tags or "outline" in attrs.tags or attrs.href %}{% firstof "knopf-zweit" as art %}
+{% else %}{% firstof "knopf-primaer" as art %}{% endif %}
+<{% if attrs.href %}a href="{{ attrs.href }}"{% else %}button{% endif %} class="knopf {{ art }}"{% if attrs.form %} form="{{ attrs.form }}"{% endif %}{% if attrs.id %} id="{{ attrs.id }}"{% endif %}{% if attrs.name %} name="{{ attrs.name }}"{% endif %}{% if attrs.value %} value="{{ attrs.value }}"{% endif %}{% if attrs.type %} type="{{ attrs.type }}"{% endif %}>{% slot %}{% endslot %}</{% if attrs.href %}a{% else %}button{% endif %}>
+{% endspaceless %}

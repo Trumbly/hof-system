@@ -1,0 +1,5 @@
+{% load bausteine %}{% comment %} Felder eines allauth-Formulars über den Baustein {% feld %}: Label oben, Hilfe und
+   Fehler am Feld. {% endcomment %}
+{% if attrs.form.non_field_errors %}<div class="formfehler feld-breit" role="alert">{% for fehler in attrs.form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+{% for verborgen in attrs.form.hidden_fields %}{{ verborgen }}{% endfor %}
+{% for f in attrs.form.visible_fields %}{% feld f breit=True pflicht=True %}{% endfor %}

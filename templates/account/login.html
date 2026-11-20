@@ -2,28 +2,36 @@
 {% comment %}
   Anmeldung mit E-Mail und Passwort. Ohne Hinweis auf eine Registrierung: Den Benutzer
   legt `manage.py benutzer_anlegen` an. Danach folgt der zweite Faktor (TOTP).
+  Ohne Seitenleiste: Karte in der Mitte (allauth/layouts/entrance.html), Felder und Knopf aus
+  den Bausteinen.
 {% endcomment %}
 {% block head_title %}Anmelden{% endblock head_title %}
 {% block content %}
-<h1>Anmelden</h1>
-<form method="post" action="{% url 'account_login' %}" class="formular">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<div class="formfehler" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-  <p>
-    <label for="{{ form.login.id_for_label }}">E-Mail</label>
-    <input type="email" name="{{ form.login.html_name }}" id="{{ form.login.id_for_label }}"
-           value="{{ form.login.value|default_if_none:'' }}" autocomplete="username" required autofocus>
-    {{ form.login.errors }}
-  </p>
-  <p>
-    <label for="{{ form.password.id_for_label }}">Passwort</label>
-    <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}"
-           autocomplete="current-password" required>
-    {{ form.password.errors }}
-  </p>
-  {{ redirect_field }}
-  <p><button type="submit">Anmelden</button></p>
-</form>
-<p class="leise">Danach fragt das Hof-System nach dem Code aus der Authenticator-App.</p>
-<p><a href="{% url 'account_reset_password' %}">Passwort vergessen?</a></p>
+{% load bausteine %}
+{% seitenkopf "Anmelden" "Hof-System" %}{% endseitenkopf %}
+<section class="karte">
+  <div class="karte-rumpf">
+    <form method="post" action="{% url 'account_login' %}" class="formular-neu">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+      <div class="felder">
+        <div class="feld feld-breit{% if form.login.errors %} feld-fehlerhaft{% endif %}">
+          <label class="feld-label" for="{{ form.login.id_for_label }}">E-Mail</label>
+          <input class="feld-eingabe" type="email" name="{{ form.login.html_name }}" id="{{ form.login.id_for_label }}"
+                 value="{{ form.login.value|default_if_none:'' }}" autocomplete="username" required autofocus{% if form.login.errors %} aria-invalid="true" aria-describedby="{{ form.login.id_for_label }}-fehler"{% endif %}>
+          {% if form.login.errors %}<p class="feld-fehler" id="{{ form.login.id_for_label }}-fehler">{{ form.login.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="feld feld-breit{% if form.password.errors %} feld-fehlerhaft{% endif %}">
+          <label class="feld-label" for="{{ form.password.id_for_label }}">Passwort</label>
+          <input class="feld-eingabe" type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}"
+                 autocomplete="current-password" required{% if form.password.errors %} aria-invalid="true" aria-describedby="{{ form.password.id_for_label }}-fehler"{% endif %}>
+          {% if form.password.errors %}<p class="feld-fehler" id="{{ form.password.id_for_label }}-fehler">{{ form.password.errors|join:" " }}</p>{% endif %}
+        </div>
+      </div>
+      {{ redirect_field }}
+      <div class="formular-fuss"><button type="submit" class="knopf knopf-primaer">Anmelden</button></div>
+    </form>
+  </div>
+</section>
+<p class="konto-unten">Danach fragt das Hof-System nach dem Code aus der Authenticator-App.<br><a href="{% url 'account_reset_password' %}">Passwort vergessen?</a></p>
 {% endblock content %}

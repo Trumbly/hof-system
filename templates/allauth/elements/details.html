@@ -1,0 +1,4 @@
+{% load allauth %}<details class="aufklapper"{% if attrs.open %} open{% endif %}>
+  <summary>{% slot summary %}{% endslot %}</summary>
+  <div class="aufklapper-inhalt">{% slot body %}{% endslot %}</div>
+</details>

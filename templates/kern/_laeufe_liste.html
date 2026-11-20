@@ -16,7 +16,8 @@
         <td data-titel="Arbeitsposten" class="zahl">{{ lauf.arbeitsposten|zahl }}</td>
         <td data-titel="Fehler" class="zahl">{% if lauf.fehler %}<strong class="text-fehler">{{ lauf.fehler|zahl }}</strong>{% else %}0{% endif %}</td>
         <td data-titel="Meldung">
-          {% if lauf.meldung %}<span class="lauf-meldung">{{ lauf.meldung|verlinkt }}</span>{% else %}<span class="text-3">–</span>{% endif %}
+          {% if lauf.meldung|length > 150 %}<div class="lauf-meldung-box lauf-meldung-lang"><span class="lauf-meldung">{{ lauf.meldung|verlinkt }}</span><details class="lauf-meldung-mehr"><summary class="knopf knopf-text knopf-klein"><span class="lauf-meldung-ganz">ganze Meldung</span><span class="lauf-meldung-weniger">weniger zeigen</span></summary></details></div>
+          {% elif lauf.meldung %}<span class="lauf-meldung">{{ lauf.meldung|verlinkt }}</span>{% else %}<span class="text-3">–</span>{% endif %}
           {% if z.posten %}
           {% aufklapper "Arbeitsposten dieses Laufs" zahl=z.posten|length %}
             <ul class="liste">{% for p in z.posten %}<li><a href="{% url 'kern:arbeitslisten' %}?art={{ p.art|urlencode }}#posten-{{ p.pk }}">Arbeitsposten #{{ p.pk }}</a><span class="liste-neben">{{ p.art }} · {{ p.get_status_display }}</span></li>{% endfor %}</ul>

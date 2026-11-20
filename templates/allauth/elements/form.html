@@ -1,0 +1,17 @@
+{% load allauth %}{% comment %} Formular von allauth wie bausteine/formular.html: in einer Karte, Felder im Raster,
+   unten die Knöpfe. Ohne sichtbare Felder (z. B. „Codes erzeugen“) nur die Knöpfe. {% endcomment %}
+{% if attrs.no_visible_fields %}
+<form class="formular-neu" method="{{ attrs.method }}"{% if attrs.action %} action="{{ attrs.action }}"{% endif %}{% if attrs.id %} id="{{ attrs.id }}"{% endif %}>
+  {% slot body %}{% endslot %}
+  {% if slots.actions %}<div class="formular-fuss">{% slot actions %}{% endslot %}</div>{% endif %}
+</form>
+{% else %}
+<section class="karte">
+  <div class="karte-rumpf">
+    <form class="formular-neu" method="{{ attrs.method }}"{% if attrs.action %} action="{{ attrs.action }}"{% endif %}{% if attrs.id %} id="{{ attrs.id }}"{% endif %}>
+      <div class="felder">{% slot body %}{% endslot %}</div>
+      {% if slots.actions %}<div class="formular-fuss">{% slot actions %}{% endslot %}</div>{% endif %}
+    </form>
+  </div>
+</section>
+{% endif %}
