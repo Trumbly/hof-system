@@ -2,8 +2,564 @@
  *
  * Arbeitslisten und Posteingang (templates/kern/arbeitslisten.html, _posteingang*.html,
  * _posten*.html): Arten links, Posten rechts, Auswahl j/k, Gruppen gleicher Ursache.
+ * Dazu die Arbeitsflächen in der Zeile (kassenbuch/_einordnen_*.html, abgleich/_klaerfall_*.html)
+ * und die Seiten „Umsatz einordnen“ (kassenbuch/zuordnen.html) und „Zahlung klären“
+ * (abgleich/klaerfall.html).
  *
  * Nur Seitenspezifisches: Was mehr als ein Bereich braucht, gehört nach apple/bausteine.css
  * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
  * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
+ *
+ * Aufbau einer Zeile (Desktop): Haken | Titel, Meta, Hinweis | Knöpfe; darunter über die
+ * ganze Breite die Arbeitsfläche (Umsatz, Felder, Karten) als graue Einlage. Am Handy stehen
+ * die Knöpfe unter der Arbeitsfläche, damit erst gewählt und dann übernommen wird.
+ * Dafür ist .posten-inhalt „display: contents“: Seine Kinder liegen direkt im Raster der Zeile.
+ *
+ * Inhalt: Arten · Kopf und Sammelleiste · Zeile · Arbeitsfläche · Gruppe · Handy ·
+ * Seiten Umsatz einordnen und Zahlung klären.
  */
+
+/* === Arten ============================================================================ */
+/* Gruppierte Liste ohne Rahmen; die gewählte Art wie in der Seitenleiste. Jede Zeile 44 px. */
+
+[data-design="apple"] .arten-liste {
+  padding: var(--a1);
+  background: var(--flaeche);
+  border: 0;
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] .neu .arten-liste a {
+  min-height: var(--ziel);
+  padding: var(--a1) var(--a3);
+  font-size: var(--apple-unterzeile);
+  border-radius: var(--radius);
+  transition: background var(--uebergang);
+}
+
+[data-design="apple"] .neu .arten-liste a:hover {
+  background: var(--fuellung-hover);
+}
+
+[data-design="apple"] .neu .arten-liste a[aria-current="page"] {
+  font-weight: 600;
+  color: var(--primaer-stark);
+  background: var(--primaer-weich);
+}
+
+[data-design="apple"] .arten-trenner {
+  margin-top: var(--a1);
+  padding-top: var(--a1);
+  border-top-color: var(--linie);
+}
+
+/* === Kopf der Liste und Sammelleiste ================================================== */
+
+[data-design="apple"] .posteingang-kopf {
+  gap: var(--a3) var(--a4);
+  margin-bottom: var(--a4);
+}
+
+[data-design="apple"] .neu .posteingang-kopf h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--a2);
+  font-size: var(--apple-titel-2);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* Sammelleiste: „alle wählen“ und die Aktionen für die gewählten Posten als eine Leiste */
+[data-design="apple"] .posteingang-sammel {
+  gap: 0 var(--a1);
+  padding: 0 var(--a1) 0 var(--a3);
+  background: var(--flaeche);
+  border-radius: var(--radius-rund);
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] .posteingang-sammel .haken-label {
+  margin-right: var(--a2);
+  font-size: var(--apple-unterzeile);
+}
+
+/* „← Arten“ gibt es nur am Handy (bis 1023 px) */
+[data-design="apple"] .posteingang-zurueck {
+  margin-left: calc(-1 * var(--a3));
+  font-size: var(--apple-unterzeile);
+}
+
+/* === Liste und Zeile ================================================================== */
+
+[data-design="apple"] .posten-liste {
+  background: var(--flaeche);
+  border: 0;
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] .posten-liste .posten-liste {
+  border-top: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+[data-design="apple"] .posten-zeile {
+  position: relative;
+  grid-template-columns: var(--ziel) minmax(0, 1fr) auto;
+  gap: 0 var(--a3);
+  align-items: start;
+  padding: var(--a3) var(--a4) var(--a3) var(--a2);
+  border-top: 0;
+}
+
+/* Haarlinie eingerückt bis zum Text, wie in einer gruppierten Liste */
+[data-design="apple"] .posten-liste > li + li::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: calc(var(--a2) + var(--ziel) + var(--a3));
+  height: 1px;
+  content: "";
+  background: var(--linie);
+}
+
+[data-design="apple"] .posten-liste > li + .posten-gruppe::before,
+[data-design="apple"] .posten-liste > .posten-gruppe + li::before {
+  left: 0;
+}
+
+[data-design="apple"] .posten-liste > li:first-child {
+  border-radius: var(--radius-karte) var(--radius-karte) 0 0;
+}
+
+[data-design="apple"] .posten-liste > li:last-child {
+  border-radius: 0 0 var(--radius-karte) var(--radius-karte);
+}
+
+[data-design="apple"] .posten-liste > li:only-child {
+  border-radius: var(--radius-karte);
+}
+
+[data-design="apple"] .posten-liste .posten-liste > li {
+  border-radius: 0;
+}
+
+[data-design="apple"] .posten-zeile:hover {
+  background: transparent;
+}
+
+/* Auswahl (j/k): Streifen links in Hof-Grün, Grund ganz leicht grün getönt */
+[data-design="apple"] .posten-zeile.posten-aktiv {
+  background: color-mix(in srgb, var(--primaer-weich) 45%, var(--flaeche));
+  box-shadow: inset 4px 0 0 var(--primaer);
+}
+
+[data-design="apple"] .posten-fehlerhaft,
+[data-design="apple"] .posten-zeile.posten-aktiv.posten-fehlerhaft {
+  box-shadow: inset 4px 0 0 var(--fehler);
+}
+
+/* Der Inhalt gibt seine Kinder an das Raster der Zeile weiter */
+[data-design="apple"] .posten-zeile > .posten-inhalt {
+  display: contents;
+}
+
+[data-design="apple"] .posten-wahl {
+  grid-row: 1 / span 3;
+  grid-column: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--ziel);
+  min-height: var(--ziel);
+  margin: calc(-1 * var(--a2)) 0 0;
+  padding: 0;
+}
+
+[data-design="apple"] .posten-inhalt > .posten-titel {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+[data-design="apple"] .posten-inhalt > .posten-meta {
+  grid-row: 2;
+  grid-column: 2;
+}
+
+[data-design="apple"] .posten-inhalt > .posten-hinweis {
+  grid-row: 3;
+  grid-column: 2 / -1;
+}
+
+[data-design="apple"] .posten-inhalt > .posten-arbeit {
+  grid-row: 4;
+  grid-column: 2 / -1;
+}
+
+[data-design="apple"] .posten-inhalt > .feld-fehler {
+  grid-row: 5;
+  grid-column: 2 / -1;
+  margin-top: var(--a2);
+}
+
+[data-design="apple"] .posten-zeile > .posten-knoepfe {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  align-items: center;
+  gap: 0 var(--a1);
+  margin-top: calc(-1 * var(--a1));
+}
+
+/* Titel: Art klein darüber (nur in „Alle offenen“), dann der Titel als Kopfzeile */
+[data-design="apple"] .neu .posten-titel {
+  font-size: var(--apple-kopfzeile);
+  line-height: 1.3;
+}
+
+[data-design="apple"] .neu .posten-titel strong {
+  font-weight: 600;
+}
+
+[data-design="apple"] .posten-art {
+  display: block;
+  margin: 0 0 2px;
+  font-size: var(--apple-fussnote);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .neu .posten-meta {
+  gap: 0 var(--a3);
+  margin-top: 2px;
+  font-size: var(--apple-fussnote);
+  line-height: 1.5;
+}
+
+[data-design="apple"] .neu .posten-meta .badge {
+  font-size: var(--apple-beschriftung);
+}
+
+[data-design="apple"] .neu .posten-hinweis {
+  max-width: 72ch;
+  margin-top: var(--a1);
+  font-size: var(--apple-fussnote);
+  line-height: 1.45;
+}
+
+/* === Arbeitsfläche in der Zeile ======================================================= */
+/* Graue Einlage über die ganze Breite: Umsatz oben, darunter Felder in einer Reihe. Felder und
+   Karten darauf sind weiß, damit sie sich abheben. */
+
+[data-design="apple"] .posten-arbeit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a3);
+  margin-top: var(--a3);
+  padding: var(--a3) var(--a4);
+  background: var(--flaeche-2);
+  border-radius: var(--radius);
+}
+
+[data-design="apple"] .neu .posten-umsatz {
+  gap: var(--a1) var(--a3);
+  margin: 0;
+  font-size: var(--apple-unterzeile);
+}
+
+[data-design="apple"] .posten-umsatz time {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="apple"] .posten-umsatz strong.zahl {
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .posten-umsatz .leise {
+  font-size: var(--apple-fussnote);
+}
+
+[data-design="apple"] .neu .posten-vorschlag {
+  margin: 0;
+  font-size: var(--apple-fussnote);
+  color: var(--text-2);
+}
+
+/* Felder in einer Reihe: Kategorie und Objekt teilen sich den Platz, Haken und Knöpfe so breit
+   wie nötig. Was nicht passt, bricht als Ganzes in die nächste Reihe. */
+[data-design="apple"] .zeile-formular {
+  gap: var(--a2) var(--a3);
+}
+
+[data-design="apple"] .zeile-formular .feld-auswahl,
+[data-design="apple"] .zeile-formular .feld-eingabe {
+  flex: 1 1 13rem;
+  min-width: 0;
+  max-width: 22rem;
+}
+
+[data-design="apple"] .zeile-formular .haken-label,
+[data-design="apple"] .zeile-formular .knopf {
+  flex: none;
+}
+
+[data-design="apple"] .zeile-formular .haken-label {
+  min-height: var(--ziel);
+  font-size: var(--apple-unterzeile);
+}
+
+/* Klärfall in der Zeile: Karten auf der Einlage, Suche darunter */
+[data-design="apple"] .posten-arbeit .wahl-karten {
+  margin: 0;
+}
+
+[data-design="apple"] .posten-arbeit .wahl-karte {
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] .posten-arbeit .wahl-karte-vorschlag {
+  box-shadow: inset 0 0 0 2px var(--primaer);
+}
+
+[data-design="apple"] .posten-arbeit .vertrag-suche {
+  margin-top: 0;
+}
+
+[data-design="apple"] .posten-arbeit > .haken-label {
+  align-self: flex-start;
+}
+
+/* === Gruppe gleicher Ursache ========================================================== */
+/* Kopf grau getönt mit „für alle anwenden“, darunter die Posten der Gruppe. */
+
+[data-design="apple"] .posten-gruppe {
+  position: relative;
+  border-top: 0;
+}
+
+[data-design="apple"] .posten-gruppe > .aufklapper {
+  background: transparent;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+[data-design="apple"] .posten-gruppe > .aufklapper > summary {
+  min-height: 52px;
+  padding: var(--a1) var(--a4);
+  font-size: var(--apple-kopfzeile);
+  background: var(--flaeche-2);
+}
+
+[data-design="apple"] .posten-liste > .posten-gruppe:first-child > .aufklapper > summary {
+  border-radius: var(--radius-karte) var(--radius-karte) 0 0;
+}
+
+[data-design="apple"] .posten-gruppe > .aufklapper:not([open]) > summary {
+  border-radius: inherit;
+}
+
+[data-design="apple"] .posten-gruppe > .aufklapper > summary .zaehler,
+[data-design="apple"] .posteingang-kopf h2 .zaehler {
+  flex: none;
+}
+
+[data-design="apple"] .posten-gruppe-kopf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2);
+  padding: 0 var(--a4) var(--a4) calc(var(--a4) + 15px);
+  background: var(--flaeche-2);
+}
+
+[data-design="apple"] .posten-gruppe .posten-liste {
+  border-top: 0;
+}
+
+/* === Handy und schmale Fenster (bis 1023 px) ========================================== */
+
+@media (max-width: 1023px) {
+  /* Ohne Wahl: Arten als Navigationsliste mit Pfeil, ohne Markierung der aktuellen Art.
+     „Zurückgestellt“ steht als eigene Gruppe darunter. */
+  [data-design="apple"] .arten-liste {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  [data-design="apple"] .arten-liste > li {
+    position: relative;
+    background: var(--flaeche);
+  }
+
+  [data-design="apple"] .arten-liste > li:first-child {
+    border-radius: var(--radius-karte) var(--radius-karte) 0 0;
+  }
+
+  [data-design="apple"] .arten-liste > li:has(+ .arten-trenner) {
+    border-radius: 0 0 var(--radius-karte) var(--radius-karte);
+  }
+
+  [data-design="apple"] .arten-liste > li + li:not(.arten-trenner)::before {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: var(--a4);
+    height: 1px;
+    content: "";
+    background: var(--linie);
+  }
+
+  [data-design="apple"] .arten-liste > .arten-trenner {
+    margin-top: var(--a5);
+    padding-top: 0;
+    border-top: 0;
+    border-radius: var(--radius-karte);
+  }
+
+  [data-design="apple"] .neu .arten-liste a,
+  [data-design="apple"] .neu .arten-liste a[aria-current="page"] {
+    padding: var(--a2) var(--a4);
+    font-size: var(--apple-text-handy);
+    font-weight: 400;
+    color: var(--text);
+    background: transparent;
+    border-radius: 0;
+  }
+
+  [data-design="apple"] .neu .arten-liste > li > a,
+  [data-design="apple"] .neu .arten-liste > li > a[aria-current="page"] {
+    border-radius: inherit;
+  }
+
+  [data-design="apple"] .arten-liste .zaehler {
+    margin-left: auto;
+  }
+
+  [data-design="apple"] .arten-liste a::after {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin: 0 2px 0 var(--a1);
+    content: "";
+    border-top: 2px solid var(--text-3);
+    border-right: 2px solid var(--text-3);
+    transform: rotate(45deg);
+  }
+
+  [data-design="apple"] .arten-liste a:active {
+    background: var(--flaeche-3);
+  }
+
+  /* Nach der Wahl: Liste wie eine neue Ansicht. Oben „← Arten“, die Art als großer Titel;
+     der Seitentitel bleibt für Screenreader. */
+  [data-design="apple"] .inhalt-neu:has(> .posteingang-gewaehlt) > .seitenkopf {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  [data-design="apple"] .posteingang-gewaehlt .posteingang-kopf {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  [data-design="apple"] .posteingang-zurueck {
+    align-self: flex-start;
+  }
+
+  [data-design="apple"] .neu .posteingang-gewaehlt .posteingang-kopf h2 {
+    margin: 0;
+    font-size: var(--apple-titel-gross);
+  }
+
+  [data-design="apple"] .posteingang-sammel {
+    justify-content: flex-end;
+    padding: 0 var(--a1) 0 var(--a3);
+    border-radius: var(--radius-karte);
+  }
+
+  [data-design="apple"] .posteingang-sammel .haken-label {
+    margin-right: auto;
+  }
+
+  /* Zeile: Knöpfe unter der Arbeitsfläche, über die Breite des Texts */
+  [data-design="apple"] .posten-zeile {
+    grid-template-columns: var(--ziel) minmax(0, 1fr);
+    padding-right: var(--a3);
+  }
+
+  /* Arbeitsfläche über die ganze Breite: am Handy zählt jeder Pixel */
+  [data-design="apple"] .posten-inhalt > .posten-arbeit,
+  [data-design="apple"] .posten-inhalt > .feld-fehler {
+    grid-column: 1 / -1;
+    margin-left: var(--a2);
+  }
+
+  /* Knöpfe unter dem Text: Das Wort des ersten Textknopfs steht unter dem Titel */
+  [data-design="apple"] .posten-zeile > .posten-knoepfe {
+    grid-row: 6;
+    grid-column: 2;
+    justify-content: flex-start;
+    margin: var(--a2) 0 0 calc(-1 * var(--a4));
+  }
+
+  [data-design="apple"] .posten-arbeit {
+    padding: var(--a3);
+  }
+
+  [data-design="apple"] .zeile-formular .feld-auswahl,
+  [data-design="apple"] .zeile-formular .feld-eingabe {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  [data-design="apple"] .posten-gruppe-kopf {
+    padding: 0 var(--a3) var(--a4);
+  }
+}
+
+/* Sehr schmal (320 px): langer Name einer Art passt als Titel 2 in die Zeile */
+@media (max-width: 359px) {
+  [data-design="apple"] .neu .posteingang-gewaehlt .posteingang-kopf h2 {
+    font-size: var(--apple-titel-2);
+  }
+}
+
+/* Am Handy (bis 767 px) gibt es keine Tastatur: die Tastenhilfe unter dem Titel entfällt */
+@media (max-width: 47.99rem) {
+  [data-design="apple"] .inhalt-neu:has(> .posteingang) > .seitenkopf .seitenkopf-meta {
+    display: none;
+  }
+}
+
+/* === Seiten „Umsatz einordnen“ und „Zahlung klären“ =================================== */
+
+/* Karten zum Zuordnen liegen auf einer Karte: grau statt Schatten, der Vorschlag mit Ring */
+[data-design="apple"] .karte .wahl-karte {
+  background: var(--flaeche-2);
+  box-shadow: none;
+}
+
+[data-design="apple"] .karte .wahl-karte-vorschlag {
+  background: var(--flaeche);
+  box-shadow: inset 0 0 0 2px var(--primaer);
+}
+
+[data-design="apple"] .karte .wahl-karte-summe {
+  border-top-color: var(--linie-stark);
+}
+
+[data-design="apple"] .karte .angaben-neu + p.leise {
+  margin-top: var(--a4);
+}
+
+/* „Umsatz einordnen“: Das Formular ist eine Karte ohne Kopf; oben so viel Luft wie seitlich */
+[data-design="apple"] form.karte > .karte-rumpf:first-child {
+  padding-top: var(--a4);
+}

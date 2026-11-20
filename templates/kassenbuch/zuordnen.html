@@ -9,6 +9,7 @@
   <a class="knopf knopf-zweit" href="{% url 'kassenbuch:aufteilen' umsatz.pk %}">Lieber aufteilen</a>
 {% endseitenkopf %}
 
+<div class="stapel">
 {% karte "Umsatz" %}
   <dl class="angaben-neu">
     <dt>Betrag</dt><dd><strong class="zahl betrag-{{ umsatz.richtung }}">{% if umsatz.richtung == "ausgang" %}−{% endif %}{{ umsatz.betrag|euro }}</strong> <span class="leise">{{ umsatz.get_richtung_display }}</span></dd>
@@ -35,4 +36,5 @@
     </div>
   </div>
 </form>
+</div>
 {% endblock %}
