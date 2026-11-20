@@ -133,3 +133,22 @@ def test_gelesene_werte_aus_dem_cache(
     danach = textschicht.angaben_gemerkt([beleg.dokument])[beleg.dokument_id]
     assert len(gelesen) == 2
     assert danach.lieferant == neu
+
+
+#: Richtungswörter, die am Handy nicht stimmen, weil die Felder dort untereinander stehen.
+RICHTUNGEN = ("rechts", "links", "daneben", "darunter", "darüber", "oben", "unten")
+
+
+def test_hinweis_zum_neuen_lieferanten_ohne_richtung(testhof: Testhof, angemeldet: Client) -> None:
+    """Review 3, Nachtrag: Der Hinweis am Lieferanten nennt keine Richtung (am Handy steht das
+    Feld für den neuen Lieferanten darunter, nicht rechts), sondern die Beschriftung des
+    Feldes, so wie sie auf der Seite steht."""
+    beleg = Beleg.objects.get(pk=testhof.belege.offen.pk)
+    html = angemeldet.get(reverse("dokumente:beleg", args=[beleg.pk])).content.decode()
+    hinweis = re.search(r'<p class="feld-hilfe" id="id_lieferant-hilfe">([^<]*)</p>', html)
+    assert hinweis is not None
+    beschriftung = re.search(r'<label class="feld-label" for="id_lieferant_neu">([^<]*)<', html)
+    assert beschriftung is not None
+    text = hinweis.group(1)
+    assert f"„{beschriftung.group(1).strip()}“" in text, text
+    assert not [w for w in RICHTUNGEN if re.search(rf"\b{w}\b", text, re.I)], text
