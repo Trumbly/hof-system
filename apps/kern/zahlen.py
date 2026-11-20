@@ -6,6 +6,10 @@ Vorlage, siehe ``apps.kern.templatetags.formate``) und Vorlagen an Mieter
 
 - ``euro(209533.7)`` → ``209.533,70 €`` (immer zwei Stellen, kaufmännisch gerundet; vor
   dem „€“ ein geschütztes Leerzeichen, wie bisher in den Schreiben)
+- ``euro_anzeige(-36.5)`` → ``−36,50 €``: wie ``euro``, aber mit echtem Minuszeichen (U+2212)
+  statt Bindestrich. Nur für die Anzeige auf den Seiten (Filter ``|euro``); Schreiben, Mails,
+  Notion und Exporte nehmen ``euro`` mit Bindestrich, damit der Text überall lesbar und
+  maschinell verwertbar bleibt.
 - ``zahl(Decimal("9602.7"))`` → ``9.602,7`` (Stellen wie im Wert, oder fest mit ``stellen``)
 
 Was keine Zahl ist (etwa ‹betrag.offen› in der Vorschau einer Vorlage), kommt unverändert
@@ -21,6 +25,8 @@ TAUSENDER = "."
 KOMMA = ","
 #: Zwischen Betrag und „€“ ein geschütztes Leerzeichen: Der Betrag bricht nie um.
 VOR_EURO = "\u00a0"
+#: Minuszeichen der Anzeige (U+2212): so breit wie „+“, steht auf der Höhe der Ziffern.
+MINUS = "\u2212"
 
 
 def _tausender(ganz: str) -> str:
@@ -75,3 +81,11 @@ def euro(wert: Any) -> str:
     if _dezimal(wert) is None:
         return str(wert)
     return f"{zahl(wert, 2)}{VOR_EURO}€"
+
+
+def euro_anzeige(wert: Any) -> str:
+    """Betrag in Euro für die Anzeige: ``-36.5`` → ``−36,50 €`` (Minuszeichen U+2212)."""
+    text = euro(wert)
+    if text.startswith("-") and _dezimal(wert) is not None:
+        return MINUS + text[1:]
+    return text

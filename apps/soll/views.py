@@ -249,7 +249,7 @@ def vertrag(request: HttpRequest, pk: int) -> HttpResponse:
                         request,
                         vertrag,
                         f"Posten #{neu.pk} ({neu.get_art_display()}, "
-                        f"{zahlen.euro(neu.betrag)}) für {vertrag.nummer} angelegt",
+                        f"{zahlen.euro_anzeige(neu.betrag)}) für {vertrag.nummer} angelegt",
                         anker=f"posten-{neu.pk}",
                     )
             else:

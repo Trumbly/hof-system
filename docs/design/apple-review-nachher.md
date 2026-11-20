@@ -1,19 +1,16 @@
 # Design-Review „nachher“: Startseite und Rahmen im Apple-Design
 
-Stand: Branch `experiment-apple-design`, fortgeschrieben in PR A (`apple-a-grundlage`).
-Zweite Gestaltung unter `static/css/apple/` über `werte.css` (seit PR A: `basis.css` mit
-Werten, Rahmen und Startseite, `bausteine.css` mit allen Bausteinen, dazu je Bereich eine
-Datei); die bisherige Gestaltung ist unverändert.
+Stand: Branch `experiment-apple-design`, fortgeschrieben in PR A (`apple-a-grundlage`) und
+nach dem Rollout (PR G). Gestaltung unter `static/css/apple/` über `werte.css` und
+`bausteine.css` (`basis.css` mit Werten, Rahmen und Startseite, `bausteine.css` mit allen
+Bausteinen, dazu je Bereich eine Datei).
 Geprüft mit dem Skill `apple-design` an denselben Stellen wie in
 [apple-review-vorher.md](apple-review-vorher.md). Quellen als `Datei › Abschnitt`, Inhalt in
 eigenen Worten.
 
-**Umschalten (nur dev, `DEBUG = True`):** In dev und in den Oberflächentests ist das
-Apple-Design voreingestellt (`HOF_DESIGN_STANDARD` in `hof/settings/dev.py` und `e2e.py`), in
-Tests und prod die bisherige Gestaltung. Unten in der Seitenleiste (am Handy im Blatt „Mehr“)
-steht der Schalter „Standard · Apple“; die Wahl merkt ein Cookie. Direkt geht es mit
-`/?design=standard` oder `/?design=apple`. Ohne `DEBUG` gibt es weder Schalter noch
-Parameter noch Cookie.
+**Seit PR G (Rollout abgeschlossen)** ist das Apple-Design die einzige Gestaltung, auch in
+prod. Schalter, `?design=`, Cookie und die Einstellung `HOF_DESIGN_STANDARD` sind weg; Stand
+und offene Punkte im Abschnitt [Stand nach dem Rollout](#stand-nach-dem-rollout) am Ende.
 
 **Screenshots** (`screens/`, Playwright, Chromium):
 
@@ -158,9 +155,9 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
 - **Entscheidung von Max (PR A):** Mit Maus (`pointer: fine`) sind die Zeilen der
   Seitenleiste 36 px hoch; mit Finger (`pointer: coarse`) und am Handy bleiben es 44 px.
   Knöpfe und alle übrigen Klickflächen bleiben überall mindestens 44 px.
-- **Umsetzung:** Damit bei 1440 × 900 alles sichtbar ist (auch mit Testhof-Band und
-  Designschalter in dev), steht am Desktop das „H“ neben der Suche statt einer eigenen Zeile
-  mit dem Schriftzug, „Abmelden“ und der Schalter teilen sich die letzte Zeile, das Konto
+- **Umsetzung:** Damit bei 1440 × 900 alles sichtbar ist (auch mit Testhof-Band), steht am
+  Desktop das „H“ neben der Suche statt einer eigenen Zeile mit dem Schriftzug, „Abmelden“
+  steht rechts in der letzten Zeile (bis PR G teilte es sie mit dem Designschalter), das Konto
   erreicht man über „Konto“ in der Navigation, und das Testhof-Band liegt nur über der
   Inhaltsspalte. Gemessen: Navigation 765 px Inhalt bei 765 px Platz, kein Scrollen
   (E2E: `test_seitenleiste_passt_bei_1440_mal_900`).
@@ -203,7 +200,7 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
 | Vorgabe aus dem Skill | Quelle | Warum nicht |
 | --- | --- | --- |
 | Jeder Befehl in der Menüleiste | `designing-for-macos.md › Best practices` | Eine Web-App hat keine Menüleiste; ⌘K und die Navigation übernehmen die Rolle. |
-| Keine eigene Einstellung für das Erscheinungsbild | `dark-mode.md › Best practices` | Eingehalten: hell/dunkel folgt dem System. Der Designschalter wählt keine Helligkeit, sondern eine Gestaltung, nur in dev und nur für das Experiment. |
+| Keine eigene Einstellung für das Erscheinungsbild | `dark-mode.md › Best practices` | Eingehalten: hell/dunkel folgt dem System. Den Designschalter des Experiments gibt es seit PR G nicht mehr. |
 | Liquid Glass mit Lichtbrechung, klare Variante | `materials.md › Liquid Glass` | Im Browser gibt es nur Unschärfe und Deckkraft. Die „klare“ Variante ist für Bilder und Video gedacht, die es hier nicht gibt. |
 | Inhalt unter die Seitenleiste ziehen | `sidebars.md › Best practices` | Kein bildreicher Inhalt; siehe Befund A. |
 | Tab-Leiste ohne „Mehr“ | `tab-bars.md › Best practices` | 18 Bereiche passen nicht in fünf Tabs. |
@@ -216,3 +213,98 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
 | Desktop-Ziele 28 pt | `accessibility.md › Mobility` | Vorgabe von Max: 44 px, nur die Seitenleiste mit Maus 36 px. Siehe Befund D. |
 | Abwechselnde Zeilenfarben in Tabellen | `lists-and-tables.md › Platform considerations › Desktop` | Auf der Startseite gibt es keine mehrspaltige Tabelle; Thema für die übrigen Seiten. |
 | Titelschreibung (Title Case) | `lists-and-tables.md › Content`, `writing.md › Best practices` | Gilt fürs Englische. |
+
+## Stand nach dem Rollout
+
+Stand: PR G (`apple-g-abschluss`) auf `main` nach #43 bis #48.
+
+### Bereiche
+
+Alle Seiten mit `base.html` tragen das Apple-Design, in dev, Tests und prod:
+
+| PR | Bereich | Bereichsdatei |
+| --- | --- | --- |
+| #43 (A) | Grundlage: Werte, Rahmen, Startseite, alle Bausteine, `/stil/` | `apple/basis.css`, `apple/bausteine.css` |
+| #45 (B) | Arbeitslisten und Posteingang | `apple/arbeitslisten.css` |
+| #48 (C) | Stammdaten: Übersicht, Vertrag, Einheit, Partei, Leerstand, Anfragen, Übergabe | `apple/stammdaten.css` |
+| #47 (D) | Geld: Bank, Kassenbuch, Offene Posten, Abgleich, Mahnwesen | `apple/geld.css` |
+| #46 (E) | Dokumente: Ablage, Belege, Rechnungen, Lieferanten, Vorlagen, Schreiben, Serie | `apple/dokumente.css` |
+| #44 (F) | System: Zähler, Fristen, Läufe, Protokoll, Anbindungen, Konto, Fehlerseiten | `apple/system.css` |
+
+Fehlerseiten (`_fehlerseite.html`), PDF- und Mail-Vorlagen haben ihr eigenes Layout und laden
+keine Stylesheets; sie sind unverändert.
+
+### Was PR G entfernt hat
+
+- **Schalter:** `apps/kern/design.py` (Middleware, Context Processor), die Vorlage
+  `bausteine/design_schalter.html`, die Einstellung `HOF_DESIGN_STANDARD` in allen
+  Umgebungen, das Cookie `hof_design`, `?design=` und alle Verzweigungen in `base.html`,
+  Suche und `/stil/`. `<html>` trägt `data-design="apple"` fest: Jede Regel unter
+  `static/css/apple/` beginnt damit und steht so eine Stufe Spezifität über der Grundlage.
+- **`hof.css`** (797 Zeilen, Ebene `@layer alt`): Sie galt nur für Seiten ohne Seitenkopf,
+  und die gibt es nicht mehr (Abdeckung: 243 Seiten im Testhof durchlaufen, alle mit
+  Seitenkopf; statisch geprüft über alle Vorlagen).
+- **`werte.css`:** die Werte, die `apple/basis.css` ohnehin setzt (Flächen, Linien, Text,
+  Akzent, Fokus, Band, Schrift, Radien, Schleier, Breite der Leiste, `color-scheme`). Es
+  bleiben Statusfarben, Gefahr, Schriftstufen der Grundlage, Abstände, Ziele, Schatten der
+  Dialoge und Menüs und das Gerüst.
+- **`bausteine.css` (Grundlage):** die Klassen, die keine Vorlage, kein Python und kein
+  JavaScript mehr nutzt: `.design-schalter`, `.kopf-fakten`, `.raster-3`, `.symbol-klein`.
+  Alle übrigen Klassen der Grundlage nutzt mindestens eine Vorlage; sie trägt den Aufbau
+  (Raster, Abstände, Verhalten am Handy), über den die Apple-Dateien das Aussehen legen.
+- **`apple/basis.css`:** Regeln des Designschalters; die Seitenleiste hat unten nur noch
+  „Abmelden“.
+
+### Bausteine aus den Bereichen (jetzt in `apple/bausteine.css`, Beispiele auf `/stil/`)
+
+| Baustein | vorher | jetzt |
+| --- | --- | --- |
+| Faktenkopf | `.fakten-kacheln` (Stammdaten), `.geld-fakten` (Geld), `#zaehler-kopf .fakten` und `#vorgang-fakten` (System) | `dl.fakten`: eine Karte ohne Rahmen und Trennlinien; am Handy zwei Spalten, am Desktop eine Zeile mit Breite nach Inhalt |
+| Pfad über dem Titel | `.kopf-pfad` (Stammdaten) | `.kopf-pfad` |
+| Abschnittstitel | `h2.abschnitt-titel` (Geld) | `h2.abschnitt-titel` |
+| Reiter unter dem Seitenkopf | `.seitenkopf + .dok-reiter` (Dokumente), Geld und System ohne Regel | `.seitenkopf + .reiter`: 16 px darüber, 24 px darunter, überall |
+| Filterleiste | `.filterleiste > .feld` überschrieb `.feld-breit` (Fehler); Raster nur im Protokoll | Fehler behoben in der Grundlage; schmale Felder (9 rem), Suche breit (16 rem, wächst dreifach), Auswahltexte mit „…“; die Sonderlösung im Protokoll ist weg |
+| Raster am Handy | `.anfrage-raster` (Stammdaten) | `.raster` mit `minmax(0, 1fr)` und `min-width: 0` an den Kindern, in der Grundlage |
+| Wahl-Karten auf einer Karte | Arbeitslisten | `.karte .wahl-karte`: grau statt Schatten, Vorschlag weiß mit Ring |
+| Karte ohne Kopf | `form.karte` (Arbeitslisten) | `form.karte > .karte-rumpf:first-child` |
+| Liste bis an den Kartenrand | `.dok-liste-buendig` (Dokumente), `.hindernisse.liste` (Stammdaten), `#ruecknahme .liste` (System) | `.liste-buendig` |
+| Eingerückte Haarlinie | je eigene Regel in Arbeitslisten (Posten) und Stammdaten (Checkpunkte) | `.zeilen-linien` mit `--linie-einzug` |
+| `fieldset` als Karte | `.dok-teil` (Dokumente), `fieldset.teil` mit `.teil-titel` (Geld) | `fieldset.karte` mit `legend.karte-titel` |
+| Quelltext | `.dok-quelltext` (Dokumente) | `.quelltext` |
+| Zelle mit Nebenzeile | `.frist-zelle` (System) | `.zelle-neben`, am Handy rechtsbündig |
+| Gekürzter langer Text | `.lauf-meldung-lang` (System) | `.gekuerzt` mit „ganze Meldung“ |
+| Rahmen ohne Seitenleiste | `system.css` | `apple/basis.css` |
+| Checkliste | Stammdaten | `.checkliste`, `.checkpunkte`, `button.haken` |
+| Badge in Angaben | Stammdaten | `.angaben-neu dd .badge` bricht um |
+| Abstände in Karten, Beträge | `geld.css` (wirkten schon überall) | `apple/bausteine.css` |
+
+Dazu: Datums- und Monatsfelder sind so hoch wie die übrigen Felder (Chromium legte innen
+2 px dazu; nebeneinander in der Filterleiste standen sie sonst versetzt).
+
+### Bewusst im Bereich geblieben
+
+- **Graue Einlage in der Posten-Zeile** (`.posten-arbeit`, Arbeitslisten): Nur die
+  Arbeitslisten haben eine Arbeitsfläche in einer Listenzeile.
+- **Navigationsliste am Handy** (Arten der Arbeitslisten): Nur dort wird eine Seitenleiste
+  am Handy zur Liste mit Pfeil; andere Bereiche nutzen dafür Reiter.
+- Spaltenbreiten einzelner Tabellen (Fristen, Läufe, Konten, Buchungen, Regeln), Kassenbuch-
+  und Abgleich-Formulare, Vorlagen-Raster, Anbindungen, Konto-Seiten.
+
+### Kleinigkeiten
+
+- `|euro` zeigt negative Beträge mit Minuszeichen (U+2212): „−36,50 €“
+  (`apps.kern.zahlen.euro_anzeige`). Schreiben, Mails und Notion (Platzhalter) behalten den
+  Bindestrich; CSV und Exporte nutzen `|euro` nicht.
+- Am aktiven Vertrag ist die Hauptaktion „Schreiben erstellen“; „Rückgabe am Handy“ steht
+  unter „mehr ▾“. So gelassen, zur Entscheidung bei Max.
+
+### Offen
+
+- Befund B (Lücke über „Objekte“), C (lange Laufnamen in der Kachel), E (uneinheitliche
+  Kacheltitel) und F (Testhof-Band) wie oben; das ist Logik der Startseite bzw. bewusst so.
+- Die Grundlage (`bausteine.css`) trägt weiter Eigenschaften, die die Apple-Dateien
+  überschreiben (Farben, Radien, Schriftgrößen einzelner Bausteine). Nach Klassen ist
+  nichts mehr tot; die Grundlage und `apple/bausteine.css` zu einer Datei zu verschmelzen
+  wäre der nächste Schritt, aber ein großer Umbau ohne sichtbaren Gewinn.
+- Am Handy stehen in der Filterleiste zwei Felder nebeneinander; lange Auswahltexte
+  („offen und teilweise bezahlt“) enden dort mit „…“.

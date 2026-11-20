@@ -1,8 +1,8 @@
-"""Apple-Design: Designschalter, Cookie, Voreinstellung und die Stylesheets.
+"""Apple-Design (PR G): die einzige Gestaltung, ohne Schalter.
 
-Der Schalter erscheint nur mit ``DEBUG``; ohne ``DEBUG`` wirken weder ``?design=`` noch das
-Cookie (apps.kern.design). In dev und E2E ist „apple“ voreingestellt, in Tests und prod
-„standard“ (``HOF_DESIGN_STANDARD``).
+Es gibt weder Designschalter noch ``?design=`` noch Cookie noch die Einstellung
+``HOF_DESIGN_STANDARD``, auch nicht mit ``DEBUG``. base.html lädt immer werte.css,
+bausteine.css und die Dateien unter css/apple/ in fester Reihenfolge, ohne ``@import``.
 """
 
 from __future__ import annotations
@@ -13,131 +13,97 @@ import sys
 from pathlib import Path
 
 import pytest
+from django.contrib.staticfiles import finders
 from django.test import Client
 from django.urls import reverse
 
-from apps.kern import design
-
 WURZEL = Path(__file__).resolve().parents[2]
-APPLE_CSS = "css/apple/basis.css"
-APPLE_HTML = 'data-design="apple"'
+APPLE_HTML = '<html lang="de" data-design="apple">'
+
+#: Reihenfolge der Stylesheets in base.html: Grundlage, dann Apple-Design.
+STYLESHEETS = (
+    "css/werte.css",
+    "css/bausteine.css",
+    "css/apple/basis.css",
+    "css/apple/bausteine.css",
+    "css/apple/arbeitslisten.css",
+    "css/apple/stammdaten.css",
+    "css/apple/geld.css",
+    "css/apple/dokumente.css",
+    "css/apple/system.css",
+)
 
 
 def _seite(client: Client, pfad: str = "") -> str:
     return client.get(reverse("kern:startseite") + pfad).content.decode()
 
 
-def test_ohne_debug_kein_schalter_und_parameter_wirkt_nicht(
-    angemeldet: Client, settings: object
+@pytest.mark.parametrize("debug", [False, True])
+def test_kein_schalter_auch_nicht_mit_debug(
+    angemeldet: Client, settings: object, debug: bool
 ) -> None:
-    """Apple-Design: Mit DEBUG = False gibt es keinen Schalter, und ?design=apple
-    wirkt nicht (auch kein Cookie)."""
-    settings.DEBUG = False  # type: ignore[attr-defined]
-    antwort = angemeldet.get(reverse("kern:startseite") + "?design=apple")
-    html = antwort.content.decode()
-    assert "design-schalter" not in html
-    assert APPLE_HTML not in html
-    assert APPLE_CSS not in html
-    assert design.COOKIE not in antwort.cookies
-
-
-def test_ohne_debug_wirkt_das_cookie_nicht(angemeldet: Client, settings: object) -> None:
-    """Apple-Design: Ein Cookie aus dev ändert ohne DEBUG nichts."""
-    settings.DEBUG = False  # type: ignore[attr-defined]
-    angemeldet.cookies[design.COOKIE] = "apple"
-    assert APPLE_HTML not in _seite(angemeldet)
-
-
-def test_mit_debug_schalter_in_seitenleiste_und_mehr(angemeldet: Client, settings: object) -> None:
-    """Apple-Design: Mit DEBUG steht der Schalter „Design: Standard · Apple“
-    unten in der Seitenleiste und im Blatt „Mehr“ (Handy)."""
-    settings.DEBUG = True  # type: ignore[attr-defined]
-    html = _seite(angemeldet)
-    assert html.count('class="design-schalter"') == 2
-    assert "?design=standard" in html
-    assert "?design=apple" in html
-
-
-def test_mit_debug_parameter_setzt_design_und_cookie(angemeldet: Client, settings: object) -> None:
-    """Apple-Design: ?design=apple schaltet um und merkt die Wahl im Cookie;
-    ?design=standard schaltet zurück."""
-    settings.DEBUG = True  # type: ignore[attr-defined]
-    settings.HOF_DESIGN_STANDARD = "standard"  # type: ignore[attr-defined]
-    assert APPLE_HTML not in _seite(angemeldet)
-
-    antwort = angemeldet.get(reverse("kern:startseite") + "?design=apple")
-    html = antwort.content.decode()
-    assert APPLE_HTML in html
-    assert APPLE_CSS in html
-    assert antwort.cookies[design.COOKIE].value == "apple"
-    assert 'href="/?design=apple" aria-current="true"' in html
-
-    # Die Wahl bleibt ohne Parameter (Cookie), auch auf anderen Seiten.
-    assert APPLE_HTML in angemeldet.get(reverse("kern:arbeitslisten")).content.decode()
-
+    """Apple-Design (PR G): Kein Schalter, auch nicht bei DEBUG; ?design=standard wirkt
+    nicht, und es entsteht kein Cookie."""
+    settings.DEBUG = debug  # type: ignore[attr-defined]
     antwort = angemeldet.get(reverse("kern:startseite") + "?design=standard")
-    assert APPLE_HTML not in antwort.content.decode()
-    assert antwort.cookies[design.COOKIE].value == "standard"
-    assert APPLE_HTML not in _seite(angemeldet)
+    html = antwort.content.decode()
+    assert APPLE_HTML in html
+    assert "css/apple/basis.css" in html
+    assert "design-schalter" not in html
+    assert "?design=" not in html
+    assert "hof_design" not in antwort.cookies
 
 
-def test_unbekanntes_design_bleibt_bei_der_voreinstellung(
-    angemeldet: Client, settings: object
-) -> None:
+def test_cookie_aus_dem_experiment_wirkt_nicht(angemeldet: Client, settings: object) -> None:
+    """Apple-Design (PR G): Ein altes Cookie „hof_design=standard“ ändert nichts."""
     settings.DEBUG = True  # type: ignore[attr-defined]
-    settings.HOF_DESIGN_STANDARD = "apple"  # type: ignore[attr-defined]
-    antwort = angemeldet.get(reverse("kern:startseite") + "?design=gibtsnicht")
-    assert APPLE_HTML in antwort.content.decode()
-    assert design.COOKIE not in antwort.cookies
-
-
-def test_voreinstellung_ohne_debug(angemeldet: Client, settings: object) -> None:
-    """Apple-Design: HOF_DESIGN_STANDARD gilt auch ohne DEBUG (so laufen die
-    E2E-Tests im Apple-Design), nur ohne Schalter."""
-    settings.DEBUG = False  # type: ignore[attr-defined]
-    settings.HOF_DESIGN_STANDARD = "apple"  # type: ignore[attr-defined]
+    angemeldet.cookies["hof_design"] = "standard"
     html = _seite(angemeldet)
     assert APPLE_HTML in html
-    assert "design-schalter" not in html
+    assert "css/apple/system.css" in html
 
 
-def test_standard_design_unveraendert(angemeldet: Client) -> None:
-    """Apple-Design: In Tests gilt „standard“; das Gerüst lädt nur die
-    bisherigen Stylesheets."""
-    html = _seite(angemeldet)
-    assert '<html lang="de">' in html
-    assert APPLE_CSS not in html
-    assert 'placeholder="Suchen …"' in html
+def test_ohne_anmeldung_auch_apple(client: Client, db: None) -> None:
+    """Apple-Design (PR G): Auch die Anmeldung trägt das Apple-Design."""
+    html = client.get(reverse("account_login") + "?design=standard").content.decode()
+    assert APPLE_HTML in html
+    assert "css/apple/basis.css" in html
 
 
-@pytest.mark.parametrize(
-    ("modul", "umgebung", "erwartet"),
-    [
-        ("hof.settings.dev", {}, "apple"),
-        ("hof.settings.dev", {"HOF_DESIGN_STANDARD": "standard"}, "standard"),
-        ("hof.settings.e2e", {}, "apple"),
-        ("hof.settings.e2e", {"HOF_DESIGN_STANDARD": "standard"}, "standard"),
-        ("hof.settings.test", {}, "standard"),
-        ("hof.settings.prod", {"HOF_DESIGN_STANDARD": "apple"}, "standard"),
-    ],
-)
-def test_voreinstellung_je_umgebung(modul: str, umgebung: dict[str, str], erwartet: str) -> None:
-    """Apple-Design: In dev und E2E ist „apple“ voreingestellt, in Tests und prod „standard“
-    (prod auch dann, wenn die Umgebung etwas anderes sagt)."""
-    env = {k: v for k, v in os.environ.items() if k != "HOF_DESIGN_STANDARD"}
+def test_kein_schalter_mehr_im_code() -> None:
+    """Apple-Design (PR G): Modul, Vorlage, Middleware, Context Processor und Einstellung des
+    Schalters sind weg."""
+    from django.conf import settings
+
+    assert not (WURZEL / "apps" / "kern" / "design.py").exists()
+    assert not (WURZEL / "templates" / "bausteine" / "design_schalter.html").exists()
+    assert not any("design" in m.lower() for m in settings.MIDDLEWARE)
+    prozessoren = settings.TEMPLATES[0]["OPTIONS"]["context_processors"]
+    assert not any("design" in p for p in prozessoren)
+    assert not hasattr(settings, "HOF_DESIGN_STANDARD")
+    for vorlage in (WURZEL / "templates").rglob("*.html"):
+        assert "hof_design" not in vorlage.read_text(encoding="utf-8"), vorlage
+
+
+@pytest.mark.parametrize("modul", ["hof.settings.dev", "hof.settings.e2e", "hof.settings.prod"])
+def test_keine_einstellung_je_umgebung(modul: str) -> None:
+    """Apple-Design (PR G): In keiner Umgebung gibt es HOF_DESIGN_STANDARD, auch wenn die
+    Umgebung sie setzt; prod läuft ohne DEBUG."""
+    env = dict(os.environ)
     env.update(
         DJANGO_SETTINGS_MODULE=modul,
         DJANGO_SECRET_KEY="nur-fuer-den-test",
+        DJANGO_ALLOWED_HOSTS="hof.invalid",
         DATABASE_URL="postgres://hof:hof@localhost:5432/hof_nicht_benutzt",
         EMAIL_URL="smtp://localhost:1025",
-        **umgebung,
+        HOF_DESIGN_STANDARD="standard",
     )
     ergebnis = subprocess.run(
         [
             sys.executable,
             "-c",
             "import django; django.setup(); from django.conf import settings; "
-            "print(settings.HOF_DESIGN_STANDARD, settings.DEBUG)",
+            "print(hasattr(settings, 'HOF_DESIGN_STANDARD'), settings.DEBUG)",
         ],
         cwd=WURZEL,
         env=env,
@@ -145,45 +111,60 @@ def test_voreinstellung_je_umgebung(modul: str, umgebung: dict[str, str], erwart
         text=True,
         check=True,
     )
-    assert ergebnis.stdout.split()[0] == erwartet
+    vorhanden, debug = ergebnis.stdout.split()
+    assert vorhanden == "False"
+    if modul == "hof.settings.prod":
+        assert debug == "False"
 
 
-def test_apple_laedt_alle_stylesheets_in_fester_reihenfolge(
-    angemeldet: Client, settings: object
-) -> None:
-    """Apple-Design (PR A): base.html lädt nach bausteine.css basis, bausteine und die fünf
-    Bereichsdateien, in dieser Reihenfolge, ohne @import. Jede Datei gibt es."""
-    from django.contrib.staticfiles import finders
-
-    settings.HOF_DESIGN_STANDARD = "apple"  # type: ignore[attr-defined]
+def test_alle_stylesheets_in_fester_reihenfolge(angemeldet: Client) -> None:
+    """Apple-Design (PR A, G): base.html lädt werte.css, bausteine.css, dann basis, bausteine
+    und die fünf Bereichsdateien, in dieser Reihenfolge, ohne @import. Jede Datei gibt es,
+    und es gibt keine weitere."""
     html = _seite(angemeldet)
-    stellen = [html.index("css/bausteine.css")]
-    for datei in design.APPLE_CSS:
-        assert datei in html, datei
-        stellen.append(html.index(datei))
+    stellen = []
+    for datei in STYLESHEETS:
+        assert html.count(f"/static/{datei}") == 1, datei
+        stellen.append(html.index(f"/static/{datei}"))
         pfad = finders.find(datei)
         assert pfad, datei
         zeilen = Path(pfad).read_text(encoding="utf-8").splitlines()
         assert not [z for z in zeilen if z.lstrip().startswith("@import")], datei
     assert stellen == sorted(stellen)
-    assert [d.rsplit("/", 1)[1] for d in design.APPLE_CSS] == [
-        "basis.css",
-        "bausteine.css",
-        "arbeitslisten.css",
-        "stammdaten.css",
-        "geld.css",
-        "dokumente.css",
-        "system.css",
-    ]
+    assert html.count('rel="stylesheet"') == len(STYLESHEETS)
+    vorhanden = {
+        str(p.relative_to(WURZEL / "static")) for p in (WURZEL / "static" / "css").rglob("*.css")
+    }
+    assert vorhanden == set(STYLESHEETS)
 
 
-def test_bereichsdateien_nennen_die_regel(settings: object) -> None:
+def test_bereichsdateien_nennen_die_regel() -> None:
     """Apple-Design (PR A): Jede Bereichsdatei sagt im Kopf, dass Gemeinsames in die
     Bausteine gehört; apple/bausteine.css nennt die Regeln für die Bereiche."""
-    from django.contrib.staticfiles import finders
-
-    for datei in design.APPLE_CSS[2:]:
+    for datei in STYLESHEETS[4:]:
         text = Path(finders.find(datei)).read_text(encoding="utf-8")
         assert "apple/bausteine.css" in text, datei
     bausteine = Path(finders.find("css/apple/bausteine.css")).read_text(encoding="utf-8")
     assert "Was mehr als ein Bereich braucht" in bausteine
+
+
+def test_jede_apple_regel_haengt_am_attribut() -> None:
+    """Apple-Design (PR G): Jede Regel unter css/apple/ beginnt mit [data-design="apple"]
+    (das Attribut an <html> ist fest und hebt sie über die Grundlage)."""
+    import re
+
+    for datei in STYLESHEETS[2:]:
+        css = Path(finders.find(datei)).read_text(encoding="utf-8")
+        css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        for kopf in re.findall(r"([^{};]+)\{", css):
+            kopf = kopf.strip()
+            if kopf.startswith("@") or re.fullmatch(r"(from|to|\d+%)", kopf):
+                continue
+            for sel in kopf.split(","):
+                sel = sel.strip()
+                if not sel or sel.startswith(":not(") or sel.startswith("::"):
+                    continue
+                assert sel.startswith(('[data-design="apple"]', ':root[data-design="apple"]')), (
+                    datei,
+                    sel,
+                )

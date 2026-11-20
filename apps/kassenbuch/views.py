@@ -250,7 +250,8 @@ def zuordnen(request: HttpRequest, pk: int) -> HttpResponse:
                 "url": reverse("kassenbuch:zuordnen", args=[eintrag.pk]),
                 "knopf": "Buchen",
                 "hinweis": (
-                    f"{eintrag.buchungsdatum:%d.%m.%Y} · {richtung}{zahlen.euro(eintrag.betrag)}"
+                    f"{eintrag.buchungsdatum:%d.%m.%Y} · "
+                    f"{richtung}{zahlen.euro_anzeige(eintrag.betrag)}"
                     f" · {eintrag.gegenpartei or 'ohne Gegenpartei'}"
                     + (f" · Vorschlag: {vorschlag.quelle}" if vorschlag.quelle else "")
                 ),

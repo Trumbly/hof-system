@@ -7,121 +7,11 @@
  * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
  * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
  *
- * Inhalt: Abstände in Karten · Fakten (Kandidat) · Abschnittstitel (Kandidat) · Beträge ·
- * Bank-Konten · Kassenbuch (Regeln, Regel-Formular, Aufteilen, Monatsbericht) · Abgleich
- * (Anteile, Mietkonto mit Storno) · Mehrfachauswahl.
+ * Inhalt: Beträge · Bank-Konten · Kassenbuch (Regeln, Regel-Formular, Aufteilen, Monatsbericht) ·
+ * Abgleich (Anteile, Mietkonto mit Storno) · Mehrfachauswahl.
  */
 
-/* === Abstände in Karten ================================================================ */
-/* Angaben, Hinweis und Text untereinander in einer Karte ohne .stapel. */
-
-[data-design="apple"] .karte-rumpf > .angaben-neu + *,
-[data-design="apple"] .karte-rumpf > .liste + .hinweis-band,
-[data-design="apple"] .karte-rumpf > p + .tabelle-box {
-  margin-top: var(--a4);
-}
-
-[data-design="apple"] .karte-rumpf > .angaben-neu ~ p {
-  margin-bottom: 0;
-}
-
-[data-design="apple"] .karte-rumpf > .angaben-neu ~ p + p {
-  margin-top: var(--a2);
-}
-
-/* === Fakten im Kopf (Kandidat für Bausteine) ========================================== */
-/* .fakten aus bausteine.css hat noch Rahmen und Trennlinien. Hier als Karte ohne Rahmen:
-   Beschriftung klein und grau, Wert darunter. Nur mit .geld-fakten, damit andere Bereiche
-   unberührt bleiben. */
-
-[data-design="apple"] .geld-fakten {
-  gap: 0;
-  margin-bottom: var(--a5);
-  background: var(--flaeche);
-  border: 0;
-  border-radius: var(--radius-karte);
-  box-shadow: var(--schatten-karte);
-}
-
-[data-design="apple"] .geld-fakten .fakt {
-  padding: var(--a3) var(--a4);
-  background: transparent;
-}
-
-[data-design="apple"] .geld-fakten .fakt + .fakt {
-  border-top: 1px solid var(--linie);
-}
-
-@media (min-width: 1024px) {
-  /* Breite nach Inhalt (IBAN, Datum), die erste Angabe wächst am stärksten */
-  [data-design="apple"] .geld-fakten {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  [data-design="apple"] .geld-fakten .fakt {
-    flex: 1 1 auto;
-  }
-
-  [data-design="apple"] .geld-fakten .fakt-breit {
-    flex: 2 1 auto;
-  }
-
-  [data-design="apple"] .geld-fakten .fakt + .fakt {
-    border-top: 0;
-    border-left: 1px solid var(--linie);
-  }
-
-  [data-design="apple"] .geld-fakten code {
-    white-space: nowrap;
-  }
-}
-
-@media (max-width: 1023px) {
-  /* zwei Spalten: die zweite Spalte bekommt die senkrechte Linie */
-  [data-design="apple"] .geld-fakten .fakt:not(.fakt-breit):nth-child(odd) {
-    border-left: 1px solid var(--linie);
-  }
-}
-
-[data-design="apple"] .geld-fakten .fakt dt {
-  font-size: var(--apple-fussnote);
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-[data-design="apple"] .geld-fakten .fakt dd {
-  font-size: var(--apple-unterzeile);
-}
-
-/* === Abschnittstitel (Kandidat für Bausteine) ========================================= */
-/* Zwischenüberschrift über einer Gruppe von Karten (Monatsabschlüsse je Mandant). */
-
-[data-design="apple"] h2.abschnitt-titel {
-  margin: var(--a4) 0 0;
-  font-size: var(--apple-titel-2);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-[data-design="apple"] .stapel > section + section > h2.abschnitt-titel {
-  margin-top: var(--a6);
-}
-
-[data-design="apple"] .abschnitt-titel .text-3 {
-  font-size: var(--apple-unterzeile);
-  font-weight: 600;
-}
-
 /* === Beträge =========================================================================== */
-
-[data-design="apple"] .tab td.zahl,
-[data-design="apple"] .tab th.zahl,
-[data-design="apple"] .angaben-neu .zahl,
-[data-design="apple"] .liste-neben.zahl {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 
 [data-design="apple"] .betrag-ausgang {
   color: var(--text);
@@ -227,28 +117,7 @@
   grid-column: 1 / -1;
 }
 
-/* Aufteilen: jeder Teil eine Karte mit Titel (fieldset mit legend) */
-[data-design="apple"] fieldset.teil {
-  min-width: 0;
-  margin-inline: 0;
-  margin-bottom: 0;
-  padding: var(--a4);
-  border: 0;
-}
-
-[data-design="apple"] .teil-titel {
-  float: left;
-  width: 100%;
-  margin: 0 0 var(--a3);
-  padding: 0;
-  font-size: var(--apple-kopfzeile);
-  font-weight: 600;
-}
-
-[data-design="apple"] .teil-titel + * {
-  clear: both;
-}
-
+/* Aufteilen: jeder Teil eine Karte (fieldset.karte aus den Bausteinen), Felder zu dritt */
 @media (min-width: 1024px) {
   [data-design="apple"] .teil-felder {
     grid-template-columns: repeat(3, minmax(0, 1fr));

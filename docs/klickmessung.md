@@ -68,6 +68,12 @@ Pflichtwahlen aus Review 3, Punkt 4 und 9 (in R3-4). Alle neun Messungen laufen 
   Umweg von Hand bei der Website-Kündigung bleibt „entfällt“, weil der direkte Weg die
   Anfrage schon erledigt.
 
+## Nach dem Apple-Rollout
+
+Gemessen am 20.11.2026 nach PR G (Apple-Design als einziges Design, auf `781662d`) mit
+`make klickmessung`, dieselben Skripte ohne Änderung: Apple-Rollout, unverändert. Alle neun
+Messungen laufen durch, Klicks, Seitenwechsel und Tippfelder wie nach Review 3.
+
 ## Wie gezählt wird
 
 - **Klick**: jedes `click`, `check` oder `select_option`. Eine Datei wählen zählt als ein

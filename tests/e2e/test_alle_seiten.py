@@ -3,7 +3,7 @@ Link der Oberfläche und prüft je Seite (eine Adresse je URL-Name) bei 1440 und
 dasselbe wie der Smoke-Test: kein Serverfehler, keine waagrechte Scrollleiste, keine
 englischen Standardtexte, am Handy Ziele mindestens 44 px.
 
-Damit bleiben auch die Seiten lesbar, die noch altes Markup tragen (hof.css, Ebene „alt“).
+Seit PR G gibt es kein altes Markup mehr; jede Seite trägt einen Seitenkopf und das Apple-Design.
 Nur GET; Formulare werden nicht abgeschickt. Ergebnis: ``tests/e2e/artefakte/alle_seiten.jsonl``.
 """
 

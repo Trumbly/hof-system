@@ -9,7 +9,7 @@
 {% seitenkopf "Ordentliche Kündigung · "|add:vertrag.nummer vertrag.get_vertragsart_display|add:" · H4.6" %}{% endseitenkopf %}
 {% include "mahnwesen/_reiter.html" %}
 
-<dl class="fakten geld-fakten">
+<dl class="fakten">
   <div class="fakt fakt-breit"><dt>Fristende</dt><dd><span class="fakt-wert">{{ frist.fristende|date:"d.m.Y" }}</span><span class="fakt-unter">{{ frist.titel }}</span></dd></div>
   <div class="fakt"><dt>Zugang</dt><dd>{{ frist.zugang_am|date:"d.m.Y" }}</dd></div>
   <div class="fakt"><dt>Einheit</dt><dd>{% for e in vertrag.einheiten.all %}{{ e.nw_id }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>

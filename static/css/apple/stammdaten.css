@@ -6,99 +6,12 @@
  * Nur Seitenspezifisches: Was mehr als ein Bereich braucht, gehört nach apple/bausteine.css
  * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
  * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
- *
- * Kandidaten für bausteine.css (hier nur für die Stammdaten gesetzt):
- * - .fakten-kacheln: Faktenkopf als Kacheln wie die Kennzahlen, ohne Trennlinien. Den alten
- *   Faktenkopf (.fakten) nutzen auch Klärfall, Mietkonto, Mahnfall und Zähler.
- * - .kopf-pfad im Apple-Design.
- * - Checklisten (.checkliste, .checkpunkte, button.haken) als gruppierte Liste.
  */
 
-/* === Kopf: Pfad über dem Titel ======================================================== */
-
-[data-design="apple"] .neu .kopf-pfad {
-  margin: 0 0 var(--a1);
-  font-size: var(--apple-fussnote);
-  color: var(--text-2);
-}
+/* === Kopf ============================================================================= */
 
 [data-design="apple"] .vertrag-kopf {
   margin-bottom: var(--a5);
-}
-
-/* === Faktenkopf als Kacheln (Vertrag, Einheit, Anfrage) =============================== */
-/* Wie die Kennzahlen der Startseite: jede Angabe eine Fläche auf dem Grund, Titel klein,
-   Wert groß, eine Zeile Zusammenhang. Keine Trennlinien, kein Rahmen um die Gruppe. */
-
-[data-design="apple"] .fakten-kacheln {
-  gap: var(--a3);
-  overflow: visible;
-  background: none;
-  border: 0;
-  border-radius: 0;
-}
-
-@media (min-width: 720px) {
-  [data-design="apple"] .fakten-kacheln {
-    gap: var(--a4);
-  }
-}
-
-[data-design="apple"] .fakten-kacheln .fakt {
-  gap: var(--a1);
-  padding: var(--a4);
-  background: var(--flaeche);
-  border-radius: var(--radius-karte);
-  box-shadow: var(--schatten-karte);
-}
-
-[data-design="apple"] .fakten-kacheln .fakt dt {
-  font-size: var(--apple-fussnote);
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-[data-design="apple"] .fakten-kacheln .fakt dd {
-  gap: var(--a1);
-}
-
-[data-design="apple"] .neu .fakten-kacheln .fakt-name {
-  font-size: var(--apple-kopfzeile);
-  font-weight: 600;
-}
-
-[data-design="apple"] .fakten-kacheln .fakt-wert {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-[data-design="apple"] .fakten-kacheln .fakt-unter,
-[data-design="apple"] .fakten-kacheln .fakt-kontakt {
-  font-size: var(--apple-fussnote);
-  color: var(--text-2);
-}
-
-/* Kontaktwege unter dem Namen: einzeln tippbar, am Handy mit Abstand untereinander */
-[data-design="apple"] .fakten-kacheln .fakt-kontakt {
-  gap: var(--a1) var(--a4);
-}
-
-[data-design="apple"] .fakten-kacheln .fakt-kontakt a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-}
-
-@media (max-width: 719px) {
-  [data-design="apple"] .fakten-kacheln .fakt {
-    padding: var(--a3) var(--a4);
-  }
-
-  [data-design="apple"] .fakten-kacheln .fakt-wert {
-    font-size: var(--apple-titel-3);
-  }
 }
 
 /* === Stammdaten-Übersicht und Leerstand ============================================== */
@@ -142,13 +55,6 @@
 
 /* === Anfragen ========================================================================= */
 
-/* Eine Spalte am Handy: nie breiter als der Bildschirm (Kandidat für .raster in bausteine) */
-@media (max-width: 1023px) {
-  [data-design="apple"] .anfrage-raster {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 /* Ohne Aktion in der linken Spalte (Buchungsanfrage ohne Verträge) rückt die Nachricht in
    die breite Spalte, statt rechts neben einer Lücke zu stehen. */
 [data-design="apple"] .anfrage-raster > .stapel:first-child:not(:has(> *)) {
@@ -170,88 +76,6 @@
 
 [data-design="apple"] .liste-neben form {
   margin: 0;
-}
-
-/* === Checklisten (Einheit, Vertrag) ================================================== */
-/* Je Liste ein Aufklapper ohne eigene Fläche, Punkte als Zeilen mit rundem Haken links. */
-
-[data-design="apple"] .neu .checkliste + .checkliste {
-  margin-top: var(--a2);
-  padding-top: var(--a2);
-  border-top: 1px solid var(--linie);
-}
-
-[data-design="apple"] .neu .checkliste > summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 var(--a2);
-  min-height: var(--ziel);
-  font-size: var(--apple-unterzeile);
-  font-weight: 600;
-}
-
-[data-design="apple"] .neu .checkliste > summary .leise {
-  font-size: var(--apple-fussnote);
-  font-weight: 400;
-  color: var(--text-2);
-}
-
-[data-design="apple"] .neu .checkpunkte form {
-  gap: var(--a3);
-  min-height: var(--ziel);
-  padding: 0;
-}
-
-[data-design="apple"] .neu .checkpunkte li {
-  position: relative;
-}
-
-[data-design="apple"] .neu .checkpunkte li + li::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: calc(var(--ziel) + var(--a3));
-  height: 1px;
-  content: "";
-  background: var(--linie);
-}
-
-/* Offen: leerer Ring, erledigt: grüner Kreis mit Haken. Das Ziel bleibt 44 px, der Kreis
-   ist 24 px groß (wie die Haken in Erinnerungen). */
-[data-design="apple"] .neu button.haken {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0;
-  color: transparent;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-rund);
-}
-
-[data-design="apple"] .neu button.haken::before {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  content: "";
-  border-radius: var(--radius-rund);
-  box-shadow: inset 0 0 0 2px var(--linie-stark);
-}
-
-[data-design="apple"] .neu button.haken:hover {
-  background: var(--fuellung-hover);
-}
-
-[data-design="apple"] .neu button.haken.zweitrangig::before {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--primaer-text);
-  content: "✓";
-  background: var(--primaer);
-  box-shadow: none;
 }
 
 /* === Übergabe am Handy ================================================================ */
@@ -289,19 +113,9 @@
   font-weight: 600;
 }
 
-[data-design="apple"] .karte-rumpf > .hindernisse.liste {
-  margin: var(--a2) calc(-1 * var(--a4)) 0;
-}
-
 @media (max-width: 1023px) {
   [data-design="apple"] .schritt-fuss {
     background: var(--material-deckend);
     border-top: 1px solid var(--material-linie);
   }
-}
-
-/* Lange Badges in Angaben („noch nicht eingegangen“) brechen bei 320 px um, statt die Karte
-   zu verbreitern. */
-[data-design="apple"] .angaben-neu dd .badge {
-  white-space: normal;
 }

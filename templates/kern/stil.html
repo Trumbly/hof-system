@@ -27,7 +27,7 @@
 
 <section class="stil-abschnitt" id="schrift">
   <h2>Schrift</h2>
-  <p class="stil-zweck">{% if hof_design == "apple" %}System-Schriftstapel (auf Apple-Geräten SF Pro), acht Stufen nach den iOS-Textstilen, in rem. Kleinste Stufe 12 px. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.{% else %}Systemschrift, sechs Größen. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.{% endif %}</p>
+  <p class="stil-zweck">System-Schriftstapel (auf Apple-Geräten SF Pro), acht Stufen nach den iOS-Textstilen, in rem. Kleinste Stufe 12 px. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.</p>
   <div class="karte"><div class="karte-rumpf stil-schrift">
     {% for g in groessen %}<p style="font-size: calc({{ g }}rem / 16); margin: 0">{{ g }} px · Miete heute 1.250,00 € · NW-G-0017</p>{% endfor %}
     <p class="text-2">Text 2: Meta-Zeilen und Beschriftungen.</p>
@@ -37,7 +37,7 @@
 
 <section class="stil-abschnitt" id="abstaende">
   <h2>Abstände, Radius, Schatten</h2>
-  <p class="stil-zweck">{% if hof_design == "apple" %}Abstände in Schritten von 4 px. Radius: Karten 14 px, Felder 10 px, Dialoge 16 px, Knöpfe und Reiter als Kapsel. Karten ohne Rahmen, Haarlinien nur zwischen Zeilen; Material nur in Seitenleiste, Kopf und Leiste unten.{% else %}Abstände in Schritten von 4 px. Radius 8 px. Schatten nur für Dialoge und Menüs, sonst Linien.{% endif %}</p>
+  <p class="stil-zweck">Abstände in Schritten von 4 px. Radius: Karten 14 px, Felder 10 px, Dialoge 16 px, Knöpfe und Reiter als Kapsel. Karten ohne Rahmen, Haarlinien nur zwischen Zeilen; Material nur in Seitenleiste, Kopf und Leiste unten.</p>
   <div class="stil-abstaende">
     {% for a in abstaende %}<div class="stil-abstand"><span style="width: {{ a }}px; height: {{ a }}px"></span><span>{{ a }}</span></div>{% endfor %}
   </div>
@@ -56,7 +56,7 @@
 
 <section class="stil-abschnitt" id="knoepfe">
   <h2>Knöpfe</h2>
-  <p class="stil-zweck">Höchstens ein primärer Knopf je Ansicht. {% if hof_design == "apple" %}Kapselform; primär Hof-Grün, sekundär graue Füllung, Text nur als Wort, Gefahr rot. Jeder Knopf mindestens 44 px hoch, auch „klein“.{% else %}Am Handy und mit Finger mindestens 44 px hoch.{% endif %}</p>
+  <p class="stil-zweck">Höchstens ein primärer Knopf je Ansicht. Kapselform; primär Hof-Grün, sekundär graue Füllung, Text nur als Wort, Gefahr rot. Jeder Knopf mindestens 44 px hoch, auch „klein“.</p>
   <div class="stil-reihe">
     <button type="button" class="knopf knopf-primaer">Kündigung erfassen</button>
     <button type="button" class="knopf knopf-zweit">Miete ändern</button>
@@ -286,7 +286,7 @@
       <header class="posteingang-kopf"><h2>Umsätze einordnen <span class="zaehler">3</span></h2>
         <div class="posteingang-sammel"><label class="haken-label"><input type="checkbox" class="feld-haken"><span>alle wählen</span></label><button type="button" class="knopf knopf-zweit knopf-klein">Für alle übernehmen</button><button type="button" class="knopf knopf-text knopf-klein">Zurückstellen</button></div>
       </header>
-      <ul class="posten-liste">
+      <ul class="posten-liste zeilen-linien">
         <li class="posten-zeile posten-aktiv">
           <label class="posten-wahl"><input type="checkbox" class="feld-haken" aria-label="Posten wählen"></label>
           <div class="posten-inhalt">
@@ -478,5 +478,78 @@ Mit freundlichen Grüßen</pre>{% endkarte %}
       <label class="wahl-zeile"><input type="radio" name="stil_buchung" value="" checked><span>nicht verknüpfen</span></label>
     </fieldset>
   </div></form>
+</section>
+
+<section class="stil-abschnitt" id="faktenkopf">
+  <h2>Pfad und Faktenkopf</h2>
+  <p class="stil-zweck">Zusammenfassung einer Detailseite (Vertrag, Einheit, Mietkonto, Bankfreigabe, Mahnfall, Zähler, Vorgang): eine Karte ohne Trennlinien, <code>dl.fakten</code> mit je einer <code>.fakt</code>, die wichtigste mit <code>.fakt-breit</code>. Darüber der Pfad <code>.kopf-pfad</code>.</p>
+  <p class="kopf-pfad"><a href="#faktenkopf">Verträge</a> / Garage</p>
+  <dl class="fakten">
+    <div class="fakt fakt-breit"><dt>Mieter</dt><dd><span class="fakt-name">Mieter A</span><span class="fakt-kontakt"><a href="#faktenkopf">mieter-a@beispiel.invalid</a></span></dd></div>
+    <div class="fakt"><dt>Miete heute</dt><dd><span class="fakt-wert zahl">{{ beispiel_betrag|euro }}</span><span class="fakt-unter">monatlich</span></dd></div>
+    <div class="fakt"><dt>Saldo</dt><dd><span class="fakt-wert zahl fakt-fehler">{{ beispiel_betrag|euro }}</span><span class="fakt-unter">offen</span></dd></div>
+    <div class="fakt"><dt>Nächste Frist</dt><dd>keine offen</dd></div>
+  </dl>
+</section>
+
+<section class="stil-abschnitt" id="karteninhalt">
+  <h2>Abschnittstitel und Inhalt einer Karte</h2>
+  <p class="stil-zweck"><code>h2.abschnitt-titel</code> über einer Gruppe von Karten. In der Karte: <code>.liste-buendig</code> läuft unter einem Satz bis an den Rand, <code>form.karte</code> ohne Kopf hat oben dieselbe Luft wie seitlich, <code>fieldset.karte</code> trägt die Legende als Kartentitel, <code>.zeilen-linien</code> setzt eingerückte Haarlinien zwischen Zeilen, die keine Liste sind.</p>
+  <section>
+    <h2 class="abschnitt-titel">GbR <span class="text-3">2026</span></h2>
+    <div class="raster raster-2" style="margin-top: var(--a3)">
+      {% karte "Was noch fehlt" %}
+        <p class="text-2">Ohne Unterschrift gibt es keinen Schlüssel.</p>
+        <ul class="liste liste-buendig">
+          <li><a class="liste-zeile" href="#karteninhalt"><span class="liste-haupt">Unterschrift</span></a></li>
+          <li><a class="liste-zeile" href="#karteninhalt"><span class="liste-haupt">Kaution</span></a></li>
+        </ul>
+      {% endkarte %}
+      <form class="karte" onsubmit="return false"><div class="karte-rumpf">
+        <p>Karte ohne Kopf.</p>
+        <ul class="zeilen-linien" style="margin: 0; padding: 0; list-style: none">
+          <li style="padding: var(--a2) 0 var(--a2) var(--a4)">erste Zeile</li>
+          <li style="padding: var(--a2) 0 var(--a2) var(--a4)">zweite Zeile, Linie eingerückt</li>
+        </ul>
+      </div></form>
+    </div>
+  </section>
+  <fieldset class="karte" style="margin-top: var(--a5)">
+    <legend class="karte-titel">Teil 1</legend>
+    <div class="karte-rumpf"><div class="felder felder-2">
+      <div class="feld"><label class="feld-label" for="stil-teil-betrag">Betrag</label><input class="feld-eingabe" id="stil-teil-betrag" inputmode="decimal" value="48,90"></div>
+      <div class="feld"><label class="feld-label" for="stil-teil-kategorie">Kategorie</label><select class="feld-auswahl" id="stil-teil-kategorie"><option>Reparatur</option><option>Material</option></select></div>
+    </div></div>
+  </fieldset>
+</section>
+
+<section class="stil-abschnitt" id="zellen">
+  <h2>Zelle mit Nebenzeile, gekürzter Text, Quelltext</h2>
+  <p class="stil-zweck"><code>.zelle-neben</code>: Wert und kleine Zeile darunter, am Handy rechtsbündig. <code>.gekuerzt</code>: langer Text auf drei Zeilen, „ganze Meldung“ zeigt alles. <code>.quelltext</code>: Text mit Platzhaltern in gleich breiter Schrift.</p>
+  <div class="tabelle-box">
+    <table class="tab tab-karten">
+      <thead><tr><th>Art</th><th>Meldung</th></tr></thead>
+      <tbody><tr>
+        <td data-titel="Art"><span class="zelle-neben">Kündigungsfrist<span class="text-3 klein">Vorlauf 14 Tage</span></span></td>
+        <td data-titel="Meldung"><div class="gekuerzt"><span class="gekuerzt-text">{{ langer_text }}</span><details class="gekuerzt-mehr"><summary class="knopf knopf-text knopf-klein"><span class="gekuerzt-ganz">ganze Meldung</span><span class="gekuerzt-weniger">weniger zeigen</span></summary></details></div></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <pre class="quelltext" style="margin-top: var(--a4)">{% verbatim %}&lt;p&gt;Guten Tag {{ partei.name }},&lt;/p&gt;
+&lt;p&gt;für {{ vertrag.nummer }} sind {{ betrag.offen|euro }} offen.&lt;/p&gt;{% endverbatim %}</pre>
+</section>
+
+<section class="stil-abschnitt" id="checkliste">
+  <h2>Checkliste</h2>
+  <p class="stil-zweck">Je Liste ein Aufklapper ohne eigene Fläche, Punkte mit rundem Haken: offen ein leerer Ring, erledigt grün mit Haken (<code>button.haken.zweitrangig</code>). Das Ziel bleibt 44 px.</p>
+  <div class="karte"><div class="karte-rumpf">
+    <details class="checkliste" open>
+      <summary>Übergabe <span class="leise">1 von 2 erledigt</span></summary>
+      <ul class="checkpunkte zeilen-linien">
+        <li><form onsubmit="return false"><button type="submit" class="zweitrangig haken" aria-label="wieder öffnen">✓</button>Schlüssel übergeben <span class="leise">01.11.2026</span></form></li>
+        <li><form onsubmit="return false"><button type="submit" class="haken" aria-label="erledigt">○</button>Zählerstand notiert</form></li>
+      </ul>
+    </details>
+  </div></div>
 </section>
 {% endblock %}

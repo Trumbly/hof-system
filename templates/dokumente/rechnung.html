@@ -38,7 +38,7 @@
 {% karte "Abbuchung zuordnen" zahl=kandidaten|length %}
   <p class="text-2 klein">Gebuchte Abbuchungen mit diesem Betrag ab dem Belegdatum. Eindeutige Abbuchungen erkennt der Lauf „kassenbuch_einordnen“ selbst.</p>
   {% if kandidaten %}
-  <ul class="liste dok-liste-buendig">
+  <ul class="liste liste-buendig">
     {% for u in kandidaten %}
     <li class="dok-kandidat">
       <span class="liste-haupt">Umsatz #{{ u.pk }} · {{ u.buchungsdatum|date:"d.m.Y" }}<br><span class="text-3 klein">{{ u.gegenpartei }} · {{ u.verwendungszweck }}</span></span>

@@ -1,35 +1,15 @@
 /* Hof-System: Gestaltungswerte (Review 2, C2).
  *
- * Nur Variablen, keine Regeln für Elemente. Die Bausteine (bausteine.css) und später alle
- * Seiten lesen ausschließlich diese Werte. Alte Seiten (hof.css) bleiben davon unberührt.
+ * Nur Variablen, keine Regeln für Elemente. Die Bausteine (bausteine.css und css/apple/) lesen
+ * diese Werte. Flächen, Text, Akzent, Schrift und Radien setzt css/apple/basis.css (dort mit
+ * gerechneten Kontrasten); hier stehen nur die Werte, die es dort nicht gibt: Statusfarben,
+ * Gefahr, Schriftstufen der Grundlage, Abstände, Ziele, Schatten der Dialoge und Menüs, Gerüst.
  *
- * Kontrast nach WCAG 2.1 (gerechnet, nicht geschätzt; Werte im PR R2-4):
- * Text und Statusfarben erreichen mindestens 4,5:1 (AA) auf ihrem Grund, Feldrahmen
- * mindestens 3:1 (Bedienelemente, 1.4.11). Wer eine Farbe ändert, rechnet neu.
+ * Kontrast nach WCAG 2.1 (gerechnet, nicht geschätzt; Werte im PR R2-4): Statusfarben
+ * erreichen auf ihrem Grund mindestens 6:1. Wer eine Farbe ändert, rechnet neu.
  */
 
 :root {
-  color-scheme: light;
-
-  /* --- Farben, hell --- */
-  --grund: #f6f7f6; /* Seitengrund */
-  --flaeche: #ffffff; /* Karten, Tabellen, Dialoge */
-  --flaeche-2: #f0f2f1; /* Tabellenkopf, Zeilen-Hover, leise Flächen */
-  --flaeche-3: #e6eae8; /* gedrückt, aktiver Reiter am Handy */
-  --linie: #e1e5e3; /* Trennlinien */
-  --linie-stark: #8a948f; /* Feldrahmen: 3,1:1 auf Weiß */
-
-  --text: #17201c; /* 16,7:1 auf Weiß */
-  --text-2: #535e59; /* Meta-Zeilen, Labels: 6,8:1 */
-  --text-3: #66706b; /* Hilfetexte, Leerzustände: 5,1:1 (4,6:1 auf --flaeche-2) */
-
-  --primaer: #2b6a4c; /* Grün des Hofs: Text darauf 6,4:1 */
-  --primaer-stark: #22573e; /* Hover */
-  --primaer-text: #ffffff;
-  --primaer-weich: #e2f3e9; /* aktive Navigation, Auswahl */
-  --link: #2b6a4c; /* 6,4:1 auf Weiß, 6,0:1 auf Grund */
-  --fokus: #2f7fd6;
-
   /* Statusfarben: Vordergrund auf weichem Grund, jeweils über 6:1 */
   --ok: #1b6440;
   --ok-grund: #e2f3e9;
@@ -45,11 +25,7 @@
   --gefahr: #b3261e; /* Knopf „Gefahr“: Weiß darauf 6,5:1 */
   --gefahr-text: #ffffff;
 
-  --band: #fcefd6; /* Stichtag-Band */
-  --band-text: #7f4600;
-
   /* --- Schrift --- */
-  --schrift: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --schrift-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --text-13: 0.8125rem;
   --text-15: 0.9375rem;
@@ -75,8 +51,6 @@
   --a12: 48px;
 
   /* --- Formen --- */
-  --radius: 8px;
-  --radius-klein: 6px;
   --radius-rund: 999px;
   --ziel: 44px; /* Mindesthöhe für Knöpfe, Checkboxen, Zeilen am Handy */
   --feld-hoehe: 40px; /* Felder am Desktop; am Handy --ziel */
@@ -84,38 +58,16 @@
   /* Schatten nur für Dialoge und Menüs */
   --schatten-menue: 0 4px 16px rgb(16 24 20 / 12%), 0 1px 3px rgb(16 24 20 / 8%);
   --schatten-dialog: 0 16px 48px rgb(16 24 20 / 20%), 0 2px 6px rgb(16 24 20 / 10%);
-  --schleier: rgb(16 24 20 / 40%);
 
   /* --- Gerüst --- */
   --breite-inhalt: 1280px;
   --breite-formular: 720px;
-  --breite-leiste: 240px;
   --hoehe-kopf: 56px;
   --hoehe-unten: 64px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color-scheme: dark;
-
-    --grund: #121614;
-    --flaeche: #191e1b;
-    --flaeche-2: #202623;
-    --flaeche-3: #29302c;
-    --linie: #2a312d;
-    --linie-stark: #6b7570; /* 3,5:1 auf --flaeche */
-
-    --text: #e6ebe8; /* 14,0:1 auf --flaeche */
-    --text-2: #a9b3ae; /* 7,8:1 */
-    --text-3: #8f9994; /* 5,8:1 (5,3:1 auf --flaeche-2) */
-
-    --primaer: #5cbf8a; /* dunkler Text darauf 7,9:1 */
-    --primaer-stark: #73cd9c;
-    --primaer-text: #0c1a12;
-    --primaer-weich: #15301f;
-    --link: #6fcb98; /* 8,6:1 */
-    --fokus: #7ab4f5;
-
     --ok: #82d6a8;
     --ok-grund: #15301f;
     --hinweis: #90bff3;
@@ -130,11 +82,7 @@
     --gefahr: #f08a80;
     --gefahr-text: #1a0705;
 
-    --band: #33250e;
-    --band-text: #f2bc66;
-
     --schatten-menue: 0 4px 16px rgb(0 0 0 / 45%), 0 1px 3px rgb(0 0 0 / 35%);
     --schatten-dialog: 0 16px 48px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%);
-    --schleier: rgb(0 0 0 / 60%);
   }
 }

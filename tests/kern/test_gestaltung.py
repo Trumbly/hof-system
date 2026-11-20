@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import datetime
 import os
-import re
 import subprocess
 import sys
 from decimal import Decimal
@@ -22,6 +21,8 @@ from apps.kern.templatetags.bausteine import BADGES
 
 WURZEL = Path(__file__).resolve().parents[2]
 D = datetime.date
+MINUS = chr(0x2212)
+NBSP = chr(0xA0)
 
 
 # --- Zahlen und Beträge (Review 1, Punkt 11) -----------------------------------------
@@ -76,23 +77,38 @@ def test_filter_in_jeder_vorlage_ohne_load() -> None:
     assert html == "209.533,70\u00a0€ · 9.602,7 · 3,00"
 
 
+@pytest.mark.parametrize(
+    ("wert", "erwartet"),
+    [
+        (Decimal("-36.5"), MINUS + "36,50" + NBSP + "€"),
+        (Decimal("-1234.5"), MINUS + "1.234,50" + NBSP + "€"),
+        (Decimal("36.5"), "36,50" + NBSP + "€"),
+        (Decimal("-0.001"), "0,00" + NBSP + "€"),
+        (None, ""),
+        ("-‹x›", "-‹x›"),
+    ],
+)
+def test_euro_anzeige_mit_minuszeichen(wert: object, erwartet: str) -> None:
+    """Apple-Design (PR G): In der Anzeige steht vor negativen Beträgen das Minuszeichen
+    U+2212 („−36,50 €“), nicht der Bindestrich."""
+    assert zahlen.euro_anzeige(wert) == erwartet
+
+
+def test_filter_euro_mit_minuszeichen_schreiben_mit_bindestrich() -> None:
+    """Apple-Design (PR G): |euro auf den Seiten zeigt „−36,50 €“; Schreiben, Mails und
+    Notion (Platzhalter) behalten den Bindestrich, damit der Text überall lesbar bleibt."""
+    html = Template("{{ a|euro }}").render(Context({"a": Decimal("-36.5")}))
+    assert html == MINUS + "36,50" + NBSP + "€"
+    brief = platzhalter.rendern("{{ b|euro }}", {"b": Decimal("-36.5")})
+    assert brief == "-36,50" + NBSP + "€"
+    assert zahlen.euro(Decimal("-36.5")) == "-36,50" + NBSP + "€"
+
+
 def test_eine_stelle_fuer_das_format() -> None:
     """Review 1, Punkt 11: Die Schreiben an Mieter nutzen dieselbe Funktion wie die Seiten."""
     for wert in (Decimal("209533.70"), Decimal("-14.6"), "‹x›", None):
         assert platzhalter.euro(wert) == zahlen.euro(wert)
     assert platzhalter.rendern("{{ b|euro }}", {"b": Decimal("1234.5")}) == "1.234,50\u00a0€"
-
-
-def test_tabellenkoepfe_mit_abstand_in_der_alten_gestaltung() -> None:
-    """Review 1, Punkt 11: „.zahl“ in Tabellenzellen ist kein Zähler-Kreis mehr (dieser
-    machte „BetragoffenStatus“ ohne Abstand), sondern eine rechtsbündige Zelle."""
-    css = (WURZEL / "static" / "css" / "hof.css").read_text()
-    # seit R2-5 nur in alten Seiten (ohne Seitenkopf), siehe Kopf von hof.css
-    regel = re.split(r"\) th\.zahl,\s*\S+ td\.zahl \{", css, maxsplit=1)[1].split("}", 1)[0]
-    assert "display: table-cell" in regel
-    assert "text-align: right" in regel
-    assert "padding: 0.5rem" in regel
-    assert "background: none" in regel
 
 
 # --- Stichtag-Band (Review 1, Punkt 14) ----------------------------------------------
@@ -233,15 +249,18 @@ def test_badges_fuer_alle_zustaende() -> None:
 
 def test_werte_css_mit_hell_und_dunkel() -> None:
     """Review 2, C2: Gestaltungswerte mit Hell- und Dunkelmodus, Schriftgrößen
-    13/15/17/20/24/30, Abstände in 4-px-Schritten, Radius 8 px."""
+    13/15/17/20/24/30, Abstände in 4-px-Schritten. Seit PR G stehen Radien und Schrift nur
+    noch in apple/basis.css (Karten 14 px, Felder 10 px, System-Schriftstapel)."""
     css = (WURZEL / "static" / "css" / "werte.css").read_text()
     assert "@media (prefers-color-scheme: dark)" in css
     for groesse in ("0.8125rem", "0.9375rem", "1.0625rem", "1.25rem", "1.5rem", "1.875rem"):
         assert groesse in css
-    assert "--radius: 8px;" in css
     for schritt in (4, 8, 12, 16, 20, 24, 32, 40, 48):
         assert f": {schritt}px;" in css
-    assert "system-ui" in css
+    basis = (WURZEL / "static" / "css" / "apple" / "basis.css").read_text()
+    assert "@media (prefers-color-scheme: dark)" in basis
+    assert "--radius-karte: 14px;" in basis and "--radius-feld: 10px;" in basis
+    assert "system-ui" in basis
     bausteine = (WURZEL / "static" / "css" / "bausteine.css").read_text()
     assert "font-variant-numeric: tabular-nums" in bausteine
     assert "min-height: var(--ziel)" in bausteine  # 44 px am Handy

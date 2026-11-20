@@ -100,9 +100,9 @@ def test_monatsfeld_mit_deutschen_namen() -> None:
 def test_seiten_sind_deutsch(name: str, angemeldet: Client) -> None:
     """Review 2, A11: Jede Seite trägt ``<html lang="de">``; dann zeigen Datums- und
     Auswahlfelder deutsche Texte."""
-    assert '<html lang="de">' in angemeldet.get(reverse(name)).content.decode()
+    assert '<html lang="de"' in angemeldet.get(reverse(name)).content.decode()
 
 
 def test_anmeldung_ist_deutsch(client: Client, db: None) -> None:
     """Review 2, A11: auch die Anmeldung (ohne Sitzung)."""
-    assert '<html lang="de">' in client.get(reverse("account_login")).content.decode()
+    assert '<html lang="de"' in client.get(reverse("account_login")).content.decode()

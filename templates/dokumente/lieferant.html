@@ -15,7 +15,7 @@
 {% karte "Dokumente am Lieferanten" zahl=dokumente|length %}
   <p class="text-2 klein">Belege, Mahnungen, Rücklastschriften und Vollstreckungen.</p>
   {% if dokumente %}
-  <ul class="liste dok-liste-buendig">
+  <ul class="liste liste-buendig">
     {% for d in dokumente %}
     <li><a class="liste-zeile" href="{% url 'dokumente:dokument' d.pk %}">
       <span class="liste-haupt">Dokument #{{ d.pk }}<br><span class="text-3 klein">{{ d.dokumentart.titel }}</span></span>

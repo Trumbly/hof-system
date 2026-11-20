@@ -115,20 +115,15 @@
   border-top: 0;
 }
 
-/* Haarlinie eingerückt bis zum Text, wie in einer gruppierten Liste */
-[data-design="apple"] .posten-liste > li + li::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: calc(var(--a2) + var(--ziel) + var(--a3));
-  height: 1px;
-  content: "";
-  background: var(--linie);
+/* Haarlinie eingerückt bis zum Text (.zeilen-linien aus den Bausteinen); neben einer Gruppe
+   über die ganze Breite */
+[data-design="apple"] .posten-liste {
+  --linie-einzug: calc(var(--a2) + var(--ziel) + var(--a3));
 }
 
-[data-design="apple"] .posten-liste > li + .posten-gruppe::before,
-[data-design="apple"] .posten-liste > .posten-gruppe + li::before {
-  left: 0;
+[data-design="apple"] .posten-liste > .posten-gruppe,
+[data-design="apple"] .posten-liste > .posten-gruppe + li {
+  --linie-einzug: 0;
 }
 
 [data-design="apple"] .posten-liste > li:first-child {
@@ -540,26 +535,6 @@
 
 /* === Seiten „Umsatz einordnen“ und „Zahlung klären“ =================================== */
 
-/* Karten zum Zuordnen liegen auf einer Karte: grau statt Schatten, der Vorschlag mit Ring */
-[data-design="apple"] .karte .wahl-karte {
-  background: var(--flaeche-2);
-  box-shadow: none;
-}
-
-[data-design="apple"] .karte .wahl-karte-vorschlag {
-  background: var(--flaeche);
-  box-shadow: inset 0 0 0 2px var(--primaer);
-}
-
-[data-design="apple"] .karte .wahl-karte-summe {
-  border-top-color: var(--linie-stark);
-}
-
 [data-design="apple"] .karte .angaben-neu + p.leise {
   margin-top: var(--a4);
-}
-
-/* „Umsatz einordnen“: Das Formular ist eine Karte ohne Kopf; oben so viel Luft wie seitlich */
-[data-design="apple"] form.karte > .karte-rumpf:first-child {
-  padding-top: var(--a4);
 }

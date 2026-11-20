@@ -1,7 +1,7 @@
 {% for liste in checklisten %}
 <details class="checkliste"{% if not liste.abgeschlossen_am %} open{% endif %}>
   <summary>{{ liste.titel }}{% if liste.abgeschlossen_am %} <span class="leise">abgeschlossen {{ liste.abgeschlossen_am|date:"d.m.Y" }}</span>{% endif %}</summary>
-  <ul class="checkpunkte">
+  <ul class="checkpunkte zeilen-linien">
     {% for punkt in liste.punkte.all %}
     <li>
       <form method="post" action="{% url 'stammdaten:checkpunkt' punkt.pk %}">

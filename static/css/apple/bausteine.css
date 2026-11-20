@@ -13,12 +13,13 @@
  * 4. Klickflächen mindestens 44 px (var(--ziel)), Größen in rem, keine eigene Bewegung.
  * 5. Karten ohne Rahmen; Haarlinien (var(--linie)) nur zwischen Zeilen.
  *
- * Inhalt: Seitenkopf · Knöpfe und Menü · Karte und Liste · Kennzahl · Badge und Zähler ·
- * Tabelle (Desktop, Karten am Handy) · Reiter und Unternavigation · Aufklapper · Felder
- * (Eingabe, Auswahl, Optionen, Haken, Schalter, Fehler, Hinweise) · Filterleiste ·
- * Dateiknöpfe · Dialog und Blatt · Toast · Angaben · Hinweis-Band · Fortschritt ·
- * Wahl-Karten · Auswahl-Treffer · PDF-Vorschau und Mailtext · Leerzustand · Gelesen,
- * Abweichung, Begriff.
+ * Inhalt: Seitenkopf (mit Pfad, Abschnittstitel) · Knöpfe und Menü · Karte und Liste (Inhalt
+ * einer Karte, Liste bündig, fieldset als Karte, eingerückte Haarlinien, Quelltext) · Kennzahl ·
+ * Badge und Zähler · Tabelle (Desktop, Karten am Handy, Beträge, Zelle mit Nebenzeile, gekürzter
+ * Text) · Reiter und Unternavigation · Aufklapper · Felder (Eingabe, Auswahl, Optionen, Haken,
+ * Schalter, Fehler, Hinweise) · Filterleiste · Dateiknöpfe · Dialog und Blatt · Toast · Angaben ·
+ * Faktenkopf · Checkliste · Hinweis-Band · Fortschritt · Wahl-Karten · Auswahl-Treffer ·
+ * PDF-Vorschau und Mailtext · Leerzustand · Gelesen, Abweichung, Begriff.
  */
 
 /* === Seitenkopf ====================================================================== */
@@ -34,6 +35,33 @@
 }
 
 [data-design="apple"] .neu h3 {
+  font-size: var(--apple-unterzeile);
+  font-weight: 600;
+}
+
+/* Pfad über dem Titel einer Detailseite („Verträge / Garage“, „Zähler / FELD“) */
+[data-design="apple"] .neu .kopf-pfad {
+  margin: 0 0 var(--a1);
+  font-size: var(--apple-fussnote);
+  color: var(--text-2);
+}
+
+/* --- Abschnittstitel: Zwischenüberschrift über einer Gruppe von Karten ----------------- */
+/* <section><h2 class="abschnitt-titel">GbR <span class="text-3">2026</span></h2> Karten …
+   (Monatsabschlüsse je Mandant). Eine Stufe unter dem großen Titel, über den Kartentiteln. */
+
+[data-design="apple"] h2.abschnitt-titel {
+  margin: var(--a4) 0 0;
+  font-size: var(--apple-titel-2);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-design="apple"] .stapel > section + section > h2.abschnitt-titel {
+  margin-top: var(--a6);
+}
+
+[data-design="apple"] .abschnitt-titel .text-3 {
   font-size: var(--apple-unterzeile);
   font-weight: 600;
 }
@@ -293,6 +321,100 @@
   margin-top: var(--a5);
 }
 
+/* --- Inhalt einer Karte ---------------------------------------------------------------- */
+
+/* Angaben, Hinweis und Text untereinander in einer Karte ohne .stapel */
+[data-design="apple"] .karte-rumpf > .angaben-neu + *,
+[data-design="apple"] .karte-rumpf > .liste + .hinweis-band,
+[data-design="apple"] .karte-rumpf > p + .tabelle-box {
+  margin-top: var(--a4);
+}
+
+[data-design="apple"] .karte-rumpf > .angaben-neu ~ p {
+  margin-bottom: 0;
+}
+
+[data-design="apple"] .karte-rumpf > .angaben-neu ~ p + p {
+  margin-top: var(--a2);
+}
+
+/* Karte ohne Kopf (form.karte, etwa „Umsatz einordnen“): oben dieselbe Luft wie seitlich */
+[data-design="apple"] form.karte > .karte-rumpf:first-child {
+  padding-top: var(--a4);
+}
+
+/* Liste unter einem Satz im Rumpf: läuft bis an den Rand der Karte wie eine gruppierte
+   Liste; als letztes Kind auch bis an den unteren Rand. <ul class="liste liste-buendig"> */
+[data-design="apple"] .karte-rumpf > .liste-buendig {
+  margin: var(--a2) calc(-1 * var(--a4)) 0;
+}
+
+[data-design="apple"] .karte-rumpf > .liste-buendig:last-child {
+  margin-bottom: calc(-1 * var(--a4));
+}
+
+/* fieldset als Karte (Teile beim Aufteilen): die Legende ist der Kartentitel.
+   <fieldset class="karte"><legend class="karte-titel">…</legend><div class="karte-rumpf"> */
+[data-design="apple"] fieldset.karte {
+  min-width: 0;
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+}
+
+[data-design="apple"] fieldset.karte > legend {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: var(--a4) var(--a4) 0;
+}
+
+[data-design="apple"] fieldset.karte > legend + * {
+  clear: both;
+}
+
+[data-design="apple"] fieldset.karte > .karte-rumpf {
+  padding-top: var(--a3);
+}
+
+/* Eingerückte Haarlinie zwischen Zeilen, die keine .liste sind (Posten, Checkpunkte):
+   .zeilen-linien am Elternelement, Einzug über --linie-einzug (ohne Angabe 16 px). */
+[data-design="apple"] .zeilen-linien > * {
+  position: relative;
+}
+
+[data-design="apple"] .zeilen-linien > * + *::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: var(--linie-einzug, var(--a4));
+  height: 1px;
+  content: "";
+  background: var(--linie);
+}
+
+/* Quelltext (Text einer Vorlage mit Platzhaltern): gleich breite Schrift auf grauer Fläche.
+   Am Desktop scrollt ein langer Text in seiner Karte, am Handy läuft er mit der Seite. */
+[data-design="apple"] .quelltext {
+  margin: 0;
+  padding: var(--a4);
+  font-family: var(--schrift-mono);
+  font-size: var(--apple-fussnote);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--flaeche-2);
+  border: 0;
+  border-radius: var(--radius);
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .quelltext {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+}
+
 /* === Kennzahl ========================================================================= */
 /* Titel klein (in der Statusfarbe, wenn es eine gibt), Zahl groß, eine Zeile Zusammenhang.
    Farbe nie allein: Der Titel sagt in Worten, was die Zahl ist. */
@@ -454,6 +576,64 @@
   }
 }
 
+/* Beträge in Tabellen, Angaben und Listen: gleich breite Ziffern, ohne Umbruch */
+[data-design="apple"] .tab td.zahl,
+[data-design="apple"] .tab th.zahl,
+[data-design="apple"] .angaben-neu .zahl,
+[data-design="apple"] .liste-neben.zahl {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Zelle mit Nebenzeile: Wert und eine kleine Zeile darunter; am Handy (Karten-Tabelle)
+   rechtsbündig. <span class="zelle-neben">Wert<span class="text-3 klein">…</span></span> */
+[data-design="apple"] .zelle-neben {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-design="apple"] .zelle-neben > .klein {
+  font-size: var(--apple-fussnote);
+}
+
+@media (max-width: 1023px) {
+  [data-design="apple"] .tab-karten .zelle-neben {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+/* --- Gekürzter langer Text ------------------------------------------------------------- */
+/* Steht auf drei Zeilen gekürzt; „ganze Meldung“ zeigt ihn ganz (ohne JavaScript):
+   <div class="gekuerzt"><span class="gekuerzt-text">…</span><details class="gekuerzt-mehr">
+   <summary class="knopf knopf-text knopf-klein"><span class="gekuerzt-ganz">ganze Meldung</span>
+   <span class="gekuerzt-weniger">weniger zeigen</span></summary></details></div> */
+
+[data-design="apple"] .gekuerzt:not(:has(> .gekuerzt-mehr[open])) > .gekuerzt-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+[data-design="apple"] .gekuerzt-mehr > summary {
+  min-height: var(--ziel);
+  margin-left: calc(-1 * var(--a3));
+  list-style: none;
+  cursor: pointer;
+}
+
+[data-design="apple"] .gekuerzt-mehr > summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-design="apple"] .gekuerzt-mehr:not([open]) .gekuerzt-weniger,
+[data-design="apple"] .gekuerzt-mehr[open] .gekuerzt-ganz {
+  display: none;
+}
+
 /* === Reiter und Unternavigation ======================================================= */
 /* Wie ein Segmented Control: Spur mit Füllung, der gewählte Reiter hebt sich als Fläche ab.
    Am Handy scrollt die Spur waagrecht. */
@@ -493,6 +673,13 @@
 
 [data-design="apple"] .reiter .zaehler {
   background: var(--fuellung-knopf);
+}
+
+/* Reiter direkt unter dem Seitenkopf (Unterseiten eines Bereichs: Bank, Kassenbuch,
+   Dokumente, Mahnwesen, Anbindungen): gehören zum Kopf, darunter mehr Luft als darüber. */
+[data-design="apple"] .seitenkopf + .reiter {
+  margin-top: calc(-1 * var(--a2));
+  margin-bottom: var(--a6);
 }
 
 /* === Aufklapper ======================================================================= */
@@ -583,6 +770,12 @@
 [data-design="apple"] .feld-fehlerhaft .feld-auswahl,
 [data-design="apple"] .feld-fehlerhaft textarea {
   border-color: var(--fehler);
+}
+
+/* Datum und Monat so hoch wie die übrigen Felder: Chromium legt dem Datumsfeld innen 1 px
+   oben und unten dazu; nebeneinander (Filterleiste am Handy) stünden die Felder sonst versetzt. */
+[data-design="apple"] .feld-eingabe::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
 }
 
 /* Auswahl: Pfeil als Chevron nach unten */
@@ -681,6 +874,13 @@
   gap: var(--a3);
 }
 
+/* Schmale Felder schneiden lange Auswahltexte mit „…“ ab, statt die Zeile zu sprengen */
+[data-design="apple"] .filterleiste > .feld .feld-eingabe,
+[data-design="apple"] .filterleiste > .feld .feld-auswahl {
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
 [data-design="apple"] .neu .filterleiste-ergebnis,
 [data-design="apple"] .filter-aktiv {
   font-size: var(--apple-fussnote);
@@ -774,15 +974,174 @@
   min-height: var(--ziel);
 }
 
-/* === Angaben, Kopf-Fakten, Hinweis-Band ============================================== */
+/* === Angaben, Faktenkopf, Hinweis-Band ================================================ */
 
 [data-design="apple"] .angaben-neu {
   gap: var(--a2) var(--a5);
 }
 
+/* Lange Badges in Angaben („noch nicht eingegangen“) brechen bei 320 px um, statt die Karte
+   zu verbreitern. */
+[data-design="apple"] .angaben-neu dd .badge {
+  white-space: normal;
+}
+
 [data-design="apple"] .neu .hinweis-band {
   padding: var(--a3) var(--a4);
   border-radius: var(--radius);
+}
+
+/* --- Faktenkopf (.fakten): Zusammenfassung einer Detailseite ---------------------------- */
+/* Eine Karte ohne Rahmen und ohne Trennlinien: Beschriftung klein und grau, Wert darunter.
+   Am Handy zwei Spalten (die breite Angabe über die ganze Zeile), am Desktop eine Zeile, die
+   Breite nach Inhalt (IBAN, Datum), die breite Angabe wächst doppelt.
+   Vertrag, Einheit, Anfrage, Mietkonto, Bankfreigabe, Mahnfall, Kündigen, Zähler, Vorgang. */
+
+[data-design="apple"] .fakten {
+  gap: var(--a4) var(--a5);
+  padding: var(--a4);
+  overflow: visible;
+  background: var(--flaeche);
+  border: 0;
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .fakten {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  [data-design="apple"] .fakt {
+    flex: 1 1 auto;
+  }
+
+  [data-design="apple"] .fakt-breit {
+    flex: 2 1 auto;
+  }
+}
+
+[data-design="apple"] .fakt {
+  padding: 0;
+  background: none;
+}
+
+[data-design="apple"] .fakt dt {
+  font-size: var(--apple-fussnote);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .fakt code {
+  overflow-wrap: anywhere;
+}
+
+[data-design="apple"] .neu .fakt-name {
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .fakt-wert {
+  font-size: var(--apple-titel-2);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+[data-design="apple"] .fakt-unter,
+[data-design="apple"] .fakt-kontakt {
+  font-size: var(--apple-fussnote);
+  color: var(--text-2);
+}
+
+/* Kontaktwege unter dem Namen: einzeln tippbar, am Handy mit Abstand untereinander */
+[data-design="apple"] .fakt-kontakt {
+  gap: var(--a1) var(--a4);
+}
+
+[data-design="apple"] .fakt-kontakt a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+@media (max-width: 719px) {
+  [data-design="apple"] .fakt-wert {
+    font-size: var(--apple-titel-3);
+  }
+}
+
+/* --- Checkliste: Aufklapper ohne eigene Fläche, Punkte mit rundem Haken ------------------ */
+/* Offen: leerer Ring, erledigt: grüner Kreis mit Haken (wie in Erinnerungen). Das Ziel bleibt
+   44 px, der Kreis ist 24 px groß. Vorlage stammdaten/_checklisten.html. */
+
+[data-design="apple"] .neu .checkliste + .checkliste {
+  margin-top: var(--a2);
+  padding-top: var(--a2);
+  border-top: 1px solid var(--linie);
+}
+
+[data-design="apple"] .neu .checkliste > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--a2);
+  min-height: var(--ziel);
+  font-size: var(--apple-unterzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .neu .checkliste > summary .leise {
+  font-size: var(--apple-fussnote);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* Haarlinie eingerückt bis zum Text (.zeilen-linien) */
+[data-design="apple"] .neu .checkpunkte {
+  --linie-einzug: calc(var(--ziel) + var(--a3));
+}
+
+[data-design="apple"] .neu .checkpunkte form {
+  gap: var(--a3);
+  min-height: var(--ziel);
+  padding: 0;
+}
+
+[data-design="apple"] .neu button.haken {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+  color: transparent;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-rund);
+}
+
+[data-design="apple"] .neu button.haken::before {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  content: "";
+  border-radius: var(--radius-rund);
+  box-shadow: inset 0 0 0 2px var(--linie-stark);
+}
+
+[data-design="apple"] .neu button.haken:hover {
+  background: var(--fuellung-hover);
+}
+
+[data-design="apple"] .neu button.haken.zweitrangig::before {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primaer-text);
+  content: "✓";
+  background: var(--primaer);
+  box-shadow: none;
 }
 
 /* === Fortschritt (Assistent) ========================================================== */
@@ -814,6 +1173,22 @@
 
 [data-design="apple"] .wahl-karte .knopf {
   margin-top: auto;
+}
+
+/* Wahl-Karten auf einer Karte (Umsatz einordnen, Zahlung klären): grau statt Schatten, der
+   Vorschlag weiß mit Ring */
+[data-design="apple"] .karte .wahl-karte {
+  background: var(--flaeche-2);
+  box-shadow: none;
+}
+
+[data-design="apple"] .karte .wahl-karte-vorschlag {
+  background: var(--flaeche);
+  box-shadow: inset 0 0 0 2px var(--primaer);
+}
+
+[data-design="apple"] .karte .wahl-karte-summe {
+  border-top-color: var(--linie-stark);
 }
 
 /* === PDF-Vorschau und Mailtext ======================================================== */

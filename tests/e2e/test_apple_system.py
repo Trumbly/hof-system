@@ -248,8 +248,8 @@ def test_laeufe_lange_meldung_gekuerzt(seite: Page, adressen: dict[str, Any]) ->
     """Befund System (PR A): Lange Meldungen der Läufe stehen auf drei Zeilen gekürzt;
     „ganze Meldung“ zeigt sie ganz."""
     seite.goto(adressen["seiten"]["laeufe"], wait_until="networkidle")
-    box = seite.locator(".lauf-meldung-lang").first
-    text = box.locator(".lauf-meldung")
+    box = seite.locator(".gekuerzt").first
+    text = box.locator(".gekuerzt-text")
     kurz = text.bounding_box()
     zeile = float(text.evaluate("e => parseFloat(getComputedStyle(e).lineHeight)"))
     assert kurz is not None and kurz["height"] <= 3 * zeile + 1

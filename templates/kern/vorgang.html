@@ -8,7 +8,7 @@
 {% seitenkopf v.titel %}
   {% if vorschau and not sperren and v.zuruecknehmbar %}<a class="knopf knopf-zweit" href="#ruecknahme">Zurücknehmen …</a>{% endif %}
 {% endseitenkopf %}
-<dl class="fakten" id="vorgang-fakten">
+<dl class="fakten">
   <div class="fakt fakt-breit"><dt>Wer</dt><dd>{{ v.wer }}</dd></div>
   <div class="fakt"><dt>Zeit</dt><dd>{{ v.zeit|date:"d.m.Y H:i" }}</dd></div>
   <div class="fakt"><dt>Art</dt><dd>{{ v.art_titel }}</dd></div>
@@ -27,12 +27,12 @@
 {% karte "Zurücknehmen" id="ruecknahme" %}
   {% if sperren %}
   <p><strong>Dieser Vorgang lässt sich nicht zurücknehmen.</strong></p>
-  <ul class="liste sperren">
+  <ul class="liste sperren liste-buendig">
     {% for s in sperren %}<li><span class="liste-haupt">{{ s.grund }}</span>{% if s.url %}<a href="{{ s.url }}">{{ s.link_titel|default:"ansehen" }}</a>{% endif %}</li>{% endfor %}
   </ul>
   {% elif vorschau %}
   <p>Beim Zurücknehmen passiert Folgendes, als neuer Vorgang im Protokoll:</p>
-  <ul class="liste">
+  <ul class="liste liste-buendig">
     {% for s in vorschau.schritte %}<li><span class="liste-haupt">{{ s.text }}</span>{% if s.url %}<a href="{{ s.url }}">ansehen</a>{% endif %}</li>{% empty %}<li>Nichts mehr zu tun: Der Stand ist schon wie vor dem Vorgang.</li>{% endfor %}
   </ul>
   <form method="post" action="{% url 'kern:vorgang_zuruecknehmen' v.id %}" class="formular-fuss">
