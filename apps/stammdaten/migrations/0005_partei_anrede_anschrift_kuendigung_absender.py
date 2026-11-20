@@ -6,7 +6,11 @@ from django.db import migrations, models
 
 # Review 3, Punkt 4: Die Anrede war freier Text („Frau“, „Herr“ oder leer). Jetzt ist sie eine
 # Auswahl; leer wird „neutral“, bei Firmen „firma“. Die Trigger der Historie sind während
-# der Umstellung entfernt; die Protokollzeilen bekommen dieselben Schlüssel.
+# der Umstellung entfernt, damit die Umstellung keine Protokollzeilen erzeugt.
+#
+# Die Historie (ParteiEvent) bleibt, wie sie war: Sie ist append-only geschützt
+# (pgtrigger Protect), und Protokoll wird nie umgeschrieben (CLAUDE.md, Regel 4.4).
+# Alte Protokollzeilen tragen also weiter „Frau“, „Herr“ oder leer.
 
 
 def _schluessel(text, firma):
@@ -21,20 +25,18 @@ def _schluessel(text, firma):
 
 
 def anrede_umstellen(apps, schema_editor):
-    for name in ("Partei", "ParteiEvent"):
-        modell = apps.get_model("stammdaten", name)
-        for zeile in modell.objects.all().only("pk", "anrede", "art"):
-            neu = _schluessel(zeile.anrede, zeile.art == "firma")
-            if neu != zeile.anrede:
-                modell.objects.filter(pk=zeile.pk).update(anrede=neu)
+    modell = apps.get_model("stammdaten", "Partei")
+    for zeile in modell.objects.all().only("pk", "anrede", "art"):
+        neu = _schluessel(zeile.anrede, zeile.art == "firma")
+        if neu != zeile.anrede:
+            modell.objects.filter(pk=zeile.pk).update(anrede=neu)
 
 
 def anrede_zurueck(apps, schema_editor):
     titel = {"frau": "Frau", "herr": "Herr"}
-    for name in ("Partei", "ParteiEvent"):
-        modell = apps.get_model("stammdaten", name)
-        for zeile in modell.objects.all().only("pk", "anrede"):
-            modell.objects.filter(pk=zeile.pk).update(anrede=titel.get(zeile.anrede, ""))
+    modell = apps.get_model("stammdaten", "Partei")
+    for zeile in modell.objects.all().only("pk", "anrede"):
+        modell.objects.filter(pk=zeile.pk).update(anrede=titel.get(zeile.anrede, ""))
 
 
 class Migration(migrations.Migration):
