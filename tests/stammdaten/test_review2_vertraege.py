@@ -137,7 +137,7 @@ def test_anfrage_seite_im_neuen_stil(objekt: Objekt, angemeldet: Client) -> None
     einheit = garage_anlegen(objekt, zielmiete="61.00")
     anfrage = _anfrage(einheit)
     seite = angemeldet.get(reverse("anbindungen:anfrage", args=[anfrage.pk])).content.decode()
-    assert 'class="seitenkopf' in seite and 'class="fakten"' in seite
+    assert 'class="seitenkopf' in seite and 'class="fakten' in seite
     assert "Paula Probe" in seite and 'href="mailto:paula@testhof.invalid"' in seite
     assert 'href="tel:01510000000"' in seite
     assert einheit.nw_id in seite and "61,00\xa0€" in seite and "01.01.2027" in seite
@@ -400,7 +400,7 @@ def test_uebergabe_fortschritt_kamera_und_zusammenfassung(
     for text, schritt in services.uebergabe_fehlt(uebergabe):
         assert text in abschluss
         ziel = reverse("stammdaten:uebergabe", args=[uebergabe.pk, nummern[schritt]])
-        assert f'<a href="{ziel}">nachholen</a>' in abschluss
+        assert f'<a class="liste-zeile" href="{ziel}">' in abschluss
 
 
 # --- B11: Listen ---------------------------------------------------------------------------

@@ -66,6 +66,8 @@ BREITEN = {"1440": DESKTOP, "390": HANDY}
 #: Knopf am Vertrag, der den Assistenten startet, und der Schritt, den der Test zeigt.
 UEBERGABE_STARTEN = "button:has-text('Rückgabe am Handy'), button:has-text('Übergabe am Handy')"
 UEBERGABE_SCHRITT = 3  # Fotos
+#: Menü „mehr ▾“ im Kopf des Vertrags (dort steht die Rückgabe eines laufenden Vertrags).
+UEBERGABE_MEHR = "main #vertrag-kopf summary:has-text('mehr')"
 
 ENGLISCH = re.compile(
     r"Choose files?|No files? chosen|Page not found|Not Found|Server Error|"
@@ -99,7 +101,11 @@ def uebergabe_url(browser: Browser, anmeldung: Any, server: Server) -> str:
     kontext = browser.new_context(base_url=server.basis_url, storage_state=str(anmeldung))
     seite = kontext.new_page()
     seite.goto(server.adressen["vertrag_smoke"])
-    seite.click(UEBERGABE_STARTEN)
+    knopf = seite.locator(UEBERGABE_STARTEN).first
+    if not knopf.is_visible():
+        # Apple-Design (PR C): Am laufenden Vertrag steht „Rückgabe am Handy“ unter „mehr ▾“.
+        seite.click(UEBERGABE_MEHR)
+    knopf.click()
     seite.wait_for_url(re.compile(r"/schritt/1/"))
     url = re.sub(r"/schritt/1/", f"/schritt/{UEBERGABE_SCHRITT}/", seite.url)
     kontext.close()
