@@ -67,17 +67,25 @@ def test_seite_r2_8(
 SCHMAL = {
     "320": (320, ""),
     "300-breit": (300, "* { font-family: Verdana, sans-serif !important; }"),
+    # Apple-Design (PR #43): unter Linux ragte die Kachel „Letzte Sicherung“ bei 390 px
+    # 28 px über den Rand; 360 px mit Verdana stellt das unter macOS nach.
+    "360-breit": (360, "* { font-family: Verdana, sans-serif !important; }"),
 }
 
 
 @pytest.mark.parametrize("breite", list(SCHMAL))
-@pytest.mark.parametrize("schluessel", ["stil", "schreiben"])
+@pytest.mark.parametrize("schluessel", ["stil", "schreiben", "cockpit"])
 def test_seite_schmal(seite: Page, adressen: dict[str, Any], schluessel: str, breite: str) -> None:
     """Review 3, Abschluss: ``/stil/`` und die Seite eines Schreibens laufen auch bei 320 px
     und bei 300 px mit breiter Schrift nicht über den Rand. Auf ``/stil/`` machten lange
     Pfade in ``<code>`` die Seite 344 px breit, beim Schreiben die Mail-Adresse in „Betreff …
-    an …“ und im Seitenkopf (329 px in der Pipeline). Die Reiter scrollen in ihrer Leiste."""
-    pfad = adressen["seiten_r2_8"].get(schluessel)
+    an …“ und im Seitenkopf (329 px in der Pipeline). Die Reiter scrollen in ihrer Leiste.
+    Apple-Design: auch die Startseite (Kachel „Letzte Sicherung“, 418 px unter Linux)."""
+    pfad = (
+        adressen["seiten"]["cockpit"]
+        if schluessel == "cockpit"
+        else adressen["seiten_r2_8"].get(schluessel)
+    )
     if pfad is None:
         pytest.skip(f"Keine Seite {schluessel} im Testhof.")
     px, stil = SCHMAL[breite]

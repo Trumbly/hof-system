@@ -60,6 +60,8 @@ MIDDLEWARE = [
     "pghistory.middleware.HistoryMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Designschalter des Experiments „Apple-Design“ (apps.kern.design, nur mit DEBUG)
+    "apps.kern.design.DesignMiddleware",
 ]
 
 ROOT_URLCONF = "hof.urls"
@@ -76,6 +78,8 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 # Stichtag-Band (Review 1, Punkt 14)
                 "apps.kern.kontext.hof",
+                # Gestaltung „standard“ oder „apple“ (apps.kern.design)
+                "apps.kern.design.design",
             ],
             # |euro und |zahl in jeder Vorlage (apps.kern.zahlen)
             "builtins": ["apps.kern.templatetags.formate"],
@@ -189,6 +193,10 @@ MAHNWESEN_BAGATELLGRENZE = Decimal(env.str("HOF_MAHN_BAGATELLGRENZE", default="2
 # setzt ihn immer auf None; dort gilt das echte Datum.
 _stichtag = env.str("HOF_STICHTAG", default="")
 HOF_STICHTAG = date.fromisoformat(_stichtag) if _stichtag else None
+
+# Gestaltung (apps.kern.design): „standard“ (bisher) oder „apple“. Hier und in Tests und prod
+# „standard“; dev.py und e2e.py stellen „apple“ ein. Umschalten nur mit DEBUG (Schalter).
+HOF_DESIGN_STANDARD = "standard"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

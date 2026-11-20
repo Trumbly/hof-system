@@ -4,7 +4,7 @@
 {% block titel %}Stil{% endblock %}
 
 {% block inhalt %}
-{% seitenkopf "Bausteine" "Alle Bausteine der neuen Gestaltung mit Beispielen · Werte in static/css/werte.css" %}
+{% seitenkopf "Bausteine" untertitel %}
   <a class="knopf knopf-zweit" href="#formular">Zu den Feldern</a>
   <button type="button" class="knopf knopf-primaer" hx-get="{% url 'kern:stil_dialog' %}" hx-target="#dialog-inhalt">Dialog öffnen</button>
 {% endseitenkopf %}
@@ -27,9 +27,9 @@
 
 <section class="stil-abschnitt" id="schrift">
   <h2>Schrift</h2>
-  <p class="stil-zweck">Systemschrift, sechs Größen. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.</p>
+  <p class="stil-zweck">{% if hof_design == "apple" %}System-Schriftstapel (auf Apple-Geräten SF Pro), acht Stufen nach den iOS-Textstilen, in rem. Kleinste Stufe 12 px. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.{% else %}Systemschrift, sechs Größen. Zahlen mit gleich breiten Ziffern, damit Spalten bündig stehen.{% endif %}</p>
   <div class="karte"><div class="karte-rumpf stil-schrift">
-    {% for g in groessen %}<p style="font-size: {{ g }}px; margin: 0">{{ g }} px · Miete heute 1.250,00 € · NW-G-0017</p>{% endfor %}
+    {% for g in groessen %}<p style="font-size: calc({{ g }}rem / 16); margin: 0">{{ g }} px · Miete heute 1.250,00 € · NW-G-0017</p>{% endfor %}
     <p class="text-2">Text 2: Meta-Zeilen und Beschriftungen.</p>
     <p class="text-3">Text 3: Hilfetexte und Leerzustände.</p>
   </div></div>
@@ -37,7 +37,7 @@
 
 <section class="stil-abschnitt" id="abstaende">
   <h2>Abstände, Radius, Schatten</h2>
-  <p class="stil-zweck">Abstände in Schritten von 4 px. Radius 8 px. Schatten nur für Dialoge und Menüs, sonst Linien.</p>
+  <p class="stil-zweck">{% if hof_design == "apple" %}Abstände in Schritten von 4 px. Radius: Karten 14 px, Felder 10 px, Dialoge 16 px, Knöpfe und Reiter als Kapsel. Karten ohne Rahmen, Haarlinien nur zwischen Zeilen; Material nur in Seitenleiste, Kopf und Leiste unten.{% else %}Abstände in Schritten von 4 px. Radius 8 px. Schatten nur für Dialoge und Menüs, sonst Linien.{% endif %}</p>
   <div class="stil-abstaende">
     {% for a in abstaende %}<div class="stil-abstand"><span style="width: {{ a }}px; height: {{ a }}px"></span><span>{{ a }}</span></div>{% endfor %}
   </div>
@@ -56,7 +56,7 @@
 
 <section class="stil-abschnitt" id="knoepfe">
   <h2>Knöpfe</h2>
-  <p class="stil-zweck">Höchstens ein primärer Knopf je Ansicht. Am Handy und mit Finger mindestens 44 px hoch.</p>
+  <p class="stil-zweck">Höchstens ein primärer Knopf je Ansicht. {% if hof_design == "apple" %}Kapselform; primär Hof-Grün, sekundär graue Füllung, Text nur als Wort, Gefahr rot. Jeder Knopf mindestens 44 px hoch, auch „klein“.{% else %}Am Handy und mit Finger mindestens 44 px hoch.{% endif %}</p>
   <div class="stil-reihe">
     <button type="button" class="knopf knopf-primaer">Kündigung erfassen</button>
     <button type="button" class="knopf knopf-zweit">Miete ändern</button>
@@ -224,6 +224,15 @@
       <div class="felder">{% for f in optionen_fehler %}{% feld f %}{% endfor %}</div>
     {% endkarte %}
   </div>
+</section>
+
+<section class="stil-abschnitt" id="schalter">
+  <h2>Schalter</h2>
+  <p class="stil-zweck">Für Ein/Aus, das sofort gilt oder beim Speichern übernommen wird: <code>&lt;input type="checkbox" role="switch" class="schalter"&gt;</code> im <code>.haken-label</code>. Die ganze Zeile ist die Klickfläche (44 px). In der bisherigen Gestaltung ein gewöhnlicher Haken.</p>
+  <div class="karte"><div class="karte-rumpf">
+    <label class="haken-label"><input type="checkbox" role="switch" class="schalter" checked><span>Als Regel merken</span></label><br>
+    <label class="haken-label"><input type="checkbox" role="switch" class="schalter"><span>Mahnungen für diesen Vertrag sperren</span></label>
+  </div></div>
 </section>
 
 <section class="stil-abschnitt" id="dateien">

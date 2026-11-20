@@ -1,0 +1,825 @@
+/* Hof-System, Apple-Design: Werte, Rahmen und Startseite.
+ *
+ * Gilt nur, wenn <html> das Attribut data-design="apple" trägt (apps.kern.design). base.html
+ * lädt dann nach werte.css, hof.css und bausteine.css die Dateien unter css/apple/ in fester
+ * Reihenfolge (apps.kern.design.APPLE_CSS):
+ *
+ *   basis.css         Werte (Farben hell/dunkel, Schrift, Formen, Material), Rahmen
+ *                     (Seitenleiste, Kopf, Suche, Tab-Leiste, Testhof-Band), Startseite
+ *   bausteine.css     alle Bausteine (Referenz: /stil/)
+ *   arbeitslisten.css, stammdaten.css, geld.css, dokumente.css, system.css
+ *                     nur Seitenspezifisches je Bereich
+ *
+ * Kein @import: Der Browser lädt alle Dateien zugleich.
+ *
+ * Grundlage ist der Skill „apple-design“ (Apples Human Interface Guidelines); Quellen und
+ * gerechnete Kontraste in docs/design/apple-review-nachher.md. Kurz:
+ * - Farben nach Rolle, hell und dunkel, Kontrast nach WCAG 2.1 gerechnet.
+ *   Akzent ist das Hof-Grün, nur für Hauptaktion, Auswahl und Links.
+ * - Schrift: nur der System-Schriftstapel, Größen in rem, Stufen nach den Textstilen von iOS.
+ * - Klickflächen mindestens 44 px; einzige Ausnahme: Zeilen der Seitenleiste mit Maus
+ *   (pointer: fine) 36 px, damit bei 1440 × 900 alle Einträge sichtbar sind.
+ * - Material (durchscheinend mit Unschärfe) nur in der Bedienebene: Seitenleiste, Kopf, Leiste
+ *   unten. Inhalt bleibt deckend. Bei reduzierter Transparenz und erhöhtem Kontrast deckend.
+ * - Bewegung nur als kurze Farbübergänge, bei reduzierter Bewegung keine.
+ */
+
+/* === Werte ============================================================================ */
+
+:root[data-design="apple"] {
+  color-scheme: light;
+
+  /* Flächen: gruppierter Grund, Karten weiß darauf */
+  --grund: #f2f3f0;
+  --flaeche: #ffffff;
+  --flaeche-2: #f4f5f3; /* Hover, leise Flächen */
+  --flaeche-3: #e8eae6; /* gedrückt, Zähler-Kapsel */
+  --linie: #e0e3de; /* Haarlinien zwischen Zeilen (Schmuck, kein Kontrastziel) */
+  --linie-stark: #858d88; /* Feldrahmen: 3,4:1 auf Weiß */
+
+  --text: #1b1e1c; /* 16,8:1 auf Weiß, 15,8:1 auf Material */
+  --text-2: #5a605c; /* 6,4:1 auf Weiß, 6,0:1 auf Material, 5,4:1 im Suchfeld */
+  --text-3: #6a706c; /* 5,1:1 auf Weiß, 4,6:1 auf Grund */
+
+  /* Hof-Grün, etwas klarer als im Standard: Weiß darauf 5,3:1 */
+  --primaer: #217a4f;
+  --primaer-stark: #1a6641; /* Hover; Text der Auswahl: 5,9:1 auf --primaer-weich */
+  --primaer-text: #ffffff;
+  --primaer-weich: #e1f0e7;
+  --link: #217a4f; /* 5,3:1 auf Weiß, 4,8:1 auf Grund, 5,0:1 auf Material */
+  --fokus: #217a4f;
+
+  --band: #fcefd6;
+  --band-text: #7f4600; /* 6,6:1 */
+
+  /* Material der Bedienebene: dick (85 % deckend), darunter Unschärfe. So bleibt Text darauf
+     auch über dunklem oder farbigem Inhalt bei mindestens 4,5:1 (Rechnung im Review). */
+  --material: rgb(248 249 247 / 85%);
+  --material-deckend: #f7f8f6;
+  --material-linie: rgb(0 0 0 / 10%);
+  --fuellung: #e9ebe7; /* Suchfeld, Spur der Segmente und Reiter */
+  --fuellung-hover: rgb(0 0 0 / 5%);
+  --fuellung-knopf: #e3e5e1; /* sekundärer Knopf: Text darauf 13,3:1 */
+  --fuellung-knopf-hover: #d8dbd6;
+  --segment-aktiv: #ffffff; /* gewähltes Segment, gewählter Reiter */
+  --schalter-aus: #e3e5e1; /* Schalter aus; Rand --linie-stark 3,4:1 */
+
+  /* Schrift: System-Schriftstapel, keine Schriftdateien */
+  --schrift: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui,
+    "Segoe UI", Roboto, sans-serif;
+  --apple-titel-gross: 2.125rem; /* Large Title 34 */
+  --apple-titel-2: 1.375rem; /* Title 2: 22 */
+  --apple-titel-3: 1.25rem; /* Title 3: 20 */
+  --apple-kopfzeile: 1.0625rem; /* Headline 17 */
+  --apple-text: 0.9375rem; /* Fließtext am Desktop 15 */
+  --apple-text-handy: 1.0625rem; /* Body 17 am Handy */
+  --apple-unterzeile: 0.9375rem; /* Subhead 15 */
+  --apple-fussnote: 0.8125rem; /* Footnote 13 */
+  --apple-beschriftung: 0.75rem; /* Caption 12, kleinste Stufe */
+
+  /* Formen */
+  --radius: 12px;
+  --radius-klein: 8px;
+  --radius-karte: 14px;
+  --radius-feld: 10px;
+  --radius-dialog: 16px;
+  --hoehe-band: 32px; /* Testhof-Band (nur dev und test) */
+  --breite-leiste: 264px;
+
+  --schatten-karte: 0 1px 2px rgb(16 24 20 / 4%);
+  --schleier: rgb(16 24 20 / 32%);
+  --schatten-leiste: 0 1px 3px rgb(16 24 20 / 6%), 0 8px 24px rgb(16 24 20 / 6%);
+  --uebergang: 0.15s ease-out;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-design="apple"] {
+    color-scheme: dark;
+
+    /* Grund dunkler, Karten heller (erhöhte Ebene) */
+    --grund: #0d0f0e;
+    --flaeche: #1a1d1b;
+    --flaeche-2: #232624;
+    --flaeche-3: #2c302d;
+    --linie: #2d312e;
+    --linie-stark: #6f7772; /* 3,7:1 auf --flaeche */
+
+    --text: #f3f5f4; /* 15,5:1 auf --flaeche */
+    --text-2: #b0b7b3; /* 8,3:1 */
+    --text-3: #959c98; /* 6,1:1; 5,5:1 auf --flaeche-2 */
+
+    --primaer: #3fbf7f; /* dunkler Text darauf 8,1:1 */
+    --primaer-stark: #5ccb93;
+    --primaer-text: #03140b;
+    --primaer-weich: #173524;
+    --link: #6fd09d; /* 9,1:1 auf --flaeche */
+    --fokus: #6fd09d;
+
+    --band: #33250e;
+    --band-text: #f2bc66; /* 8,6:1 */
+
+    --material: rgb(29 32 30 / 85%);
+    --material-deckend: #1b1d1c;
+    --material-linie: rgb(255 255 255 / 9%);
+    --fuellung: #2a2d2b;
+    --fuellung-hover: rgb(255 255 255 / 6%);
+    --fuellung-knopf: #2f3330; /* Text darauf 11,7:1 */
+    --fuellung-knopf-hover: #3a3e3b;
+    --segment-aktiv: #4a4f4c; /* Text darauf 7,6:1 */
+    --schalter-aus: #3a3e3b;
+
+    --schatten-karte: none;
+    --schleier: rgb(0 0 0 / 55%);
+    --schatten-leiste: 0 8px 24px rgb(0 0 0 / 35%);
+  }
+
+  /* Auswahl in der Seitenleiste: helles Grün auf dunklem Grün, 8,3:1 */
+  [data-design="apple"] .nav-neu a[aria-current="page"],
+  [data-design="apple"] .nav-aufklapper a[aria-current="page"] {
+    color: #8fdcb3;
+  }
+}
+
+/* Erhöhter Kontrast: deutlichere Linien, Nebentexte in voller Textfarbe, kein Material */
+@media (prefers-contrast: more) {
+  :root[data-design="apple"] {
+    --linie: var(--linie-stark);
+    --text-2: var(--text);
+    --text-3: var(--text);
+    --material: var(--material-deckend);
+  }
+}
+
+/* === Grundlage ======================================================================== */
+
+[data-design="apple"] body.neu {
+  font-size: var(--apple-text);
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+}
+
+[data-design="apple"] .neu h1 {
+  font-size: var(--apple-titel-gross);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  /* Lange Wörter („Zahlungserinnerung“) trennen statt über den Rand zu laufen (300 px mit
+     breiter Schrift) */
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+
+[data-design="apple"] .neu h2 {
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .neu :focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--fokus) 60%, transparent);
+  outline-offset: 2px;
+}
+
+[data-design="apple"] .neu .leise {
+  font-size: var(--apple-fussnote);
+}
+
+[data-design="apple"] .klein {
+  font-size: var(--apple-fussnote);
+}
+
+/* --- Testhof-Band: schmal, ruhig, über dem Rahmen -------------------------------------- */
+
+[data-design="apple"] .stichtag-band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--hoehe-band);
+  padding: 0 var(--a4);
+  font-size: var(--apple-fussnote);
+  font-weight: 600;
+  letter-spacing: 0;
+  border-bottom: 1px solid var(--material-linie);
+}
+
+[data-design="apple"] .stichtag-band::before {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-right: 0.5em;
+  vertical-align: 0.08em;
+  content: "";
+  background: currentColor;
+  border-radius: 50%;
+}
+
+/* === Rahmen: Material in der Bedienebene ============================================== */
+
+[data-design="apple"] .leiste,
+[data-design="apple"] .kopf-handy,
+[data-design="apple"] .unten {
+  background: var(--material);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Reduzierte Transparenz (und Browser ohne Unschärfe): deckende Flächen statt Material */
+@media (prefers-reduced-transparency: reduce) {
+  [data-design="apple"] .leiste,
+  [data-design="apple"] .kopf-handy,
+  [data-design="apple"] .unten {
+    background: var(--material-deckend);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-design="apple"] .leiste,
+  [data-design="apple"] .kopf-handy,
+  [data-design="apple"] .unten {
+    background: var(--material-deckend);
+  }
+}
+
+/* Marke: grünes Feld wie ein App-Symbol, nur hier und im Kopf am Handy */
+[data-design="apple"] .marke {
+  gap: 10px;
+  font-size: var(--apple-kopfzeile);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-design="apple"] .marke-zeichen {
+  width: 30px;
+  height: 30px;
+  font-size: var(--apple-unterzeile);
+  font-weight: 700;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 12%);
+}
+
+/* --- Kopf am Handy -------------------------------------------------------------------- */
+
+[data-design="apple"] .kopf-handy {
+  gap: var(--a2);
+  padding: 0 var(--a3) 0 var(--a2);
+  border-bottom: 1px solid var(--material-linie);
+}
+
+/* Marke als Ziel von 44 × 44 px (das Zeichen bleibt 32 px) */
+[data-design="apple"] .kopf-handy .marke {
+  justify-content: center;
+  min-width: var(--ziel);
+  min-height: var(--ziel);
+}
+
+[data-design="apple"] .kopf-handy .marke-zeichen {
+  width: 32px;
+  height: 32px;
+}
+
+/* --- Leiste unten (Tab-Leiste) -------------------------------------------------------- */
+
+[data-design="apple"] .unten {
+  border-top: 1px solid var(--material-linie);
+}
+
+[data-design="apple"] .unten a,
+[data-design="apple"] .unten button {
+  gap: 3px;
+  font-size: var(--apple-beschriftung);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+/* Aktiver Tab im dunkleren Grün: 4,9:1 auch im ungünstigsten Fall unter dem Material */
+[data-design="apple"] .unten [aria-current="page"] {
+  color: var(--primaer-stark);
+  font-weight: 600;
+}
+
+[data-design="apple"] .unten [aria-current="page"] .symbol {
+  stroke-width: 2.25;
+}
+
+/* --- Suche: Feld mit Füllung statt Rahmen ---------------------------------------------- */
+
+[data-design="apple"] .suche-eingabe {
+  min-height: var(--ziel);
+  padding-left: 36px;
+  font-size: var(--apple-unterzeile);
+  background: var(--fuellung);
+  border: 1px solid transparent;
+  border-radius: var(--radius-feld);
+  transition: background var(--uebergang), border-color var(--uebergang);
+}
+
+/* Platz für das Tastenkürzel rechts (⌘K), solange es zu sehen ist */
+[data-design="apple"] .suche-eingabe:placeholder-shown:not(:focus) {
+  padding-right: 48px;
+}
+
+[data-design="apple"] .suche-eingabe::placeholder {
+  color: var(--text-2);
+}
+
+[data-design="apple"] .suche-eingabe:hover {
+  border-color: transparent;
+}
+
+[data-design="apple"] .suche-eingabe:focus {
+  background: var(--flaeche);
+  border-color: var(--primaer);
+  outline: 3px solid color-mix(in srgb, var(--fokus) 30%, transparent);
+}
+
+[data-design="apple"] .suche > .symbol {
+  left: 12px;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .suche-taste {
+  font-size: var(--apple-beschriftung);
+  color: var(--text-2);
+  background: transparent;
+  border-color: var(--linie-stark);
+}
+
+[data-design="apple"] .suche-treffer {
+  border: 1px solid var(--material-linie);
+  border-radius: var(--radius-karte);
+}
+
+[data-design="apple"] .neu a.suche-eintrag {
+  min-height: var(--ziel);
+  justify-content: center;
+  padding: 6px var(--a3);
+  border-radius: var(--radius-klein);
+}
+
+[data-design="apple"] .neu .suche-gruppe-titel {
+  font-size: var(--apple-beschriftung);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+@media (max-width: 1023px) {
+  [data-design="apple"] body.neu {
+    font-size: var(--apple-text-handy);
+  }
+
+  /* Symbol im Suchfeld: Kopfabstand + Marke (44 px) + Lücke */
+  [data-design="apple"] .kopf-handy .suche > .symbol {
+    left: calc(var(--a2) + var(--ziel) + var(--a2) + 12px);
+  }
+
+  [data-design="apple"] .kopf-handy .suche-eingabe {
+    min-height: var(--ziel);
+    font-size: 1rem; /* 16 px: iOS zoomt sonst beim Antippen */
+  }
+
+  [data-design="apple"] .kopf-handy .suche-treffer {
+    border-width: 0 0 1px;
+    border-radius: 0 0 var(--radius-karte) var(--radius-karte);
+  }
+
+  [data-design="apple"] .neu h1 {
+    font-size: 2rem;
+  }
+}
+
+/* --- Seitenleiste am Desktop: schwebende Fläche aus Material --------------------------- */
+/* Raster: oben das „H“ (Link zur Startseite) neben der Suche, darunter die Navigation (scrollt
+   nur, wenn nötig), unten Designschalter (nur dev) und Abmelden in einer Zeile. Kein
+   Schriftzug „Hof-System“: Die Marke steht nicht über jeder Seite (branding.md). Das Konto
+   erreicht man über „Konto“ in der Navigation. Das Testhof-Band liegt am Desktop nur über
+   der Inhaltsspalte; so hat die Leiste die volle Höhe. */
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .geruest {
+    background: none;
+  }
+
+  [data-design="apple"] body > .stichtag-band {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: var(--breite-leiste);
+    height: var(--hoehe-band);
+    border-radius: 0 0 0 var(--radius);
+  }
+
+  [data-design="apple"] body:has(> .stichtag-band) .haupt {
+    padding-top: calc(var(--a8) + var(--hoehe-band));
+  }
+
+  [data-design="apple"] .leiste {
+    display: grid;
+    grid-template:
+      "marke suche suche" auto
+      "nav nav nav" minmax(0, 1fr)
+      "schalter schalter fuss" auto / auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--a2);
+    top: var(--a2);
+    height: calc(100vh - 2 * var(--a2));
+    margin: var(--a2) 0 var(--a2) var(--a2);
+    padding: var(--a2);
+    border: 1px solid var(--material-linie);
+    border-radius: 18px;
+    box-shadow: var(--schatten-leiste);
+  }
+
+  /* Nur das Zeichen ist zu sehen; der Name bleibt für Screenreader im Link. */
+  [data-design="apple"] .leiste .marke {
+    grid-area: marke;
+    justify-content: center;
+    width: var(--ziel);
+    min-height: var(--ziel);
+    padding: 0;
+    font-size: 0;
+  }
+
+  [data-design="apple"] .leiste .marke-zeichen {
+    width: 32px;
+    height: 32px;
+  }
+
+  [data-design="apple"] .leiste .suche {
+    grid-area: suche;
+    margin: 0;
+  }
+
+  /* Nur die Navigation scrollt; unten blendet sie weich aus (Kante beim Scrollen), mit
+     Platz darunter, damit der letzte Eintrag ganz über die Blende rollen kann. */
+  [data-design="apple"] .leiste .nav-neu {
+    grid-area: nav;
+    align-self: stretch;
+    margin: var(--a2) calc(-1 * var(--a2)) 0;
+    padding: 0 var(--a2) var(--a4);
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--a4)), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--a4)), transparent);
+  }
+
+  [data-design="apple"] .leiste .design-schalter {
+    grid-area: schalter;
+  }
+
+  [data-design="apple"] .leiste .leiste-fuss {
+    grid-area: fuss;
+    justify-self: end;
+  }
+
+  [data-design="apple"] .leiste .leiste-benutzer {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  [data-design="apple"] .leiste .design-schalter,
+  [data-design="apple"] .leiste .leiste-fuss {
+    align-self: stretch;
+    padding: var(--a2) 0 0;
+    border-top: 0;
+  }
+
+  /* „Design:“ nur für Screenreader (die Gruppe ist danach benannt), damit beide Segmente
+     neben „Abmelden“ passen. */
+  [data-design="apple"] .leiste .design-schalter-titel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Das Tastenkürzel (⌘K / Strg K) gilt weiter, steht aber nicht im Feld: So passt der
+     Platzhalter, der sagt, wonach man suchen kann (search-fields.md). */
+  [data-design="apple"] .leiste .suche-taste {
+    display: none;
+  }
+
+  [data-design="apple"] .leiste .suche-eingabe,
+  [data-design="apple"] .leiste .suche-eingabe:placeholder-shown:not(:focus) {
+    padding-right: var(--a2);
+  }
+
+  /* Ohne Designschalter (prod) nimmt „Abmelden“ die ganze Zeile, rechtsbündig. */
+  [data-design="apple"] .leiste:not(:has(.design-schalter)) .leiste-fuss {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  [data-design="apple"] .haupt {
+    padding: var(--a8) var(--a10) var(--a12);
+  }
+}
+
+[data-design="apple"] .nav-gruppe {
+  margin-bottom: var(--a3);
+}
+
+[data-design="apple"] .nav-gruppe-titel {
+  margin: 0;
+  padding: var(--a2) var(--a3) var(--a1);
+  font-size: var(--apple-beschriftung);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .nav-neu a {
+  min-height: var(--ziel);
+  padding: 0 var(--a3);
+  font-size: var(--apple-unterzeile);
+  border-radius: var(--radius-feld);
+  transition: background var(--uebergang);
+}
+
+/* Mit Maus am Desktop: 36 px, damit bei 1440 × 900 alle Einträge sichtbar sind. Mit Finger
+   (pointer: coarse) bleiben es 44 px. */
+@media (min-width: 1024px) and (pointer: fine) {
+  [data-design="apple"] .nav-neu a {
+    min-height: 36px;
+  }
+
+  [data-design="apple"] .nav-gruppe {
+    margin-bottom: var(--a1);
+  }
+
+  [data-design="apple"] .nav-gruppe:last-child {
+    margin-bottom: 0;
+  }
+
+  [data-design="apple"] .leiste .nav-neu {
+    margin-top: var(--a1);
+  }
+
+  [data-design="apple"] .nav-gruppe-titel {
+    padding: 6px var(--a3) 2px;
+    line-height: 1.3;
+  }
+
+}
+
+[data-design="apple"] .nav-neu a:hover {
+  background: var(--fuellung-hover);
+}
+
+[data-design="apple"] .nav-neu a[aria-current="page"],
+[data-design="apple"] .nav-aufklapper a[aria-current="page"] {
+  font-weight: 600;
+  color: var(--primaer-stark);
+  background: var(--primaer-weich);
+}
+
+[data-design="apple"] .nav-marke {
+  font-size: var(--apple-beschriftung);
+  border: 0;
+  border-radius: var(--radius-rund);
+}
+
+/* Fuß: Konto und Abmelden in einer Zeile, ohne Linie darüber */
+[data-design="apple"] .leiste-fuss {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a2);
+  padding: var(--a1) 0 0;
+  border-top: 1px solid var(--material-linie);
+}
+
+[data-design="apple"] .leiste-benutzer {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--ziel);
+  padding: 0 var(--a3);
+  font-size: var(--apple-fussnote);
+}
+
+[data-design="apple"] .leiste-fuss .knopf {
+  flex: none;
+  min-height: var(--ziel);
+  padding: 0 var(--a3);
+  font-size: var(--apple-fussnote);
+}
+
+/* --- Designschalter (nur mit DEBUG): Segmente wie ein Segmented Control ----------------- */
+
+[data-design="apple"] .design-schalter {
+  flex-wrap: nowrap;
+  gap: var(--a2);
+  padding: var(--a2) var(--a1);
+  font-size: var(--apple-fussnote);
+}
+
+[data-design="apple"] .design-schalter-wahl {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1fr 1fr;
+  padding: 2px;
+  background: var(--fuellung);
+  border-radius: var(--radius-feld);
+}
+
+[data-design="apple"] .design-schalter-trenner {
+  display: none;
+}
+
+[data-design="apple"] .neu .design-schalter a {
+  justify-content: center;
+  min-height: 40px; /* mit 2 px Rand oben und unten: 44 px */
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-klein);
+}
+
+[data-design="apple"] .neu .design-schalter a[aria-current="true"] {
+  font-weight: 600;
+  background: var(--segment-aktiv);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+}
+
+/* --- „Mehr“ am Handy ----------------------------------------------------------------- */
+
+[data-design="apple"] .nav-aufklapper {
+  border-bottom-color: var(--linie);
+}
+
+[data-design="apple"] .nav-aufklapper a {
+  border-radius: var(--radius-feld);
+}
+
+/* === Startseite (.cockpit-seite) ====================================================== */
+/* Karten, Listen, Kennzahlen und Knöpfe kommen aus apple/bausteine.css; hier steht nur, was
+   die Startseite allein hat: Abstände der Zusammenfassung, Kacheln der Apps, Läufe. */
+
+[data-design="apple"] .cockpit-seite .seitenkopf {
+  align-items: flex-end;
+}
+
+[data-design="apple"] .cockpit-seite .kennzahlen-reihe {
+  margin-bottom: var(--a5);
+}
+
+/* --- Raster der Kacheln -------------------------------------------------------------- */
+
+/* Nur der Spaltenabstand: Das Mauerwerk (bausteine.js) rechnet den Abstand nach unten aus
+   ihm und setzt row-gap selbst auf 0. Ohne Mauerwerk (eine Spalte) gilt row-gap unten. */
+[data-design="apple"] .cockpit-raster {
+  column-gap: var(--a5);
+}
+
+[data-design="apple"] .cockpit-raster:not(.mauerwerk-an) {
+  row-gap: var(--a5);
+}
+
+[data-design="apple"] .cockpit-seite #objekte {
+  margin-top: var(--a5) !important; /* überschreibt das style-Attribut der Vorlage */
+}
+
+/* Fristen-Kachel: zwei Listen nebeneinander */
+[data-design="apple"] .cockpit-seite .fristen-listen > div + div {
+  border-color: var(--linie);
+}
+
+/* Kein Kind des Rasters ist breiter als seine Spalte, gleich welche Schrift: Die Kacheln
+   (flex: 1 im li) hätten sonst die Mindestbreite ihres längsten Worts. */
+[data-design="apple"] .cockpit-raster > li > .kachel,
+[data-design="apple"] .cockpit-raster > li > .karte,
+[data-design="apple"] .cockpit-seite .kennzahlen-reihe > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Kacheln der Apps (Vorlagen mit <strong> als Titel) ------------------------------ */
+
+[data-design="apple"] .cockpit-raster .kachel {
+  position: relative;
+  background: var(--flaeche);
+  border: 0;
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+  padding: var(--a4) var(--a10) var(--a4) var(--a4);
+  transition: background var(--uebergang);
+}
+
+[data-design="apple"] .cockpit-raster a.kachel:hover {
+  background: var(--flaeche-2);
+}
+
+[data-design="apple"] .cockpit-raster a.kachel::after {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  content: "";
+  border-top: 2px solid var(--text-3);
+  border-right: 2px solid var(--text-3);
+  transform: rotate(45deg);
+  top: 22px;
+  right: var(--a5);
+}
+
+[data-design="apple"] .cockpit-raster .kachel > strong:first-child {
+  margin-bottom: var(--a1);
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Zeilen einer Kachel: über die volle Breite (auch unter dem Pfeil), Haarlinien */
+[data-design="apple"] .cockpit-raster .kachel-zeilen {
+  margin: var(--a2) calc(-1 * var(--a10) + var(--a4)) 0 0;
+}
+
+[data-design="apple"] .cockpit-raster .kachel-zeile {
+  align-items: baseline;
+  padding: 6px 0;
+  font-size: var(--apple-fussnote);
+  border-top-color: var(--linie);
+}
+
+/* Läufe: Status und Zeit rechts bündig, statt mitten in der Zeile */
+[data-design="apple"] .cockpit-raster .kachel-zeile > .status {
+  margin-left: auto;
+}
+
+[data-design="apple"] .cockpit-raster .kachel-zeile > .leise {
+  white-space: nowrap;
+}
+
+/* Status als Punkt plus Wort: Erfolg leise (Grau mit grünem Punkt), Fehler rot und fett.
+   So steht Grün nicht für fünf Dinge zugleich, und die Ausnahme fällt auf. */
+/* Ohne nowrap: „nicht in Ordnung: Statusdatei fehlt“ muss am Handy umbrechen dürfen
+   (unter Linux mit breiterer Schrift ragte die Kachel „Letzte Sicherung“ sonst 24 px über
+   den Rand). */
+[data-design="apple"] .cockpit-seite .status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-design="apple"] .cockpit-seite .status::before {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: currentColor;
+  border-radius: 50%;
+  transform: translateY(-1px);
+}
+
+[data-design="apple"] .neu .cockpit-seite .status-erfolgreich,
+[data-design="apple"] .neu .cockpit-seite .status-uebersprungen {
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .neu .cockpit-seite .status-erfolgreich::before {
+  background: var(--ok);
+}
+
+[data-design="apple"] .neu .cockpit-seite .status-uebersprungen::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--text-3);
+}
+
+[data-design="apple"] .neu .cockpit-seite .status-abgebrochen,
+[data-design="apple"] .neu .cockpit-seite .status-mit_fehlern {
+  font-weight: 600;
+}
+
+[data-design="apple"] .cockpit-raster .kachel br {
+  margin-top: var(--a1);
+}
+
+/* Sehr schmal (unter 360 px): großer Titel eine Stufe kleiner (Title 1, 28) */
+@media (max-width: 359px) {
+  [data-design="apple"] .neu h1 {
+    font-size: 1.75rem;
+  }
+}
+
+/* === Bewegung ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-design="apple"] *,
+  [data-design="apple"] *::before,
+  [data-design="apple"] *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

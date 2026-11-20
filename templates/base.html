@@ -1,5 +1,5 @@
 {% load static bausteine %}<!doctype html>
-<html lang="de">
+<html lang="de"{% if hof_design == "apple" %} data-design="apple"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,10 +11,15 @@
     Markup der Seiten, die noch nicht umgestellt sind; es liegt in der Ebene „alt“ und
     überschreibt nie einen Baustein.
     Blöcke: titel, seitenkopf, inhalt, breite (" schmal": 720 px für Formulare), kopf_handy.
+    Apple-Design (apps.kern.design): Mit hof_design == "apple" kommen die Dateien unter
+    css/apple/ dazu (basis, bausteine, dann je Bereich eine; Liste in APPLE_CSS) und <html>
+    trägt data-design="apple"; den Schalter gibt es nur mit DEBUG.
   {% endcomment %}
   <link rel="stylesheet" href="{% static 'css/werte.css' %}">
   <link rel="stylesheet" href="{% static 'css/hof.css' %}">
   <link rel="stylesheet" href="{% static 'css/bausteine.css' %}">
+  {% if hof_design == "apple" %}{% for datei in hof_apple_css %}
+  <link rel="stylesheet" href="{% static datei %}">{% endfor %}{% endif %}
   <script src="{% static 'js/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/bausteine.js' %}" defer></script>
 </head>
@@ -35,6 +40,7 @@
         </div>
         {% endfor %}
       </nav>
+      {% if hof_design_schalter %}{% include "bausteine/design_schalter.html" with ort="leiste" %}{% endif %}
       <form method="post" action="{% url 'account_logout' %}" class="leiste-fuss">
         {% csrf_token %}
         <a class="leiste-benutzer" href="{% url 'kern:konto' %}" title="Konto: {{ user.email }}">{{ user.email }}</a>
@@ -73,6 +79,7 @@
           <ul>{% for l in nav_links %}<li><a href="{{ l.url }}"{% if l.aktiv %} aria-current="page"{% endif %}>{{ l.titel }}{% if l.marke %} <span class="nav-marke">{{ l.marke }}</span>{% endif %}</a></li>{% endfor %}</ul>
         </details>
         {% endfor %}
+        {% if hof_design_schalter %}{% include "bausteine/design_schalter.html" with ort="mehr" %}{% endif %}
         <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="knopf knopf-zweit knopf-voll">Abmelden</button></form>
       </div>
     </dialog>
