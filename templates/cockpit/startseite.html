@@ -4,6 +4,8 @@
 {% block titel %}Heute{% endblock %}
 
 {% block inhalt %}
+{# .cockpit-seite: Anker für design-apple.css (Experiment); in der bisherigen Gestaltung ohne Regeln. #}
+<div class="cockpit-seite">
 {% seitenkopf "Heute" heute|date:"l, j. F Y" %}
   <a class="knopf knopf-primaer" href="{% url 'kern:arbeitslisten' %}">Arbeitslisten öffnen</a>
 {% endseitenkopf %}
@@ -30,4 +32,5 @@
   {% include "bausteine/leer.html" with text="Noch keine Objekte." hilfe="Zum Ausprobieren: manage.py testhof --seed 42" %}
   {% endif %}
 </section>
+</div>
 {% endblock %}

@@ -1,9 +1,9 @@
-{# Suche in der Kopfzeile (Review 2, B1). Strg+K bzw. ⌘K öffnet sie, Pfeiltasten wählen, Enter öffnet den Treffer (static/js/bausteine.js). Ohne JavaScript führt Enter zur Seite „Suche“. #}
+{# Suche in der Kopfzeile (Review 2, B1). Strg+K bzw. ⌘K öffnet sie, Pfeiltasten wählen, Enter öffnet den Treffer (static/js/bausteine.js). Ohne JavaScript führt Enter zur Seite „Suche“. Im Apple-Design nennt der Platzhalter, wonach man suchen kann (search-fields.md). #}
 <form class="suche" role="search" method="get" action="{% url 'kern:suche' %}" data-suche>
   <label class="nur-leser" for="suche-{{ ort }}">Suchen nach NW-ID, Vertrag, Name, Ort, E-Mail, Rechnungsnummer oder Betrag</label>
   {% include "bausteine/symbol.html" with name="suche" %}
   <input class="suche-eingabe" id="suche-{{ ort }}" type="search" name="q" value="{{ suchtext|default:'' }}"
-         placeholder="Suchen …" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go"
+         placeholder="{% if hof_design == 'apple' %}NW-ID, Vertrag …{% else %}Suchen …{% endif %}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go"
          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suche-{{ ort }}-treffer"
          hx-get="{% url 'kern:suche' %}" hx-trigger="input changed delay:150ms, search" hx-target="#suche-{{ ort }}-treffer"
          hx-sync="this:replace" hx-indicator="this">

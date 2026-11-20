@@ -3302,3 +3302,32 @@ form.sendet .datei-knoepfe {
 .mauerwerk-an > li {
   align-self: start;
 }
+
+/* Designschalter (Experiment „Apple-Design“, apps.kern.design): nur mit DEBUG eingebunden.
+   Die Regeln hier gelten für die bisherige Gestaltung; design-apple.css gestaltet ihn neu. */
+.design-schalter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a1) var(--a2);
+  padding: var(--a2);
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.design-schalter a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.neu .design-schalter a[aria-current="true"] {
+  font-weight: var(--gewicht-fett);
+  color: var(--text);
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .design-schalter a {
+    min-height: var(--ziel);
+  }
+}
