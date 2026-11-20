@@ -1,0 +1,7 @@
+{% load bausteine %}{# Ein Teil beim Aufteilen eines Umsatzes (auf der Seite und per HTMX in _teil_zeile.html). #}
+<fieldset class="karte teil" id="teil-{{ nummer }}">
+  <legend class="teil-titel">Teil {{ nummer|add:1 }}</legend>
+  {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+  {% for verborgen in form.hidden_fields %}{{ verborgen }}{% endfor %}
+  <div class="felder felder-2 teil-felder">{% for f in form.visible_fields %}{% feld f %}{% endfor %}</div>
+</fieldset>

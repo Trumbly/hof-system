@@ -1,13 +1,17 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Handzahlung{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Handzahlung <span class="leise">Vertrag {{ vertrag.nummer }}</span></h1>
-<p class="leise">Barzahlung oder Zahlung auf ein fremdes Konto gehen auf die offenen Posten, älteste zuerst; ein Rest wird Guthaben. Eine Erstattung zahlt Guthaben aus (die Überweisung machst du selbst in Vivid). Grund und Beleg sind Pflicht.</p>
-<form method="post" class="formular" enctype="multipart/form-data">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Erfassen</button>
-</form>
+{% seitenkopf "Handzahlung" "Vertrag "|add:vertrag.nummer %}{% endseitenkopf %}
+
+<div class="stapel">
+<p class="text-2">Barzahlung oder Zahlung auf ein fremdes Konto gehen auf die offenen Posten, älteste zuerst; ein Rest wird Guthaben. Eine Erstattung zahlt Guthaben aus (die Überweisung machst du selbst in Vivid). Grund und Beleg sind Pflicht.</p>
+{% karte "" %}
+  {% url 'abgleich:mietkonto' vertrag.pk as zurueck %}
+  {% include "bausteine/formular.html" with form=form knopf="Erfassen" abbrechen=zurueck kamera=True %}
+{% endkarte %}
+</div>
 {% endblock %}

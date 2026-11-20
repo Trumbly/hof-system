@@ -1,38 +1,35 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Regeln{% endblock %}
 
 {% block inhalt %}
-<h1>Zuordnungsregeln</h1>
+{% seitenkopf "Zuordnungsregeln" "Eine Regel passt, wenn alle ihre Bedingungen passen. Eindeutig ist ein Umsatz, wenn genau eine Regel mit der höchsten Priorität passt; sonst kommt er in die Arbeitsliste." %}
+  <a class="knopf knopf-primaer" href="{% url 'kassenbuch:regel_neu' %}">Neue Regel</a>
+{% endseitenkopf %}
 {% include "kassenbuch/_unternavigation.html" %}
-<p class="leise">Eine Regel passt, wenn alle ihre Bedingungen passen. Eindeutig ist ein Umsatz, wenn genau eine Regel mit der höchsten Priorität passt; sonst kommt er in die Arbeitsliste.</p>
-<p><a class="knopf" href="{% url 'kassenbuch:regel_neu' %}">Neue Regel</a></p>
-<div class="tabelle-rahmen">
-<table class="regeln">
+
+{% karte "Regeln" zahl=regeln|length %}
+<div class="tabelle-box">
+<table class="tab tab-karten regeln">
   <thead>
-    <tr><th>Prio</th><th>Regel</th><th>Bedingungen</th><th>Ergebnis</th><th>Buchungen</th><th></th></tr>
+    <tr><th class="zahl">Prio</th><th>Regel</th><th>Bedingungen</th><th>Ergebnis</th><th class="zahl">Buchungen</th><th class="eng"><span class="nur-leser">Aktionen</span></th></tr>
   </thead>
   <tbody>
     {% for r in regeln %}
-    <tr id="regel-{{ r.pk }}"{% if not r.aktiv %} class="leise"{% endif %}>
-      <td data-titel="Prio">{{ r.prioritaet }}</td>
-      <td data-titel="Regel">{{ r.bezeichnung }} <span class="leise">#{{ r.pk }}{% if not r.aktiv %} · inaktiv{% endif %}</span></td>
-      <td data-titel="Bedingungen">
-        {% if r.richtung %}{{ r.get_richtung_display }} · {% endif %}
-        {% if r.konto %}Konto #{{ r.konto_id }} · {% endif %}
-        {% if r.gegen_iban %}<code>{{ r.gegen_iban }}</code> · {% endif %}
-        {% if r.gegenpartei %}Gegenpartei „{{ r.gegenpartei }}“ · {% endif %}
-        {% if r.zweck %}Zweck {% if r.zweck_regex %}Regex {% endif %}„{{ r.zweck }}“ · {% endif %}
-        {% if r.betrag_von is not None or r.betrag_bis is not None %}Betrag {{ r.betrag_von|default_if_none:"…" }} bis {{ r.betrag_bis|default_if_none:"…" }}{% endif %}
-      </td>
-      <td data-titel="Ergebnis">{{ r.kategorie.bezeichnung }} · {{ r.objekt.kuerzel }} · {{ r.mandant.kuerzel }}</td>
-      <td data-titel="Buchungen">{{ r.anzahl }}</td>
-      <td><a href="{% url 'kassenbuch:regel' r.pk %}">bearbeiten</a> · <a href="{% url 'kassenbuch:regel_anwenden' r.pk %}">rückwirkend anwenden</a></td>
+    <tr id="regel-{{ r.pk }}"{% if not r.aktiv %} class="zeile-leise"{% endif %}>
+      <td data-titel="Prio" class="zahl">{{ r.prioritaet }}</td>
+      <td data-titel="Regel"><span>{{ r.bezeichnung }} <span class="text-3 klein">#{{ r.pk }}</span>{% if not r.aktiv %} {% badge "neutral" "inaktiv" %}{% endif %}</span></td>
+      <td data-titel="Bedingungen"><span class="regel-bedingungen">{% if r.richtung %}<span>{{ r.get_richtung_display }}</span>{% endif %}{% if r.konto %}<span>Konto #{{ r.konto_id }}</span>{% endif %}{% if r.gegen_iban %}<code class="klein">{{ r.gegen_iban }}</code>{% endif %}{% if r.gegenpartei %}<span>Gegenpartei „{{ r.gegenpartei }}“</span>{% endif %}{% if r.zweck %}<span>Zweck {% if r.zweck_regex %}Regex {% endif %}„{{ r.zweck }}“</span>{% endif %}{% if r.betrag_von is not None or r.betrag_bis is not None %}<span>Betrag {{ r.betrag_von|default_if_none:"…" }} bis {{ r.betrag_bis|default_if_none:"…" }}</span>{% endif %}</span></td>
+      <td data-titel="Ergebnis">{{ r.kategorie.bezeichnung }} <span class="text-3 klein">{{ r.objekt.kuerzel }} · {{ r.mandant.kuerzel }}</span></td>
+      <td data-titel="Buchungen" class="zahl">{{ r.anzahl }}</td>
+      <td class="eng"><div class="zeilen-aktionen"><a class="knopf knopf-text knopf-klein" href="{% url 'kassenbuch:regel' r.pk %}">bearbeiten</a><a class="knopf knopf-text knopf-klein" href="{% url 'kassenbuch:regel_anwenden' r.pk %}">rückwirkend anwenden</a></div></td>
     </tr>
     {% empty %}
-    <tr><td colspan="6">Noch keine Regeln.</td></tr>
+    {% include "bausteine/leer.html" with spalten=6 text="Noch keine Regeln." %}
     {% endfor %}
   </tbody>
 </table>
 </div>
+{% endkarte %}
 {% endblock %}

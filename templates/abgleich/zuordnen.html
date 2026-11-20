@@ -1,18 +1,27 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Zahlung zuordnen{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Zuordnen</h1>
+{% seitenkopf "Zuordnen" %}
+  <a class="knopf knopf-zweit" href="{% url 'abgleich:aufteilen' klaerfall.pk %}">Lieber aufteilen</a>
+{% endseitenkopf %}
+
+<div class="stapel">
 {% include "abgleich/_buchung_kopf.html" %}
-<p class="leise">Der offene Betrag geht auf die offenen Posten des Vertrags, älteste zuerst.</p>
-{% if zahlerregel and zahlerregel.vertrag %}<p class="leise">Die <a href="{% url 'abgleich:zahlerregel' zahlerregel.regel_id %}">Zahlerregel #{{ zahlerregel.pk }}</a> dieses Zahlers zeigt auf Vertrag <a href="{% url 'stammdaten:vertrag' zahlerregel.vertrag_id %}">{{ zahlerregel.vertrag.nummer }}</a>.</p>{% endif %}
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <div class="aktionen">
-    <button type="submit">Zuordnen</button>
-    <a class="knopf zweitrangig" href="{% url 'abgleich:aufteilen' klaerfall.pk %}">Lieber aufteilen</a>
+<form method="post" class="karte formular-neu">
+  <div class="karte-rumpf stapel">
+    {% csrf_token %}
+    <p class="text-2">Der offene Betrag geht auf die offenen Posten des Vertrags, älteste zuerst.</p>
+    {% if zahlerregel and zahlerregel.vertrag %}<p class="hinweis-band">Die <a href="{% url 'abgleich:zahlerregel' zahlerregel.regel_id %}">Zahlerregel #{{ zahlerregel.pk }}</a> dieses Zahlers zeigt auf Vertrag <a href="{% url 'stammdaten:vertrag' zahlerregel.vertrag_id %}">{{ zahlerregel.vertrag.nummer }}</a>.</p>{% endif %}
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder">{% for f in form.visible_fields %}{% feld f %}{% endfor %}</div>
+    <div class="formular-fuss">
+      <button type="submit" class="knopf knopf-primaer">Zuordnen</button>
+    </div>
   </div>
 </form>
+</div>
 {% endblock %}

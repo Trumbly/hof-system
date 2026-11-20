@@ -1,13 +1,19 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Zahlerregel{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Zahlerregel <span class="leise">zu Regel #{{ regel.pk }}</span></h1>
-<p class="leise">{{ regel.bezeichnung }} · <a href="{% url 'kassenbuch:regel' regel.pk %}">Regel im Kassenbuch</a></p>
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Speichern</button>
-</form>
+{% with nr=regel.pk|stringformat:"d" %}{% seitenkopf "Zahlerregel" "zu Regel #"|add:nr %}
+  <a class="knopf knopf-zweit" href="{% url 'kassenbuch:regel' regel.pk %}">Regel im Kassenbuch</a>
+{% endseitenkopf %}{% endwith %}
+
+<div class="stapel">
+<p class="text-2">{{ regel.bezeichnung }}</p>
+{% karte "" %}
+  {% url 'abgleich:zahlerregeln' as zurueck %}
+  {% include "bausteine/formular.html" with form=form knopf="Speichern" abbrechen=zurueck %}
+{% endkarte %}
+</div>
 {% endblock %}

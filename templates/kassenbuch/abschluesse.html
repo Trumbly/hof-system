@@ -10,7 +10,7 @@
 <div class="stapel">
 {% for g in abschlussgruppen %}
 <section aria-labelledby="mandant-{{ g.mandant.pk }}" id="mandant-{{ g.mandant.pk }}-bereich" class="stapel">
-  <h2 id="mandant-{{ g.mandant.pk }}">{{ g.mandant.bezeichnung|default:g.mandant.kuerzel }} <span class="text-3">{{ g.mandant.kuerzel }}</span></h2>
+  <h2 class="abschnitt-titel" id="mandant-{{ g.mandant.pk }}">{{ g.mandant.bezeichnung|default:g.mandant.kuerzel }} <span class="text-3">{{ g.mandant.kuerzel }}</span></h2>
   {% with p=g.pruefung %}{% if p %}
   {% if p.ok %}
   {% url 'kassenbuch:abschluss_jetzt' g.mandant.pk p.monat.year p.monat.month as abschluss_url %}

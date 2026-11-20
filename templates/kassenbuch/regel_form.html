@@ -1,15 +1,39 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}{% if regel %}Regel #{{ regel.pk }}{% else %}Neue Regel{% endif %}{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>{% if regel %}Regel #{{ regel.pk }} bearbeiten{% else %}Neue Regel{% endif %}</h1>
+{% if regel %}{% with nr=regel.pk|stringformat:"d" %}{% seitenkopf "Regel #"|add:nr|add:" bearbeiten" %}{% endseitenkopf %}{% endwith %}{% else %}{% seitenkopf "Neue Regel" %}{% endseitenkopf %}{% endif %}
 {% include "kassenbuch/_unternavigation.html" %}
+
+<div class="stapel">
 {% if umsatz %}{% include "kassenbuch/_umsatz_kopf.html" %}{% endif %}
-<p class="leise">Gesetzte Bedingungen müssen alle passen. Nach dem Speichern zeigt eine Vorschau, welche offenen Umsätze die Regel rückwirkend bucht.</p>
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Speichern und Vorschau</button>
+<p class="text-2">Gesetzte Bedingungen müssen alle passen. Nach dem Speichern zeigt eine Vorschau, welche offenen Umsätze die Regel rückwirkend bucht.</p>
+<form method="post" class="karte formular-neu">
+  <div class="karte-rumpf stapel">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder felder-2 regel-felder">{% feld form.bezeichnung breit=True %}</div>
+    <h2 class="regel-abschnitt">Bedingungen</h2>
+    <div class="felder felder-2 regel-felder">
+      {% feld form.gegenpartei %}{% feld form.gegen_iban %}
+      {% feld form.zweck breit=True %}{% feld form.zweck_regex %}
+      {% feld form.betrag_von %}{% feld form.betrag_bis %}
+      {% feld form.richtung %}{% feld form.konto %}
+    </div>
+    <h2 class="regel-abschnitt">Ergebnis</h2>
+    <div class="felder felder-2 regel-felder">
+      {% feld form.kategorie %}{% feld form.objekt %}
+      {% feld form.mandant %}{% feld form.prioritaet %}
+      {% feld form.aktiv %}
+    </div>
+    <div class="formular-fuss">
+      <a class="knopf knopf-zweit" href="{% url 'kassenbuch:regeln' %}">Abbrechen</a>
+      <button type="submit" class="knopf knopf-primaer">Speichern und Vorschau</button>
+    </div>
+  </div>
 </form>
+</div>
 {% endblock %}

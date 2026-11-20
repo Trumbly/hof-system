@@ -1,17 +1,33 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Zahlung aufteilen{% endblock %}
+{% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-<h1>Aufteilen</h1>
+{% seitenkopf "Aufteilen" %}{% endseitenkopf %}
+
+<div class="stapel">
 {% include "abgleich/_buchung_kopf.html" %}
-<p class="leise">Posten und Guthaben ergeben zusammen genau den offenen Betrag.</p>
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ formset.management_form }}
-  {% if formset.non_form_errors %}{{ formset.non_form_errors }}{% endif %}
-  {% for f in formset %}<fieldset class="zeile">{{ f.as_p }}</fieldset>{% endfor %}
-  {{ guthaben_form.as_p }}
-  <button type="submit">Aufteilen</button>
+<form method="post" class="karte formular-neu">
+  <div class="karte-rumpf stapel">
+    {% csrf_token %}
+    {{ formset.management_form }}
+    <p class="text-2">Posten und Guthaben ergeben zusammen genau den offenen Betrag.</p>
+    {% if formset.non_form_errors %}<div class="formfehler" role="alert">{% for fehler in formset.non_form_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    {% for f in formset %}
+    <fieldset class="anteil-zeile">
+      <legend class="nur-leser">Anteil {{ forloop.counter }}</legend>
+      {% if f.non_field_errors %}<div class="formfehler feld-breit" role="alert">{% for fehler in f.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+      {% for v in f.hidden_fields %}{{ v }}{% endfor %}
+      {% for ff in f.visible_fields %}{% feld ff %}{% endfor %}
+    </fieldset>
+    {% endfor %}
+    <div class="felder felder-2">{% for f in guthaben_form.visible_fields %}{% feld f %}{% endfor %}</div>
+    <div class="formular-fuss">
+      <button type="submit" class="knopf knopf-primaer">Aufteilen</button>
+    </div>
+  </div>
 </form>
+</div>
 {% endblock %}

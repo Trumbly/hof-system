@@ -4,12 +4,12 @@
 {% block titel %}Monatsbericht{% endblock %}
 
 {% block inhalt %}
-{% include "kassenbuch/_unternavigation.html" %}
 {% seitenkopf "Monatsbericht je Objekt" "Einnahmen, Kosten und Ergebnis im Vergleich zum Vorjahresmonat" %}
   {% if bericht %}
   {% if gespeichert and gespeichert.datei or pdf_verfuegbar %}<a class="knopf knopf-zweit" href="{% url 'kassenbuch:bericht_pdf' bericht.objekt.pk bericht.monat.year bericht.monat.month %}">PDF{% if gespeichert and gespeichert.datei %} (gespeichert {{ gespeichert.erstellt_am|date:"d.m.Y" }}){% endif %}</a>{% endif %}
   {% endif %}
 {% endseitenkopf %}
+{% include "kassenbuch/_unternavigation.html" %}
 
 <form method="get" class="filterleiste">
   {% feld form.objekt %}

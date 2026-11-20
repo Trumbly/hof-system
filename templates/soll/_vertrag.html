@@ -1,7 +1,7 @@
 {% load bausteine %}{% comment %} Inhalt der Seite „Offene Posten“ je Vertrag. Wird nach jedem Speichern im Dialog
    ersetzt (oob). {% endcomment %}
 <div id="soll-vertrag" class="stapel"{% if oob %} hx-swap-oob="true"{% endif %}>
-  <dl class="fakten">
+  <dl class="fakten geld-fakten">
     <div class="fakt fakt-breit"><dt>Offen</dt><dd><span class="fakt-wert zahl"><strong>{{ summe_offen|euro }}</strong> in {{ offen|length }} Posten</span></dd></div>
     <div class="fakt"><dt>Fälligkeit</dt><dd>{% if faelligkeit.art == "werktag" %}{{ faelligkeit.tag }}. Werktag des Monats{% else %}am {{ faelligkeit.tag }}. des Monats{% endif %}</dd></div>
     <div class="fakt"><dt>Soll im Hof-System ab</dt><dd>{{ soll_ab|date:"d.m.Y"|default:"Vertragsbeginn" }}</dd></div>

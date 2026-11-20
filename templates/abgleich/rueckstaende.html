@@ -4,36 +4,45 @@
 {% block titel %}Rückstände{% endblock %}
 
 {% block inhalt %}
-<h1>Rückstände</h1>
 {% with zahlen=stand.kennzahlen %}
-<p class="leise">Stand {{ stand.stichtag|date:"d.m.Y" }} · Bankdaten bis {{ stand.datenstand|date:"d.m.Y"|default:"–" }}. Später fällige Posten sind nicht prüfbar und zählen nicht als Rückstand.</p>
-<ul class="kennzahlen">
-  <li>{% begriff "ueberfaellig" "Überfällig" %} (Rückstand): <strong>{{ zahlen.summe|floatformat:"2g" }} €</strong> bei {{ zahlen.vertraege_mit_rueckstand }} Verträgen</li>
-  <li>0–30 Tage: {{ zahlen.summe_0_30|floatformat:"2g" }} €</li>
-  <li>31–60 Tage: {{ zahlen.summe_31_60|floatformat:"2g" }} €</li>
-  <li>über 60 Tage: {{ zahlen.summe_ueber_60|floatformat:"2g" }} €</li>
-  <li>in Klärung: {{ zahlen.vertraege_in_klaerung }} Verträge</li>
-  <li>{% begriff "nicht_pruefbar" %} (nach dem letzten Bankabruf fällig): {{ zahlen.nicht_pruefbar|floatformat:"2g" }} €</li>
-</ul>
+{% with stichtag=stand.stichtag|date:"d.m.Y" datenstand=stand.datenstand|date:"d.m.Y"|default:"–" %}
+{% seitenkopf "Rückstände" "Stand "|add:stichtag|add:" · Bankdaten bis "|add:datenstand|add:". Später fällige Posten sind nicht prüfbar und zählen nicht als Rückstand." %}
+  <a class="knopf knopf-zweit" href="{% url 'abgleich:zahlerregeln' %}">Zahlerregeln</a>
+  <a class="knopf knopf-zweit" href="{% url 'kern:arbeitslisten' %}">Zahlungen klären</a>
+{% endseitenkopf %}
 {% endwith %}
-<p><a href="{% url 'abgleich:zahlerregeln' %}">Zahlerregeln</a> · <a href="{% url 'kern:arbeitslisten' %}">Zahlungen klären</a></p>
-<div class="tabelle-rahmen">
-<table class="tabelle">
-  <thead><tr><th>Vertrag</th><th>Einheit</th><th class="zahl">0–30</th><th class="zahl">31–60</th><th class="zahl">über 60</th><th class="zahl">Summe</th><th class="zahl">Guthaben</th><th></th></tr></thead>
+
+{% begriff "ueberfaellig" "Überfällig (Rückstand)" as titel_ueberfaellig %}
+{% begriff "nicht_pruefbar" as titel_nicht_pruefbar %}
+<div class="kennzahlen-reihe rueckstand-kennzahlen" id="kennzahlen">
+  {% with n=zahlen.vertraege_mit_rueckstand|stringformat:"d" %}{% kennzahl titel_ueberfaellig zahlen.summe|euro art="fehler" unter="bei "|add:n|add:" Verträgen" %}{% endwith %}
+  {% kennzahl "0–30 Tage" zahlen.summe_0_30|euro %}
+  {% kennzahl "31–60 Tage" zahlen.summe_31_60|euro %}
+  {% kennzahl "über 60 Tage" zahlen.summe_ueber_60|euro %}
+  {% kennzahl "in Klärung" zahlen.vertraege_in_klaerung unter="Verträge" %}
+  {% kennzahl titel_nicht_pruefbar zahlen.nicht_pruefbar|euro unter="nach dem letzten Bankabruf fällig" %}
+</div>
+{% endwith %}
+
+{% karte "Verträge mit Rückstand" %}
+<div class="tabelle-box">
+<table class="tab tab-karten">
+  <thead><tr><th>Vertrag</th><th>Einheit</th><th class="zahl">0–30</th><th class="zahl">31–60</th><th class="zahl">über 60</th><th class="zahl">Summe</th><th class="zahl">Guthaben</th><th><span class="nur-leser">Status</span></th></tr></thead>
   <tbody>
   {% for r in stand.vertraege %}{% if r.summe or r.in_klaerung %}
   <tr id="vertrag-{{ r.vertrag.pk }}">
-    <td><a href="{% url 'abgleich:mietkonto' r.vertrag.pk %}">{{ r.vertrag.nummer }}</a></td>
-    <td>{{ r.nw_ids|join:", " }}</td>
-    <td class="zahl">{{ r.bis_30|floatformat:"2g" }}</td>
-    <td class="zahl">{{ r.bis_60|floatformat:"2g" }}</td>
-    <td class="zahl">{{ r.ueber_60|floatformat:"2g" }}</td>
-    <td class="zahl"><strong>{{ r.summe|floatformat:"2g" }}</strong></td>
-    <td class="zahl">{{ r.guthaben|floatformat:"2g" }}</td>
-    <td>{% if r.in_klaerung %}<span class="status">in Klärung</span>{% endif %}</td>
+    <td data-titel="Vertrag"><a href="{% url 'abgleich:mietkonto' r.vertrag.pk %}">{{ r.vertrag.nummer }}</a></td>
+    <td data-titel="Einheit">{{ r.nw_ids|join:", " }}</td>
+    <td data-titel="0–30" class="zahl">{{ r.bis_30|floatformat:"2g" }}</td>
+    <td data-titel="31–60" class="zahl">{{ r.bis_60|floatformat:"2g" }}</td>
+    <td data-titel="über 60" class="zahl">{{ r.ueber_60|floatformat:"2g" }}</td>
+    <td data-titel="Summe" class="zahl"><strong>{{ r.summe|floatformat:"2g" }}</strong></td>
+    <td data-titel="Guthaben" class="zahl">{{ r.guthaben|floatformat:"2g" }}</td>
+    <td data-titel="Status">{% if r.in_klaerung %}{% badge "hinweis" "in Klärung" %}{% endif %}</td>
   </tr>
-  {% endif %}{% empty %}<tr><td colspan="8">Keine Rückstände.</td></tr>{% endfor %}
+  {% endif %}{% empty %}{% include "bausteine/leer.html" with spalten=8 text="Keine Rückstände." %}{% endfor %}
   </tbody>
 </table>
 </div>
+{% endkarte %}
 {% endblock %}
