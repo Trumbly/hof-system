@@ -181,27 +181,59 @@ def test_apple_system_schmal(
         kontext.close()
 
 
-def test_fristen_zeile_mit_erledigt_bleibt_flach(seite: Page, adressen: dict[str, Any]) -> None:
-    """Befund System (PR A): Fristen-Zeilen mit „Erledigt“ werden nicht höher als nötig; der
-    Knopf bleibt 44 px, die einzeilige Zeile höchstens 52 px. Die Spalten stehen in allen
-    Gruppen gleich."""
+@pytest.mark.parametrize("schrift", ("system", "verdana"))
+def test_fristen_zeile_mit_erledigt_bleibt_flach(
+    seite: Page, adressen: dict[str, Any], schrift: str
+) -> None:
+    """Befund System (PR A): Fristen-Zeilen mit „Erledigt“ werden nicht höher als nötig.
+
+    Der Knopf bleibt 44 px. Eine Zeile ist nie höher als das Größere von Knopf (mit 2 px
+    Rand je Seite) und dem höchsten Text ihrer Zellen (mit dem Innenabstand der Zelle):
+    Zweizeiliger Inhalt (Art mit Hinweis, Datum mit Badge) darf die Zeile höher machen, der
+    Knopf nicht. Zeilen mit nur einzeiligem Text sind höchstens 52 px hoch. Die Aktionen
+    passen in ihre Zelle, und die Spalten stehen in allen Gruppen gleich. Mit Verdana als
+    Ersatz für die breiteren Schriften unter Linux (wie ``test_seiten_r2_8``)."""
     seite.goto(adressen["seiten"]["fristen"], wait_until="networkidle")
+    if schrift == "verdana":
+        seite.add_style_tag(content=VERDANA)
     mass = seite.evaluate(
         """() => {
         const zeilen = [...document.querySelectorAll('#fristen tr.frist')]
             .filter(z => z.getBoundingClientRect().height > 0 && z.querySelector('.knopf'));
-        const einzeilig = zeilen.filter(z => !z.querySelector('.frist-zelle .klein'));
+        const text = (td) => {
+            const r = document.createRange();
+            r.selectNodeContents(td);
+            return r.getBoundingClientRect().height;
+        };
+        const zeile = (z) => {
+            const zellen = [...z.children].filter(td => !td.classList.contains('frist-aktionen'));
+            const td = zellen[0], s = getComputedStyle(td);
+            const rand = parseFloat(s.paddingTop) + parseFloat(s.paddingBottom);
+            const hoch = Math.max(...zellen.map(text));
+            const aktionen = z.querySelector('.frist-aktionen');
+            const knoepfe = aktionen.querySelector('.zeilen-aktionen').getBoundingClientRect();
+            return {
+                hoehe: z.getBoundingClientRect().height,
+                text: hoch + rand,
+                zeilenhoehe: parseFloat(s.lineHeight),
+                hochster_text: hoch,
+                knopf: aktionen.querySelector('.knopf').getBoundingClientRect().height,
+                passt: knoepfe.right <= aktionen.getBoundingClientRect().right + 0.5,
+            };
+        };
         const art = [...document.querySelectorAll('#fristen > .karte .tab > thead th:nth-child(2)')]
             .map(th => Math.round(th.getBoundingClientRect().left));
-        return {
-            knopf: Math.round(zeilen[0].querySelector('.knopf').getBoundingClientRect().height),
-            hoehen: einzeilig.map(z => Math.round(z.getBoundingClientRect().height)),
-            art: [...new Set(art)],
-        };
+        return {zeilen: zeilen.map(zeile), art: [...new Set(art)]};
     }"""
     )
-    assert mass["knopf"] >= ZIEL_PX, mass
-    assert mass["hoehen"] and max(mass["hoehen"]) <= 52, mass
+    zeilen = mass["zeilen"]
+    assert zeilen, mass
+    for z in zeilen:
+        assert z["knopf"] >= ZIEL_PX - 0.5, z
+        assert z["hoehe"] <= max(z["knopf"] + 4, z["text"]) + 1, z
+        assert z["passt"], z
+    einzeilig = [z for z in zeilen if z["hochster_text"] <= 1.5 * z["zeilenhoehe"]]
+    assert einzeilig and max(z["hoehe"] for z in einzeilig) <= 52, zeilen
     assert len(mass["art"]) == 1, mass
 
 

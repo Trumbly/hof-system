@@ -72,26 +72,46 @@
   font-size: var(--apple-fussnote);
 }
 
-@media (min-width: 1024px) {
+/* Feste Spalten erst ab 1280 px (darunter teilt der Browser nach Inhalt auf). Gemessen mit
+   Verdana als Ersatz für die breiteren Schriften unter Linux: Bezug fasst „Bankfreigabe Vivid
+   Geschäftskonto“ in einer Zeile, die Aktionen „Erledigt“ und „verschieben ▾“ nebeneinander.
+   Das Datum mit Badge „überfällig“ darf zweizeilig werden (nur überfällige Fristen), Art mit
+   Hinweis ebenso. */
+@media (min-width: 1280px) {
   [data-design="apple"] #fristen .tab {
     table-layout: fixed;
   }
 
   [data-design="apple"] #fristen .tab th:nth-child(1),
   [data-design="apple"] #fristen .tab td:nth-child(1):not(.buendel) {
-    width: 12rem;
+    width: 9.5rem;
+  }
+
+  /* Datum und Badge dürfen umbrechen (die Zelle ist sonst „eng“, also ohne Umbruch) */
+  [data-design="apple"] #fristen tr.frist > td:first-child {
+    white-space: normal;
   }
 
   [data-design="apple"] #fristen .tab th:nth-child(3) {
-    width: 24%;
+    width: 27%;
   }
 
   [data-design="apple"] #fristen .tab th:nth-child(4) {
-    width: 16%;
+    width: 15%;
   }
 
   [data-design="apple"] #fristen .tab th:nth-child(5) {
-    width: 13.5rem;
+    width: 15rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] #fristen td.frist-aktionen {
+    padding-left: var(--a1);
+  }
+
+  [data-design="apple"] #fristen td.frist-aktionen .menue > summary.knopf-text {
+    padding-inline: var(--a2);
   }
 
   [data-design="apple"] #fristen tr.frist > td {
