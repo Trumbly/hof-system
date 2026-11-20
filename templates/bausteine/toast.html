@@ -1,5 +1,5 @@
-<div class="toast toast-{{ art|default:'ok' }}" role="{% if art == 'fehler' %}alert{% else %}status{% endif %}">
-  <span class="toast-text">{{ text }}</span>
+{% load kern %}<div class="toast toast-{{ art|default:'ok' }}" role="{% if art == 'fehler' %}alert{% else %}status{% endif %}">
+  <span class="toast-text">{{ text|verlinkt }}</span>
   {% if link %}<a class="toast-link" href="{{ link }}">{{ link_text|default:"ansehen" }} →</a>{% endif %}
   <button type="button" class="toast-zu" data-toast-schliessen aria-label="Meldung schließen">×</button>
 </div>

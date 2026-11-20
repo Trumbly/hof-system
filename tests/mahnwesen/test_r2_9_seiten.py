@@ -9,6 +9,7 @@ import json
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.kern.models import Benutzer
 from apps.mahnwesen.models import Mahnsperre
@@ -43,7 +44,7 @@ def test_sperre_setzen_und_aufheben_im_dialog(mahnhof: Mahnhof, angemeldet: Clie
     )
     html = antwort.content.decode()
     sperre = Mahnsperre.objects.get()
-    assert f"Mahnsperre für {vertrag.nummer} gesetzt (Ratenplan, ab 01.10.2026)" in html
+    assert f"Mahnsperre für {vertrag.nummer} gesetzt (Ratenplan, ab 01.10.2026)" in strip_tags(html)
     assert f"#sperre-{sperre.pk}" in html and 'id="sperren-liste"' in html
     assert "dialogSchliessen" in json.loads(antwort["HX-Trigger"])
 
@@ -54,7 +55,9 @@ def test_sperre_setzen_und_aufheben_im_dialog(mahnhof: Mahnhof, angemeldet: Clie
     antwort = angemeldet.post(
         reverse("mahnwesen:sperre_aufheben", args=[sperre.pk]), {"am": "2026-10-20"}, **HTMX
     )
-    assert f"Mahnsperre für {vertrag.nummer} zum 20.10.2026 aufgehoben" in antwort.content.decode()
+    assert f"Mahnsperre für {vertrag.nummer} zum 20.10.2026 aufgehoben" in strip_tags(
+        antwort.content.decode()
+    )
 
 
 def test_von_hand_belegen_im_dialog(
@@ -75,7 +78,7 @@ def test_von_hand_belegen_im_dialog(
 
     antwort = angemeldet.post(url, {"schritt": schritt.pk, "am": "2026-10-12"}, **HTMX)
     html = antwort.content.decode()
-    assert f"für {vertrag.nummer} am 12.10.2026 belegt" in html
+    assert f"für {vertrag.nummer} am 12.10.2026 belegt" in strip_tags(html)
     assert 'id="stufenverlauf" hx-swap-oob="true"' in html
     schritt.refresh_from_db()
     assert schritt.belegt_am == datetime.date(2026, 10, 12)

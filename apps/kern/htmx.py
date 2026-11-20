@@ -47,13 +47,17 @@ def erfolg(
     *,
     link: str = "",
     link_text: str = "ansehen",
+    ereignisse: Iterable[str] = (),
 ) -> HttpResponse:
     """Antwort auf ein gelungenes Speichern im Dialog.
 
     ``teile`` sind fertige HTML-Stücke, jedes mit ``id`` und ``hx-swap-oob="true"``. Der
-    Dialog selbst wird geleert und geschlossen.
+    Dialog selbst wird geleert und geschlossen. ``ereignisse`` löst die Seite zusätzlich aus,
+    etwa ``posteingangNeu`` (die Arbeitsliste lädt neu).
     """
     html = "".join(teile) + toast(request, meldung, link=link, link_text=link_text)
     antwort = HttpResponse(html)
-    antwort["HX-Trigger"] = json.dumps({EREIGNIS_SCHLIESSEN: True})
+    antwort["HX-Trigger"] = json.dumps(
+        {EREIGNIS_SCHLIESSEN: True, **dict.fromkeys(ereignisse, True)}
+    )
     return antwort

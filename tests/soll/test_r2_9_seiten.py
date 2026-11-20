@@ -8,6 +8,7 @@ import json
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from tests.soll.conftest import VertragBauer, geltend
 
@@ -65,4 +66,4 @@ def test_posten_von_hand_im_dialog(neuer_vertrag: VertragBauer, angemeldet: Clie
         },
         **HTMX,
     )
-    assert f"25,00 €) für {vertrag.nummer} angelegt" in antwort.content.decode()
+    assert f"25,00 €) für {vertrag.nummer} angelegt" in strip_tags(antwort.content.decode())

@@ -1,4 +1,4 @@
-<section class="gruppe umsatz-kopf" aria-labelledby="zahlung-titel">
+{% load kern %}<section class="gruppe umsatz-kopf" aria-labelledby="zahlung-titel">
   <h2 id="zahlung-titel">Zahlung: Buchung #{{ buchung.pk }}</h2>
   <dl class="angaben">
     <dt>Datum</dt><dd>{{ umsatz.buchungsdatum|date:"d.m.Y" }}</dd>
@@ -8,7 +8,7 @@
     <dt>Zweck</dt><dd>{{ umsatz.verwendungszweck|default:"–" }}</dd>
     <dt>Klärfall</dt><dd>{{ klaerfall.get_art_display }} · Konfidenz {% widthratio klaerfall.konfidenz 1 100 %} %{% if not klaerfall.offen %} · {{ klaerfall.get_ergebnis_display }}{% endif %}</dd>
   </dl>
-  {% if posten_arbeit and posten_arbeit.hinweis %}<p class="leise">{{ posten_arbeit.hinweis }}</p>{% endif %}
+  {% if posten_arbeit and posten_arbeit.hinweis %}<p class="leise">{{ posten_arbeit.hinweis|verlinkt }}</p>{% endif %}
   {% if vorschlag_vertrag or vorschlag_posten %}
   <p><strong>Vorschlag:</strong>
     {% if vorschlag_vertrag %}Vertrag <a href="{% url 'abgleich:mietkonto' vorschlag_vertrag.pk %}">{{ vorschlag_vertrag.nummer }}</a>{% endif %}

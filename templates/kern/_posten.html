@@ -10,7 +10,7 @@
       {% if z.verweis %}<a href="{{ z.verweis.url }}">{{ z.verweis.titel }}</a>{% endif %}
       {% if posten.lauf %}<a href="{% url 'kern:laeufe' %}#lauf-{{ posten.lauf.pk }}">aus Lauf #{{ posten.lauf.pk }}</a>{% endif %}
     </p>
-    {% if posten.hinweis %}<p class="posten-hinweis">{{ posten.hinweis|pfade_verlinken }}</p>{% endif %}
+    {% if posten.hinweis %}<p class="posten-hinweis">{{ posten.hinweis|verlinkt }}</p>{% endif %}
     {% if z.vorlage %}{% include z.vorlage with p=z.p k=z.kontext %}{% endif %}
     {% if z.fehler %}<p class="feld-fehler" role="alert">{{ z.fehler }}</p>{% endif %}
   </div>

@@ -21,13 +21,25 @@ def _seite_der_anfrage(posten: Arbeitsposten) -> str:
 
 
 aktionen.registrieren(services.AKTION_ENTSCHEIDEN, "Anfrage entscheiden", seite=_seite_der_anfrage)
+
+
+def _anfrage_text(anfrage: Buchungsanfrage) -> str:
+    """„NW-G-0004 · Jochem Stumpf“, bei einer Kündigung mit dem Zusatz (Review 3, Punkt 8)."""
+    teile = [anfrage.einheit.nw_id if anfrage.einheit else "", anfrage.kontakt_name]
+    if anfrage.art == Buchungsanfrage.Art.KUENDIGUNG:
+        teile.append(anfrage.get_art_display())
+    return " · ".join(t for t in teile if t) or f"Anfrage #{anfrage.pk}"
+
+
 verweise.registrieren(
     Buchungsanfrage,
     "Anfrage öffnen",
     lambda anfrage: reverse("anbindungen:anfrage", args=[anfrage.pk]),
+    beschreibung=_anfrage_text,
 )
 verweise.registrieren(
     Abweichung,
     "Abweichungen ansehen",
     lambda abweichung: reverse("anbindungen:abweichungen") + f"#abweichung-{abweichung.pk}",
+    beschreibung=lambda a: f"{a.nw_id} · {a.get_art_display()}",
 )

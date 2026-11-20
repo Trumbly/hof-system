@@ -12,4 +12,9 @@ def _ablesen(zaehler: Zaehler) -> str:
     return reverse("zaehler:ablesung", args=[zaehler.standort_objekt.pk]) + f"#zaehler-{zaehler.pk}"
 
 
-verweise.registrieren(Zaehler, "Ablesen", _ablesen)
+verweise.registrieren(
+    Zaehler,
+    "Ablesen",
+    _ablesen,
+    beschreibung=lambda z: " · ".join(t for t in (z.nummer, z.bezeichnung) if t),
+)

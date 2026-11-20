@@ -12,7 +12,7 @@
       {% if ansicht.zurueckgestellt %}<input type="hidden" name="status" value="zurueckgestellt">{% endif %}
       <header class="posteingang-kopf">
         <a class="posteingang-zurueck knopf knopf-text knopf-klein" href="{% url 'kern:arbeitslisten' %}">← Arten</a>
-        <h2 id="posteingang-titel">{{ titel }} <span class="zaehler">{{ anzahl }}</span></h2>
+        <h2 id="posteingang-titel">{{ titel }} {% include "kern/_posteingang_anzahl.html" %}</h2>
         {% if eintraege and sammel %}
         <div class="posteingang-sammel">
           <label class="haken-label"><input type="checkbox" class="feld-haken" data-alle-waehlen><span>alle wählen</span></label>

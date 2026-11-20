@@ -228,7 +228,12 @@ def zuordnen(request: HttpRequest, pk: int) -> HttpResponse:
             if dialog:
                 teile = arbeitslisten.teile_nach_dialog(request, [posten.pk] if posten else [])
                 return htmx.erfolg(
-                    request, teile, meldung.text, link=meldung.link, link_text=meldung.link_text
+                    request,
+                    teile,
+                    meldung.text,
+                    link=meldung.link,
+                    link_text=meldung.link_text,
+                    ereignisse=[arbeitslisten.EREIGNIS_NEU] if meldung.weitere else [],
                 )
             messages.success(request, meldung.text)
             if posten is not None:
@@ -355,13 +360,26 @@ def regeln(request: HttpRequest) -> HttpResponse:
     return render(request, "kassenbuch/regeln.html", {"regeln": liste})
 
 
-def _regel_speichern(form: RegelForm, regel: Zuordnungsregel | None) -> Zuordnungsregel:
+def _regel_speichern(
+    form: RegelForm, regel: Zuordnungsregel | None
+) -> tuple[Zuordnungsregel, bool]:
+    """Speichert die Regel; dazu, ob sie neu ist. Gibt es eine gleiche schon, kommt sie
+    zurück (Review 3, Punkt 3)."""
     werte = {k: v for k, v in form.cleaned_data.items() if k in services.REGEL_FELDER}
     if regel is None:
         werte.pop("aktiv", None)
         bezeichnung = werte.pop("bezeichnung")
-        return services.regel_anlegen(bezeichnung, **werte)
-    return services.regel_aendern(regel, **werte)
+        return services.regel_anlegen_oder_finden(bezeichnung, **werte)
+    return services.regel_aendern(regel, **werte), False
+
+
+def _regel_gemeldet(request: HttpRequest, regel: Zuordnungsregel, neu: bool, text: str) -> None:
+    if neu:
+        messages.success(request, text)
+    else:
+        messages.info(
+            request, f"Diese Regel gibt es schon: Regel #{regel.pk}. Es ist keine zweite angelegt."
+        )
 
 
 @login_required
@@ -371,11 +389,12 @@ def regel_bearbeiten(request: HttpRequest, pk: int | None = None) -> HttpRespons
     form = RegelForm(request.POST or None, instance=regel)
     if request.method == "POST" and form.is_valid():
         try:
-            gespeichert = _regel_speichern(form, regel)
+            gespeichert, neu = _regel_speichern(form, regel)
         except services.KassenbuchFehler as fehler:
             form.add_error(None, str(fehler))
         else:
-            messages.success(request, f"Regel #{gespeichert.pk} gespeichert.")
+            text = f"Regel #{gespeichert.pk} gespeichert."
+            _regel_gemeldet(request, gespeichert, neu or regel is not None, text)
             return redirect("kassenbuch:regel_anwenden", pk=gespeichert.pk)
     return render(request, "kassenbuch/regel_form.html", {"form": form, "regel": regel})
 
@@ -398,11 +417,12 @@ def regel_aus_umsatz(request: HttpRequest, pk: int) -> HttpResponse:
     form = RegelForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
-            regel = _regel_speichern(form, None)
+            regel, neu = _regel_speichern(form, None)
         except services.KassenbuchFehler as fehler:
             form.add_error(None, str(fehler))
         else:
-            messages.success(request, f"Regel #{regel.pk} angelegt. Jetzt rückwirkend anwenden?")
+            text = f"Regel #{regel.pk} angelegt. Jetzt rückwirkend anwenden?"
+            _regel_gemeldet(request, regel, neu, text)
             return redirect("kassenbuch:regel_anwenden", pk=regel.pk)
     return render(
         request,

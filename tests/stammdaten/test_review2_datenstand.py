@@ -9,6 +9,7 @@ import re
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.stammdaten import datenstand, scans
 from apps.stammdaten.models import Vertrag
@@ -95,7 +96,7 @@ def test_scans_hochladen_vorschau_dann_uebernehmen(testhof: Testhof, angemeldet:
         url, {"aktion": "uebernehmen", "kennung": kennung.group(1)}, HTTP_HX_REQUEST="true"
     )
     teil = fertig.content.decode()
-    assert f"2 Scans übernommen · {erster.nummer}, {zweiter.nummer}" in teil
+    assert f"2 Scans übernommen · {erster.nummer}, {zweiter.nummer}" in strip_tags(teil)
     assert 'id="datenstand-inhalt"' in teil and 'hx-swap-oob="true"' in teil
     for vertrag in (erster, zweiter):
         vertrag.refresh_from_db()

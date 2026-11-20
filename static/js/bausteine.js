@@ -3,7 +3,8 @@
  * - Dialog: HTMX lädt den Inhalt nach #dialog-inhalt, dann öffnet sich #dialog. Nach dem
  *   Speichern schickt der Server das Ereignis „dialogSchliessen“ (apps.kern.htmx).
  * - [data-dialog-oeffnen="id"] öffnet einen Dialog, [data-dialog-schliessen] schließt ihn.
- * - Toast-Meldungen verschwinden nach 8 Sekunden (Fehler bleiben, bis man sie schließt).
+ * - Toast-Meldungen verschwinden nach 8 Sekunden. Fehler und Meldungen mit Link bleiben, bis
+ *   man sie schließt (Review 3, Punkt 3: Sonst ist der Link weg, bevor man ihn klickt).
  * - Dateiknöpfe zeigen eine Vorschau der gewählten Bilder und die Dateinamen. Ein
  *   Dateifeld ohne eigene Knöpfe (input[type=file] direkt im Markup) bekommt sie beim Laden:
  *   In keiner Seite steht „Choose file“ (Review 2, C4).
@@ -100,13 +101,19 @@
   function toastsPflegen() {
     document.querySelectorAll(".toast:not([data-gepflegt])").forEach(function (t) {
       t.setAttribute("data-gepflegt", "1");
-      if (!t.classList.contains("toast-fehler")) {
+      // Fehler und Meldungen mit Link bleiben stehen, bis man sie schließt.
+      if (!t.classList.contains("toast-fehler") && !t.querySelector("a[href]")) {
         window.setTimeout(function () {
           t.classList.add("toast-weg");
           window.setTimeout(function () { t.remove(); }, 300);
         }, 8000);
       }
     });
+    // Höchstens drei Meldungen stehen zugleich da; die älteste geht zuerst.
+    var stapel = document.querySelectorAll("#toasts .toast");
+    for (var i = 0; i < stapel.length - 3; i += 1) {
+      stapel[i].remove();
+    }
   }
   document.addEventListener("DOMContentLoaded", toastsPflegen);
   document.addEventListener("htmx:afterSettle", toastsPflegen);

@@ -19,6 +19,7 @@ Services). Die Zeilen zeigen Namen aus dem Bezug; die Hinweistexte bleiben ohne 
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -114,6 +115,28 @@ def _verweis(posten: Arbeitsposten) -> verweise.Verweis | None:
         return None
 
 
+#: Länge des Titels, wenn er aus dem Hinweis kommt (Posten ohne Bezug)
+TITEL_LAENGE = 60
+
+
+def _titel(posten: Arbeitsposten, kontext: dict[str, Any], verweis: verweise.Verweis | None) -> str:
+    """Der Gegenstand des Postens, nie noch einmal die Art (Review 3, Punkt 8).
+
+    Zuerst der Titel aus dem Kontext der Art, sonst die Beschreibung des Bezugs
+    (``verweise``, mit Namen, nur in der Oberfläche). Ohne Bezug der Anfang des Hinweises bis
+    zum ersten Doppelpunkt oder Punkt, zuletzt die Nummer des Postens.
+    """
+    for kandidat in (kontext.get("titel"), verweis.text if verweis else ""):
+        if kandidat and kandidat != posten.art:
+            return str(kandidat)
+    anfang = re.split(r"[:.;]\s", f"{posten.hinweis} ", maxsplit=1)[0].strip()
+    if anfang and anfang != posten.art:
+        if len(anfang) > TITEL_LAENGE:
+            anfang = anfang[: TITEL_LAENGE - 1].rstrip() + "…"
+        return anfang
+    return f"Posten #{posten.pk}"
+
+
 def zeilen(posten_liste: Sequence[Arbeitsposten]) -> list[Zeile]:
     """Je Posten eine Zeile mit Titel, Link, Knöpfen und der Arbeitsfläche seiner Art."""
     je_art: dict[str, list[Arbeitsposten]] = defaultdict(list)
@@ -139,7 +162,7 @@ def zeilen(posten_liste: Sequence[Arbeitsposten]) -> list[Zeile]:
             Zeile(
                 posten=p,
                 p=posteingang.praefix(p),
-                titel=kontext.get("titel") or (verweis.text if verweis else "") or p.art,
+                titel=_titel(p, kontext, verweis),
                 verweis=verweis,
                 knoepfe=_knoepfe(p),
                 vorlage=bearbeitung.vorlage if (bearbeitung and kontext and offen) else "",
@@ -349,6 +372,37 @@ def _arten_oob(request: HttpRequest, ansicht: Ansicht) -> str:
     )
 
 
+def _anzahl(ansicht: Ansicht) -> int:
+    """Wie viele Posten die Liste der Ansicht zeigt (die Zahl im Listenkopf)."""
+    abfrage = Arbeitsposten.objects.filter(status=ansicht.status)
+    if ansicht.art:
+        abfrage = abfrage.filter(art=ansicht.art)
+    return abfrage.count()
+
+
+def _anzahl_oob(ansicht: Ansicht) -> str:
+    """Die Zahl im Listenkopf, per OOB zusammen mit den Zahlen links (Review 3, Punkt 3)."""
+    return render_to_string(
+        "kern/_posteingang_anzahl.html", {"anzahl": _anzahl(ansicht), "oob": True}
+    )
+
+
+def _zahlen_oob(request: HttpRequest, ansicht: Ansicht) -> str:
+    """Zahlen links und im Listenkopf: immer beide zusammen, damit sie nie auseinanderlaufen."""
+    return _arten_oob(request, ansicht) + _anzahl_oob(ansicht)
+
+
+def _in_gruppe(daten: Any, posten: Arbeitsposten) -> bool:
+    """Stand der Posten in einer Gruppe der Liste? Die Felder ``g<Nr>-posten`` kommen mit dem
+    Formular der Liste. Dann ändert sich der Kopf der Gruppe, und die Liste lädt neu."""
+    wert = str(posten.pk)
+    return any(
+        wert in daten.getlist(schluessel)
+        for schluessel in daten
+        if re.fullmatch(r"g\d+-posten", schluessel)
+    )
+
+
 def zeile_html(request: HttpRequest, posten: Arbeitsposten, *, fehler: str = "") -> str:
     (zeile,) = zeilen([posten])
     zeile.fehler = fehler
@@ -365,7 +419,7 @@ def teile_nach_dialog(request: HttpRequest, posten_ids: Sequence[int]) -> list[s
     entfernen und die Zahlen links erneuern (die Ansicht steht in ``HX-Current-URL``)."""
     adresse = urlsplit(request.headers.get("HX-Current-URL", ""))
     ansicht = _ansicht({k: v[0] for k, v in parse_qs(adresse.query).items()})
-    return [*entfernen_oob(posten_ids), _arten_oob(request, ansicht)]
+    return [*entfernen_oob(posten_ids), _zahlen_oob(request, ansicht)]
 
 
 def nach_aktion(
@@ -381,10 +435,10 @@ def nach_aktion(
     posten.refresh_from_db()
     ansicht = _ansicht(request.POST or request.GET)
     html = "" if posten.status != status_vorher else zeile_html(request, posten)
-    html += _arten_oob(request, ansicht)
+    html += _zahlen_oob(request, ansicht)
     html += htmx.toast(request, ergebnis.text, link=ergebnis.link, link_text=ergebnis.link_text)
     antwort = HttpResponse(html)
-    if ergebnis.weitere:
+    if ergebnis.weitere or _in_gruppe(request.POST, posten):
         antwort["HX-Trigger"] = json.dumps({EREIGNIS_NEU: True})
     return antwort
 

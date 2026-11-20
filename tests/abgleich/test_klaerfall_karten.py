@@ -7,6 +7,7 @@ import datetime
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.abgleich import posteingang, services
 from apps.abgleich.models import Klaerfall, Zahlerregel
@@ -78,8 +79,8 @@ def test_ein_klick_auf_die_alternative_in_der_arbeitsliste(
     )
 
     html = antwort.content.decode()
-    assert f"Klärfall #{fall.pk}: Zahlung Vertrag {b.nummer} zugeordnet." in html
-    assert f"Zahlerregel #{regel.pk} zeigt jetzt auf {b.nummer}." in html
+    assert f"Klärfall #{fall.pk}: Zahlung Vertrag {b.nummer} zugeordnet." in strip_tags(html)
+    assert f"Zahlerregel #{regel.pk} zeigt jetzt auf {b.nummer}." in strip_tags(html)
     assert f'id="posten-{arbeit.pk}"' not in html
     fall.refresh_from_db()
     regel.refresh_from_db()

@@ -83,6 +83,16 @@ class VorschauVeraltet(KassenbuchFehler):
     """Seit der Vorschau hat sich die Zahl der passenden Umsätze geändert."""
 
 
+class RegelUeberschneidung(KassenbuchFehler):
+    """Die Regel überschneidet sich mit einer gleichrangigen (Review 1, Punkt 5). ``andere``
+    ist die vorhandene Regel, ``umsatz`` ein Umsatz, auf den beide passen (oder None)."""
+
+    def __init__(self, text: str, *, andere: Zuordnungsregel, umsatz: Bankumsatz | None) -> None:
+        super().__init__(text)
+        self.andere = andere
+        self.umsatz = umsatz
+
+
 # --- Kategorien ----------------------------------------------------------------------
 
 
@@ -221,7 +231,35 @@ def _regel_pruefen(regel: Zuordnungsregel) -> None:
             f"Kategorie #{kategorie.pk} ist eine Entnahme von Mandant #{kategorie.mandant_id}; "
             "die Regel muss denselben Mandanten nennen."
         )
-    _ueberschneidung_pruefen(regel)
+
+
+#: Was eine Regel ausmacht: Bedingungen, Ergebnis und Priorität (nicht Bezeichnung und Status).
+GLEICHE_REGEL_FELDER = (
+    "gegen_iban",
+    "zweck_regex",
+    "betrag_von",
+    "betrag_bis",
+    "richtung",
+    "konto_id",
+    "kategorie_id",
+    "objekt_id",
+    "mandant_id",
+    "prioritaet",
+)
+
+
+def gleiche_regel(regel: Zuordnungsregel) -> Zuordnungsregel | None:
+    """Eine aktive Regel mit denselben Bedingungen, demselben Ergebnis und derselben Priorität
+    wie ``regel`` (Review 3, Punkt 3), sonst None. Texte gelten ohne Groß und Klein; ein
+    Regex nur genau gleich."""
+    felder = {name: getattr(regel, name) for name in GLEICHE_REGEL_FELDER}
+    zweck = {"zweck": regel.zweck} if regel.zweck_regex else {"zweck__iexact": regel.zweck}
+    vorhandene = Zuordnungsregel.objects.filter(
+        aktiv=True, gegenpartei__iexact=regel.gegenpartei, **zweck, **felder
+    )
+    if regel.pk is not None:
+        vorhandene = vorhandene.exclude(pk=regel.pk)
+    return vorhandene.order_by("pk").first()
 
 
 # --- Überschneidung gleichrangiger Regeln (Review 1, Punkt 5) -------------------------
@@ -341,10 +379,12 @@ def _ueberschneidung_pruefen(regel: Zuordnungsregel) -> None:
         return
     andere, umsatz = treffer[0]
     beleg = f" Umsatz #{umsatz.pk} passt auf beide." if umsatz is not None else ""
-    raise KassenbuchFehler(
+    raise RegelUeberschneidung(
         f"Die Regel überschneidet sich mit Regel #{andere.pk}, die dieselbe Priorität "
         f"({regel.prioritaet}) hat.{beleg} Bitte eine andere Priorität wählen oder die "
-        "Bedingungen enger fassen."
+        "Bedingungen enger fassen.",
+        andere=andere,
+        umsatz=umsatz,
     )
 
 
@@ -364,7 +404,45 @@ def regel_anlegen(
     konto: Bankkonto | None = None,
     prioritaet: int = 10,
 ) -> Zuordnungsregel:
-    """Legt eine Regel an. Ohne Mandant gilt der Mandant des Objekts."""
+    """Legt eine Regel an. Ohne Mandant gilt der Mandant des Objekts. Gibt es schon eine
+    gleiche Regel (``gleiche_regel``), kommt sie zurück, statt eine zweite anzulegen."""
+    regel, _neu = regel_anlegen_oder_finden(
+        bezeichnung,
+        kategorie=kategorie,
+        objekt=objekt,
+        mandant=mandant,
+        gegenpartei=gegenpartei,
+        gegen_iban=gegen_iban,
+        zweck=zweck,
+        zweck_regex=zweck_regex,
+        betrag_von=betrag_von,
+        betrag_bis=betrag_bis,
+        richtung=richtung,
+        konto=konto,
+        prioritaet=prioritaet,
+    )
+    return regel
+
+
+def regel_anlegen_oder_finden(
+    bezeichnung: str,
+    *,
+    kategorie: Kategorie,
+    objekt: Objekt,
+    mandant: Mandant | None = None,
+    gegenpartei: str = "",
+    gegen_iban: str = "",
+    zweck: str = "",
+    zweck_regex: bool = False,
+    betrag_von: Decimal | None = None,
+    betrag_bis: Decimal | None = None,
+    richtung: str = "",
+    konto: Bankkonto | None = None,
+    prioritaet: int = 10,
+) -> tuple[Zuordnungsregel, bool]:
+    """Wie ``regel_anlegen``, dazu ob die Regel neu ist (Review 3, Punkt 3): Eine gleiche
+    Regel wird verwendet, nicht ein zweites Mal angelegt. Für jeden Weg, der Regeln anlegt
+    (Arbeitsliste, Regelseite, Klärfall, Import)."""
     regel = Zuordnungsregel(
         bezeichnung=bezeichnung,
         kategorie=kategorie,
@@ -381,9 +459,13 @@ def regel_anlegen(
         prioritaet=prioritaet,
     )
     _regel_pruefen(regel)
+    vorhanden = gleiche_regel(regel)
+    if vorhanden is not None:
+        return vorhanden, False
+    _ueberschneidung_pruefen(regel)
     regel.full_clean()
     regel.save()
-    return regel
+    return regel, True
 
 
 def regel_aendern(regel: Zuordnungsregel, **felder: Any) -> Zuordnungsregel:
@@ -396,6 +478,7 @@ def regel_aendern(regel: Zuordnungsregel, **felder: Any) -> Zuordnungsregel:
     if "objekt" in felder and "mandant" not in felder:
         regel.mandant = regel.objekt.mandant
     _regel_pruefen(regel)
+    _ueberschneidung_pruefen(regel)
     regel.full_clean()
     regel.save()
     return regel
@@ -731,11 +814,12 @@ def regel_aus_umsatz_anlegen(
     objekt: Objekt,
     mandant: Mandant | None = None,
     prioritaet: int = 10,
-) -> Zuordnungsregel:
+) -> tuple[Zuordnungsregel, bool]:
     """„Als Regel merken“: Regel mit der Gegen-IBAN (ohne IBAN: der Gegenpartei) und der
-    Richtung des Umsatzes. Überschneidet sie sich mit einer gleichrangigen Regel, lehnt
-    ``regel_anlegen`` sie ab (Review 1, Punkt 5)."""
-    return regel_anlegen(
+    Richtung des Umsatzes, dazu ob sie neu ist. Eine gleiche Regel wird verwendet (Review 3,
+    Punkt 3); überschneidet sie sich mit einer anderen gleichrangigen, kommt
+    ``RegelUeberschneidung`` (Review 1, Punkt 5)."""
+    return regel_anlegen_oder_finden(
         (umsatz.gegenpartei or f"Regel aus Umsatz #{umsatz.pk}")[:200],
         kategorie=kategorie,
         objekt=objekt,
@@ -750,15 +834,31 @@ def regel_aus_umsatz_anlegen(
 @dataclass
 class Uebernahme:
     """Ergebnis von ``einordnen_uebernehmen``: die neuen Buchungen und, mit „Als Regel
-    merken“, die neue Regel oder der Grund, warum es keine gibt."""
+    merken“, die Regel (neu oder schon vorhanden) oder der Grund, warum es keine gibt."""
 
     buchungen: list[Buchung] = field(default_factory=list)
     regel: Zuordnungsregel | None = None
+    #: Ist ``regel`` gerade angelegt (sonst gab es sie schon)?
+    regel_neu: bool = False
     regel_fehler: str = ""
+    #: Die vorhandene Regel, mit der sich die neue überschnitten hätte
+    regel_konflikt: Zuordnungsregel | None = None
 
     @property
     def umsaetze(self) -> int:
         return len({b.umsatz_id for b in self.buchungen})
+
+
+def _vorhandene_regel_passt(
+    regel: Zuordnungsregel | None, umsatz: Bankumsatz, kategorie: Kategorie, objekt: Objekt
+) -> bool:
+    return (
+        regel is not None
+        and regel.aktiv
+        and regel.kategorie_id == kategorie.pk
+        and regel.objekt_id == objekt.pk
+        and regel_passt(regel, umsatz)
+    )
 
 
 @transaction.atomic
@@ -777,31 +877,34 @@ def einordnen_uebernehmen(
     „für alle anwenden“). Schon gebuchte Teile werden vorher storniert.
 
     Mit ``regel_merken`` entsteht zuerst eine Regel aus dem ersten Umsatz; jeder Umsatz, auf
-    den sie passt, trägt sie in seiner Buchung. Lässt sich die Regel nicht anlegen, wird
-    trotzdem gebucht, und ``regel_fehler`` nennt den Grund. ``regel`` ist die Regel, aus der
-    der Vorschlag stammt (bei gleichem Ergebnis steht sie an der Buchung).
+    den sie passt, trägt sie in seiner Buchung. Gibt es die Regel schon (``regel`` aus dem
+    Vorschlag mit gleichem Ergebnis, oder eine gleiche Regel), wird sie verwendet und nicht
+    neu angelegt (Review 3, Punkt 3). Lässt sich die Regel nicht anlegen, wird trotzdem
+    gebucht, und ``regel_fehler`` nennt den Grund. ``regel`` ist die Regel, aus der der
+    Vorschlag stammt (bei gleichem Ergebnis steht sie an der Buchung).
     """
     ergebnis = Uebernahme()
     if not umsaetze:
         return ergebnis
     if regel_merken:
-        try:
-            with transaction.atomic():
-                ergebnis.regel = regel_aus_umsatz_anlegen(
-                    umsaetze[0], kategorie=kategorie, objekt=objekt, mandant=mandant
-                )
-        except KassenbuchFehler as fehler:
-            ergebnis.regel_fehler = str(fehler)
+        if _vorhandene_regel_passt(regel, umsaetze[0], kategorie, objekt):
+            ergebnis.regel = regel
+        else:
+            try:
+                with transaction.atomic():
+                    ergebnis.regel, ergebnis.regel_neu = regel_aus_umsatz_anlegen(
+                        umsaetze[0], kategorie=kategorie, objekt=objekt, mandant=mandant
+                    )
+            except RegelUeberschneidung as fehler:
+                ergebnis.regel_fehler = str(fehler)
+                ergebnis.regel_konflikt = fehler.andere
+            except KassenbuchFehler as fehler:
+                ergebnis.regel_fehler = str(fehler)
     for umsatz in umsaetze:
         nach: Zuordnungsregel | None = None
         if ergebnis.regel is not None and regel_passt(ergebnis.regel, umsatz):
             nach = ergebnis.regel
-        elif (
-            regel is not None
-            and regel.kategorie_id == kategorie.pk
-            and regel.objekt_id == objekt.pk
-            and regel_passt(regel, umsatz)
-        ):
+        elif _vorhandene_regel_passt(regel, umsatz, kategorie, objekt):
             nach = regel
         if gueltige_buchungen().filter(umsatz=umsatz).exists():
             umsatz_stornieren(umsatz, neu_einordnen=False)
@@ -815,6 +918,26 @@ def einordnen_uebernehmen(
         )
         ergebnis.buchungen += umsatz_buchen(umsatz, [teil], regel=nach)
     return ergebnis
+
+
+@transaction.atomic
+def regel_anwenden_auf(regel: Zuordnungsregel, umsaetze: Sequence[Bankumsatz]) -> list[Bankumsatz]:
+    """„Regel anwenden“ an einer Gruppe der Arbeitsliste (Review 3, Punkt 3): bucht die
+    genannten Umsätze nach der Regel, sofern sie noch offen sind und die Regel bei ihnen
+    eindeutig gewinnt. Die übrigen bleiben, wie sie sind; zurück kommen die gebuchten."""
+    if not regel.aktiv or not regel.kategorie.aktiv:
+        raise KassenbuchFehler(f"Regel #{regel.pk} ist nicht aktiv und bucht nichts.")
+    regeln = aktive_regeln()
+    gebucht = []
+    for umsatz in umsaetze:
+        if gueltige_buchungen().filter(umsatz=umsatz).exists():
+            continue
+        einordnung = einordnen(umsatz, regeln)
+        if einordnung.regel is None or einordnung.regel.pk != regel.pk:
+            continue
+        nach_regel_buchen(umsatz, regel)
+        gebucht.append(umsatz)
+    return gebucht
 
 
 # --- Protokoll: Rücknahme als Storno -------------------------------------------------

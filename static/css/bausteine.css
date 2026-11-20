@@ -2892,6 +2892,9 @@ form.sendet .datei-knoepfe {
   display: grid;
   gap: var(--a4);
   align-items: start;
+  /* Lädt die Liste neu (posteingangNeu), ersetzt HTMX den ganzen Posteingang. Mit dem
+     Scroll-Anker des Browsers sprang die Seite dann ans Ende (Review 3, Punkt 3). */
+  overflow-anchor: none;
 }
 
 @media (min-width: 1024px) {
