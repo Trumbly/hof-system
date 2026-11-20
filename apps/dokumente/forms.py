@@ -285,7 +285,9 @@ class BelegBestaetigenForm(BelegFelder):
         for name, satz in self.PFLICHT.items():
             self.fields[name].required = True
             self.fields[name].error_messages["required"] = satz
-        self.fields["lieferant"].help_text = "Neu? Dann rechts den Namen eintragen."
+        # Ohne Richtung (Review 3, Nachtrag): Am Handy steht das Feld darunter, nicht rechts.
+        neu = self.fields["lieferant_neu"].label
+        self.fields["lieferant"].help_text = f"Neu? Dann den Namen im Feld „{neu}“ eintragen."
 
     def clean(self) -> dict[str, Any]:
         daten = super().clean()

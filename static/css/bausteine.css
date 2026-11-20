@@ -1045,8 +1045,12 @@ a.kennzahl:hover {
     border: 0;
   }
 
+  /* Die Beschriftung steht links, alles Übrige der Zelle schließt rechts ab. Ohne den
+     automatischen Rand verteilt „space-between“ den Platz auch zwischen den Teilen des Werts:
+     Bei „Datum + Badge“ (Review 3, Nachtrag) stünde das Datum sonst mittig. */
   .tab-karten td[data-titel]::before {
     content: attr(data-titel);
+    margin-right: auto;
     color: var(--text-2);
     font-size: var(--text-13);
   }
