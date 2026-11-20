@@ -45,6 +45,29 @@ def test_links_die_arten_mit_zahl_rechts_die_posten(angemeldet: Client) -> None:
     assert "<html" not in teil and f'id="posten-{einzeln.pk}"' in teil
 
 
+def test_alle_offenen_gewaehlt_zeigt_am_handy_die_liste(angemeldet: Client) -> None:
+    """Apple-Design, Bereich Arbeitslisten: „Alle offenen“ führt auf ``?art=alle``. Dann trägt
+    der Posteingang „gewaehlt“ (am Handy die Liste statt der Arten), „Alle offenen“ ist
+    gewählt, und das Formular der Liste gibt die Ansicht an die Aktionen weiter."""
+    posten = services.arbeitsposten_anlegen("Selbsttest")
+
+    ohne = angemeldet.get(reverse("kern:arbeitslisten")).content.decode()
+    assert 'href="/arbeitslisten/?art=alle"' in ohne
+
+    alle = angemeldet.get(reverse("kern:arbeitslisten"), {"art": "alle"}).content.decode()
+    assert "posteingang-gewaehlt" in alle
+    assert 'aria-current="page"><span>Alle offenen</span>' in alle
+    assert f'id="posten-{posten.pk}"' in alle
+    assert '<input type="hidden" name="art" value="alle">' in alle
+    assert 'hx-get="/arbeitslisten/?art=alle" hx-trigger="posteingangNeu' in alle
+
+    antwort = angemeldet.post(
+        reverse("kern:posten_sammel"),
+        {"aktion": "zurueckstellen", "posten": [posten.pk], "art": "alle"},
+    )
+    assert antwort.status_code == 302 and antwort["Location"] == "/arbeitslisten/?art=alle"
+
+
 def test_mehrfachauswahl_mit_aktion_fuer_alle(angemeldet: Client) -> None:
     """Review 2, B2: Mehrfachauswahl; eine Aktion ohne Eingabe gilt für alle gewählten."""
     a = services.arbeitsposten_anlegen("Selbsttest")

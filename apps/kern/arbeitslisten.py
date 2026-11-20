@@ -219,10 +219,17 @@ def eintraege(zeilen_: Sequence[Zeile]) -> list[Zeile | Gruppenzeile]:
 # --- Seite ---------------------------------------------------------------------------
 
 
+#: Wert von ``?art=`` für „Alle offenen“
+ALLE = "alle"
+
+
 @dataclass(frozen=True)
 class Ansicht:
     art: str
     status: str
+    #: „Alle offenen“ ausdrücklich gewählt (``?art=alle``): Am Handy zeigt die Seite dann die
+    #: Liste statt der Arten. Ohne Parameter bleibt es die Übersicht der Arten.
+    alle: bool = False
 
     @property
     def zurueckgestellt(self) -> bool:
@@ -231,12 +238,14 @@ class Ansicht:
     @property
     def gewaehlt(self) -> bool:
         """Hat Max eine Art (oder „alle“) gewählt? Am Handy zeigt die Seite dann die Liste."""
-        return bool(self.art) or self.zurueckgestellt
+        return bool(self.art) or self.alle or self.zurueckgestellt
 
     def url(self) -> str:
         parameter = {}
         if self.art:
             parameter["art"] = self.art
+        elif self.alle and not self.zurueckgestellt:
+            parameter["art"] = ALLE
         if self.zurueckgestellt:
             parameter["status"] = ZURUECKGESTELLT
         basis = reverse("kern:arbeitslisten")
@@ -246,7 +255,9 @@ class Ansicht:
 def _ansicht(daten: Any) -> Ansicht:
     art = str(daten.get("art", "")).strip()
     status = ZURUECKGESTELLT if daten.get("status") == ZURUECKGESTELLT else OFFEN
-    return Ansicht(art="" if art == "alle" else art, status=status)
+    if art == ALLE:
+        return Ansicht(art="", status=status, alle=True)
+    return Ansicht(art=art, status=status)
 
 
 @dataclass
@@ -300,7 +311,7 @@ def _kontext(request: HttpRequest, ansicht: Ansicht) -> dict[str, Any]:
         "arten": arten,
         "gesamt": gesamt,
         "zurueck": zurueck,
-        "alle_url": Ansicht(art="", status=OFFEN).url(),
+        "alle_url": Ansicht(art="", status=OFFEN, alle=True).url(),
         "alle_aktiv": not ansicht.art and not ansicht.zurueckgestellt,
         "zurueck_url": Ansicht(art="", status=ZURUECKGESTELLT).url(),
         "titel": titel,
@@ -363,7 +374,7 @@ def _arten_oob(request: HttpRequest, ansicht: Ansicht) -> str:
             "arten": arten,
             "gesamt": gesamt,
             "zurueck": zurueck,
-            "alle_url": Ansicht(art="", status=OFFEN).url(),
+            "alle_url": Ansicht(art="", status=OFFEN, alle=True).url(),
             "alle_aktiv": not ansicht.art and not ansicht.zurueckgestellt,
             "zurueck_url": Ansicht(art="", status=ZURUECKGESTELLT).url(),
             "oob": True,
