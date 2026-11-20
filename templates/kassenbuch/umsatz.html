@@ -1,50 +1,54 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Umsatz #{{ umsatz.pk }}{% endblock %}
 
 {% block inhalt %}
-<h1>Umsatz einordnen</h1>
+{% seitenkopf "Umsatz einordnen" %}
+  {% if hat_gueltige %}
+  <form method="post" action="{% url 'kassenbuch:stornieren' umsatz.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="knopf knopf-zweit">Stornieren</button>
+  </form>
+  {% endif %}
+  <a class="knopf knopf-zweit" href="{% url 'kassenbuch:regel_aus_umsatz' umsatz.pk %}">Regel anlegen</a>
+  <a class="knopf knopf-zweit" href="{% url 'kassenbuch:aufteilen' umsatz.pk %}">Aufteilen</a>
+  <a class="knopf knopf-primaer" href="{% url 'kassenbuch:zuordnen' umsatz.pk %}">{% if hat_gueltige %}Umbuchen{% else %}Zuordnen{% endif %}</a>
+{% endseitenkopf %}
 {% include "kassenbuch/_unternavigation.html" %}
+
+<div class="stapel">
 {% include "kassenbuch/_umsatz_kopf.html" %}
 
-<section class="gruppe" aria-labelledby="stand">
-  <h2 id="stand">Stand: {% if gebucht %}gebucht{% elif hat_gueltige %}nur teilweise gebucht{% else %}offen{% endif %}</h2>
-  {% if einordnung.regel %}<p class="leise">Regel #{{ einordnung.regel.pk }} passt eindeutig.</p>
-  {% elif einordnung.mehrdeutig %}<p class="leise">Mehrere Regeln passen gleichauf: {% for r in einordnung.gleichauf %}<a href="{% url 'kassenbuch:regel' r.pk %}">#{{ r.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
-  {% else %}<p class="leise">Keine Regel passt.</p>{% endif %}
+<section class="karte" aria-labelledby="stand">
+  <header class="karte-kopf"><h2 class="karte-titel" id="stand">Stand: {% if gebucht %}gebucht{% elif hat_gueltige %}nur teilweise gebucht{% else %}offen{% endif %}</h2></header>
+  <div class="karte-rumpf">
+  {% if einordnung.regel %}<p class="text-2">Regel #{{ einordnung.regel.pk }} passt eindeutig.</p>
+  {% elif einordnung.mehrdeutig %}<p class="text-2">Mehrere Regeln passen gleichauf: {% for r in einordnung.gleichauf %}<a href="{% url 'kassenbuch:regel' r.pk %}">#{{ r.pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+  {% else %}<p class="text-2">Keine Regel passt.</p>{% endif %}
   {% if buchungen %}
-  <div class="tabelle-rahmen">
-  <table>
-    <thead><tr><th>Buchung</th><th>Datum</th><th>Betrag</th><th>Kategorie</th><th>Objekt</th><th>Mandant</th><th>Jahr</th><th>umlagefähig</th></tr></thead>
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Buchung</th><th>Datum</th><th class="zahl">Betrag</th><th>Kategorie</th><th>Objekt</th><th>Mandant</th><th class="zahl">Jahr</th><th class="zahl">umlagefähig</th></tr></thead>
     <tbody>
       {% for b in buchungen %}
-      <tr{% if b.ist_storno %} class="storno"{% endif %}>
-        <td data-titel="Buchung">#{{ b.pk }}{% if b.ist_storno %} Storno von #{{ b.storno_von_id }}{% endif %}{% if b.regel %} <span class="leise">Regel #{{ b.regel_id }}</span>{% endif %}</td>
+      <tr{% if b.ist_storno %} class="storno zeile-leise"{% endif %}>
+        <td data-titel="Buchung"><span>#{{ b.pk }}{% if b.ist_storno %} Storno von #{{ b.storno_von_id }}{% endif %}{% if b.regel %} <span class="text-3 klein">Regel #{{ b.regel_id }}</span>{% endif %}</span></td>
         <td data-titel="Datum">{{ b.datum|date:"d.m.Y" }}</td>
-        <td data-titel="Betrag" class="betrag-{{ b.richtung }}">{% if b.richtung == 'ausgang' %}−{% endif %}{{ b.betrag|floatformat:"2g" }} €</td>
+        <td data-titel="Betrag" class="zahl betrag-{{ b.richtung }}">{% if b.richtung == 'ausgang' %}−{% endif %}{{ b.betrag|floatformat:"2g" }} €</td>
         <td data-titel="Kategorie">{{ b.kategorie.bezeichnung }}</td>
         <td data-titel="Objekt">{{ b.objekt.kuerzel }}</td>
         <td data-titel="Mandant">{{ b.mandant.kuerzel }}</td>
-        <td data-titel="Jahr">{{ b.leistungsjahr }}</td>
-        <td data-titel="umlagefähig">{{ b.umlagefaehiger_anteil|floatformat:"-2" }} %</td>
+        <td data-titel="Jahr" class="zahl">{{ b.leistungsjahr }}</td>
+        <td data-titel="umlagefähig" class="zahl">{{ b.umlagefaehiger_anteil|floatformat:"-2" }} %</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
   {% endif %}
+  </div>
 </section>
-
-<div class="aktionen">
-  <a class="knopf" href="{% url 'kassenbuch:zuordnen' umsatz.pk %}">{% if hat_gueltige %}Umbuchen{% else %}Zuordnen{% endif %}</a>
-  <a class="knopf zweitrangig" href="{% url 'kassenbuch:aufteilen' umsatz.pk %}">Aufteilen</a>
-  <a class="knopf zweitrangig" href="{% url 'kassenbuch:regel_aus_umsatz' umsatz.pk %}">Regel anlegen</a>
-  {% if hat_gueltige %}
-  <form method="post" action="{% url 'kassenbuch:stornieren' umsatz.pk %}">
-    {% csrf_token %}
-    <button type="submit" class="zweitrangig">Stornieren</button>
-  </form>
-  {% endif %}
+{% if posten %}<p class="text-2 klein">Offener Arbeitsposten #{{ posten.pk }} „{{ posten.art }}“ ({{ posten.get_status_display }}).</p>{% endif %}
 </div>
-{% if posten %}<p class="leise">Offener Arbeitsposten #{{ posten.pk }} „{{ posten.art }}“ ({{ posten.get_status_display }}).</p>{% endif %}
 {% endblock %}

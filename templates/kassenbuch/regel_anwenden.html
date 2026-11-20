@@ -1,47 +1,58 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Regel #{{ regel.pk }} anwenden{% endblock %}
 
 {% block inhalt %}
-<h1>Regel #{{ regel.pk }} rückwirkend anwenden</h1>
+{% with nr=regel.pk|stringformat:"d" %}
+{% seitenkopf "Regel #"|add:nr|add:" rückwirkend anwenden" %}{% endseitenkopf %}
+{% endwith %}
 {% include "kassenbuch/_unternavigation.html" %}
-<p>{{ regel.bezeichnung }}: {{ regel.kategorie.bezeichnung }} · {{ regel.objekt.kuerzel }} · {{ regel.mandant.kuerzel }}</p>
 
-<section class="gruppe" aria-labelledby="vorschau">
-  <h2 id="vorschau">Vorschau</h2>
-  <ul id="vorschau-zaehler">
-    <li>wird gebucht: <strong>{{ vorschau.zu_buchen|length }}</strong>{% if vorschau.im_offenen_monat %} (davon {{ vorschau.im_offenen_monat }} aus abgeschlossenen Monaten, gebucht im ersten offenen Monat){% endif %}</li>
-    <li>passt, aber gleichauf mit einer anderen Regel (bleibt in der Arbeitsliste): {{ vorschau.mehrdeutig|length }}</li>
-    <li>passt, aber eine Regel mit höherer Priorität gewinnt: {{ vorschau.andere_regel|length }}</li>
-  </ul>
-  {% if not regel.aktiv %}<p class="meldung meldung-warning">Die Regel ist nicht aktiv und bucht nichts.</p>{% endif %}
+<div class="stapel">
+<p class="text-2">{{ regel.bezeichnung }}: {{ regel.kategorie.bezeichnung }} · {{ regel.objekt.kuerzel }} · {{ regel.mandant.kuerzel }}</p>
+
+<section class="karte" aria-labelledby="vorschau">
+  <header class="karte-kopf"><h2 class="karte-titel" id="vorschau">Vorschau</h2></header>
+  <div class="karte-rumpf">
+    <ul class="liste" id="vorschau-zaehler">
+      <li><span class="liste-haupt">wird gebucht: <strong>{{ vorschau.zu_buchen|length }}</strong>{% if vorschau.im_offenen_monat %} <span class="text-3 klein">(davon {{ vorschau.im_offenen_monat }} aus abgeschlossenen Monaten, gebucht im ersten offenen Monat)</span>{% endif %}</span></li>
+      <li><span class="liste-haupt">passt, aber gleichauf mit einer anderen Regel (bleibt in der Arbeitsliste): {{ vorschau.mehrdeutig|length }}</span></li>
+      <li><span class="liste-haupt">passt, aber eine Regel mit höherer Priorität gewinnt: {{ vorschau.andere_regel|length }}</span></li>
+    </ul>
+    {% if not regel.aktiv %}<p class="hinweis-band hinweis-warnung">Die Regel ist nicht aktiv und bucht nichts.</p>{% endif %}
+  </div>
 </section>
 
 {% if zeilen %}
-<div class="tabelle-rahmen">
-<table>
-  <thead><tr><th>Umsatz</th><th>Datum</th><th>Konto</th><th>Betrag</th><th>Gegenpartei</th></tr></thead>
+{% karte "Umsätze" zahl=vorschau.zu_buchen|length %}
+<div class="tabelle-box">
+<table class="tab tab-karten">
+  <thead><tr><th>Umsatz</th><th>Datum</th><th>Konto</th><th class="zahl">Betrag</th><th>Gegenpartei</th></tr></thead>
   <tbody>
     {% for u in zeilen %}
     <tr>
       <td data-titel="Umsatz"><a href="{% url 'kassenbuch:umsatz' u.pk %}">#{{ u.pk }}</a></td>
       <td data-titel="Datum">{{ u.buchungsdatum|date:"d.m.Y" }}</td>
       <td data-titel="Konto">{{ u.konto.bezeichnung }}</td>
-      <td data-titel="Betrag" class="betrag-{{ u.richtung }}">{% if u.richtung == 'ausgang' %}−{% endif %}{{ u.betrag|floatformat:"2g" }} €</td>
+      <td data-titel="Betrag" class="zahl betrag-{{ u.richtung }}">{% if u.richtung == 'ausgang' %}−{% endif %}{{ u.betrag|floatformat:"2g" }} €</td>
       <td data-titel="Gegenpartei">{{ u.gegenpartei|default:"–" }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
-{% if mehr %}<p class="leise">… und {{ mehr }} weitere.</p>{% endif %}
-<form method="post" class="formular">
+{% if mehr %}<p class="text-2 klein">… und {{ mehr }} weitere.</p>{% endif %}
+{% endkarte %}
+<form method="post" class="formular-fuss">
   {% csrf_token %}
   <input type="hidden" name="erwartet" value="{{ vorschau.zu_buchen|length }}">
-  <button type="submit">{{ vorschau.zu_buchen|length }} Umsätze buchen</button>
+  <a class="knopf knopf-zweit" href="{% url 'kassenbuch:regeln' %}">Zurück zu den Regeln</a>
+  <button type="submit" class="knopf knopf-primaer">{{ vorschau.zu_buchen|length }} Umsätze buchen</button>
 </form>
 {% else %}
-<p>Kein offener Umsatz, den diese Regel eindeutig bucht.</p>
+{% include "bausteine/leer.html" with text="Kein offener Umsatz, den diese Regel eindeutig bucht." %}
+<p><a class="knopf knopf-zweit" href="{% url 'kassenbuch:regeln' %}">Zurück zu den Regeln</a></p>
 {% endif %}
-<p><a href="{% url 'kassenbuch:regeln' %}">Zurück zu den Regeln</a></p>
+</div>
 {% endblock %}

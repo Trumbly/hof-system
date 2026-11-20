@@ -1,24 +1,33 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Zahlerregeln{% endblock %}
 
 {% block inhalt %}
-<h1>Zahlerregeln</h1>
-<p class="leise">Wer für welchen Vertrag zahlt (H1.4). Eine Zahlerregel ergänzt eine Regel des Kassenbuchs.</p>
-<div class="tabelle-rahmen">
-<table class="tabelle">
+{% seitenkopf "Zahlerregeln" "Wer für welchen Vertrag zahlt (H1.4). Eine Zahlerregel ergänzt eine Regel des Kassenbuchs." %}{% endseitenkopf %}
+
+<div class="stapel">
+{% karte "Zahlerregeln" zahl=regeln|length %}
+<div class="tabelle-box">
+<table class="tab tab-karten">
   <thead><tr><th>Regel</th><th>Vertrag</th><th class="zahl">erwartet</th></tr></thead>
   <tbody>
   {% for z in regeln %}
-  <tr><td><a href="{% url 'abgleich:zahlerregel' z.regel_id %}">#{{ z.regel_id }} {{ z.regel.bezeichnung }}</a></td>
-    <td>{% if z.nicht_vertragsbezogen %}nicht vertragsbezogen{% elif z.vertrag %}{{ z.vertrag.nummer }}{% else %}Sammelzahler: {% for v in z.sammelvertraege.all %}{{ v.nummer }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
-    <td class="zahl">{{ z.betrag|default_if_none:"–" }}</td></tr>
-  {% empty %}<tr><td colspan="3">Noch keine Zahlerregeln.</td></tr>{% endfor %}
+  <tr>
+    <td data-titel="Regel"><a href="{% url 'abgleich:zahlerregel' z.regel_id %}">#{{ z.regel_id }} {{ z.regel.bezeichnung }}</a></td>
+    <td data-titel="Vertrag">{% if z.nicht_vertragsbezogen %}<span class="text-2">nicht vertragsbezogen</span>{% elif z.vertrag %}{{ z.vertrag.nummer }}{% else %}Sammelzahler: {% for v in z.sammelvertraege.all %}{{ v.nummer }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+    <td data-titel="erwartet" class="zahl">{{ z.betrag|default_if_none:"–" }}</td>
+  </tr>
+  {% empty %}{% include "bausteine/leer.html" with spalten=3 text="Noch keine Zahlerregeln." %}{% endfor %}
   </tbody>
 </table>
 </div>
+{% endkarte %}
+
 {% if ohne %}
-<h2>Einnahme-Regeln ohne Zahlerregel</h2>
-<ul>{% for r in ohne %}<li><a href="{% url 'abgleich:zahlerregel' r.pk %}">#{{ r.pk }} {{ r.bezeichnung }}</a></li>{% endfor %}</ul>
+{% karte "Einnahme-Regeln ohne Zahlerregel" zahl=ohne|length %}
+<ul class="liste">{% for r in ohne %}<li><a class="liste-zeile" href="{% url 'abgleich:zahlerregel' r.pk %}"><span class="liste-haupt">#{{ r.pk }} {{ r.bezeichnung }}</span></a></li>{% endfor %}</ul>
+{% endkarte %}
 {% endif %}
+</div>
 {% endblock %}

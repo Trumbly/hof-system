@@ -3,7 +3,7 @@
 {% url 'mahnwesen:sperren' as basis %}
 {% karte "Gültige Sperren" zahl=gueltig|length %}
   <div class="tabelle-box">
-  <table class="tab tab-karten">
+  <table class="tab tab-karten sperren">
     <thead><tr><th>Vertrag</th><th>Einheit</th><th>Grund</th><th>gilt</th><th>Hinweis</th><th class="eng" aria-label="Aktion"></th></tr></thead>
     <tbody>
     {% for s in gueltig %}

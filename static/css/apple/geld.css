@@ -6,4 +6,367 @@
  * Nur Seitenspezifisches: Was mehr als ein Bereich braucht, gehört nach apple/bausteine.css
  * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
  * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
+ *
+ * Inhalt: Abstände in Karten · Fakten (Kandidat) · Abschnittstitel (Kandidat) · Beträge ·
+ * Bank-Konten · Kassenbuch (Regeln, Regel-Formular, Aufteilen, Monatsbericht) · Abgleich
+ * (Anteile, Mietkonto mit Storno) · Mehrfachauswahl.
  */
+
+/* === Abstände in Karten ================================================================ */
+/* Angaben, Hinweis und Text untereinander in einer Karte ohne .stapel. */
+
+[data-design="apple"] .karte-rumpf > .angaben-neu + *,
+[data-design="apple"] .karte-rumpf > .liste + .hinweis-band,
+[data-design="apple"] .karte-rumpf > p + .tabelle-box {
+  margin-top: var(--a4);
+}
+
+[data-design="apple"] .karte-rumpf > .angaben-neu ~ p {
+  margin-bottom: 0;
+}
+
+[data-design="apple"] .karte-rumpf > .angaben-neu ~ p + p {
+  margin-top: var(--a2);
+}
+
+/* === Fakten im Kopf (Kandidat für Bausteine) ========================================== */
+/* .fakten aus bausteine.css hat noch Rahmen und Trennlinien. Hier als Karte ohne Rahmen:
+   Beschriftung klein und grau, Wert darunter. Nur mit .geld-fakten, damit andere Bereiche
+   unberührt bleiben. */
+
+[data-design="apple"] .geld-fakten {
+  gap: 0;
+  margin-bottom: var(--a5);
+  background: var(--flaeche);
+  border: 0;
+  border-radius: var(--radius-karte);
+  box-shadow: var(--schatten-karte);
+}
+
+[data-design="apple"] .geld-fakten .fakt {
+  padding: var(--a3) var(--a4);
+  background: transparent;
+}
+
+[data-design="apple"] .geld-fakten .fakt + .fakt {
+  border-top: 1px solid var(--linie);
+}
+
+@media (min-width: 1024px) {
+  /* Breite nach Inhalt (IBAN, Datum), die erste Angabe wächst am stärksten */
+  [data-design="apple"] .geld-fakten {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  [data-design="apple"] .geld-fakten .fakt {
+    flex: 1 1 auto;
+  }
+
+  [data-design="apple"] .geld-fakten .fakt-breit {
+    flex: 2 1 auto;
+  }
+
+  [data-design="apple"] .geld-fakten .fakt + .fakt {
+    border-top: 0;
+    border-left: 1px solid var(--linie);
+  }
+
+  [data-design="apple"] .geld-fakten code {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* zwei Spalten: die zweite Spalte bekommt die senkrechte Linie */
+  [data-design="apple"] .geld-fakten .fakt:not(.fakt-breit):nth-child(odd) {
+    border-left: 1px solid var(--linie);
+  }
+}
+
+[data-design="apple"] .geld-fakten .fakt dt {
+  font-size: var(--apple-fussnote);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .geld-fakten .fakt dd {
+  font-size: var(--apple-unterzeile);
+}
+
+/* === Abschnittstitel (Kandidat für Bausteine) ========================================= */
+/* Zwischenüberschrift über einer Gruppe von Karten (Monatsabschlüsse je Mandant). */
+
+[data-design="apple"] h2.abschnitt-titel {
+  margin: var(--a4) 0 0;
+  font-size: var(--apple-titel-2);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-design="apple"] .stapel > section + section > h2.abschnitt-titel {
+  margin-top: var(--a6);
+}
+
+[data-design="apple"] .abschnitt-titel .text-3 {
+  font-size: var(--apple-unterzeile);
+  font-weight: 600;
+}
+
+/* === Beträge =========================================================================== */
+
+[data-design="apple"] .tab td.zahl,
+[data-design="apple"] .tab th.zahl,
+[data-design="apple"] .angaben-neu .zahl,
+[data-design="apple"] .liste-neben.zahl {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+[data-design="apple"] .betrag-ausgang {
+  color: var(--text);
+}
+
+/* Zeilen mit 44-px-Knopf rechts (Stornieren …, Aufheben): Text und Knopf auf einer Höhe */
+@media (min-width: 1024px) {
+  [data-design="apple"] .tab.sollposten td,
+  [data-design="apple"] .tab.sperren td {
+    vertical-align: middle;
+  }
+}
+
+/* === Bank: Konten ====================================================================== */
+/* Konto mit Bank und IBAN in einer Spalte, die IBAN ohne Umbruch; Saldo groß, Stand klein. */
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .tab.konten td[data-titel="Konto"] {
+    min-width: 15rem;
+  }
+
+  [data-design="apple"] .tab.konten td[data-titel="Saldo"] {
+    min-width: 11rem;
+  }
+
+  [data-design="apple"] .tab.konten td[data-titel="Letzter Abruf"] {
+    min-width: 11rem;
+  }
+}
+
+[data-design="apple"] .tab.konten td {
+  vertical-align: top;
+}
+
+[data-design="apple"] .tab.konten code {
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+[data-design="apple"] .konto-saldo {
+  display: block;
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .konto-stand {
+  display: block;
+  white-space: normal;
+}
+
+[data-design="apple"] .tab.konten .freigabe-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ziel);
+  white-space: nowrap;
+}
+
+/* === Kassenbuch ======================================================================== */
+
+/* Buchungen: Objekt mit Mandant und Konto ohne Umbruch, damit die Zeilen niedrig bleiben */
+@media (min-width: 1024px) {
+  [data-design="apple"] .tab.buchungen td[data-titel="Objekt"],
+  [data-design="apple"] .tab.buchungen td[data-titel="Konto"],
+  [data-design="apple"] .tab.buchungen td[data-titel="Datum"] {
+    white-space: nowrap;
+  }
+}
+
+/* Regeln: Bedingungen als kurze Teile untereinander statt einer Zeile mit „·“ */
+[data-design="apple"] .regel-bedingungen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--a3);
+}
+
+[data-design="apple"] .regel-bedingungen code {
+  color: var(--text-2);
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .tab.regeln td[data-titel="Bedingungen"] {
+    max-width: 26rem;
+  }
+}
+
+[data-design="apple"] .tab .zeilen-aktionen {
+  flex-wrap: nowrap;
+}
+
+/* Regel-Formular: Gruppen „Bedingungen“ und „Ergebnis“ */
+[data-design="apple"] .stapel > .regel-abschnitt {
+  margin: var(--a6) 0 0;
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .stapel > .regel-abschnitt + .felder {
+  margin-top: var(--a3);
+}
+
+/* Haken (Zweck als Regex, Aktiv) über die ganze Breite statt neben einem Feld */
+[data-design="apple"] .regel-felder > .feld-haken-zeile {
+  grid-column: 1 / -1;
+}
+
+/* Aufteilen: jeder Teil eine Karte mit Titel (fieldset mit legend) */
+[data-design="apple"] fieldset.teil {
+  min-width: 0;
+  margin-inline: 0;
+  margin-bottom: 0;
+  padding: var(--a4);
+  border: 0;
+}
+
+[data-design="apple"] .teil-titel {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--a3);
+  padding: 0;
+  font-size: var(--apple-kopfzeile);
+  font-weight: 600;
+}
+
+[data-design="apple"] .teil-titel + * {
+  clear: both;
+}
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .teil-felder {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Monatsbericht: Abschnitte und Summen */
+[data-design="apple"] .tab.bericht tr.abschnitt th {
+  padding-top: var(--a5);
+  font-size: var(--apple-fussnote);
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: left;
+  background: transparent;
+}
+
+[data-design="apple"] .tab.bericht tr.summe td {
+  font-weight: 600;
+}
+
+[data-design="apple"] .tab.bericht tr.ergebnis td {
+  border-top: 1px solid var(--linie-stark);
+}
+
+[data-design="apple"] .tab.bericht tbody tr.abschnitt:hover th {
+  background: transparent;
+}
+
+/* === Abgleich ========================================================================== */
+
+/* Rückstände: sechs Kennzahlen in einer Reihe (breit) oder zwei Reihen zu drei, nie 5 + 1 */
+@media (min-width: 720px) {
+  [data-design="apple"] .rueckstand-kennzahlen {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  [data-design="apple"] .rueckstand-kennzahlen {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Aufteilen einer Zahlung: Posten breit, Betrag schmal in einer Zeile */
+[data-design="apple"] fieldset.anteil-zeile {
+  display: grid;
+  gap: var(--a3);
+  min-width: 0;
+  margin-inline: 0;
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+}
+
+@media (min-width: 600px) {
+  [data-design="apple"] fieldset.anteil-zeile {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  [data-design="apple"] fieldset.anteil-zeile > .feld-breit {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Mietkonto: Zahlungen je Posten mit „Stornieren“ zum Aufklappen */
+[data-design="apple"] .zahlungen {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  /* Zeile mit 44-px-Knopf: Text der ersten Zahlung auf Höhe der übrigen Zellen */
+  [data-design="apple"] .tab.mietkonto td[data-titel="Zahlungen"] {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+[data-design="apple"] .zahlung {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--a2);
+}
+
+[data-design="apple"] details.storno > summary {
+  list-style: none;
+}
+
+[data-design="apple"] details.storno > summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-design="apple"] details.storno[open] {
+  flex-basis: 100%;
+}
+
+[data-design="apple"] .storno-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--a2) var(--a3);
+  margin: var(--a1) 0 var(--a2);
+}
+
+[data-design="apple"] .storno-form .feld {
+  flex: 1 1 12rem;
+}
+
+[data-design="apple"] .liste > li.handzahlung {
+  flex-wrap: wrap;
+}
+
+/* === Mehrfachauswahl (Sammelzahler): mehrere Zeilen statt fester Feldhöhe ============== */
+
+[data-design="apple"] select[multiple].feld-auswahl {
+  height: auto;
+  min-height: calc(var(--ziel) * 3);
+  padding: var(--a2);
+  background-image: none;
+}

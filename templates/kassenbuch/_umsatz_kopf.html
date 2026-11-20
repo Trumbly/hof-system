@@ -1,12 +1,12 @@
-<section class="gruppe umsatz-kopf" aria-labelledby="umsatz-titel">
-  <h2 id="umsatz-titel">Umsatz #{{ umsatz.pk }}</h2>
-  <dl class="angaben">
+{% load bausteine %}{# Kopf eines Umsatzes (Umsatz, Aufteilen, Regel aus Umsatz): Karte mit Angaben. #}
+{% with nr=umsatz.pk|stringformat:"d" %}{% karte "Umsatz #"|add:nr id="umsatz-kopf" %}
+  <dl class="angaben-neu">
+    <dt>Betrag</dt><dd><strong class="zahl betrag-{{ umsatz.richtung }}">{% if umsatz.richtung == 'ausgang' %}−{% endif %}{{ umsatz.betrag|floatformat:"2g" }} {{ umsatz.waehrung }}</strong> <span class="text-2">({{ umsatz.get_richtung_display }})</span></dd>
     <dt>Datum</dt><dd>{{ umsatz.buchungsdatum|date:"d.m.Y" }}</dd>
-    <dt>Konto</dt><dd>{{ umsatz.konto.bezeichnung }} <span class="leise">#{{ umsatz.konto_id }}</span></dd>
-    <dt>Betrag</dt><dd class="betrag-{{ umsatz.richtung }}">{% if umsatz.richtung == 'ausgang' %}−{% endif %}{{ umsatz.betrag|floatformat:"2g" }} {{ umsatz.waehrung }} ({{ umsatz.get_richtung_display }})</dd>
-    <dt>Gegenpartei</dt><dd>{{ umsatz.gegenpartei|default:"–" }}{% if umsatz.gegen_iban %}<br><code class="leise">{{ umsatz.gegen_iban }}</code>{% endif %}</dd>
+    <dt>Konto</dt><dd>{{ umsatz.konto.bezeichnung }} <span class="text-3">#{{ umsatz.konto_id }}</span></dd>
+    <dt>Gegenpartei</dt><dd>{{ umsatz.gegenpartei|default:"–" }}{% if umsatz.gegen_iban %}<br><code class="text-3 klein">{{ umsatz.gegen_iban }}</code>{% endif %}</dd>
     <dt>Zweck</dt><dd>{{ umsatz.verwendungszweck|default:"–" }}</dd>
   </dl>
-  {% if gesperrt %}<p class="meldung meldung-warning">Der Monat dieses Umsatzes ist abgeschlossen. Neue Buchungen und Stornos bekommen ein Datum im ersten offenen Monat.</p>{% endif %}
-  {% if rueckbuchung_zu %}<p class="leise">Vermutlich Rückbuchung zu <a href="{% url 'kassenbuch:umsatz' rueckbuchung_zu.pk %}">Umsatz #{{ rueckbuchung_zu.pk }}</a>.</p>{% endif %}
-</section>
+  {% if gesperrt %}<p class="hinweis-band hinweis-warnung">Der Monat dieses Umsatzes ist abgeschlossen. Neue Buchungen und Stornos bekommen ein Datum im ersten offenen Monat.</p>{% endif %}
+  {% if rueckbuchung_zu %}<p class="text-2">Vermutlich Rückbuchung zu <a href="{% url 'kassenbuch:umsatz' rueckbuchung_zu.pk %}">Umsatz #{{ rueckbuchung_zu.pk }}</a>.</p>{% endif %}
+{% endkarte %}{% endwith %}

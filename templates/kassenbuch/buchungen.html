@@ -4,10 +4,10 @@
 {% block titel %}Kassenbuch{% endblock %}
 
 {% block inhalt %}
-{% include "kassenbuch/_unternavigation.html" %}
 {% seitenkopf "Kassenbuch" "" %}
   {% if offen %}<a class="knopf knopf-zweit" href="{% url 'kern:arbeitslisten' %}">{{ offen }} Umsätze einordnen</a>{% endif %}
 {% endseitenkopf %}
+{% include "kassenbuch/_unternavigation.html" %}
 
 <form method="get" class="filterleiste" id="kassenbuch-filter">
   {% feld filter.q %}

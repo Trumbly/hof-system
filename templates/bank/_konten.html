@@ -11,12 +11,12 @@
       <tr id="konto-{{ konto.pk }}"{% if not konto.aktiv %} class="zeile-leise"{% endif %}>
         <td data-titel="Konto"><div><strong>{{ konto.bezeichnung }}</strong>{% if not konto.aktiv %} {% badge "neutral" "inaktiv" %}{% endif %}<br><span class="text-3 klein">{{ konto.bank }} · {{ konto.get_zugang_display }}</span><br><code class="klein">{{ konto.iban }}</code></div></td>
         <td data-titel="Mandant">{{ konto.mandant.kuerzel }}</td>
-        <td data-titel="Saldo" class="zahl">{% if z.saldo %}<div>{{ z.saldo.saldo|euro }}<br><span class="text-3 klein">Stand {{ z.saldo.stand|date:"d.m.Y" }}{% if z.saldo.abgerufen_am %}, abgerufen {{ z.saldo.abgerufen_am|date:"d.m.Y H:i" }}{% endif %}</span></div>{% else %}<span class="text-3">–</span>{% endif %}</td>
+        <td data-titel="Saldo" class="zahl">{% if z.saldo %}<div><span class="konto-saldo">{{ z.saldo.saldo|euro }}</span><span class="text-3 klein konto-stand">Stand {{ z.saldo.stand|date:"d.m.Y" }}{% if z.saldo.abgerufen_am %}, abgerufen {{ z.saldo.abgerufen_am|date:"d.m.Y H:i" }}{% endif %}</span></div>{% else %}<span class="text-3">–</span>{% endif %}</td>
         <td data-titel="Letzter Abruf">{% if z.letzter_abruf %}<div>{% badge z.letzter_abruf.status %} {{ z.letzter_abruf.gestartet_am|date:"d.m.Y H:i" }}{% if z.letzter_abruf.status == 'erfolgreich' %}<br><span class="text-3 klein">{{ z.letzter_abruf.neu|zahl }} neu</span>{% elif z.letzter_abruf.meldung %}<br><span class="text-fehler klein">{{ z.letzter_abruf.meldung|verlinkt }}</span>{% endif %}</div>{% else %}<span class="text-3">noch keiner</span>{% endif %}</td>
         <td data-titel="Bankfreigabe">
           {% if konto.zugang == 'nur_import' %}<span class="text-3">nur Import</span>{% else %}
           <div>{% if z.freigabe %}bis {{ z.freigabe.gueltig_bis|date:"d.m.Y" }}{% if z.freigabe_bald %} {% badge "warnung" "läuft ab" %}{% endif %}{% else %}{% badge "fehler" "keine" %}{% endif %}
-          <br><a class="klein" href="{% url 'bank:freigabe' konto.pk %}">Freigabe erneuern</a></div>
+          <br><a class="klein freigabe-link" href="{% url 'bank:freigabe' konto.pk %}">Freigabe erneuern</a></div>
           {% endif %}
         </td>
         <td data-titel="Umsätze" class="zahl"><a href="{% url 'bank:umsaetze' %}?konto={{ konto.pk }}">{{ z.umsaetze|zahl }}</a></td>
