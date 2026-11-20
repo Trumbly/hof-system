@@ -5,8 +5,8 @@
 {% block breite %} schmal{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_ablage_reiter.html" %}
 {% seitenkopf "Dokument von Hand ablegen" "Für Mahnungen, Rücklastschriften und Belege ohne lesbares PDF. Belege mit PDF gehen schneller über „Beleg hochladen“ in der Ablage." %}{% endseitenkopf %}
+{% include "dokumente/_ablage_reiter.html" %}
 <form method="post" enctype="multipart/form-data" class="karte">
   <div class="karte-rumpf">
     {% csrf_token %}

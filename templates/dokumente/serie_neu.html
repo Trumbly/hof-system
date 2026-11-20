@@ -4,17 +4,16 @@
 {% block titel %}Serienmitteilung{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_reiter.html" %}
 {% seitenkopf "Serienmitteilung" "Eine Vorlage, viele Empfänger. Erst zeigt die Vorschau, wer was auf welchem Weg bekommt; jedes Schreiben entsteht einzeln und wird nach der Vorschau der PDFs gesendet." %}{% endseitenkopf %}
-
-{% if arten|length > 1 %}
-<nav class="reiter" aria-label="Empfänger">
-  {% for a in arten %}<a href="?bezug={{ a.schluessel }}"{% if a.schluessel == bezugsart.schluessel %} aria-current="page"{% endif %}>{{ a.titel }}</a>{% endfor %}
-</nav>
-{% endif %}
+{% include "dokumente/_reiter.html" %}
 
 <div class="stapel">
 {% karte "Empfänger eingrenzen" %}
+  {% if arten|length > 1 %}
+  <nav class="reiter dok-empfaenger-reiter" aria-label="Empfänger">
+    {% for a in arten %}<a href="?bezug={{ a.schluessel }}"{% if a.schluessel == bezugsart.schluessel %} aria-current="page"{% endif %}>{{ a.titel }}</a>{% endfor %}
+  </nav>
+  {% endif %}
   <form method="get" class="filterleiste" id="serie-eingrenzen">
     <input type="hidden" name="bezug" value="{{ bezugsart.schluessel }}">
     {% feld eingrenzen.objekt %}

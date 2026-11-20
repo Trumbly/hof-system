@@ -1,32 +1,33 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Lieferanten{% endblock %}
 
 {% block inhalt %}
+{% seitenkopf "Lieferanten" %}{% endseitenkopf %}
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Lieferanten</h1>
-<div class="tabelle-rahmen">
-<table>
-  <thead><tr><th>Lieferant</th><th>E-Mail</th><th>Belege</th><th>Status</th></tr></thead>
-  <tbody>
-    {% for l in lieferanten %}
-    <tr>
-      <td data-titel="Lieferant"><a href="{% url 'dokumente:lieferant' l.pk %}">{{ l.name }}</a></td>
-      <td data-titel="E-Mail">{{ l.email|default:"–" }}</td>
-      <td data-titel="Belege">{{ l.belege.count }}</td>
-      <td data-titel="Status">{% if l.aktiv %}aktiv{% else %}inaktiv{% endif %}</td>
-    </tr>
-    {% empty %}<tr><td colspan="4" class="leise">Noch keine Lieferanten.</td></tr>{% endfor %}
-  </tbody>
-</table>
-</div>
 
-<section class="gruppe">
-  <h2>Neuer Lieferant</h2>
-  <form method="post" class="formular">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Anlegen</button>
-  </form>
-</section>
+<div class="raster raster-2-1 dok-oben">
+{% karte "Lieferanten" zahl=lieferanten|length %}
+  <div class="tabelle-box">
+  <table class="tab tab-karten">
+    <thead><tr><th>Lieferant</th><th>E-Mail</th><th class="zahl">Belege</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for l in lieferanten %}
+      <tr{% if not l.aktiv %} class="zeile-leise"{% endif %}>
+        <td data-titel="Lieferant"><a href="{% url 'dokumente:lieferant' l.pk %}">{{ l.name }}</a></td>
+        <td data-titel="E-Mail" class="dok-umbruch">{{ l.email|default:"–" }}</td>
+        <td data-titel="Belege" class="zahl">{{ l.belege.count }}</td>
+        <td data-titel="Status">{% if l.aktiv %}{% badge "aktiv" %}{% else %}{% badge "neutral" "inaktiv" %}{% endif %}</td>
+      </tr>
+      {% empty %}{% include "bausteine/leer.html" with spalten=4 text="Noch keine Lieferanten." %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endkarte %}
+
+{% karte "Neuer Lieferant" id="neuer-lieferant" %}
+  {% include "bausteine/formular.html" with form=form knopf="Anlegen" %}
+{% endkarte %}
+</div>
 {% endblock %}

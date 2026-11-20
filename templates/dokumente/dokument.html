@@ -1,32 +1,44 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Dokument #{{ dokument.pk }}{% endblock %}
 
 {% block inhalt %}
+{% with pk_text=dokument.pk|stringformat:"s" %}
+{% seitenkopf "Dokument #"|add:pk_text dokument.dokumentart.titel %}{% endseitenkopf %}
 {% include "dokumente/_ablage_reiter.html" %}
-<h1>Dokument #{{ dokument.pk }} <span class="leise">{{ dokument.dokumentart.titel }}</span></h1>
-<dl class="angaben">
-  <div><dt>Datum</dt><dd>{{ dokument.datum|date:"d.m.Y" }}</dd></div>
-  <div><dt>Eingang</dt><dd>{{ dokument.get_herkunft_display }}, {{ dokument.eingegangen_am|date:"d.m.Y H:i" }}</dd></div>
-  <div><dt>aufbewahren bis</dt><dd>{{ dokument.loeschfrist|date:"d.m.Y" }} <span class="leise">({{ dokument.dokumentart.loeschfrist_jahre }} Jahre nach Ende des Belegjahres; gelöscht wird noch nicht)</span></dd></div>
-  <div><dt>Datei</dt><dd>{{ dokument.dateiname }}{% if dokument.original %} · <a href="{% url 'dokumente:dokument_original' dokument.pk %}">Originalfoto</a>{% endif %}</dd></div>
-  {% if dokument.bemerkung %}<div><dt>Bemerkung</dt><dd>{{ dokument.bemerkung|linebreaksbr }}</dd></div>{% endif %}
-  <div><dt>hängt an</dt><dd>{% for typ, pk, url in bezuege %}{% if url %}<a href="{{ url }}">{{ typ }} #{{ pk }}</a>{% else %}{{ typ }} #{{ pk }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}nichts{% endfor %}</dd></div>
-</dl>
 
-{% if belege %}
-<section class="gruppe">
-  <h2>Belege auf diesem Dokument</h2>
-  <ul class="posten-liste">
-    {% for b in belege %}
-    <li class="posten"><a href="{% url 'dokumente:beleg' b.pk %}">Beleg #{{ b.pk }}</a> · {{ b.get_status_display }}{% if b.objekt %} · {{ b.objekt.kuerzel }}{% endif %}{% if b.kategorie %} · {{ b.kategorie.bezeichnung }}{% endif %}{% if b.betrag %} · {{ b.betrag|floatformat:"2g" }} €{% endif %}</li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
+<div class="geteilt">
+  <div class="geteilt-vorschau">
+    {% url 'dokumente:dokument_pdf' dokument.pk as pdf_url %}
+    {% pdf_vorschau pdf_url "PDF von Dokument #"|add:pk_text %}
+  </div>
 
-<section class="vorschau" aria-label="Vorschau">
-  <iframe class="pdf-vorschau" src="{% url 'dokumente:dokument_pdf' dokument.pk %}" title="PDF von Dokument #{{ dokument.pk }}"></iframe>
-  <p><a href="{% url 'dokumente:dokument_pdf' dokument.pk %}" target="_blank" rel="noopener">PDF in neuem Fenster öffnen</a></p>
-</section>
+  <div class="stapel">
+    {% karte "Angaben" %}
+      <dl class="angaben-neu">
+        <dt>Datum</dt><dd>{{ dokument.datum|date:"d.m.Y" }}</dd>
+        <dt>Eingang</dt><dd>{{ dokument.get_herkunft_display }}, {{ dokument.eingegangen_am|date:"d.m.Y H:i" }}</dd>
+        <dt>aufbewahren bis</dt><dd>{{ dokument.loeschfrist|date:"d.m.Y" }} <span class="text-3 klein">({{ dokument.dokumentart.loeschfrist_jahre }} Jahre nach Ende des Belegjahres; gelöscht wird noch nicht)</span></dd>
+        <dt>Datei</dt><dd>{{ dokument.dateiname }}{% if dokument.original %} · <a href="{% url 'dokumente:dokument_original' dokument.pk %}">Originalfoto</a>{% endif %}</dd>
+        {% if dokument.bemerkung %}<dt>Bemerkung</dt><dd>{{ dokument.bemerkung|linebreaksbr }}</dd>{% endif %}
+        <dt>hängt an</dt><dd>{% for typ, pk, url in bezuege %}{% if url %}<a href="{{ url }}">{{ typ }} #{{ pk }}</a>{% else %}{{ typ }} #{{ pk }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}nichts{% endfor %}</dd>
+      </dl>
+    {% endkarte %}
+
+    {% if belege %}
+    {% karte "Belege auf diesem Dokument" zahl=belege|length %}
+      <ul class="liste">
+        {% for b in belege %}
+        <li><a class="liste-zeile" href="{% url 'dokumente:beleg' b.pk %}">
+          <span class="liste-haupt">Beleg #{{ b.pk }}<br><span class="text-3 klein">{{ b.get_status_display }}{% if b.objekt %} · {{ b.objekt.kuerzel }}{% endif %}{% if b.kategorie %} · {{ b.kategorie.bezeichnung }}{% endif %}</span></span>
+          {% if b.betrag %}<span class="liste-neben"><span class="zahl">{{ b.betrag|euro }}</span></span>{% endif %}
+        </a></li>
+        {% endfor %}
+      </ul>
+    {% endkarte %}
+    {% endif %}
+  </div>
+</div>
+{% endwith %}
 {% endblock %}

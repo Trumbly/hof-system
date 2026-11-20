@@ -1,0 +1,1 @@
+{% load bausteine %}{# Status einer Vorlage als Badge: freigegeben grün, Entwurf und abgelöst grau. #}{% if vorlage.status == "freigegeben" %}{% badge "ok" vorlage.get_status_display %}{% else %}{% badge "neutral" vorlage.get_status_display %}{% endif %}

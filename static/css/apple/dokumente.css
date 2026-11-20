@@ -1,9 +1,175 @@
 /* Apple-Design, Bereich Dokumente.
  *
- * Ablage, Beleg (geteilte Ansicht mit PDF), Eingangsrechnungen, Schreiben, Vorlagen, Serie
- * (templates/dokumente/).
+ * Ablage, Dokument, Beleg (geteilte Ansicht mit PDF), Beleg aufteilen, Eingangsrechnungen,
+ * Lieferanten, Belegmappe, Vorlagen (mit Briefkopf), Schreiben, Serie (templates/dokumente/).
  *
  * Nur Seitenspezifisches: Was mehr als ein Bereich braucht, gehört nach apple/bausteine.css
  * (Regeln dort im Kopf). Jede Regel beginnt mit [data-design="apple"] und liest die Werte aus
  * werte.css und apple/basis.css. Referenz für die Bausteine ist die Seite /stil/.
+ * Alle Bereichsdateien laden auf jeder Seite; deshalb hängt jede Regel an einer Klasse mit
+ * „dok-“, die nur die Vorlagen dieses Bereichs tragen.
  */
+
+/* --- Reiter des Bereichs (Ablage · Rechnungen · …, Schreiben · Vorlagen · …) ----------- */
+/* Unter dem Seitenkopf statt darüber: erst der große Titel, dann die Segmente.
+   Kandidat für Bausteine (Unternavigation unter dem Seitenkopf, auch Geld). */
+
+[data-design="apple"] .seitenkopf + .dok-reiter {
+  margin-top: calc(-1 * var(--a2));
+  margin-bottom: var(--a6);
+}
+
+/* --- Raster: Karten nicht auf die Höhe der Nachbarkarte strecken ---------------------- */
+
+[data-design="apple"] .dok-oben {
+  align-items: start;
+}
+
+/* --- Karte mit Hinweiszeile und Liste darunter ----------------------------------------- */
+/* Die Liste läuft bis an den Rand der Karte wie eine gruppierte Liste; der Satz davor bleibt
+   eingerückt. Kandidat für Bausteine (Karte mit Hinweis und Liste). */
+
+[data-design="apple"] .karte-rumpf > .dok-liste-buendig {
+  margin: var(--a2) calc(-1 * var(--a4)) calc(-1 * var(--a4));
+}
+
+[data-design="apple"] .karte-rumpf > .text-2 + .leer {
+  padding-top: var(--a6);
+  padding-bottom: var(--a6);
+}
+
+/* Abbuchung zuordnen (Eingangsrechnung): Angaben, darunter der Knopf */
+[data-design="apple"] .dok-kandidat {
+  align-items: center;
+  padding-top: var(--a3);
+  padding-bottom: var(--a3);
+}
+
+[data-design="apple"] .dok-kandidat form {
+  margin: 0;
+}
+
+/* --- Ablage: Filter „Art“ nicht über die ganze Karte ----------------------------------- */
+
+[data-design="apple"] .dok-filter > .feld {
+  flex: 0 1 320px;
+}
+
+/* --- Lieferanten: lange Adressen umbrechen --------------------------------------------- */
+
+[data-design="apple"] .dok-umbruch {
+  overflow-wrap: anywhere;
+}
+
+/* --- Vorlagen: eine Karte, je Art eine Unterüberschrift ------------------------------- */
+
+[data-design="apple"] .dok-vorlagen {
+  overflow: hidden;
+}
+
+[data-design="apple"] .dok-vorlagen > .liste-titel:first-child {
+  padding-top: var(--a4);
+}
+
+[data-design="apple"] .dok-vorlagen .liste-neben {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  white-space: normal;
+}
+
+[data-design="apple"] .dok-vorlagen .liste-neben .klein {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* Versionen einer Vorlage: die angezeigte halbfett */
+[data-design="apple"] .dok-oben a.liste-zeile[aria-current="page"] {
+  font-weight: 600;
+}
+
+/* Text einer Vorlage (HTML mit Platzhaltern) als Quelltext */
+[data-design="apple"] .dok-quelltext {
+  font-family: var(--schrift-mono);
+  font-size: var(--apple-fussnote);
+  line-height: 1.55;
+  background: var(--flaeche-2);
+  border: 0;
+}
+
+@media (min-width: 1024px) {
+  /* Am Desktop scrollt ein langer Text in seiner Karte; am Handy läuft er mit der Seite */
+  [data-design="apple"] .dok-quelltext {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+}
+
+[data-design="apple"] .dok-platzhalter {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--a1) var(--a3);
+  margin: 0 0 var(--a3);
+  padding: 0;
+  list-style: none;
+}
+
+[data-design="apple"] .dok-platzhalter code {
+  font-size: var(--apple-fussnote);
+  overflow-wrap: anywhere;
+}
+
+[data-design="apple"] .dok-vorlage-form textarea {
+  font-family: var(--schrift-mono);
+  font-size: var(--apple-fussnote);
+  line-height: 1.55;
+}
+
+/* --- Beleg aufteilen: je Teil eine Karte (fieldset mit legend als Kartentitel) --------- */
+
+[data-design="apple"] fieldset.dok-teil {
+  min-width: 0;
+  margin-right: 0;
+  margin-left: 0;
+  padding: 0;
+}
+
+[data-design="apple"] .dok-teil > legend {
+  float: left;
+  width: 100%;
+  padding: var(--a4) var(--a4) 0;
+}
+
+[data-design="apple"] .dok-teil > .karte-rumpf {
+  clear: both;
+  padding-top: var(--a3);
+}
+
+[data-design="apple"] .dok-teile > .formular-fuss {
+  justify-content: flex-end;
+}
+
+/* --- Vorlage: Angaben und Text links, Freigabe, Versionen und Platzhalter rechts -------- */
+/* Am Handy eine Spalte in der Reihenfolge der Vorlage (Angaben, Freigabe, Text, Versionen,
+   Platzhalter): Die Freigabe steht nicht hinter dem langen Text. Am Desktop nimmt die
+   letzte Zeile (1fr) die Höhe des Texts auf, damit rechts keine Lücken entstehen. */
+
+@media (min-width: 1024px) {
+  [data-design="apple"] .dok-vorlage {
+    grid-template-rows: auto auto auto 1fr;
+  }
+
+  [data-design="apple"] .dok-vorlage > #angaben {
+    grid-area: 1 / 1;
+  }
+
+  [data-design="apple"] .dok-vorlage > #text {
+    grid-area: 2 / 1 / 5 / 2;
+  }
+
+  /* Rechts der Reihe nach von oben, auch wenn die Freigabe fehlt */
+  [data-design="apple"] .dok-vorlage > #freigabe,
+  [data-design="apple"] .dok-vorlage > #versionen,
+  [data-design="apple"] .dok-vorlage > .dok-platzhalter-box {
+    grid-column: 2;
+  }
+}

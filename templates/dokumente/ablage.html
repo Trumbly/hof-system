@@ -4,7 +4,6 @@
 {% block titel %}Ablage{% endblock %}
 
 {% block inhalt %}
-{% include "dokumente/_ablage_reiter.html" %}
 {% seitenkopf "Ablage" "Belege, Rechnungen und Dokumente · aufbewahrt nach Löschfrist" %}
   <details class="menue">
     <summary class="knopf knopf-zweit">mehr ▾</summary>
@@ -13,9 +12,10 @@
     </ul>
   </details>
 {% endseitenkopf %}
+{% include "dokumente/_ablage_reiter.html" %}
 
 <div class="stapel">
-<div class="raster raster-2-1">
+<div class="raster raster-2-1 dok-oben">
   {% karte "Belege zuordnen" zahl=offen|length %}
     {% if offen %}
     <div class="tabelle-box">
@@ -46,7 +46,7 @@
 </div>
 
 {% karte "Dokumente" %}
-  <form method="get" class="filterleiste">
+  <form method="get" class="filterleiste dok-filter">
     <div class="feld">
       <label class="feld-label" for="art">Art</label>
       <select class="feld-auswahl" name="art" id="art" onchange="this.form.submit()">

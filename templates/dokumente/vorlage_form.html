@@ -1,14 +1,30 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}{% if vorlage %}Vorlage bearbeiten{% else %}Neue Vorlage{% endif %}{% endblock %}
 
 {% block inhalt %}
+<header class="seitenkopf">
+  <div class="seitenkopf-text">
+    <h1>{% if vorlage %}{{ vorlage.name }} · Version {{ vorlage.version }}{% else %}Neue Vorlage{% endif %}</h1>
+    <p class="seitenkopf-meta">Nur Platzhalter wie <code>{% templatetag openvariable %} empfaenger.name {% templatetag closevariable %}</code>, keine Namen, Anschriften oder Beträge. Gespeichert wird als Entwurf.</p>
+  </div>
+</header>
 {% include "dokumente/_reiter.html" %}
-<h1>{% if vorlage %}{{ vorlage.name }} · Version {{ vorlage.version }}{% else %}Neue Vorlage{% endif %}</h1>
-<p class="leise">Nur Platzhalter wie <code>{% templatetag openvariable %} empfaenger.name {% templatetag closevariable %}</code>, keine Namen, Anschriften oder Beträge. Gespeichert wird als Entwurf.</p>
-<form method="post" class="formular">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Speichern</button>
+
+<form method="post" class="karte dok-vorlage-form">
+  <div class="karte-rumpf">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="formfehler" role="alert">{% for fehler in form.non_field_errors %}<p>{{ fehler }}</p>{% endfor %}</div>{% endif %}
+    <div class="felder felder-2">
+      {% feld form.name %}
+      {% feld form.art %}
+      {% feld form.betreff breit=True %}
+      {% feld form.text breit=True %}
+    </div>
+    <div class="formular-fuss">
+      <button type="submit" class="knopf knopf-primaer">Speichern</button>
+    </div>
+  </div>
 </form>
 {% endblock %}

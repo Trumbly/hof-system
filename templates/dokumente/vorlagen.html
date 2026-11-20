@@ -1,30 +1,32 @@
 {% extends "base.html" %}
+{% load bausteine %}
 
 {% block titel %}Vorlagen{% endblock %}
 
 {% block inhalt %}
+{% seitenkopf "Vorlagen" "Vorlagen enthalten nur Platzhalter. Scharf verwenden lassen sich nur freigegebene Versionen." %}
+  <a class="knopf knopf-primaer" href="{% url 'dokumente:vorlage_neu' %}">Neue Vorlage</a>
+{% endseitenkopf %}
 {% include "dokumente/_reiter.html" %}
-<div class="kopfzeile">
-  <h1>Vorlagen</h1>
-  <a class="knopf" href="{% url 'dokumente:vorlage_neu' %}">Neue Vorlage</a>
-</div>
-<p class="leise">Vorlagen enthalten nur Platzhalter. Scharf verwenden lassen sich nur freigegebene Versionen.</p>
-{% for art, eintraege in gruppen %}
-<section class="gruppe">
-  <h2>{{ art }}</h2>
-  <ul class="posten-liste">
+
+{% if gruppen %}
+<section class="karte dok-vorlagen" aria-label="Vorlagen nach Art">
+  {% for art, eintraege in gruppen %}
+  <h2 class="liste-titel">{{ art }}</h2>
+  <ul class="liste">
     {% for v in eintraege %}
-    <li class="posten">
-      <div class="posten-kopf">
-        <a class="posten-titel" href="{% url 'dokumente:vorlage' v.pk %}">{{ v.name }}</a>
-        <span class="status status-{{ v.status }}">Version {{ v.version }} · {{ v.get_status_display }}</span>
-      </div>
-      {% if v.freigegeben_am %}<p class="leise posten-meta">freigegeben {{ v.freigegeben_am|date:"d.m.Y" }}</p>{% endif %}
-    </li>
+    <li><a class="liste-zeile" href="{% url 'dokumente:vorlage' v.pk %}">
+      <span class="liste-haupt">{{ v.name }}{% if v.freigegeben_am %}<br><span class="text-3 klein">freigegeben {{ v.freigegeben_am|date:"d.m.Y" }}</span>{% endif %}</span>
+      <span class="liste-neben"><span class="klein">Version {{ v.version }}</span> {% include "dokumente/_vorlage_status.html" with vorlage=v %}</span>
+    </a></li>
     {% endfor %}
   </ul>
+  {% endfor %}
 </section>
-{% empty %}
-<p>Noch keine Vorlagen. Import aus Notion: <code>manage.py vorlagen_import &lt;ordner&gt; --ausfuehren</code>.</p>
-{% endfor %}
+{% else %}
+<section class="karte"><div class="karte-rumpf">
+  {% include "bausteine/leer.html" with text="Noch keine Vorlagen." %}
+  <p class="text-2">Import aus Notion: <code>manage.py vorlagen_import &lt;ordner&gt; --ausfuehren</code>.</p>
+</div></section>
+{% endif %}
 {% endblock %}
