@@ -1,6 +1,7 @@
 {% load bausteine %}{% comment %} Inhalt eines Dialogs mit Formular (HTMX-Muster, apps.kern.htmx).
    Variablen: titel, form, url (POST-Ziel), aktion (verstecktes Feld), knopf, hinweis,
-   warnungen (Liste von Sätzen), gefahr, kamera (Dateifelder mit „Foto aufnehmen“) {% endcomment %}
+   warnungen (Liste von Sätzen), gefahr, kamera (Dateifelder mit „Foto aufnehmen“),
+   sperre_ohne (Feldname: Knopf gesperrt, bis das Feld einen Wert hat) und sperre_grund {% endcomment %}
 <form class="dialog-formular" method="post" action="{{ url }}" hx-post="{{ url }}" hx-target="#dialog-inhalt" hx-swap="innerHTML"{% if form.is_multipart %} enctype="multipart/form-data" hx-encoding="multipart/form-data"{% endif %}>
   {% csrf_token %}
   {% if aktion %}<input type="hidden" name="aktion" value="{{ aktion }}">{% endif %}
@@ -19,6 +20,6 @@
   </div>
   <footer class="dialog-fuss">
     <button type="button" class="knopf knopf-zweit" data-dialog-schliessen>Abbrechen</button>
-    <button type="submit" class="knopf {% if gefahr %}knopf-gefahr{% else %}knopf-primaer{% endif %}">{{ knopf|default:"Speichern" }}</button>
+    <button type="submit" class="knopf {% if gefahr %}knopf-gefahr{% else %}knopf-primaer{% endif %}"{% if sperre_ohne %} data-gesperrt-ohne="{{ sperre_ohne }}" title="{{ sperre_grund }}"{% endif %}>{{ knopf|default:"Speichern" }}</button>
   </footer>
 </form>

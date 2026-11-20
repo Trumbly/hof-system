@@ -64,7 +64,7 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
         "mahnung",
         "Mahnung Vertrag {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>trotz unserer Zahlungserinnerung ist für den Vertrag {{ vertrag.nummer }}
 ({{ einheit.bezeichnung }}) ein Betrag von {{ betrag.offen|euro }} offen:</p>
 """
@@ -79,7 +79,7 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
         "abmahnung",
         "Abmahnung Vertrag {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>für den Vertrag {{ vertrag.nummer }} ({{ einheit.bezeichnung }}) sind
 {{ mahnung.offene_monatsmieten }} Monatsmieten ganz oder teilweise offen, zusammen
 {{ betrag.offen|euro }}:</p>
@@ -100,7 +100,7 @@ ENTWURF_KUENDIGUNG = (
     "kuendigung",
     "Kündigung Vertrag {{ vertrag.nummer }}",
     """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>für den Vertrag {{ vertrag.nummer }} ({{ einheit.bezeichnung }}) sind
 {{ betrag.offen|euro }} offen:</p>
 """

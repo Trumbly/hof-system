@@ -25,9 +25,13 @@ Seite. Vorausgefüllt aus Anfrage oder Einheit; Partei per Suche oder neu; Kauti
         <label class="partei-treffer"><input type="radio" class="feld-haken" name="mieter" value="neu"{% if form.mieter_wahl == "neu" %} checked{% endif %}><span><span class="partei-name">Neue Partei anlegen</span>{% if form.mieter_wahl == "neu" and anfrage %} <span class="text-3 klein">aus den Kontaktdaten der Anfrage, keine Partei mit dieser E-Mail-Adresse</span>{% endif %}</span></label>
         {% if form.mieter.errors %}<p class="feld-fehler" id="id_mieter-fehler">{{ form.mieter.errors|join:" " }}</p>{% endif %}
         <div class="felder felder-2 feld-einzug" data-wenn="mieter" data-gleich="neu"{% if form.mieter_wahl != "neu" %} hidden{% endif %}>
-          {% feld form.neu_vorname %}{% feld form.neu_nachname %}
-          {% feld form.neu_email %}{% feld form.neu_telefon %}
+          {% feld form.neu_anrede breit=True pflicht=True %}
+          {% feld form.neu_vorname pflicht=True %}{% feld form.neu_nachname pflicht=True %}
           {% feld form.neu_firma breit=True %}
+          {% feld form.neu_strasse breit=True pflicht=True %}
+          {% feld form.neu_plz pflicht=True %}{% feld form.neu_ort pflicht=True %}
+          <div class="feld-breit">{% feld form.neu_anschrift_folgt %}</div>
+          {% feld form.neu_email %}{% feld form.neu_telefon %}
         </div>
       </fieldset>
 

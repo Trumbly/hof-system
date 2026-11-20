@@ -100,6 +100,10 @@ DIALOGE: dict[str, Dialog] = {
 }
 
 
+#: Grund am gesperrten Knopf „Kündigung anlegen“ (Review 3, Punkt 9).
+SPERRE_ABSENDER = "Erst wählen, warum die Kündigung trotz abweichendem Absender gilt."
+
+
 @dataclass
 class Rueckmeldung:
     """Was nach dem Speichern gemeldet wird (Review 2, B-Leitlinien): was passiert ist, und
@@ -209,6 +213,8 @@ def formulare(
             initial=(
                 anbindungen.kuendigung_vorschlag(anfrage) if anfrage else {"zugang_am": heute}
             ),
+            # Review 3, Punkt 9: Weicht der Absender ab, ist die Wahl dazu Pflicht.
+            abweichungen=(anbindungen.absender_abweichungen(anfrage, vertrag) if anfrage else []),
         )
     return ergebnis
 
@@ -265,6 +271,7 @@ def _speichern_kuendigung(
         "aufhebung": d["wunsch_wahl"] == f.KuendigungForm.AUFHEBUNG,
     }
     if anfrage is not None:
+        felder["absender"] = d.get("absender") or ""
         try:
             erfasst = anbindungen.kuendigung_aus_anfrage(anfrage, v, d["zugang_am"], **felder)
         except anbindungen.AnbindungFehler as fehler:
@@ -667,6 +674,11 @@ def _dialog(
             "knopf": dialog.knopf,
             "hinweis": hinweis,
             "warnungen": warnungen,
+            # Review 3, Punkt 9: „Kündigung erfassen“ erst nach der Wahl zum Absender.
+            "sperre_ohne": (
+                form.add_prefix("absender") if getattr(form, "absender_pflicht", False) else ""
+            ),
+            "sperre_grund": SPERRE_ABSENDER,
         },
     )
 

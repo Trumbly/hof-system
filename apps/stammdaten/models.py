@@ -209,8 +209,36 @@ class Partei(ProtokolliertesModell):
         PERSON = "person", "Person"
         FIRMA = "firma", "Firma"
 
+    class Anrede(models.TextChoices):
+        """Wie ein Schreiben beginnt (Review 3, Punkt 4; ``schreiben.briefanrede``)."""
+
+        FRAU = "frau", "Frau"
+        HERR = "herr", "Herr"
+        NEUTRAL = "neutral", "neutral"
+        FIRMA = "firma", "Firma"
+
+        @classmethod
+        def aus_text(cls, text: str, *, firma: bool = False) -> str:
+            """Anrede aus einem Import („Frau“, „Herr“, „Firma“ …); sonst neutral, bei einer
+            Firma „Firma“."""
+            wert = text.strip().casefold().rstrip(".")
+            if wert in ("frau", "fr"):
+                return str(cls.FRAU.value)
+            if wert in ("herr", "herrn", "hr"):
+                return str(cls.HERR.value)
+            if wert == "firma" or firma:
+                return str(cls.FIRMA.value)
+            return str(cls.NEUTRAL.value)
+
     art = models.CharField("Art", max_length=10, choices=Art.choices, default=Art.PERSON)
-    anrede = models.CharField("Anrede", max_length=30, blank=True)
+    anrede = models.CharField(
+        "Anrede",
+        max_length=10,
+        choices=Anrede.choices,
+        default=Anrede.NEUTRAL,
+        help_text="Frau: „Sehr geehrte Frau Nachname“, Herr: „Sehr geehrter Herr Nachname“, "
+        "neutral: „Guten Tag Vorname Nachname“, Firma: „Sehr geehrte Damen und Herren“.",
+    )
     vorname = models.CharField("Vorname", max_length=100, blank=True)
     nachname = models.CharField("Nachname", max_length=100, blank=True)
     firma = models.CharField("Firma", max_length=200, blank=True)
@@ -218,6 +246,12 @@ class Partei(ProtokolliertesModell):
     strasse = models.CharField("Straße und Hausnummer", max_length=200, blank=True)
     plz = models.CharField("PLZ", max_length=10, blank=True)
     ort = models.CharField("Ort", max_length=100, blank=True)
+    anschrift_folgt = models.BooleanField(
+        "Anschrift folgt",
+        default=False,
+        help_text="Die Anschrift fehlt noch. Sie steht im Datenstand, und Briefe an diese "
+        "Partei lassen sich erst senden, wenn sie ergänzt ist.",
+    )
     notiz = models.TextField("Notiz", blank=True)
     herkunft = models.CharField(
         "Herkunft",
@@ -253,6 +287,11 @@ class Partei(ProtokolliertesModell):
     @property
     def hat_anschrift(self) -> bool:
         return bool(self.strasse and self.plz and self.ort)
+
+    @property
+    def anschrift_offen(self) -> bool:
+        """„Anschrift folgt“ ist gesetzt und die Anschrift noch nicht ergänzt."""
+        return self.anschrift_folgt and not self.hat_anschrift
 
 
 class Kontaktweg(ProtokolliertesModell):
@@ -768,6 +807,14 @@ class Kuendigung(ProtokolliertesModell):
     #: Zugangswege in Textform (ohne eigenhändige Unterschrift).
     TEXTFORM = (Zugangsweg.MAIL, Zugangsweg.WEBSITE)
 
+    class Absender(models.TextChoices):
+        """Warum eine Kündigung gilt, deren Absender nicht als Mieter am Vertrag steht
+        (Review 3, Punkt 9; offene Frage an den Anwalt, ``docs/anwalt-fragen.md``)."""
+
+        PASST = "", "Absender ist Mieter laut Vertrag"
+        VOLLMACHT = "vollmacht", "Vollmacht liegt vor"
+        VERTRAGSPARTEI = "vertragspartei", "Absender ist Vertragspartei (anderer Name/E-Mail)"
+
     vertrag = models.ForeignKey(
         Vertrag, verbose_name="Vertrag", on_delete=models.PROTECT, related_name="kuendigungen"
     )
@@ -781,6 +828,15 @@ class Kuendigung(ProtokolliertesModell):
         default=False,
         help_text="Das Vertragsende ist der Wunschtermin vor dem Fristende; wirksam erst mit "
         "dem unterschriebenen Aufhebungsvertrag (Vorlage „Aufhebungsvertrag“).",
+    )
+    absender = models.CharField(
+        "Absender",
+        max_length=20,
+        choices=Absender.choices,
+        blank=True,
+        default=Absender.PASST,
+        help_text="Bei abweichendem Absender: Vollmacht oder Vertragspartei unter anderem "
+        "Namen bzw. anderer E-Mail-Adresse.",
     )
     kuendigungsregel = models.CharField("angewandte Kündigungsfrist", max_length=50)
     zum_wunsch = models.DateField("gewünschtes Ende", null=True, blank=True)
@@ -803,10 +859,15 @@ class Kuendigung(ProtokolliertesModell):
     @property
     def vorgang_text(self) -> str:
         """Für Titel im Protokoll, nur Nummern und Daten: „Kündigung V-0001“ oder
-        „Aufhebung V-0001 zum 31.12.2026“."""
+        „Aufhebung V-0001 zum 31.12.2026“. Bei abweichendem Absender steht die Wahl dabei
+        (Review 3, Punkt 9): „Kündigung V-0001 (Vollmacht liegt vor)“."""
         if self.aufhebung:
-            return f"Aufhebung {self.vertrag.nummer} zum {self.fristende:%d.%m.%Y}"
-        return f"Kündigung {self.vertrag.nummer}"
+            text = f"Aufhebung {self.vertrag.nummer} zum {self.fristende:%d.%m.%Y}"
+        else:
+            text = f"Kündigung {self.vertrag.nummer}"
+        if self.absender:
+            text += f" ({self.get_absender_display()})"
+        return text
 
 
 # --- Personenfelder (CLAUDE.md, Regel 4.6) ------------------------------------------
@@ -837,4 +898,4 @@ personenfelder.unbedenklich(Checkpunkt, ["text"])
 personenfelder.register(Uebergabe, ["zustand", "zurueckgelassen", "uebersprungen"])
 personenfelder.unbedenklich(Uebergabe, ["art", "status"])
 personenfelder.register(UebergabeFoto, ["beschreibung"])
-personenfelder.unbedenklich(Kuendigung, ["von", "kuendigungsregel", "zugangsweg"])
+personenfelder.unbedenklich(Kuendigung, ["von", "kuendigungsregel", "zugangsweg", "absender"])

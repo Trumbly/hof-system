@@ -81,7 +81,13 @@ def ohne_schreiben(grund: str) -> Iterator[None]:
 def _partei(partei: Partei) -> Kontext:
     return {
         "art": partei.art,
-        "anrede": partei.anrede,
+        # „Frau“ oder „Herr“ wie früher; neutral und Firma ohne Anrede (Review 3, Punkt 4).
+        "anrede": (
+            partei.get_anrede_display()
+            if partei.anrede in (Partei.Anrede.FRAU, Partei.Anrede.HERR)
+            else ""
+        ),
+        "anrede_brief": f"{briefanrede(partei)},",
         "name": partei.anzeigename,
         "vorname": partei.vorname,
         "nachname": partei.nachname,
@@ -93,20 +99,37 @@ def _partei(partei: Partei) -> Kontext:
     }
 
 
-def _briefanrede(partei: Partei) -> str:
-    if partei.art == Partei.Art.FIRMA:
-        return "Sehr geehrte Damen und Herren"
-    if partei.anrede == "Frau" and partei.nachname:
+def briefanrede(partei: Partei) -> str:
+    """Anrede ohne Satzzeichen (Review 3, Punkt 4), nach dem Feld „Anrede“ der Partei:
+
+    - Frau: „Sehr geehrte Frau Nachname“, Herr: „Sehr geehrter Herr Nachname“
+    - neutral: „Guten Tag Vorname Nachname“
+    - Firma (Anrede oder Art): „Sehr geehrte Damen und Herren“
+
+    Fehlt bei Frau oder Herr der Nachname, gilt „neutral“. Eine Firma mit Anrede Frau oder
+    Herr und Nachnamen (Ansprechperson) bekommt die persönliche Anrede."""
+    if partei.anrede == Partei.Anrede.FRAU and partei.nachname:
         return f"Sehr geehrte Frau {partei.nachname}"
-    if partei.anrede == "Herr" and partei.nachname:
+    if partei.anrede == Partei.Anrede.HERR and partei.nachname:
         return f"Sehr geehrter Herr {partei.nachname}"
-    return f"Guten Tag {partei.anzeigename}".strip()
+    if partei.anrede == Partei.Anrede.FIRMA or partei.art == Partei.Art.FIRMA:
+        return "Sehr geehrte Damen und Herren"
+    name = " ".join(t for t in (partei.vorname, partei.nachname) if t) or partei.anzeigename
+    return f"Guten Tag {name}".strip() if name else "Guten Tag"
 
 
 def _empfaenger(partei: Partei | None) -> Kontext:
-    """Empfänger im Format der App dokumente: name, anrede, anschrift, email."""
+    """Empfänger im Format der App dokumente: name, anrede, anrede_brief, anschrift,
+    anschrift_folgt, email."""
     if partei is None:
-        return {"name": "", "anrede": "", "anschrift": "", "email": ""}
+        return {
+            "name": "",
+            "anrede": "",
+            "anrede_brief": "",
+            "anschrift": "",
+            "anschrift_folgt": False,
+            "email": "",
+        }
     zeilen = [partei.adresszusatz, partei.strasse, f"{partei.plz} {partei.ort}".strip()]
     mail = (
         partei.kontaktwege.filter(art=Kontaktweg.Art.EMAIL)
@@ -116,8 +139,11 @@ def _empfaenger(partei: Partei | None) -> Kontext:
     )
     return {
         "name": partei.anzeigename,
-        "anrede": _briefanrede(partei),
+        "anrede": briefanrede(partei),
+        "anrede_brief": f"{briefanrede(partei)},",
         "anschrift": "\n".join(z for z in zeilen if z) if partei.hat_anschrift else "",
+        # Review 3, Punkt 4: Ein Brief entsteht zur Vorschau, ist aber gesperrt.
+        "anschrift_folgt": partei.anschrift_offen,
         "email": mail or "",
     }
 

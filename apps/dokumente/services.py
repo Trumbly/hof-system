@@ -18,7 +18,9 @@ Ein Schreiben entsteht mit::
         {                   # Kontext: nur einfache Werte, nie Modell-Objekte
             "empfaenger": {
                 "name": "…", "anrede": "…",
+                "anrede_brief": "Sehr geehrte Frau …,",  # Anredesatz mit Komma
                 "anschrift": "Straße 1\\n12345 Ort",   # Pflicht für Brief/Einschreiben
+                "anschrift_folgt": False,             # True: Brief entsteht, ist gesperrt
                 "email": "…@….invalid",              # Pflicht für Mail
             },
             "vertrag": {"nummer": "V-12", "beginn": datum, …},
@@ -337,12 +339,35 @@ def _aufzaehlen(teile: Sequence[str]) -> str:
     return ", ".join(teile[:-1]) + " und " + teile[-1]
 
 
+#: Versandwege, für die das Schreiben die Anschrift des Empfängers braucht.
+MIT_ANSCHRIFT = (Versandweg.BRIEF, Versandweg.EINWURF_EINSCHREIBEN)
+
+
+def empfaenger_gesperrt(schreiben: Schreiben) -> str:
+    """Warum sich ein Brief wegen fehlender Empfängerangaben nicht senden lässt, als ganzer
+    Satz; leer, wenn nichts fehlt (Review 3, Punkt 4: Partei mit „Anschrift folgt“).
+
+    Das PDF entstand ohne Anschrift im Fenster. Auch wenn die Anschrift inzwischen an der
+    Partei steht, bleibt es gesperrt, bis das Schreiben neu erzeugt ist."""
+    if not schreiben.empfaenger_luecken or schreiben.versandweg not in MIT_ANSCHRIFT:
+        return ""
+    weg = Versandweg.TITEL.get(schreiben.versandweg, schreiben.versandweg)
+    return (
+        f"Senden ist gesperrt: Für den Versand als {weg} fehlt {schreiben.empfaenger_luecken} "
+        "(„Anschrift folgt“). Bitte die Anschrift an der Partei ergänzen, danach dieses "
+        "Schreiben verwerfen und neu erzeugen."
+    )
+
+
 def senden_gesperrt(schreiben: Schreiben) -> str:
     """Warum sich ein Schreiben wegen des Briefkopfs nicht senden lässt, als ganzer Satz;
     leer, wenn nichts dagegen spricht (Review 1, Punkt 4).
 
     Gesperrt ist es, solange Pflichtangaben des Briefkopfs fehlen, und auch dann, wenn sie
-    beim Erzeugen fehlten: Das PDF trägt dann den unvollständigen Briefkopf."""
+    beim Erzeugen fehlten: Das PDF trägt dann den unvollständigen Briefkopf. Ebenso, wenn
+    einem Brief die Anschrift des Empfängers fehlt (``empfaenger_gesperrt``)."""
+    if gesperrt := empfaenger_gesperrt(schreiben):
+        return gesperrt
     luecken = briefkopf_luecken()
     if luecken:
         satz = (
@@ -420,15 +445,22 @@ def vorschau_pdf(vorlage: Vorlage) -> bytes:
     return _pdf_fuer(rumpf, kontext, briefkopf_html=kopf_html)[2]
 
 
-def _versandweg_pruefen(versandweg: str, kontext: Mapping[str, Any]) -> None:
+def _versandweg_pruefen(versandweg: str, kontext: Mapping[str, Any]) -> str:
+    """Prüft die Empfängerangaben für den Versandweg. Ergebnis: was fehlen darf und das
+    Senden sperrt (die Anschrift bei ``empfaenger.anschrift_folgt``), sonst leer."""
     if versandweg not in Versandweg.TITEL:
         raise SchreibenFehler(f"Unbekannter Versandweg {versandweg}.")
     empfaenger = kontext.get("empfaenger")
     if not isinstance(empfaenger, Mapping):
         raise SchreibenFehler(f"Für das Schreiben fehlt {platzhalter.bedeutung('empfaenger')}.")
     fehlt = versandweg_fehlt(versandweg, empfaenger)
-    if fehlt:
-        raise SchreibenFehler(fehlt)
+    if not fehlt:
+        return ""
+    if versandweg in MIT_ANSCHRIFT and empfaenger.get("anschrift_folgt"):
+        # Review 3, Punkt 4: „Anschrift folgt“ an der Partei. Das Schreiben entsteht zur
+        # Vorschau, lässt sich aber nicht senden (``empfaenger_gesperrt``).
+        return platzhalter.bedeutung("empfaenger.anschrift")
+    raise SchreibenFehler(fehlt)
 
 
 def versandweg_fehlt(versandweg: str, empfaenger: Mapping[str, Any]) -> str:
@@ -490,7 +522,7 @@ def schreiben_erzeugen(
         raise SchreibenFehler("Der Bezug muss gespeichert sein.")
     versandweg = versandweg or vorlagenart.versandweg
     platzhalter.kontext_pruefen(kontext)
-    _versandweg_pruefen(versandweg, kontext)
+    empfaenger_luecken = _versandweg_pruefen(versandweg, kontext)
 
     heute = zeit.heute()
     voll: dict[str, Any] = {"absender": absender(), **kontext, "datum": heute}
@@ -514,6 +546,7 @@ def schreiben_erzeugen(
             versandweg=versandweg,
             empfaenger_email=str(voll["empfaenger"].get("email") or "").strip(),
             absender_luecken=luecken[:300],
+            empfaenger_luecken=empfaenger_luecken[:300],
         )
         schreiben.save()
         voll["zeichen"] = f"S-{schreiben.pk}"

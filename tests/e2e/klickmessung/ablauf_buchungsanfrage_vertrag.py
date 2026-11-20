@@ -11,6 +11,9 @@ Weg seit R2-7 (Review 2, B5, Ziel 3 Klicks):
    Beginn (Wunschtermin), Miete (Zielmiete), Partei (vorhandene mit gleicher E-Mail oder
    „Neue Partei“ mit den Kontaktdaten der Anfrage).
 3. „Vertrag anlegen“: Vertrag, Partei mit Kontaktwegen, Anfrage verknüpft und erledigt.
+
+Seit Review 3, Punkt 4 braucht eine neue Partei die Anschrift oder den Haken „Anschrift
+folgt“. Die Anfrage der Website bringt keine Anschrift mit: ein Haken mehr.
 """
 
 from __future__ import annotations
@@ -35,6 +38,8 @@ SELEKTOREN = {
     "neu_vorname": "dialog[open] input[name=neu_vorname]",
     "neu_nachname": "dialog[open] input[name=neu_nachname]",
     "neu_email": "dialog[open] input[name=neu_email]",
+    "neu_strasse": "dialog[open] input[name=neu_strasse]",
+    "anschrift_folgt": "dialog[open] input[name=neu_anschrift_folgt]",
     "beginn": "dialog[open] input[name=beginn]",
     "miete": "dialog[open] input[name=miete]",
     "vertrag_anlegen": "dialog[open] button:has-text('Vertrag anlegen')",
@@ -65,6 +70,8 @@ def durchspielen(m: Messung, adressen: dict[str, Any]) -> None:
         m.tippe(s["neu_vorname"], vorname, vorbelegt_reicht=True)
         m.tippe(s["neu_nachname"], nachname, vorbelegt_reicht=True)
         m.tippe(s["neu_email"], email, vorbelegt_reicht=True)
+        if not m.seite.locator(s["neu_strasse"]).input_value().strip():
+            m.haken(s["anschrift_folgt"])
     m.tippe(s["beginn"], beginn, vorbelegt_reicht=True)
     m.tippe(s["miete"], adressen["zielmiete_anfrage"].replace(".", ","), vorbelegt_reicht=True)
     m.klick(s["vertrag_anlegen"])

@@ -153,15 +153,26 @@ def _partei(kontext: Kontext, nummer: int, firma: bool) -> Partei:
     }
     if firma:
         name = f.company()
-        partei = services.partei_anlegen(Partei.Art.FIRMA, firma=name, **felder)
+        partei = services.partei_anlegen(
+            Partei.Art.FIRMA, anrede=Partei.Anrede.FIRMA, firma=name, **felder
+        )
         adresse = erfunden.email(z, name.split()[0], domain="firma")
     else:
-        vorname, nachname = f.first_name(), f.last_name()
+        # Review 3, Punkt 4: Die Anrede passt zum Vornamen. Erst die Anrede wählen, dann
+        # den Vornamen aus der passenden Liste; „neutral“ bekommt einen beliebigen Vornamen.
+        anrede = z.choice((Partei.Anrede.FRAU, Partei.Anrede.HERR, Partei.Anrede.NEUTRAL))
+        vorname = {
+            Partei.Anrede.FRAU: f.first_name_female,
+            Partei.Anrede.HERR: f.first_name_male,
+        }.get(anrede, f.first_name)()
+        nachname = f.last_name()
         partei = services.partei_anlegen(
             Partei.Art.PERSON,
-            anrede=z.choice(("Frau", "Herr", "")),
+            anrede=anrede,
             vorname=vorname,
             nachname=nachname,
+            # Review 3, Punkt 4: Eine der Parteien ohne Straße wartet auf die Anschrift.
+            anschrift_folgt=nummer == 7,
             **felder,
         )
         adresse = erfunden.email(z, vorname, nachname)

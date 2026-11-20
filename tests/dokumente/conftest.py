@@ -115,6 +115,7 @@ def kontext(objekt: Objekt, *, email: str = "empfaenger@testhof.invalid") -> dic
         "empfaenger": {
             "name": "Erika Beispiel",
             "anrede": "Guten Tag Frau Beispiel",
+            "anrede_brief": "Guten Tag Frau Beispiel,",
             "anschrift": "Erfundene Straße 1\n12345 Testdorf",
             "email": email,
         },

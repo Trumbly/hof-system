@@ -59,7 +59,7 @@ VORLAGEN: tuple[tuple[str, str, str, str], ...] = (
         "mitteilung",
         "Mitteilung zu {{ einheit.bezeichnung }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>wir möchten Sie zu Ihrer Einheit {{ einheit.kuerzel }} im Objekt {{ objekt.bezeichnung }}
 informieren.</p>
 {% if mitteilung.text %}{{ mitteilung.text|linebreaks }}{% endif %}
@@ -71,7 +71,7 @@ informieren.</p>
         "aushang",
         "Aushang: {{ objekt.bezeichnung }}",
         """\
-<p>{{ empfaenger.anrede }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>für das Objekt {{ objekt.bezeichnung }} ({{ objekt.kuerzel }}) gilt ab sofort Folgendes.</p>
 {% if mitteilung.text %}{{ mitteilung.text|linebreaks }}{% endif %}
 <p>Mit freundlichen Grüßen<br>{{ absender.name }}</p>
@@ -82,7 +82,7 @@ informieren.</p>
         "zahlungserinnerung",
         "Zahlungserinnerung Vertrag {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>für den Vertrag {{ vertrag.nummer }} ({{ einheit.bezeichnung }}) ist ein Betrag von
 {{ betrag.offen|euro }} offen:</p>
 """
@@ -97,7 +97,7 @@ informieren.</p>
         "kuendigung",
         "Kündigung des Vertrags {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>hiermit kündigen wir den Vertrag {{ vertrag.nummer }} über {{ einheit.bezeichnung }}
 im Objekt {{ objekt.bezeichnung }} fristgerecht zum {{ vertrag.ende|datum }}.</p>
 <p>Bitte vereinbaren Sie mit uns einen Termin für die Rückgabe.</p>
@@ -141,7 +141,7 @@ je Monat{% if kondition.pauschale %} zuzüglich einer Pauschale von
         "kuendigungsbestaetigung",
         "Bestätigung Ihrer Kündigung, Vertrag {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 {% if kuendigung.textform %}<p>Ihre Kündigung des Vertrags {{ vertrag.nummer }} über
 {{ einheit.bezeichnung }} ({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} über
 {{ kuendigung.zugangsweg }} bei uns eingegangen.</p>
@@ -161,7 +161,7 @@ uns eingegangen.</p>
         "aufhebungsvertrag",
         "Aufhebungsvertrag zum Vertrag {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>Ihre Kündigung des Vertrags {{ vertrag.nummer }} über {{ einheit.bezeichnung }}
 ({{ einheit.nw_id }}) ist am {{ kuendigung.zugang_am|datum }} bei uns eingegangen. Nach der
 vereinbarten Frist ({{ kuendigung.kuendigungsfrist }}) endet der Vertrag am
@@ -181,7 +181,7 @@ Bitte senden Sie uns ein unterschriebenes Exemplar zurück.</p>
         "kautionsabrechnung",
         "Abrechnung der Kaution, Vertrag {{ vertrag.nummer }}",
         """\
-<p>{{ empfaenger.anrede|default:"Guten Tag" }},</p>
+<p>{{ empfaenger.anrede_brief }}</p>
 <p>für den Vertrag {{ vertrag.nummer }} rechnen wir die Kaution ab:</p>
 <table>
 <tr><td>Kaution</td><td>{{ abrechnung.betrag|euro }}</td></tr>

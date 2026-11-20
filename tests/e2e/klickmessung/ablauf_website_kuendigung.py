@@ -5,6 +5,8 @@ das Kündigungsformular des Vertrags vorausgefüllt (Zugang = Meldedatum, gekün
 Mieter, Wunschtermin, Zugangsweg Website). „Kündigung anlegen“ speichert die Kündigung am
 Vertrag; die Anfrage ist danach erledigt und mit ihr verknüpft. Passen mehrere Verträge,
 führt „Kündigung anlegen“ in den Dialog des Vertrags; dann kommt dort „Speichern“ dazu.
+Weicht der Absender vom Mieter ab (Review 3, Punkt 9), ist vorher eine Wahl Pflicht
+(„Absender ist Vertragspartei“): ein Klick mehr.
 
 ``umweg`` misst den Weg von Hand: Kündigung im Dialog des Vertrags erfassen, dann die
 Anfrage mit der erfassten Kündigung verknüpfen.
@@ -27,6 +29,7 @@ SELEKTOREN = {
     "kuendigung_anlegen": "main :is(button, a):has-text('Kündigung anlegen')",
     "dialog_speichern": "dialog[open] button[type=submit]",
     "fristende": "input[name=kuendigung-wunsch_wahl][value=fristende]",
+    "absender": "input[name=kuendigung-absender][value=vertragspartei]",
     # Umweg von Hand
     "vertrag": "main a:has-text('{vertrag}')",
     "kuendigung_dialog": "main a:has-text('Kündigung erfassen')",
@@ -72,8 +75,12 @@ def durchspielen(m: Messung, adressen: dict[str, Any]) -> None:
     m.klick(s["anfrage_oeffnen"])
     if not m.gibt_es(s["kuendigung_anlegen"]):
         raise NichtMoeglich("Die Anfrage bietet keinen Weg, die Kündigung anzulegen.")
+    if m.gibt_es(f"main {s['absender']}"):
+        m.haken(f"main {s['absender']}")
     m.klick(s["kuendigung_anlegen"])
     if m.gibt_es(s["dialog_speichern"]):
+        if m.gibt_es(f"dialog[open] {s['absender']}"):
+            m.haken(f"dialog[open] {s['absender']}")
         m.klick(s["dialog_speichern"])
         _wahl_falls_noetig(m, s)
     m.anhalten()
@@ -97,6 +104,8 @@ def umweg(m: Messung, adressen: dict[str, Any]) -> None:
     m.tippe(s["zugang_am"], anfrage["gemeldet"])
     m.waehle(s["von"], r"^Mieter$")
     m.tippe(s["zum_wunsch"], anfrage["wunsch"])
+    if m.gibt_es(f"dialog[open] {s['absender']}"):
+        m.haken(f"dialog[open] {s['absender']}")
     m.klick(s["dialog_speichern"])
     _wahl_falls_noetig(m, s)
     m.klick(s["nav_arbeitslisten"])

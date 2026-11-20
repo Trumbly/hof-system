@@ -149,7 +149,10 @@ def test_website_kuendigung_durchgehend(
     assert anfrage.status == "offen"  # erst nach dem Speichern erledigt
 
     antwort = angemeldet.post(
-        link, _formular(vertrag, anfrage, zum_wunsch=wunsch.isoformat()), follow=True
+        link,
+        # Review 3, Punkt 9: Der Absender weicht ab, also ist die Wahl dazu Pflicht.
+        _formular(vertrag, anfrage, zum_wunsch=wunsch.isoformat(), absender="vollmacht"),
+        follow=True,
     )
 
     kuendigung = Kuendigung.objects.get(vertrag=vertrag)
@@ -341,12 +344,16 @@ def test_ruecknahme_oeffnet_die_anfrage_wieder(
     Kündigung, ihr Arbeitsposten offen, der Vertrag aktiv, die Bestätigung verworfen."""
     anfrage = _kuendigung_melden(api, vertrag, None)
     (posten,) = Arbeitsposten.objects.filter(art=services.ART_BUCHUNGSANFRAGE)
-    kuendigung = services.kuendigung_aus_anfrage(anfrage, vertrag, ZUGANG)
+    kuendigung = services.kuendigung_aus_anfrage(
+        anfrage, vertrag, ZUGANG, absender=Kuendigung.Absender.VERTRAGSPARTEI
+    )
     bestaetigung = _bestaetigung(kuendigung)
     vid = Events.objects.tracks(kuendigung).order_by("-pgh_created_at")[0].pgh_context_id
-    assert vorgaenge.titel_von(vid) == (
-        f"Kündigung {vertrag.nummer} aus Anfrage #{anfrage.pk} erfasst"
+    titel = (
+        f"Kündigung {vertrag.nummer} (Absender ist Vertragspartei (anderer Name/E-Mail)) "
+        f"aus Anfrage #{anfrage.pk} erfasst"
     )
+    assert vorgaenge.titel_von(vid) == titel
 
     bericht = kern.vorgang_zuruecknehmen(vid)
 
@@ -354,7 +361,7 @@ def test_ruecknahme_oeffnet_die_anfrage_wieder(
     posten.refresh_from_db()
     vertrag.refresh_from_db()
     bestaetigung.refresh_from_db()
-    assert bericht.titel == f"Kündigung {vertrag.nummer} aus Anfrage #{anfrage.pk} erfasst"
+    assert bericht.titel == titel
     assert (anfrage.status, anfrage.kuendigung, anfrage.entschieden_am) == ("offen", None, None)
     assert anfrage.vertrag == vertrag  # aus der gemeldeten Vertragsnummer, wie vorher
     assert posten.status == Arbeitsposten.Status.OFFEN

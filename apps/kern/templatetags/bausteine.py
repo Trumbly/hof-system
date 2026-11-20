@@ -197,6 +197,7 @@ def feld(feld: BoundField, **optionen: Any) -> dict[str, Any]:
             "optionen": _optionen(feld),
             "beschrieben_von": _beschrieben_von(feld),
             "breit": optionen.get("breit", False),
+            "pflicht": optionen.get("pflicht", False),
         }
     return {
         "feld": feld,
@@ -204,6 +205,9 @@ def feld(feld: BoundField, **optionen: Any) -> dict[str, Any]:
         "haken": isinstance(widget, forms.CheckboxInput),
         "gruppe": isinstance(widget, forms.MultiWidget),
         "breit": optionen.get("breit", False),
+        # Pflicht, die von einer anderen Angabe abhängt (z. B. Anschrift oder „Anschrift
+        # folgt“, Review 3, Punkt 4): kein Hinweis „optional“ am Label.
+        "pflicht": optionen.get("pflicht", False),
     }
 
 

@@ -102,7 +102,10 @@ def _kuendigung_angebote(anfrage: Buchungsanfrage) -> dict[str, object]:
     if len(anlegen) == 1:
         vertrag = anlegen[0]["vertrag"]
         formular = stammdaten_formulare.KuendigungForm(
-            prefix="kuendigung", vertrag=vertrag, initial=vorschlag
+            prefix="kuendigung",
+            vertrag=vertrag,
+            initial=vorschlag,
+            abweichungen=anlegen[0]["abweichungen"],
         )
         zugang, wunsch = vorschlag["zugang_am"], vorschlag["zum_wunsch"]
         ende = stammdaten.wunsch_vor_fristende(vertrag, zugang, wunsch)  # type: ignore[arg-type]

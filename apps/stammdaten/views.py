@@ -225,16 +225,27 @@ def parteien(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def partei_neu(request: HttpRequest) -> HttpResponse:
-    form = f.ParteiForm(request.POST or None)
+    form = f.ParteiForm(request.POST or None, neu=True)
     if request.method == "POST" and form.is_valid():
         try:
-            partei = services.partei_anlegen(**form.cleaned_data)
+            partei = services.partei_neu_anlegen(**form.cleaned_data)
+        except services.ParteiUnvollstaendig as fehler:
+            f.neue_partei_fehler(
+                form,
+                fehler,
+                {
+                    "vorname": "vorname",
+                    "nachname": "nachname",
+                    "firma": "firma",
+                    "anschrift": "strasse",
+                },
+            )
         except services.StammdatenFehler as fehler:
             messages.error(request, str(fehler))
         else:
             messages.success(request, f"Partei #{partei.pk} angelegt.")
             return redirect("stammdaten:partei", partei.pk)
-    return render(request, "stammdaten/neu.html", {"form": form, "titel": "Neue Partei"})
+    return render(request, "stammdaten/partei_neu.html", {"form": form})
 
 
 @login_required

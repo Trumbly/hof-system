@@ -471,6 +471,19 @@
   document.addEventListener("input", bedingtePruefen);
   document.addEventListener("htmx:afterSettle", bedingtePruefen);
 
+  // Pflichtwahl vor dem Absenden (Review 3, Punkt 9): [data-gesperrt-ohne="feld"] an einem
+  // Knopf hält ihn gesperrt, solange das Feld desselben Formulars keinen Wert hat (Radio
+  // nicht gewählt). Ohne JavaScript prüft der Server und nennt den Grund am Feld.
+  function sperrenPruefen() {
+    document.querySelectorAll("[data-gesperrt-ohne]").forEach(function (knopf) {
+      var form = knopf.closest("form") || document;
+      knopf.disabled = feldWert(form, knopf.getAttribute("data-gesperrt-ohne")) === "";
+    });
+  }
+  document.addEventListener("DOMContentLoaded", sperrenPruefen);
+  document.addEventListener("change", sperrenPruefen);
+  document.addEventListener("htmx:afterSettle", sperrenPruefen);
+
   // Sprungmarke öffnet den Dialog (Review 2, B7): Zeigt die Adresse auf eine Karte
   // (#stammfelder, etwa aus dem Datenstand) und hat die Karte einen Link [data-anker-dialog],
   // öffnet sich dessen Dialog. Ohne HTMX führt der Link zur Seite mit offenem Formular.

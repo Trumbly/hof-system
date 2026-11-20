@@ -190,6 +190,14 @@ class Schreiben(ProtokolliertesModell):
         help_text="Pflichtangaben des Briefkopfs, die beim Erzeugen des PDFs fehlten. "
         "Solange hier etwas steht, lässt sich das Schreiben nicht senden (Review 1, Punkt 4).",
     )
+    empfaenger_luecken = models.CharField(
+        "Empfängerangaben beim Erzeugen unvollständig",
+        max_length=300,
+        blank=True,
+        help_text="Was für den Versandweg beim Erzeugen fehlte, z. B. die Anschrift bei "
+        "„Anschrift folgt“. Solange hier etwas steht, lässt sich das Schreiben nicht senden "
+        "(Review 3, Punkt 4).",
+    )
 
     class Meta:
         verbose_name = "Schreiben"
@@ -535,7 +543,7 @@ personenfelder.register(Schreiben, ["zustellnachweis_vermerk"])
 # Name der Person, die eine Vorlage freigibt (Review 1, Punkt 4).
 personenfelder.register(Vorlage, ["freigabe_durch"])
 # Nur die Bezeichnungen fehlender Briefkopf-Angaben, nie die Angaben selbst.
-personenfelder.unbedenklich(Schreiben, ["absender_luecken"])
+personenfelder.unbedenklich(Schreiben, ["absender_luecken", "empfaenger_luecken"])
 personenfelder.unbedenklich(
     Schreiben,
     ["art", "pdf_sha256", "versandweg", "status", "dienst_auftrag", "sendungsnummer"],

@@ -159,6 +159,8 @@ class Luecke:
     url: str
     #: Nur für die Seite (Name einer Partei), nie für Berichte.
     name: str = ""
+    #: Zusatz für die Seite, z. B. „Anschrift folgt“ (Review 3, Punkt 4). Ohne Namen.
+    vermerk: str = ""
 
     @property
     def felder_titel(self) -> str:
@@ -177,6 +179,9 @@ class Bereichsstand:
         """Zahl der fehlenden Pflichtfelder im Bereich."""
         return sum(len(luecke.felder) for luecke in self.luecken)
 
+
+#: Vermerk an einer Partei mit „Anschrift folgt“ (Review 3, Punkt 4).
+ANSCHRIFT_FOLGT = "Anschrift folgt"
 
 #: Wie die Objekte eines Bereichs in der Mehrzahl heißen („44 Verträge ohne Scan“).
 MEHRZAHL = {
@@ -338,6 +343,9 @@ def ermitteln(stichtag: datetime.date | None = None) -> list[Bereichsstand]:
             if not fehlend:
                 continue
             kennung, seite, name = _kennung(schluessel, objekt)
+            vermerk = ""
+            if schluessel == "partei" and getattr(objekt, "anschrift_offen", False):
+                vermerk = ANSCHRIFT_FOLGT
             erste = fehlend[0][1]
             url = erste.seite(objekt) if erste.seite else f"{seite}#{erste.anker}"
             stand.luecken.append(
@@ -348,6 +356,7 @@ def ermitteln(stichtag: datetime.date | None = None) -> list[Bereichsstand]:
                     felder=tuple((p, pruefung.titel) for p, pruefung in fehlend),
                     url=url,
                     name=name,
+                    vermerk=vermerk,
                 )
             )
         ergebnis.append(stand)

@@ -146,6 +146,11 @@ def _anlegen(form: f.VertragNeuForm, anfrage: Buchungsanfrage | None) -> tuple[V
                 firma=d["neu_firma"],
                 email=d["neu_email"],
                 telefon=d["neu_telefon"],
+                anrede=d["neu_anrede"],
+                strasse=d["neu_strasse"],
+                plz=d["neu_plz"],
+                ort=d["neu_ort"],
+                anschrift_folgt=d["neu_anschrift_folgt"],
             )
         elif form.partei is not None:
             partei = form.partei
@@ -231,6 +236,8 @@ def seite(request: HttpRequest) -> HttpResponse:
         if form.is_valid():
             try:
                 vertrag, dokument, verknuepft = _anlegen(form, anfrage)
+            except services.ParteiUnvollstaendig as fehler:
+                f.neue_partei_fehler(form, fehler, f.VertragNeuForm.NEU_FEHLERFELDER)
             except (services.StammdatenFehler, anbindungen.AnbindungFehler) as fehler:
                 form.add_error(None, str(fehler))
             else:

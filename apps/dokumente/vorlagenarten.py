@@ -52,6 +52,8 @@ GEMEINSAME_PLATZHALTER: tuple[str, ...] = (
     "absender.bank",
     "empfaenger.name",
     "empfaenger.anrede",
+    # Review 3, Punkt 4: der ganze Anredesatz mit Komma („Sehr geehrter Herr Muster,“).
+    "empfaenger.anrede_brief",
     "empfaenger.anschrift",
     "empfaenger.email",
     "datum",

@@ -36,6 +36,7 @@ def test_mit_den_testhof_vorlagen_entstehen_schreiben(testhof: Testhof) -> None:
         "empfaenger": {
             "name": "Erika Beispiel",
             "anrede": "Guten Tag Frau Beispiel",
+            "anrede_brief": "Guten Tag Frau Beispiel,",
             "anschrift": "Erfundene Straße 1\n12345 Testdorf",
             "email": "erika@testhof.invalid",
         },

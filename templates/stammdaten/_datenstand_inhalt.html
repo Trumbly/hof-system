@@ -31,7 +31,7 @@
           <tr class="luecke">
             <td data-titel="Kennung"><a href="{{ luecke.url }}"><strong>{{ luecke.kennung }}</strong></a></td>
             {% if g.mit_namen %}<td data-titel="Name">{{ luecke.name|default:"–" }}</td>{% endif %}
-            <td data-titel="fehlt">fehlt {{ luecke.felder_titel }}</td>
+            <td data-titel="fehlt">fehlt {{ luecke.felder_titel }}{% if luecke.vermerk %} {% badge "warnung" luecke.vermerk %} <span class="text-3 klein">Briefe gesperrt, bis sie ergänzt ist</span>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
