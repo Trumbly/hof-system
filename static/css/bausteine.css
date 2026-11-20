@@ -74,6 +74,9 @@ body.neu {
 .neu code {
   font-family: var(--schrift-mono);
   font-size: var(--text-13);
+  /* Lange Pfade ohne Leerzeichen brechen um, statt die Seite am Handy (320 px) zu
+     verbreitern (Review 3, Abschluss). */
+  overflow-wrap: anywhere;
 }
 
 /* Zahlen: gleiche Ziffernbreite, damit Spalten bündig stehen */

@@ -60,3 +60,24 @@ def test_seite_r2_8(
     befunde = [f"Status {antwort.status}"] if antwort is not None and antwort.status >= 500 else []
     befunde += serverfehler + pruefen(seite)
     assert not befunde, f"{schluessel} ({pfad}) bei {breite} px:\n- " + "\n- ".join(befunde)
+
+
+#: Schmalste Breite, die Max prüft (Review 3, Abschluss): kleine Handys.
+SCHMAL = {"width": 320, "height": 700}
+
+
+@pytest.mark.parametrize("schluessel", ["stil", "schreiben"])
+def test_seite_bei_320(seite: Page, adressen: dict[str, Any], schluessel: str) -> None:
+    """Review 3, Abschluss: ``/stil/`` und die Seite eines Schreibens laufen auch bei 320 px
+    nicht über den Rand. Auf ``/stil/`` machten lange Pfade in ``<code>`` (Abschnitt
+    „Dateien“) die Seite 344 px breit; die Reiter scrollen in ihrer eigenen Leiste."""
+    pfad = adressen["seiten_r2_8"].get(schluessel)
+    if pfad is None:
+        pytest.skip(f"Keine Seite {schluessel} im Testhof.")
+    seite.set_viewport_size(SCHMAL)
+    seite.goto(pfad, wait_until="networkidle")
+    ziel = ZIEL / "320" / f"{schluessel}.png"
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    seite.screenshot(path=ziel, full_page=True)
+    befunde = pruefen(seite)
+    assert not befunde, f"{schluessel} ({pfad}) bei 320 px:\n- " + "\n- ".join(befunde)
