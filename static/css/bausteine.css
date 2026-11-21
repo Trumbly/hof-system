@@ -1619,43 +1619,11 @@ dialog.dialog[open] {
   min-width: 0;
 }
 
-.cockpit-raster > li > .kachel,
 .cockpit-raster > li > .karte {
   flex: 1;
 }
 
-/* Die Kacheln der Apps (alte Vorlagen) in der Form einer Karte */
-.cockpit-raster .kachel {
-  display: block;
-  padding: var(--a3) var(--a4);
-  color: var(--text);
-  text-decoration: none;
-  background: var(--flaeche);
-  border: 1px solid var(--linie);
-  border-radius: var(--radius);
-}
-
-.neu .cockpit-raster a.kachel {
-  color: var(--text);
-}
-
-.cockpit-raster a.kachel:hover {
-  border-color: var(--linie-stark);
-}
-
-.cockpit-raster .kachel > strong:first-child {
-  display: block;
-  margin-bottom: var(--a1);
-  font-size: var(--text-15);
-  font-weight: var(--gewicht-fett);
-}
-
-.cockpit-raster .kachel br {
-  display: block;
-  content: "";
-  margin-top: 2px;
-}
-
+/* Zeilen einer Kachel ({% karte … ziel=… %}, PR H): Bezeichnung links, Wert rechts */
 .cockpit-raster .kachel-zeilen {
   display: block;
   margin-top: var(--a1);
@@ -1675,10 +1643,6 @@ dialog.dialog[open] {
 .cockpit-raster .kachel-zeile strong {
   color: var(--text);
   font-variant-numeric: tabular-nums;
-}
-
-.cockpit-raster .kachel-fehler {
-  border-style: dashed;
 }
 
 .neu .status {

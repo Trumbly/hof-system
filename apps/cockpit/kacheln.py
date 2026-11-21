@@ -17,10 +17,11 @@ Jede App meldet ihre Kachel selbst an, in ``AppConfig.ready()``::
         reihenfolge=kacheln.RUECKSTAENDE,     # Rang 30, siehe unten
     )
 
-Die Vorlage ist genau ein ``<li id="kachel-<name>">`` mit einem ``<a class="kachel"
-href="…">`` auf die Liste, zu der die Kachel gehört. Sie zeigt nur Zähler, Summen,
-NW-IDs und Daten, nie Namen von Personen. Die Kontextfunktion bekommt keine Argumente und
-liest bei jedem Aufruf der Startseite neu aus der Datenbank.
+Die Vorlage ist genau ein ``<li id="kachel-<name>">`` mit ``{% karte "Titel" zahl=…
+ziel=… %}``: Titel ohne Doppelpunkt, die Zahl als Kapsel, die ganze Karte ein Link auf die
+Liste, zu der die Kachel gehört; darunter die Zeilen (``.kachel-zeilen``). Sie zeigt nur
+Zähler, Summen, NW-IDs und Daten, nie Namen von Personen. Die Kontextfunktion bekommt keine
+Argumente und liest bei jedem Aufruf der Startseite neu aus der Datenbank.
 
 Platzhalter: Eine Kachel mit ``platzhalter=True`` hält einen Platz frei, bis die App, die
 ihn füllt, ihre Kachel unter demselben Namen anmeldet. Ein Platzhalter ersetzt nie eine

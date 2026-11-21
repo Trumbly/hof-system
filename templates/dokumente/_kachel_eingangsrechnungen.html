@@ -1,5 +1,9 @@
 {# Offene Eingangsrechnungen: nur Zähler, keine Lieferanten, keine Beträge. #}
-<li id="kachel-eingangsrechnungen"><a class="kachel" href="{% url 'dokumente:rechnungen' %}">
-  <strong>Eingangsrechnungen offen: {{ offen }}</strong>{% if ueberfaellig %} <span class="status status-abgebrochen">{{ ueberfaellig }} überfällig</span>{% endif %}
-  <br>fällig in {{ tage }} Tagen: <strong>{{ bald }}</strong>{% if strittig %} · strittig: {{ strittig }}{% endif %}
-</a></li>
+{% load bausteine %}{% url 'dokumente:rechnungen' as ziel %}
+<li id="kachel-eingangsrechnungen">{% karte "Eingangsrechnungen offen" zahl=offen ziel=ziel %}
+  {% if ueberfaellig %}<p><span class="status status-abgebrochen">{{ ueberfaellig }} überfällig</span></p>{% endif %}
+  <span class="kachel-zeilen">
+    <span class="kachel-zeile">fällig in {{ tage }} Tagen: <strong>{{ bald }}</strong></span>
+    {% if strittig %}<span class="kachel-zeile">strittig: <strong>{{ strittig }}</strong></span>{% endif %}
+  </span>
+{% endkarte %}</li>

@@ -1,1 +1,1 @@
-<li id="kachel-{{ kachel.name }}"><div class="kachel kachel-fehler"><strong>{{ kachel.name }}</strong><br><span class="leise">Diese Kachel ist gerade nicht verfügbar (siehe Log).</span></div></li>
+{% load bausteine %}<li id="kachel-{{ kachel.name }}">{% karte kachel.name %}<p class="leise">Diese Kachel ist gerade nicht verfügbar (siehe Log).</p>{% endkarte %}</li>

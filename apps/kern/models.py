@@ -11,7 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
-from apps.kern import personenfelder
+from apps.kern import laufnamen, personenfelder
 from apps.kern.protokoll import ProtokolliertesModell
 
 
@@ -114,6 +114,11 @@ class Lauf(models.Model):
 
     def __str__(self) -> str:
         return f"Lauf #{self.pk} {self.name}"
+
+    @property
+    def anzeigename(self) -> str:
+        """Name für die Oberfläche (``apps.kern.laufnamen``); ``name`` bleibt technisch."""
+        return laufnamen.anzeigename(self.name)
 
     @property
     def dauer_sekunden(self) -> float | None:

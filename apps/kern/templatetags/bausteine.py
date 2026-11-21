@@ -297,8 +297,9 @@ class _RahmenNode(template.Node):
         werte: dict[str, Any] = dict.fromkeys(self.felder, "")
         werte |= {name: ausdruck.resolve(context) for name, ausdruck in self.positionen}
         werte |= {name: ausdruck.resolve(context) for name, ausdruck in self.benannt.items()}
-        # Der Inhalt ist schon gerendert und dabei maskiert worden.
-        werte["inhalt"] = mark_safe(self.nodelist.render(context))  # noqa: S308
+        # Der Inhalt ist schon gerendert und dabei maskiert worden. Ohne Leerraum außen, damit
+        # die Vorlage einen leeren Inhalt erkennt (Karte mit „ziel“ ohne Rumpf).
+        werte["inhalt"] = mark_safe(self.nodelist.render(context).strip())  # noqa: S308
         vorlage = context.template.engine.get_template(self.vorlage)  # type: ignore[union-attr]
         with context.push(**werte):
             return str(vorlage.render(context))
@@ -326,7 +327,8 @@ def _rahmen(
 #: {% seitenkopf "Titel" "Meta-Zeile" %}<Aktionen rechts>{% endseitenkopf %}
 _rahmen("seitenkopf", "bausteine/seitenkopf.html", ("titel", "meta"), ("id",))
 #: {% karte "Titel" link=url link_text="alle ansehen" %}<Inhalt>{% endkarte %}
-_rahmen("karte", "bausteine/karte.html", ("titel",), ("link", "link_text", "zahl", "id"))
+#: {% karte "Titel" zahl=3 ziel=url %}<Zeilen>{% endkarte %}: die ganze Karte als Link (Kachel)
+_rahmen("karte", "bausteine/karte.html", ("titel",), ("link", "link_text", "zahl", "id", "ziel"))
 #: {% aufklapper "Zusammenfassung" offen=True %}<Inhalt>{% endaufklapper %}
 _rahmen("aufklapper", "bausteine/aufklapper.html", ("titel",), ("offen", "zahl"))
 

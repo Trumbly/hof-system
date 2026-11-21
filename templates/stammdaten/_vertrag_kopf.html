@@ -13,10 +13,11 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
     </div>
     <div class="seitenkopf-aktionen">
       {% comment %} Eine Hauptaktion je Status, alles Weitere unter „mehr ▾“ (Apple-Design, PR C):
-      Entwurf → Übergabe, gekündigt → Rückgabe, sonst „Schreiben erstellen“. {% endcomment %}
+      Entwurf → Übergabe, aktiv und gekündigt → Rückgabe (Entscheidung von Max, PR H), beendet →
+      „Schreiben erstellen“. {% endcomment %}
       {% if vertrag.status == "entwurf" %}
       <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'uebergabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-primaer">Übergabe am Handy</button></form>
-      {% elif vertrag.status == "gekuendigt" %}
+      {% elif vertrag.status == "aktiv" or vertrag.status == "gekuendigt" %}
       <form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit" class="knopf knopf-primaer">Rückgabe am Handy</button></form>
       {% else %}
       <a class="knopf knopf-primaer" href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a>
@@ -25,9 +26,8 @@ Kopf der Vertragsseite (Review 2, B7). Wird nach jedem Speichern im Dialog erset
         <summary class="knopf knopf-zweit">mehr ▾</summary>
         <ul class="menue-liste">
           <li><a href="{{ basis }}?dialog=kondition" hx-get="{{ basis }}?dialog=kondition" hx-target="#dialog-inhalt">Miete ändern</a></li>
-          {% if vertrag.status == "aktiv" %}<li><a href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a></li>
-          <li><form method="post" action="{% url 'stammdaten:uebergabe_starten' vertrag.pk 'rueckgabe' %}">{% csrf_token %}<button type="submit">Rückgabe am Handy</button></form></li>{% endif %}
-          {% if vertrag.status == "entwurf" or vertrag.status == "gekuendigt" %}<li><a href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a></li>{% endif %}
+          {% if vertrag.status == "aktiv" %}<li><a href="{{ basis }}?dialog=kuendigung" hx-get="{{ basis }}?dialog=kuendigung" hx-target="#dialog-inhalt">Kündigung erfassen</a></li>{% endif %}
+          {% if vertrag.status != "beendet" %}<li><a href="{{ basis }}?dialog=schreiben_erstellen" hx-get="{{ basis }}?dialog=schreiben_erstellen" hx-target="#dialog-inhalt">Schreiben erstellen</a></li>{% endif %}
           <li class="menue-trenner" role="separator"></li>
           <li><a href="{{ basis }}?dialog=unterschrift" hx-get="{{ basis }}?dialog=unterschrift" hx-target="#dialog-inhalt">Unterschrift und Scan erfassen</a></li>
           <li><a href="{{ basis }}?dialog=partei" hx-get="{{ basis }}?dialog=partei" hx-target="#dialog-inhalt">Partei hinzufügen</a></li>

@@ -1,4 +1,6 @@
-{% load bausteine %}
-<li id="kachel-rueckstaende"><a class="kachel" href="{% url 'abgleich:rueckstaende' %}"><strong>Rückstände</strong><strong>{{ anzahl }}</strong> Verträge mit Rückstand · {{ summe|euro }}{% if in_klaerung %} · {{ in_klaerung }} in Klärung{% endif %}
+{# Rückstände: Zahl der Verträge mit Rückstand als Kapsel, darunter Summe und Aufteilung. Nur Zähler und Summen. #}
+{% load bausteine %}{% url 'abgleich:rueckstaende' as ziel %}
+<li id="kachel-rueckstaende">{% karte "Rückstände" zahl=anzahl ziel=ziel %}
+  <p>Verträge mit Rückstand · {{ summe|euro }}{% if in_klaerung %} · {{ in_klaerung }} in Klärung{% endif %}</p>
   {% include "soll/_aufteilung_zeilen.html" %}
-</a></li>
+{% endkarte %}</li>

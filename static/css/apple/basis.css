@@ -50,8 +50,9 @@
   --link: #217a4f; /* 5,3:1 auf Weiß, 4,8:1 auf Grund, 5,0:1 auf Material */
   --fokus: #217a4f;
 
-  --band: #fcefd6;
-  --band-text: #7f4600; /* 6,6:1 */
+  /* Testhof-Band: Violett, das sonst nirgends vorkommt (Befund F; Bernstein heißt Warnung) */
+  --band: #e9e2f8;
+  --band-text: #553a8f; /* 7,0:1 */
 
   /* Material der Bedienebene: dick (85 % deckend), darunter Unschärfe. So bleibt Text darauf
      auch über dunklem oder farbigem Inhalt bei mindestens 4,5:1 (Rechnung im Review). */
@@ -116,8 +117,8 @@
     --link: #6fd09d; /* 9,1:1 auf --flaeche */
     --fokus: #6fd09d;
 
-    --band: #33250e;
-    --band-text: #f2bc66; /* 8,6:1 */
+    --band: #2a1f42;
+    --band-text: #cbb8f6; /* 8,5:1 */
 
     --material: rgb(29 32 30 / 85%);
     --material-deckend: #1b1d1c;
@@ -636,10 +637,6 @@
   row-gap: var(--a5);
 }
 
-[data-design="apple"] .cockpit-seite #objekte {
-  margin-top: var(--a5) !important; /* überschreibt das style-Attribut der Vorlage */
-}
-
 /* Fristen-Kachel: zwei Listen nebeneinander */
 [data-design="apple"] .cockpit-seite .fristen-listen > div + div {
   border-color: var(--linie);
@@ -647,51 +644,27 @@
 
 /* Kein Kind des Rasters ist breiter als seine Spalte, gleich welche Schrift: Die Kacheln
    (flex: 1 im li) hätten sonst die Mindestbreite ihres längsten Worts. */
-[data-design="apple"] .cockpit-raster > li > .kachel,
 [data-design="apple"] .cockpit-raster > li > .karte,
 [data-design="apple"] .cockpit-seite .kennzahlen-reihe > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-/* --- Kacheln der Apps (Vorlagen mit <strong> als Titel) ------------------------------ */
+/* --- Kacheln: {% karte "Titel" zahl=… ziel=… %} (PR H, Befund E) ---------------------- */
+/* Titel, Zahl als Kapsel und Pfeil im Kopf kommen aus dem Baustein (apple/bausteine.css,
+   a.karte-ziel); hier nur die Zeilen darunter. */
 
-[data-design="apple"] .cockpit-raster .kachel {
-  position: relative;
-  background: var(--flaeche);
-  border: 0;
-  border-radius: var(--radius-karte);
-  box-shadow: var(--schatten-karte);
-  padding: var(--a4) var(--a10) var(--a4) var(--a4);
-  transition: background var(--uebergang);
+[data-design="apple"] .cockpit-raster .karte-rumpf > p + p {
+  margin-top: var(--a1);
 }
 
-[data-design="apple"] .cockpit-raster a.kachel:hover {
-  background: var(--flaeche-2);
-}
-
-[data-design="apple"] .cockpit-raster a.kachel::after {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  content: "";
-  border-top: 2px solid var(--text-3);
-  border-right: 2px solid var(--text-3);
-  transform: rotate(45deg);
-  top: 22px;
-  right: var(--a5);
-}
-
-[data-design="apple"] .cockpit-raster .kachel > strong:first-child {
-  margin-bottom: var(--a1);
-  font-size: var(--apple-kopfzeile);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-/* Zeilen einer Kachel: über die volle Breite (auch unter dem Pfeil), Haarlinien */
+/* Zeilen einer Kachel: Bezeichnung links, Wert rechts, Haarlinien */
 [data-design="apple"] .cockpit-raster .kachel-zeilen {
-  margin: var(--a2) calc(-1 * var(--a10) + var(--a4)) 0 0;
+  margin-top: var(--a2);
+}
+
+[data-design="apple"] .cockpit-raster .karte-rumpf > .kachel-zeilen:first-child {
+  margin-top: 0;
 }
 
 [data-design="apple"] .cockpit-raster .kachel-zeile {
@@ -701,13 +674,26 @@
   border-top-color: var(--linie);
 }
 
-/* Läufe: Status und Zeit rechts bündig, statt mitten in der Zeile */
+/* Läufe: Status und Zeit rechts bündig, statt mitten in der Zeile. Sie brechen nie; wird es
+   eng, bricht der Anzeigename (an seinen Leerzeichen). */
+[data-design="apple"] .cockpit-raster .kachel-zeile:has(> .status) {
+  gap: var(--a2);
+}
+
 [data-design="apple"] .cockpit-raster .kachel-zeile > .status {
+  flex: none;
   margin-left: auto;
+  overflow-wrap: normal;
 }
 
 [data-design="apple"] .cockpit-raster .kachel-zeile > .leise {
+  flex: none;
   white-space: nowrap;
+}
+
+[data-design="apple"] .cockpit-raster .kachel-lauf {
+  min-width: 0;
+  overflow-wrap: normal;
 }
 
 /* Status als Punkt plus Wort: Erfolg leise (Grau mit grünem Punkt), Fehler rot und fett.
@@ -751,10 +737,6 @@
 [data-design="apple"] .neu .cockpit-seite .status-abgebrochen,
 [data-design="apple"] .neu .cockpit-seite .status-mit_fehlern {
   font-weight: 600;
-}
-
-[data-design="apple"] .cockpit-raster .kachel br {
-  margin-top: var(--a1);
 }
 
 /* Sehr schmal (unter 360 px): großer Titel eine Stufe kleiner (Title 1, 28) */

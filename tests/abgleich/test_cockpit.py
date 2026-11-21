@@ -69,7 +69,7 @@ def test_startseite_zeigt_die_echte_kachel(hof: Abgleichhof, angemeldet: Client)
 
     teil = html.split('id="kachel-rueckstaende"', 1)[1].split("</li>", 1)[0]
     assert reverse("abgleich:rueckstaende") in teil
-    assert "1</strong> Verträge mit Rückstand" in teil
+    assert 'Rückstände <span class="zaehler">1</span>' in teil and "Verträge mit Rückstand" in teil
     assert "Kommen mit dem Abgleich" not in teil and "Erika" not in teil
 
 

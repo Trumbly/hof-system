@@ -29,6 +29,7 @@ from django.urls import reverse
 from apps.benachrichtigung.kanaele import FakeKanal
 from apps.cockpit.models import NotionAufgabe
 from apps.cockpit.notion import FakeNotion
+from apps.kern import laufnamen
 from apps.kern.models import Arbeitsposten, Lauf
 from testhof.aufbau import STICHTAG, Testhof
 
@@ -119,8 +120,9 @@ def test_standardablauf_10_tageslauf(
     assert arten.get("Frist fällig") == faellig
     assert "Frist fällig</span>" in freigaben
     laeufe = html.split('id="kachel-laeufe"', 1)[1].split("</li>", 1)[0]
+    # Befund C (PR H): Die Kachel zeigt die Anzeigenamen der Läufe.
     for name in namen:
-        assert name in laeufe
+        assert laufnamen.anzeigename(name) in laeufe
     assert "in Ordnung" in html.split('id="kachel-sicherung"', 1)[1].split("</li>", 1)[0]
 
     # Weitere Tagesläufe am selben Tag legen nichts doppelt an. Gemeldet wird nur Neues:

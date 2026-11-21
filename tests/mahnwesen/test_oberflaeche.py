@@ -138,7 +138,7 @@ def test_kachel_mahnfaelle(mahnhof: Mahnhof, vorlagen: Vorlagen, angemeldet: Cli
     assert kontext["anzahl"] == 2 and kontext["gesperrt"] == 1
     assert kontext["je_stufe"] == [{"titel": "Zahlungserinnerung", "anzahl": 1}]
     seite = angemeldet.get(reverse("kern:startseite")).content.decode()
-    assert 'id="kachel-mahnfaelle"' in seite and "Mahnfälle: 2" in seite
+    assert 'id="kachel-mahnfaelle"' in seite and 'Mahnfälle <span class="zaehler">2</span>' in seite
 
 
 def test_tageslauf_montags_nach_dem_abgleich() -> None:

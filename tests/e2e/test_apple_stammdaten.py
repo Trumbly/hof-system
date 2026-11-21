@@ -168,12 +168,13 @@ def test_vertrag_eine_hauptaktion(
     seite: Page, stammdaten_seiten: dict[str, str], server: Server
 ) -> None:
     """Apple-Design (PR C): Am Vertrag steht im Kopf genau eine Hauptaktion, alles Weitere
-    unter „mehr ▾“. Im Entwurf ist es „Übergabe am Handy“, am laufenden Vertrag „Schreiben
-    erstellen“; „Rückgabe am Handy“ und „Kündigung erfassen“ stehen dort im Menü."""
+    unter „mehr ▾“. Im Entwurf ist es „Übergabe am Handy“, am laufenden Vertrag (PR H)
+    „Rückgabe am Handy“; „Schreiben erstellen“ und „Kündigung erfassen“ stehen dort im
+    Menü."""
     kopf = "main #vertrag-kopf .seitenkopf-aktionen"
     for schluessel, haupt in (
         ("vertrag_entwurf", "Übergabe am Handy"),
-        ("vertrag", "Schreiben erstellen"),
+        ("vertrag", "Rückgabe am Handy"),
     ):
         seite.goto(stammdaten_seiten[schluessel], wait_until="networkidle")
         sichtbar = [
@@ -183,5 +184,6 @@ def test_vertrag_eine_hauptaktion(
         assert sichtbar == [haupt, "mehr ▾"], (schluessel, sichtbar)
         assert seite.locator(f"{kopf} .knopf-primaer").count() == 1
     menue = seite.locator(f"{kopf} .menue-liste")
-    for eintrag in ("Miete ändern", "Kündigung erfassen", "Rückgabe am Handy"):
+    for eintrag in ("Miete ändern", "Kündigung erfassen", "Schreiben erstellen"):
         assert menue.get_by_text(eintrag).count() == 1, eintrag
+    assert menue.get_by_text("Rückgabe am Handy").count() == 0

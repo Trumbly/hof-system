@@ -1,7 +1,8 @@
-{# Zustand der Läufe: letzter Lauf je Name, gescheiterte zuerst. #}
-<li id="kachel-laeufe"><a class="kachel" href="{% url 'kern:laeufe' %}">
-  <strong>Läufe</strong>{% if gescheitert %} <span class="status status-abgebrochen">{{ gescheitert }} gescheitert</span>{% endif %}
+{# Zustand der Läufe: letzter Lauf je Name, gescheiterte zuerst. Anzeigenamen aus apps.kern.laufnamen (Befund C). #}
+{% load bausteine %}{% url 'kern:laeufe' as ziel %}
+<li id="kachel-laeufe">{% karte "Läufe" ziel=ziel %}
   {% if laeufe %}
-  <span class="kachel-zeilen">{% for lauf in laeufe %}<span class="kachel-zeile">{{ lauf.name }}: <span class="status status-{{ lauf.status }}">{{ lauf.get_status_display }}</span> <span class="leise">{{ lauf.gestartet_am|date:"d.m. H:i" }}</span></span>{% endfor %}</span>
-  {% else %}<br><span class="leise">Noch keine Läufe.</span>{% endif %}
-</a></li>
+  {% if gescheitert %}<p><span class="status status-abgebrochen">{{ gescheitert }} gescheitert</span></p>{% endif %}
+  <span class="kachel-zeilen">{% for lauf in laeufe %}<span class="kachel-zeile"><span class="kachel-lauf">{{ lauf.anzeigename }}</span> <span class="status status-{{ lauf.status }}">{{ lauf.get_status_display }}</span> <span class="leise">{{ lauf.gestartet_am|date:"d.m. H:i" }}</span></span>{% endfor %}</span>
+  {% else %}<p class="leise">Noch keine Läufe.</p>{% endif %}
+{% endkarte %}</li>

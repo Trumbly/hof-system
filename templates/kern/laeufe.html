@@ -1,5 +1,5 @@
 {% extends "base_neu.html" %}
-{% load bausteine %}
+{% load bausteine laeufe %}
 
 {% block titel %}Läufe{% endblock %}
 
@@ -9,7 +9,7 @@
 {% endseitenkopf %}
 
 {% if name_filter %}
-<p class="filter-aktiv">Nur Läufe {% badge "neutral" name_filter %} <a class="knopf knopf-text knopf-klein" href="{% url 'kern:laeufe' %}">alle zeigen</a></p>
+<p class="filter-aktiv">Nur Läufe {% badge "neutral" name_filter|laufname %} <a class="knopf knopf-text knopf-klein" href="{% url 'kern:laeufe' %}">alle zeigen</a></p>
 {% endif %}
 
 <div class="stapel">

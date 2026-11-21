@@ -52,7 +52,7 @@ Gesicht der Seite ist die Zusammenfassung oben; alles darunter tritt zurück.
 | Akzent Hof-Grün (Hauptaktion, Links, Auswahl) | `#217a4f` | `#3fbf7f` |
 | Auswahl (Seitenleiste) | `#1a6641` auf `#e1f0e7` | `#8fdcb3` auf `#173524` |
 | Material (Bedienebene) | `rgb(248 249 247 / 85 %)` | `rgb(29 32 30 / 85 %)` |
-| Testhof-Band | `#7f4600` auf `#fcefd6` | `#f2bc66` auf `#33250e` |
+| Testhof-Band (Violett, seit PR H) | `#553a8f` auf `#e9e2f8` | `#cbb8f6` auf `#2a1f42` |
 | Statusfarben | aus `werte.css` übernommen | aus `werte.css` übernommen |
 
 **Schrift:** nur der System-Schriftstapel `-apple-system, BlinkMacSystemFont, "SF Pro Text",
@@ -82,7 +82,7 @@ als schwebende Fläche mit 18 px Radius.
 | Link auf Grund | 4,76:1 | 10,24:1 |
 | Schrift auf Hauptknopf | 5,30:1 (Weiß auf Grün) | 8,09:1 (Dunkel auf Grün) |
 | Auswahl in der Seitenleiste | 5,90:1 | 8,31:1 |
-| Testhof-Band | 6,64:1 | 8,61:1 |
+| Testhof-Band (seit PR H, vorher 6,64:1 / 8,61:1 in Bernstein) | 6,99:1 | 8,54:1 |
 | Feldrahmen (`--linie-stark`) auf Karte | 3,41:1 | 3,69:1 |
 | Pfeil „›“ (Text 3) auf Karte | 5,06:1 | 6,06:1 |
 | Fehlerrot auf Karte (Kennzahl, Status) | 7,19:1 | 8,51:1 |
@@ -116,13 +116,14 @@ Stand der 15 Befunde von vorher; das sind keine neuen Befunde.
 | 10 | Kontrast-, Bewegungs-, Transparenzwunsch | Erledigt: `prefers-reduced-motion` (keine Übergänge), `prefers-reduced-transparency` (deckende Flächen), `prefers-contrast: more` (dunklere Linien, Nebentexte in Textfarbe, kein Material); Browser ohne `backdrop-filter` bekommen deckende Flächen. | `accessibility.md › Cognitive`, `color.md › Best practices`, `dark-mode.md › Best practices` |
 | 11 | Platzhalter der Suche | Erledigt: „NW-ID, Vertrag …“; das Label nennt weiter alles. | `search-fields.md › Best practices` |
 | 12 | Kopf und Leiste ohne Ebene | Erledigt: Material (85 % deckend, Unschärfe 20 px) in Seitenleiste, Kopf und Tab-Leiste, nie im Inhalt. | `materials.md › Liquid Glass` |
-| 13 | Uneinheitliche Kacheltitel | Offen. Die Titel stehen in den Kachel-Vorlagen der Apps; im CSS sind sie nur gleich gesetzt (17 px halbfett). | `writing.md › Best practices` |
-| 14 | Testhof-Band in Warnfarbe | Teilweise: Farbe bleibt bewusst (Testhof soll auffallen), jetzt schmaler, mit Punkt, ruhiger. | `color.md › Best practices` |
+| 13 | Uneinheitliche Kacheltitel | Erledigt in PR H, siehe Befund E. | `writing.md › Best practices` |
+| 14 | Testhof-Band in Warnfarbe | Erledigt in PR H: eigene Farbe (Violett), siehe Befund F. | `color.md › Best practices` |
 | 15 | Kein Gesicht | Besser: Die Zusammenfassung oben trägt das Gewicht, das Grün ist knapp. Ein eigenes Markenelement über das „H“ hinaus gibt es weiter nicht; für ein Werkzeug, das täglich benutzt wird, halte ich das für richtig. | `branding.md › Best practices` |
 
 ## Befunde nachher, nach Wirkung
 
 Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vorher (13 und 14).
+B, C, E und F sind seit PR H (`apple-h-befunde`) erledigt; A bleibt bewusst, D war es schon.
 
 ### A. Material in der Seitenleiste ohne Inhalt darunter (Medium)
 
@@ -134,19 +135,28 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
 - **Einschätzung:** Für eine Verwaltung ohne Bilder ist das richtig so. Die Seitenleiste
   wirkt durch Schatten und Radius schwebend; mehr Glas brächte nichts.
 
-### B. Leere Fläche über „Objekte“ bei 1440 px (Medium)
+### B. Leere Fläche über „Objekte“ bei 1440 px (Medium, erledigt in PR H)
 
 - **Was:** Das Mauerwerk der Kacheln endet in der Mitte früher als rechts; unter ihm bleibt
   bis zur Karte „Objekte“ eine Lücke. Das war vorher genauso.
 - **Quelle:** `layout.md › Visual hierarchy` (Gruppen und Weißraum).
 - **Vorschlag:** „Objekte“ in die Kacheln aufnehmen oder ganz nach unten in eine eigene
   Zeile; das ist Logik der Startseite, nicht Gestaltung.
+- **Erledigt (PR H):** „Objekte“ ist die letzte Kachel im Mauerwerk und füllt die Lücke, in
+  die sie passt; über keiner Kachel bleiben bei 1024, 1440 und 1920 px mehr als 32 px frei
+  (E2E: `test_cockpit_ohne_grosse_luecken`, jetzt mit „Objekte“ und 1920 px).
 
-### C. Lange Laufnamen brechen um (Low)
+### C. Lange Laufnamen brechen um (Low, erledigt in PR H)
 
 - **Was:** „statusmcp_aktualisieren:“ bricht in der Läufe-Kachel vor dem Doppelpunkt um.
 - **Quelle:** `lists-and-tables.md › Content`: Zeilentext kurz halten.
 - **Vorschlag:** Anzeigenamen der Läufe statt der Befehlsnamen (Vorlage der Kachel).
+- **Erledigt (PR H):** Kachel und Seite „Läufe“ zeigen Anzeigenamen („Status-MCP
+  aktualisieren“, „Kassenbuch einordnen“, „Bankabruf“) aus einer Quelle,
+  `apps/kern/laufnamen.py` (`Lauf.anzeigename`, Filter `laufname`); Status und Zeit brechen
+  nie, wird es eng, bricht der Name an einem Leerzeichen. Meldung, Logs, Status-MCP und
+  Notion behalten den technischen Namen; ein Test prüft, dass jeder Lauf einen Anzeigenamen
+  hat.
 
 ### D. Seitenleiste bei 900 px Höhe (erledigt in PR A)
 
@@ -166,18 +176,27 @@ Sechs Befunde, keiner über „Medium“. E und F sind die offenen Reste von vor
   wiederholen. `sidebars.md › Platform considerations › Desktop`: keine kritischen Aktionen
   am unteren Rand (Abmelden und der Schalter sind es nicht).
 
-### E. Uneinheitliche Kacheltitel (Low, offen aus vorher 13)
+### E. Uneinheitliche Kacheltitel (Low, aus vorher 13, erledigt in PR H)
 
 - **Was:** „Belege zuordnen: 1“ neben „Rückstände“ mit Zahl darunter und „Offene Freigaben“
   mit Kapsel. Das CSS setzt alle gleich groß, die Wörter bleiben verschieden.
 - **Quelle:** `writing.md › Best practices`: ein Sprachmuster, durchgehalten.
 - **Vorschlag:** beim Ausrollen die Kachel-Vorlagen der Apps auf ein Muster bringen.
+- **Erledigt (PR H):** Jede Kachel ist `{% karte "Titel" zahl=… ziel=… %}`: Titel ohne
+  Doppelpunkt, die Zahl als Kapsel (`.zaehler`) daneben, darunter die Zeilen; die ganze Karte
+  bleibt der Link (neu am Baustein: `ziel`, `a.karte-ziel` mit Pfeil). Aus „Belege zuordnen: 1“
+  wird „Belege zuordnen“ mit Kapsel 1, aus „Datenstand: 153 Lücken“ „Lücken im Datenstand“
+  mit Kapsel 153. Freigaben und Fristen hatten das Muster schon.
 
-### F. Testhof-Band in Bernstein (Low, teilweise aus vorher 14)
+### F. Testhof-Band in Bernstein (Low, aus vorher 14, erledigt in PR H)
 
 - **Was:** Das Band teilt die Farbe mit den Warnungen, ist aber jetzt schmal und mit Punkt.
 - **Quelle:** `color.md › Best practices`: eine Farbe, eine Bedeutung.
 - **Einschätzung:** bewusst so gelassen; der Testhof soll auffallen, und das Wort steht dabei.
+- **Erledigt (PR H):** Das Band ist Violett, eine Farbe ohne andere Bedeutung im System (nicht
+  Status, nicht Akzent): hell `#553a8f` auf `#e9e2f8` (6,99:1), dunkel `#cbb8f6` auf `#2a1f42`
+  (8,54:1), beide über AA; die Fläche setzt sich vom Grund ab (1,13:1 hell, 1,26:1 dunkel),
+  Punkt und Wort bleiben. Es erscheint weiter nur mit Stichtag (dev und Tests).
 
 ## Was gut ist (bleibt)
 
@@ -295,13 +314,13 @@ Dazu: Datums- und Monatsfelder sind so hoch wie die übrigen Felder (Chromium le
 - `|euro` zeigt negative Beträge mit Minuszeichen (U+2212): „−36,50 €“
   (`apps.kern.zahlen.euro_anzeige`). Schreiben, Mails und Notion (Platzhalter) behalten den
   Bindestrich; CSV und Exporte nutzen `|euro` nicht.
-- Am aktiven Vertrag ist die Hauptaktion „Schreiben erstellen“; „Rückgabe am Handy“ steht
-  unter „mehr ▾“. So gelassen, zur Entscheidung bei Max.
+- Am aktiven Vertrag ist seit PR H „Rückgabe am Handy“ die Hauptaktion (Entscheidung von
+  Max); „Schreiben erstellen“ steht unter „mehr ▾“. Im Entwurf bleibt „Übergabe am Handy“,
+  am beendeten Vertrag „Schreiben erstellen“.
 
 ### Offen
 
-- Befund B (Lücke über „Objekte“), C (lange Laufnamen in der Kachel), E (uneinheitliche
-  Kacheltitel) und F (Testhof-Band) wie oben; das ist Logik der Startseite bzw. bewusst so.
+- Befunde B, C, E und F sind seit PR H erledigt (siehe oben); A bleibt bewusst.
 - Die Grundlage (`bausteine.css`) trägt weiter Eigenschaften, die die Apple-Dateien
   überschreiben (Farben, Radien, Schriftgrößen einzelner Bausteine). Nach Klassen ist
   nichts mehr tot; die Grundlage und `apple/bausteine.css` zu einer Datei zu verschmelzen

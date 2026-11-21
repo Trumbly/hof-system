@@ -1,13 +1,15 @@
-{# Kachel „Wohnraum“ (V12): nur Zähler, Summen und Daten aus Verwaltio, keine Namen. #}
-<li id="kachel-wohnraum"><a class="kachel" href="{% url 'anbindungen:kennzahlen' %}">
-  <strong>Wohnraum</strong>
+{# Kachel „Wohnraum“ (V12): nur Zähler, Summen und Daten aus Verwaltio, keine Namen. Ohne eine Zahl für alles: Titel ohne Kapsel. #}
+{% load bausteine %}{% url 'anbindungen:kennzahlen' as ziel %}
+<li id="kachel-wohnraum">{% karte "Wohnraum" ziel=ziel %}
   {% if wohnraum.stand %}
-  <span class="leise">Stand {{ wohnraum.stand|date:"d.m.Y" }}{% if wohnraum.veraltet %} (veraltet){% endif %}, {{ wohnraum.mit_kennzahl }} von {{ wohnraum.wohneinheiten }} Wohnungen</span><br>
-  Offene Posten: <strong>{{ wohnraum.offene_posten|euro }}</strong><br>
-  Mahnfälle: <strong>{{ wohnraum.mahnfaelle }}</strong>{% if wohnraum.einheiten_mit_mahnung %} <span class="leise">({{ wohnraum.einheiten_mit_mahnung }} Wohnung{{ wohnraum.einheiten_mit_mahnung|pluralize:"en" }})</span>{% endif %}<br>
-  NKA{% if wohnraum.nka_jahr %} {{ wohnraum.nka_jahr }}{% endif %}: {% for titel, anzahl in wohnraum.nka %}{{ anzahl }} {{ titel }}{% if not forloop.last %}, {% endif %}{% empty %}–{% endfor %}<br>
-  Fristen: <strong>{{ wohnraum.fristen_offen }}</strong> offen{% if wohnraum.naechste_frist %}, nächste am {{ wohnraum.naechste_frist|date:"d.m.Y" }}{% endif %}
+  <p class="leise">Stand {{ wohnraum.stand|date:"d.m.Y" }}{% if wohnraum.veraltet %} (veraltet){% endif %}, {{ wohnraum.mit_kennzahl }} von {{ wohnraum.wohneinheiten }} Wohnungen</p>
+  <span class="kachel-zeilen">
+    <span class="kachel-zeile"><span>Offene Posten: <strong>{{ wohnraum.offene_posten|euro }}</strong></span></span>
+    <span class="kachel-zeile"><span>Mahnfälle: <strong>{{ wohnraum.mahnfaelle }}</strong>{% if wohnraum.einheiten_mit_mahnung %} <span class="leise">({{ wohnraum.einheiten_mit_mahnung }} Wohnung{{ wohnraum.einheiten_mit_mahnung|pluralize:"en" }})</span>{% endif %}</span></span>
+    <span class="kachel-zeile"><span>NKA{% if wohnraum.nka_jahr %} {{ wohnraum.nka_jahr }}{% endif %}: {% for titel, anzahl in wohnraum.nka %}{{ anzahl }} {{ titel }}{% if not forloop.last %}, {% endif %}{% empty %}–{% endfor %}</span></span>
+    <span class="kachel-zeile"><span>Fristen: <strong>{{ wohnraum.fristen_offen }}</strong> offen{% if wohnraum.naechste_frist %}, nächste am {{ wohnraum.naechste_frist|date:"d.m.Y" }}{% endif %}</span></span>
+  </span>
   {% else %}
-  <span class="leise">Noch keine Kennzahlen aus Verwaltio (Lauf verwaltio_kennzahlen).</span>
+  <p class="leise">Noch keine Kennzahlen aus Verwaltio (Lauf verwaltio_kennzahlen).</p>
   {% endif %}
-</a></li>
+{% endkarte %}</li>

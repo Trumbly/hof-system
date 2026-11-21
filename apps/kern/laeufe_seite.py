@@ -32,7 +32,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
-from apps.kern import htmx, services
+from apps.kern import htmx, laufnamen, services
 from apps.kern.models import Arbeitsposten, Lauf
 
 LAEUFE_ANZAHL = 50
@@ -148,7 +148,7 @@ def _dialog(request: HttpRequest, form: StartForm, name: str) -> HttpResponse:
         request,
         "bausteine/dialog_formular.html",
         {
-            "titel": f"Lauf {name} jetzt ausführen?",
+            "titel": f"Lauf „{laufnamen.anzeigename(name)}“ jetzt ausführen?",
             "form": form,
             "url": reverse("kern:lauf_ausfuehren"),
             "hinweis": _beschreibung(name),
@@ -165,7 +165,7 @@ def _dialog(request: HttpRequest, form: StartForm, name: str) -> HttpResponse:
 
 
 def _meldung(lauf: Lauf) -> str:
-    teile = [f"Lauf #{lauf.pk} {lauf.name}: {lauf.get_status_display()}"]
+    teile = [f"Lauf #{lauf.pk} {lauf.anzeigename}: {lauf.get_status_display()}"]
     if lauf.gebucht:
         teile.append(f"{lauf.gebucht} gebucht")
     if lauf.arbeitsposten:
