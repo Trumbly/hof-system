@@ -1,5 +1,5 @@
-{# Belege zuordnen: Zahl der offenen Belege in der Ablage. #}
-<li id="kachel-belege"><a class="kachel" href="{% url 'dokumente:ablage' %}">
-  <strong>Belege zuordnen: {{ offen }}</strong>
-  {% if not offen %}<br><span class="leise">Alle Belege zugeordnet.</span>{% endif %}
-</a></li>
+{# Belege zuordnen: Zahl der offenen Belege in der Ablage. Muster aller Kacheln (PR H): {% karte %} mit Titel, Zahl als Kapsel und Ziel, darunter die Zeilen. #}
+{% load bausteine %}{% url 'dokumente:ablage' as ziel %}
+<li id="kachel-belege">{% karte "Belege zuordnen" zahl=offen ziel=ziel %}
+  {% if not offen %}<p class="leise">Alle Belege zugeordnet.</p>{% endif %}
+{% endkarte %}</li>

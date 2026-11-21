@@ -1,6 +1,6 @@
-{# Leerstand: freie Einheiten (NW-IDs) und entgangener Ertrag der letzten 12 Monate, gesamt. #}
-<li id="kachel-leerstand"><a class="kachel" href="{% url 'stammdaten:leerstand' %}">
-  <strong>Leerstand: {{ frei_anzahl }} Einheit{{ frei_anzahl|pluralize:"en" }} frei</strong>
-  {% if frei %}<br><span class="leise">{{ frei|join:", " }}{% if frei_anzahl > frei|length %} …{% endif %}</span>{% endif %}
-  <br>Entgangen ({{ tage }} Tage): <strong>{{ entgangen|euro }}</strong>
-</a></li>
+{# Leerstand: Zahl der freien Einheiten als Kapsel, ihre NW-IDs und der entgangene Ertrag der letzten 12 Monate, gesamt. #}
+{% load bausteine %}{% url 'stammdaten:leerstand' as ziel %}
+<li id="kachel-leerstand">{% karte "Leerstand" zahl=frei_anzahl ziel=ziel %}
+  {% if frei %}<p class="leise">frei: {{ frei|join:", " }}{% if frei_anzahl > frei|length %} …{% endif %}</p>{% endif %}
+  <span class="kachel-zeilen"><span class="kachel-zeile">Entgangen ({{ tage }} Tage): <strong>{{ entgangen|euro }}</strong></span></span>
+{% endkarte %}</li>

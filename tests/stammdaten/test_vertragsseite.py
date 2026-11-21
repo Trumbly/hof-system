@@ -58,6 +58,19 @@ def test_kopf_zeigt_mieter_und_saldo(aktiver_vertrag: Vertrag, angemeldet: Clien
     assert 'name="kondition-miete"' not in html
 
 
+def test_rueckgabe_ist_hauptaktion_am_aktiven_vertrag(
+    aktiver_vertrag: Vertrag, angemeldet: Client
+) -> None:
+    """Apple-Design (PR H): Am aktiven Vertrag ist „Rückgabe am Handy“ die einzige
+    Hauptaktion im Kopf; „Schreiben erstellen“ steht im Menü „mehr ▾“."""
+    kopf = _kopf(angemeldet.get(_url(aktiver_vertrag)).content.decode())
+    vor_menue, menue = kopf.split('<details class="menue">', 1)
+    assert vor_menue.count("knopf-primaer") == 1
+    assert 'class="knopf knopf-primaer">Rückgabe am Handy</button>' in vor_menue
+    assert "Schreiben erstellen" not in vor_menue
+    assert "Schreiben erstellen" in menue and "Rückgabe am Handy" not in menue
+
+
 @pytest.mark.parametrize("reiter", ["uebersicht", "mietkonto", "dokumente", "mahnwesen", "verlauf"])
 def test_reiter(reiter: str, aktiver_vertrag: Vertrag, angemeldet: Client) -> None:
     """Review 2, B7: Reiter Übersicht · Mietkonto · Dokumente und Schreiben · Mahnwesen ·

@@ -16,21 +16,24 @@
 </div>
 {% endif %}
 
-{# Die Kacheln aus dem Register (apps.cockpit.kacheln), in ihrer Reihenfolge. #}
+{% comment %} Die Kacheln aus dem Register (apps.cockpit.kacheln), in ihrer Reihenfolge;
+dahinter Protokoll und Objekte. „Objekte“ steht im Mauerwerk (Befund B): Das Mauerwerk setzt
+die Karte in die erste Lücke, die sie füllt, statt sie unter die längste Spalte zu hängen.
+{% endcomment %}
+{% url 'kern:protokoll' as protokoll %}
 <ul class="cockpit-raster cockpit" data-mauerwerk>
   {% for html in kacheln %}{{ html|safe }}{% endfor %}
-  <li id="kachel-protokoll"><a class="kachel" href="{% url 'kern:protokoll' %}"><strong>Protokoll</strong><span class="leise">alle Änderungen, mit Rücknahme</span></a></li>
+  <li id="kachel-protokoll">{% karte "Protokoll" ziel=protokoll %}<p class="leise">alle Änderungen, mit Rücknahme</p>{% endkarte %}</li>
+  <li id="kachel-objekte"><section class="karte" id="objekte">
+    <header class="karte-kopf"><h2 class="karte-titel">Objekte <span class="zaehler">{{ objekte|length }}</span></h2></header>
+    {% if objekte %}
+    <ul class="liste">
+      {% for objekt in objekte %}<li id="objekt-{{ objekt.pk }}"><span class="liste-haupt"><strong>{{ objekt.kuerzel }}</strong> · {{ objekt.bezeichnung }}</span><span class="liste-neben klein">{{ objekt.mandant.get_art_display }}</span></li>{% endfor %}
+    </ul>
+    {% else %}
+    {% include "bausteine/leer.html" with text="Noch keine Objekte." hilfe="Zum Ausprobieren: manage.py testhof --seed 42" %}
+    {% endif %}
+  </section></li>
 </ul>
-
-<section class="karte" id="objekte" style="margin-top: var(--a6)">
-  <header class="karte-kopf"><h2 class="karte-titel">Objekte <span class="zaehler">{{ objekte|length }}</span></h2></header>
-  {% if objekte %}
-  <ul class="liste">
-    {% for objekt in objekte %}<li id="objekt-{{ objekt.pk }}"><span class="liste-haupt"><strong>{{ objekt.kuerzel }}</strong> · {{ objekt.bezeichnung }}</span><span class="liste-neben klein">{{ objekt.mandant.get_art_display }}</span></li>{% endfor %}
-  </ul>
-  {% else %}
-  {% include "bausteine/leer.html" with text="Noch keine Objekte." hilfe="Zum Ausprobieren: manage.py testhof --seed 42" %}
-  {% endif %}
-</section>
 </div>
 {% endblock %}

@@ -1,6 +1,6 @@
 {# Letzte Sicherung laut Statusdatei von scripts/backup.sh. #}
-<li id="kachel-sicherung"><a class="kachel" href="{% url 'kern:laeufe' %}">
-  <strong>Letzte Sicherung</strong>
-  {% if sicherung.zeit %}<br>{{ sicherung.zeit|date:"d.m.Y H:i" }} · {{ sicherung.ergebnis }}{% endif %}
-  <br>{% if sicherung.ok %}<span class="status status-erfolgreich">in Ordnung</span>{% else %}<span class="status status-abgebrochen">nicht in Ordnung: {{ sicherung.grund }}</span>{% endif %}
-</a></li>
+{% load bausteine %}{% url 'kern:laeufe' as ziel %}
+<li id="kachel-sicherung">{% karte "Letzte Sicherung" ziel=ziel %}
+  {% if sicherung.zeit %}<p>{{ sicherung.zeit|date:"d.m.Y H:i" }} · {{ sicherung.ergebnis }}</p>{% endif %}
+  <p>{% if sicherung.ok %}<span class="status status-erfolgreich">in Ordnung</span>{% else %}<span class="status status-abgebrochen">nicht in Ordnung: {{ sicherung.grund }}</span>{% endif %}</p>
+{% endkarte %}</li>

@@ -37,7 +37,7 @@ def test_jetzt_ausfuehren_startet_den_lauf_in_dev(angemeldet: Client) -> None:
     lauf = Lauf.objects.get(name="kern_selbsttest")
     assert lauf.status == Lauf.Status.ERFOLGREICH and lauf.arbeitsposten == 1
     html = antwort.content.decode()
-    assert f"Lauf #{lauf.pk} kern_selbsttest: erfolgreich · 1 Arbeitsposten" in strip_tags(html)
+    assert f"Lauf #{lauf.pk} Selbsttest: erfolgreich · 1 Arbeitsposten" in strip_tags(html)
     assert f'href="{SEITE}#lauf-{lauf.pk}"' in html
 
 
@@ -95,7 +95,7 @@ def test_in_prod_erst_nach_bestaetigung(
 
     dialog = angemeldet.get(SEITE, {"dialog": "ausfuehren", "lauf": "kern_selbsttest"})
     html = dialog.content.decode()
-    assert "Lauf kern_selbsttest jetzt ausführen?" in html and "echten Daten" in html
+    assert "Lauf „Selbsttest“ jetzt ausführen?" in html and "echten Daten" in html
     assert 'name="bestaetigt"' in html
 
     angemeldet.post(AUSFUEHREN, {"lauf": "kern_selbsttest", "bestaetigt": "True"})

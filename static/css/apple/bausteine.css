@@ -230,6 +230,42 @@
   padding: var(--a2) var(--a4) var(--a4);
 }
 
+/* Karte als Link ({% karte "Titel" zahl=… ziel=url %}, Kacheln der Startseite, PR H): die
+   ganze Fläche führt zur Liste, Pfeil „›“ oben rechts wie an Listenzeilen. Ohne Inhalt
+   bleibt nur der Kopf, unten mit derselben Luft wie oben. */
+[data-design="apple"] a.karte-ziel {
+  position: relative;
+  display: block;
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--uebergang);
+}
+
+[data-design="apple"] a.karte-ziel:hover {
+  text-decoration: none;
+  background: var(--flaeche-2);
+}
+
+[data-design="apple"] a.karte-ziel > .karte-kopf {
+  padding-right: var(--a10);
+}
+
+[data-design="apple"] a.karte-ziel > .karte-kopf:last-child {
+  padding-bottom: var(--a3);
+}
+
+[data-design="apple"] a.karte-ziel::after {
+  position: absolute;
+  top: 23px;
+  right: var(--a5);
+  width: 7px;
+  height: 7px;
+  content: "";
+  border-top: 2px solid var(--text-3);
+  border-right: 2px solid var(--text-3);
+  transform: rotate(45deg);
+}
+
 /* Tabelle oder Liste als einziger Inhalt einer Karte: ohne eigenen Kasten */
 [data-design="apple"] .karte-rumpf > .tabelle-box,
 [data-design="apple"] .karte > .tabelle-box {

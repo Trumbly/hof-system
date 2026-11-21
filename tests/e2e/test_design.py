@@ -30,7 +30,7 @@ ORDNER = ARTEFAKTE / "design"
 ZIELE = (
     ".leiste .suche-eingabe, .leiste-fuss button, .leiste .marke, "
     ".kopf-handy .marke, .kopf-handy .suche-eingabe, .unten a, .unten button, "
-    ".knopf, a.liste-zeile, a.karte-link, a.kennzahl, .cockpit-raster a.kachel, "
+    ".knopf, a.liste-zeile, a.karte-link, a.karte-ziel, a.kennzahl, "
     ".reiter a, .feld-eingabe, .feld-auswahl, .haken-label, .aufklapper > summary"
 )
 

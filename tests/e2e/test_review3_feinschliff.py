@@ -1,5 +1,6 @@
 """Review 3, Punkte 7 und 10 im Browser: Hinweis am Betrag vor dem Bestätigen, Cockpit
-ohne große Lücken (1440 und 1024 px). Screenshots unter tests/e2e/artefakte/review3-r3-5/."""
+ohne große Lücken (1440, 1024 und 1920 px). Screenshots unter
+tests/e2e/artefakte/review3-r3-5/."""
 
 from __future__ import annotations
 
@@ -20,28 +21,35 @@ LUECKE_HOECHSTENS = 32
 
 LUECKEN_JS = """() => {
   const raster = document.querySelector("[data-mauerwerk]");
-  const kacheln = Array.from(raster.children).map(k => k.getBoundingClientRect());
+  const kinder = Array.from(raster.children);
+  const kacheln = kinder.map(k => k.getBoundingClientRect());
   const oben = raster.getBoundingClientRect().top;
-  return kacheln.map((r, i) => {
+  return Object.fromEntries(kacheln.map((r, i) => {
     const darueber = kacheln.filter((a, j) => j !== i && a.bottom <= r.top + 1
       && a.left < r.right - 1 && a.right > r.left + 1);
     const grenze = darueber.length ? Math.max(...darueber.map(a => a.bottom)) : oben;
-    return Math.round(r.top - grenze);
-  });
+    return [kinder[i].id, Math.round(r.top - grenze)];
+  }));
 }"""
 
 
-@pytest.mark.parametrize("breite", [1440, 1024])
+@pytest.mark.parametrize("breite", [1440, 1024, 1920])
 def test_cockpit_ohne_grosse_luecken(seite: Page, adressen: dict[str, Any], breite: int) -> None:
     """Review 3, Punkt 10: Im Cockpit bleiben unter kurzen Kacheln keine großen Lücken: Über
-    jeder Kachel liegt höchstens der übliche Abstand zur Kachel darüber."""
+    jeder Kachel liegt höchstens der übliche Abstand zur Kachel darüber.
+
+    Design-Review nachher, Befund B (PR H): Das gilt auch für die Karte „Objekte“. Sie steht
+    als letzte Kachel im Mauerwerk, nicht mehr darunter, wo bei 1440 px über ihr eine Lücke
+    bis zur längsten Spalte blieb."""
     seite.set_viewport_size({"width": breite, "height": 900})
     seite.goto(adressen["seiten"]["cockpit"], wait_until="networkidle")
     seite.wait_for_function("document.querySelector('[data-mauerwerk].mauerwerk-an')")
     ZIEL.mkdir(parents=True, exist_ok=True)
     seite.screenshot(path=ZIEL / f"cockpit-{breite}.png", full_page=True)
     luecken = seite.evaluate(LUECKEN_JS)
-    assert max(luecken) <= LUECKE_HOECHSTENS, luecken
+    assert "kachel-objekte" in luecken, list(luecken)
+    assert seite.locator("[data-mauerwerk] > #kachel-objekte #objekte").count() == 1
+    assert max(luecken.values()) <= LUECKE_HOECHSTENS, luecken
     assert not pruefen(seite)
 
 

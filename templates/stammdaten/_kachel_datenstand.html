@@ -1,7 +1,7 @@
-{# Datenstand: Zahl der fehlenden Pflichtfelder je Bereich, ohne Namen. #}
-<li id="kachel-datenstand"><a class="kachel" href="{% url 'stammdaten:datenstand' %}">
-  <strong>Datenstand: {{ summe }} Lücke{{ summe|pluralize:"n" }}</strong>
+{# Datenstand: Zahl der fehlenden Pflichtfelder (Lücken) als Kapsel, darunter je Bereich, ohne Namen. #}
+{% load bausteine %}{% url 'stammdaten:datenstand' as ziel %}
+<li id="kachel-datenstand">{% karte "Lücken im Datenstand" zahl=summe ziel=ziel %}
   {% if bereiche %}
   <span class="kachel-zeilen">{% for b in bereiche %}<span class="kachel-zeile">{{ b.titel }}: <strong>{{ b.luecken }}</strong></span>{% endfor %}</span>
-  {% else %}<br><span class="leise">Alle Pflichtfelder gefüllt.</span>{% endif %}
-</a></li>
+  {% else %}<p class="leise">Alle Pflichtfelder gefüllt.</p>{% endif %}
+{% endkarte %}</li>

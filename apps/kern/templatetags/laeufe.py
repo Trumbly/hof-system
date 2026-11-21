@@ -5,9 +5,15 @@ from __future__ import annotations
 from django import template
 from django.utils.safestring import SafeString
 
-from apps.kern import meldungen
+from apps.kern import laufnamen, meldungen
 
 register = template.Library()
+
+
+@register.filter
+def laufname(name: str) -> str:
+    """Anzeigename eines Laufs aus seinem technischen Namen (``apps.kern.laufnamen``)."""
+    return laufnamen.anzeigename(name)
 
 
 @register.filter

@@ -1,7 +1,8 @@
-<section class="karte"{% if id %} id="{{ id }}"{% endif %}>
+{% comment %} Karte. Mit „ziel“ ist die ganze Karte ein Link (Kacheln der Startseite, PR H): Pfeil
+oben rechts, ohne Inhalt nur der Kopf. {% endcomment %}{% if ziel %}<a class="karte karte-ziel" href="{{ ziel }}"{% if id %} id="{{ id }}"{% endif %}>{% else %}<section class="karte"{% if id %} id="{{ id }}"{% endif %}>{% endif %}
   {% if titel or link %}<header class="karte-kopf">
     {% if titel %}<h2 class="karte-titel">{{ titel }}{% if zahl != "" %} <span class="zaehler">{{ zahl }}</span>{% endif %}</h2>{% endif %}
     {% if link %}<a class="karte-link" href="{{ link }}">{{ link_text|default:"alle ansehen" }}</a>{% endif %}
   </header>{% endif %}
-  <div class="karte-rumpf">{{ inhalt }}</div>
-</section>
+  {% if inhalt or not ziel %}<div class="karte-rumpf">{{ inhalt }}</div>{% endif %}
+{% if ziel %}</a>{% else %}</section>{% endif %}

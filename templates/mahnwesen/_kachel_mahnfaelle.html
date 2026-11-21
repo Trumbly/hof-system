@@ -1,7 +1,7 @@
 {# Mahnfälle je Stufe und gesperrte. Nur Zähler, keine Namen. #}
-<li id="kachel-mahnfaelle"><a class="kachel" href="{% url 'mahnwesen:faelle' %}">
-  <strong>Mahnfälle: {{ anzahl }}</strong>
+{% load bausteine %}{% url 'mahnwesen:faelle' as ziel %}
+<li id="kachel-mahnfaelle">{% karte "Mahnfälle" zahl=anzahl ziel=ziel %}
   {% if anzahl %}
   <span class="kachel-zeilen">{% for s in je_stufe %}<span class="kachel-zeile">{{ s.titel }}: <strong>{{ s.anzahl }}</strong></span>{% endfor %}{% if gesperrt %}<span class="kachel-zeile">gesperrt: <strong>{{ gesperrt }}</strong></span>{% endif %}{% if senden %}<span class="kachel-zeile">Mahnungen senden: <strong>{{ senden }}</strong></span>{% endif %}</span>
-  {% else %}<br><span class="leise">Kein Vertrag im Rückstand.</span>{% endif %}
-</a></li>
+  {% else %}<p class="leise">Kein Vertrag im Rückstand.</p>{% endif %}
+{% endkarte %}</li>

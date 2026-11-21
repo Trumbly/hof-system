@@ -9,7 +9,7 @@
     <tbody>
       {% for z in zeilen %}{% with lauf=z.lauf %}
       <tr id="lauf-{{ lauf.pk }}"{% if lauf.status == "abgebrochen" %} class="zeile-markiert"{% endif %}>
-        <td data-titel="Lauf"><span><a href="{% url 'kern:laeufe' %}?name={{ lauf.name|urlencode }}" title="nur Läufe {{ lauf.name }}">{{ lauf.name }}</a> <span class="text-3">#{{ lauf.pk }}</span></span></td>
+        <td data-titel="Lauf"><span><a href="{% url 'kern:laeufe' %}?name={{ lauf.name|urlencode }}" title="nur Läufe „{{ lauf.anzeigename }}“">{{ lauf.anzeigename }}</a> <span class="text-3">#{{ lauf.pk }}</span></span></td>
         <td data-titel="Start" class="eng"><span><time datetime="{{ lauf.gestartet_am|date:'c' }}">{{ lauf.gestartet_am|date:"d.m.Y H:i" }}</time>{% if lauf.dauer_sekunden is not None %} <span class="text-3">{{ lauf.dauer_sekunden|zahl:1 }} s</span>{% endif %}</span></td>
         <td data-titel="Status" class="eng">{% badge lauf.status %}</td>
         <td data-titel="gebucht" class="zahl">{{ lauf.gebucht|zahl }}</td>

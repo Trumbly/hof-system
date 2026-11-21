@@ -110,7 +110,7 @@ def test_startseite_liest_direkt_aus_der_datenbank(
     assert 'Überfällig <span class="zaehler">1</span>' in frist_kachel
     assert 'Nächste 14 Tage <span class="zaehler">1</span>' in frist_kachel
     laeufe = _kachel(html, "laeufe")
-    assert "kern_selbsttest" in laeufe and "erfolgreich" in laeufe
+    assert "Selbsttest" in laeufe and "kern_selbsttest" not in laeufe and "erfolgreich" in laeufe
     assert "in Ordnung" in _kachel(html, "sicherung")
 
 
@@ -123,9 +123,9 @@ def test_laeufe_kachel_zeigt_letzten_lauf_je_name(angemeldet: Client) -> None:
     kern.lauf_beenden(kaputt, gebucht=0, arbeitsposten=0, fehler=1, abgebrochen=True)
 
     kachel = _kachel(_startseite(angemeldet), "laeufe")
-    assert kachel.count("bank_abruf") == 1
+    assert kachel.count("Bankabruf") == 1
     assert "1 gescheitert" in kachel
-    assert kachel.index("fristen") < kachel.index("bank_abruf")  # Gescheiterte zuerst
+    assert kachel.index("Fristen prüfen") < kachel.index("Bankabruf")  # Gescheiterte zuerst
 
 
 def test_registrierte_kachel_ersetzt_den_platzhalter(
