@@ -21,6 +21,8 @@ Stand: Schritt 0d. Der Server `hof-system` (Hetzner Cloud, Ubuntu 24.04) ist nur
 
 ## Einrichtung (einmalig)
 
+**Eigener Server.** Das Hof-System läuft auf einem eigenen Hetzner-Server, nicht auf dem Host der Website und von Vlower (Bauplan E7). Dort hält Traefik die Ports 80 und 443 auf allen Adressen, Caddy käme nicht hoch. `server-setup.sh` würde dort Docker austauschen, mit ufw den öffentlichen SSH-Zugang der CI sperren und nachts neu starten. Ein kleiner Cloud-Server (2 vCPU, 4 GB) reicht. Die Website wird nur als Client angebunden: Ihr Host tritt dem Tailnet bei, eine ACL erlaubt ihm nur `hof-system:443` (siehe `docs/website-anbindung.md`).
+
 1. Tailscale installieren, `tailscale up`, Name `hof-system`. Im Admin MagicDNS und HTTPS einschalten.
 2. Über Tailscale verbinden (`ssh root@hof-system`), `scripts/server-setup.sh` auf den Server kopieren, `sudo HOF_STORAGEBOX_BENUTZER=u123456 bash server-setup.sh`. Das Skript bricht ab, wenn die Sitzung nicht über Tailscale kommt.
 3. Deploy-Key: `sudo -iu hof ssh-keygen -t ed25519 -f ~/.ssh/github -N ''`, den öffentlichen Teil bei GitHub als Deploy-Key (nur lesen) eintragen, in `~hof/.ssh/config` für `github.com` als `IdentityFile` setzen; dann `sudo -iu hof git clone git@github.com:<konto>/hof-system.git /opt/hof/repo`.
@@ -28,14 +30,17 @@ Stand: Schritt 0d. Der Server `hof-system` (Hetzner Cloud, Ubuntu 24.04) ist nur
    - `POSTGRES_DB=hof`, `POSTGRES_USER=hof`, `POSTGRES_PASSWORD=<lang, zufällig>`
    - `DATABASE_URL=postgres://hof:<dasselbe Passwort>@db:5432/hof`. Host ist der Dienstname `db`, Port 5432 im Docker-Netz. Benutzer, Passwort und Datenbank müssen mit den `POSTGRES_*`-Werten übereinstimmen. Postgres liest diese nur beim allerersten Start (leeres Volume); ein späterer Passwortwechsel geht nur mit `ALTER USER` in der Datenbank.
    - `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=hof-system.<tailnet>.ts.net`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://hof-system.<tailnet>.ts.net`, `EMAIL_URL`; die weiteren Schlüssel stehen in `.env.example`.
-5. Ausrollen (siehe unten), dann Benutzer anlegen: `/opt/hof/aktuell/scripts/compose.sh exec app python manage.py benutzer_anlegen --email <adresse>`. Am Mac und am Handy (beide im Tailnet) anmelden und den zweiten Faktor einrichten.
+   - Für Briefe: `HOF_ABSENDER_NAME`, `HOF_ABSENDER_ANSCHRIFT`, `HOF_ABSENDER_BANK`, `HOF_ABSENDER_TELEFON`, `HOF_ABSENDER_STEUERNUMMER`. Fehlen sie, sperrt der Briefkopf das Senden.
+   - Je Anbindung, sobald sie genutzt wird: `ENABLE_BANKING_*`, `LETTERXPRESS_*`, `HOF_NOTION_*`, `HOF_NTFY_*`, `HOF_WEBSITE_*`, `VERWALTIO_*`, `HOF_BELEGE_IMAP_*`, `HOF_*_BEGINN`.
+   - `HOF_STICHTAG` in prod **nicht** setzen; dort gilt das echte Datum.
+5. Erstes Ausrollen, mit dem Skript aus dem Klon (`/opt/hof/aktuell` gibt es erst danach): `sudo -iu hof /opt/hof/repo/scripts/deploy.sh v0.1.0`. Die Datenbank ist leer, alle Migrationen laufen dabei. Dann Benutzer anlegen: `/opt/hof/aktuell/scripts/compose.sh exec app python manage.py benutzer_anlegen --email <adresse>`. Am Mac und am Handy (beide im Tailnet) anmelden und den zweiten Faktor einrichten.
 6. Sicherung einrichten (siehe unten) und `sudo /opt/hof/aktuell/scripts/systemd-einrichten.sh`.
 
 ## Ausrollen
 
 ```sh
 git tag v0.2.0 && git push origin v0.2.0                 # am Mac, nach grüner Pipeline
-sudo -iu hof /opt/hof/aktuell/scripts/deploy.sh v0.2.0   # auf dem Server
+sudo -iu hof /opt/hof/aktuell/scripts/deploy.sh v0.2.0   # auf dem Server (beim allerersten Mal: /opt/hof/repo/scripts/deploy.sh)
 ```
 
 `deploy.sh` holt den Tag, packt ihn nach `versionen/<tag>`, baut `hof-system:<tag>`, sichert die Datenbank nach `vor-deploy/`, führt `check --deploy` und die Migrationen in einem Einmal-Container aus, startet App und Caddy und fragt `/gesund` über Caddy ab, bis `ok <tag>` kommt (bis zu 120 s). Erst dann zeigt `aktuell` auf die neue Version.
